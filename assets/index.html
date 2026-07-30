@@ -1,0 +1,137 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="dark">
+  <title>Atlas — Game Map Explorer</title>
+  <link rel="stylesheet" href="/static/app.css">
+  <script src="/static/app.js" defer></script>
+</head>
+<body>
+  <div class="app-shell">
+    <header class="topbar">
+      <div class="brand" aria-label="Atlas">
+        <span class="brand-mark" aria-hidden="true">
+          <svg viewBox="0 0 32 32"><path d="M16 2 27 8.5v15L16 30 5 23.5v-15L16 2Z"/><path d="m10 20 4-10 3 7 2-4 3 7"/></svg>
+        </span>
+        <span>
+          <strong>ATLAS</strong>
+          <small>Game map explorer</small>
+        </span>
+      </div>
+
+      <div class="map-pickers">
+        <label>
+          <span>Game</span>
+          <select id="game-select" aria-label="Game"></select>
+        </label>
+        <label>
+          <span>Map</span>
+          <select id="map-select" aria-label="Map"></select>
+        </label>
+        <label id="variant-field">
+          <span>Layer</span>
+          <select id="variant-select" aria-label="Map layer"></select>
+        </label>
+      </div>
+
+      <button class="icon-button mobile-legend" id="mobile-legend" type="button" aria-label="Toggle legend" aria-expanded="false">
+        <svg viewBox="0 0 24 24"><path d="M4 6h16M4 12h16M4 18h16"/></svg>
+      </button>
+    </header>
+
+    <aside class="sidebar" id="sidebar">
+      <section class="sidebar-heading">
+        <p class="eyebrow">EXPLORE</p>
+        <h1 id="map-title">Loading maps…</h1>
+        <p id="map-meta">Preparing embedded archive</p>
+      </section>
+
+      <div class="search-wrap">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="6"/><path d="m16 16 4 4"/></svg>
+        <input id="pin-search" type="search" placeholder="Search locations" autocomplete="off" aria-label="Search locations">
+        <kbd>⌘K</kbd>
+      </div>
+      <div id="search-results" class="search-results" hidden></div>
+
+      <div class="legend-toolbar">
+        <span>Map legend</span>
+        <div>
+          <button id="show-all" type="button">Show all</button>
+          <span aria-hidden="true">·</span>
+          <button id="hide-all" type="button">Hide all</button>
+        </div>
+      </div>
+
+      <div id="overlay-controls" class="overlay-controls" hidden>
+        <label id="zone-control" class="zone-control" hidden>
+          <input id="zone-toggle" type="checkbox" checked>
+          <span class="check" aria-hidden="true"></span>
+          <span class="zone-symbol" aria-hidden="true">
+            <svg viewBox="0 0 24 24"><path d="m4 7 5-3 6 3 5-2v12l-5 3-6-3-5 2V7Z"/><path d="M9 4v13M15 7v13"/></svg>
+          </span>
+          <span>Zone boundaries</span>
+          <span id="zone-count"></span>
+        </label>
+        <div id="text-overlay-controls"></div>
+      </div>
+
+      <div id="legend" class="legend" aria-live="polite"></div>
+
+      <footer class="sidebar-footer">
+        <span class="live-dot"></span>
+        <span id="visible-count">0 locations visible</span>
+      </footer>
+    </aside>
+
+    <main class="map-panel">
+      <div id="map" class="map" tabindex="0" aria-label="Interactive game map">
+        <div id="world" class="world">
+          <img id="map-image" alt="" draggable="false">
+          <svg id="zones" class="zones" viewBox="0 0 8192 8192" aria-hidden="true"></svg>
+          <div id="zone-labels" class="zone-labels" aria-hidden="true"></div>
+          <div id="markers" class="markers"></div>
+        </div>
+
+        <div class="map-loading" id="map-loading">
+          <span class="spinner"></span>
+          <strong>Unfolding map</strong>
+          <small>Loading the embedded z13 image…</small>
+        </div>
+
+        <div class="zoom-controls" aria-label="Map controls">
+          <button id="zoom-in" type="button" aria-label="Zoom in">+</button>
+          <button id="zoom-out" type="button" aria-label="Zoom out">−</button>
+          <button id="reset-view" type="button" aria-label="Fit map to window">
+            <svg viewBox="0 0 24 24"><path d="M8 3H3v5M16 3h5v5M21 16v5h-5M3 16v5h5"/></svg>
+          </button>
+        </div>
+
+        <div class="map-hint" id="map-hint">
+          <span>Drag to pan</span><i></i><span>Scroll to zoom</span>
+        </div>
+
+        <article id="pin-detail" class="pin-detail" hidden>
+          <button id="close-detail" class="detail-close" type="button" aria-label="Close location details">×</button>
+          <div class="detail-category">
+            <span id="detail-dot"></span>
+            <span id="detail-category"></span>
+          </div>
+          <h2 id="detail-title"></h2>
+          <p id="detail-description"></p>
+          <dl>
+            <div><dt>Location ID</dt><dd id="detail-id"></dd></div>
+            <div><dt>Coordinates</dt><dd id="detail-coordinates"></dd></div>
+          </dl>
+        </article>
+      </div>
+    </main>
+  </div>
+
+  <div id="fatal-error" class="fatal-error" hidden>
+    <strong>Atlas could not open the embedded catalog.</strong>
+    <p id="fatal-message"></p>
+  </div>
+</body>
+</html>
