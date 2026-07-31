@@ -47,4 +47,4 @@ require (
 	modernc.org/sqlite v1.55.0 // indirect
 )
 
-replace github.com/FelineStateMachine/allons => ../allons
+replace github.com/FelineStateMachine/allons => ../allons-pinned
