@@ -38,12 +38,13 @@ const (
 	wholeLevelBudget = 1024
 )
 
-// lineEnd redraws the progress line in place on a terminal, and leaves ordinary
-// lines behind when the output is being piped into a log.
+// lineEnd redraws the progress line in place on a terminal, clearing whatever
+// the previous longer line left behind, and leaves ordinary lines when the
+// output is being piped into a log.
 var lineEnd = func() string {
 	info, err := os.Stdout.Stat()
 	if err == nil && info.Mode()&os.ModeCharDevice != 0 {
-		return "\r"
+		return "\033[K\r"
 	}
 	return "\n"
 }()
@@ -204,6 +205,7 @@ func captureTiles(
 
 		var live map[[2]int]bool
 		var background string
+		transposed, probed := false, false
 		for zoom := set.MinZoom; zoom <= deepest; zoom++ {
 			window, ok := set.window(zoom)
 			if !ok {
@@ -211,6 +213,18 @@ func captureTiles(
 				live = nil
 				continue
 			}
+			if !probed {
+				extension := tileExtension(set)
+				order, err := probeAxisOrder(ctx, fetcher, strings.TrimSuffix(base, "/"), set, zoom, window, extension)
+				if err != nil {
+					return stats, err
+				}
+				transposed, probed = order, true
+				if transposed {
+					fmt.Printf("     axes are published transposed; reading /{zoom}/{y}/{x}\n")
+				}
+			}
+
 			wanted := window.tiles()
 			whole := len(wanted) <= wholeLevelBudget || live == nil
 			if !whole {
@@ -221,7 +235,7 @@ func captureTiles(
 				break
 			}
 
-			results, err := fetchLevel(ctx, fetcher, o, set, setID, base, mapDir, zoom, wanted, index)
+			results, err := fetchLevel(ctx, fetcher, o, set, setID, base, mapDir, zoom, wanted, index, transposed)
 			if err != nil {
 				return stats, err
 			}
@@ -258,12 +272,10 @@ func fetchLevel(
 	zoom int,
 	wanted [][2]int,
 	index *tileIndex,
+	transposed bool,
 ) (levelResult, error) {
 	result := levelResult{hashes: make(map[[2]int]string, len(wanted))}
-	extension := strings.TrimPrefix(strings.ToLower(set.Extension), ".")
-	if extension == "" {
-		extension = "jpg"
-	}
+	extension := tileExtension(set)
 
 	var mu sync.Mutex
 	var group sync.WaitGroup
@@ -295,8 +307,14 @@ func fetchLevel(
 	}
 
 	for _, coordinate := range wanted {
+		// A transposed layer names the row first. The tile is still stored at
+		// its true position, so everything downstream stays in one layout.
+		first, second := coordinate[0], coordinate[1]
+		if transposed {
+			first, second = second, first
+		}
 		url := fmt.Sprintf("%s/games/%s/%d/%d/%d.%s",
-			strings.TrimSuffix(base, "/"), set.Path, zoom, coordinate[0], coordinate[1], extension)
+			strings.TrimSuffix(base, "/"), set.Path, zoom, first, second, extension)
 		path := filepath.Join(mapDir, "tiles",
 			"set-"+strconv.FormatInt(setID, 10),
 			strconv.Itoa(zoom), strconv.Itoa(coordinate[0]),
@@ -377,7 +395,7 @@ func fetchLevel(
 	}
 	group.Wait()
 	mu.Lock()
-	if result.fetched > 0 && lineEnd == "\r" {
+	if result.fetched > 0 && lineEnd != "\n" {
 		report(true)
 		fmt.Println()
 	}
@@ -469,6 +487,14 @@ func childrenOf(live map[[2]int]bool, window tileWindow) [][2]int {
 	}
 	sortCoordinates(children)
 	return children
+}
+
+func tileExtension(set apiTileSet) string {
+	extension := strings.TrimPrefix(strings.ToLower(set.Extension), ".")
+	if extension == "" {
+		return "jpg"
+	}
+	return extension
 }
 
 func sortCoordinates(coordinates [][2]int) {

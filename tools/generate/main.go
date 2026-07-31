@@ -580,16 +580,28 @@ func attachGameIcons(gamePath, iconRoot string, game *catalogGame) error {
 	return nil
 }
 
+// copyGameIcon takes whichever form the archive holds. Most games publish an
+// icon font that renders to SVG; some publish a marker strip instead, which
+// slices into PNG.
 func copyGameIcon(gamePath, iconRoot, gameSlug, icon string) (string, error) {
-	source := filepath.Join(gamePath, "icons", icon+".svg")
-	data, err := os.ReadFile(source)
-	if errors.Is(err, os.ErrNotExist) {
+	var data []byte
+	var extension string
+	for _, candidate := range []string{".svg", ".png"} {
+		source := filepath.Join(gamePath, "icons", icon+candidate)
+		contents, err := os.ReadFile(source)
+		if errors.Is(err, os.ErrNotExist) {
+			continue
+		}
+		if err != nil {
+			return "", fmt.Errorf("read icon %s: %w", source, err)
+		}
+		data, extension = contents, candidate
+		break
+	}
+	if extension == "" {
 		return "", nil
 	}
-	if err != nil {
-		return "", fmt.Errorf("read icon %s: %w", source, err)
-	}
-	asset := filepath.ToSlash(filepath.Join(gameSlug, icon+".svg"))
+	asset := filepath.ToSlash(filepath.Join(gameSlug, icon+extension))
 	destination := filepath.Join(iconRoot, filepath.FromSlash(asset))
 	if err := os.MkdirAll(filepath.Dir(destination), 0o755); err != nil {
 		return "", fmt.Errorf("create icon directory: %w", err)

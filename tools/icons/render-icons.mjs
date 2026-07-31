@@ -20,6 +20,8 @@ import { mkdir, readFile, writeFile } from "node:fs/promises";
 import path from "node:path";
 import process from "node:process";
 
+import { cropPNG, decodePNG, encodePNG, isBlank } from "./png.mjs";
+
 const API = "https://mapgenie.io/api/v1";
 const CDN = "https://cdn.mapgenie.io";
 // The CDN answers 403 to requests that do not look like a browser.
@@ -70,6 +72,11 @@ const fetchJSON = async (url, options) => {
   return response && response.json();
 };
 
+const fetchBuffer = async (url, options) => {
+  const response = await fetchPolitely(url, options);
+  return response && Buffer.from(await response.arrayBuffer());
+};
+
 const cssColor = (value) => {
   if (!value) return null;
   const rgb = /rgba?\(\s*(\d+)\s*,\s*(\d+)\s*,\s*(\d+)/i.exec(value);
@@ -117,6 +124,33 @@ const readFontURL = (css) => {
   const match = css.match(/url\(['"]?([^'")]*\.svg[^'")]*)['"]?\)/i);
   if (!match) return null;
   return new URL(match[1].replace(/#.*$/, ""), `${CDN}/css/themes/icons/`).href;
+};
+
+// Some games publish one marker strip that CSS windows into, rather than a
+// font: `[class^="icon-"] { background: url(sprite.png); background-size: 15px }`
+// with `.icon-<key> { background-position: 0 -Npx }` naming each row.
+const readSprite = (css) => {
+  const source = /\[class\^?[*]?="icon-"\][^{]*\{([^}]*)\}/i.exec(css)?.[1];
+  if (!source) return null;
+  const url = /url\(['"]?([^'")]+\.png[^'")]*)['"]?\)/i.exec(source)?.[1];
+  if (!url) return null;
+  const size = Number(/background-size:\s*([0-9.]+)px/i.exec(source)?.[1] ?? 0);
+  const cell = Number(/width:\s*([0-9.]+)px/i.exec(source)?.[1] ?? size);
+  if (!cell) return null;
+
+  const offsets = new Map();
+  const rule = /\.icon-([a-z0-9_-]+)\s*\{[^}]*background-position:\s*[^;]*?(-?[0-9.]+)px\s*;?[^}]*\}/gi;
+  for (const match of css.matchAll(rule)) {
+    // A key repeated in the strip keeps its first row; later ones are spares.
+    if (!offsets.has(match[1])) offsets.set(match[1], Math.abs(Number(match[2])));
+  }
+  if (offsets.size === 0) return null;
+  return {
+    url: new URL(url, `${CDN}/css/themes/icons/`).href,
+    cell,
+    displayWidth: size || cell,
+    offsets,
+  };
 };
 
 // An SVG font is XML, so the glyphs can be read directly rather than through a
@@ -177,11 +211,13 @@ const renderGame = async (archiveRoot, game, directory) => {
   }
   const icons = readIconLayers(css);
   const fontURL = readFontURL(css);
-  if (!fontURL || icons.size === 0) {
+  const sprite = fontURL ? null : readSprite(css);
+  if ((!fontURL || icons.size === 0) && !sprite) {
     console.log(`  ${game.slug}: stylesheet carries no usable glyph mapping`);
     return 0;
   }
-  const { glyphs, unitsPerEm, ascent } = readGlyphs(await fetchText(fontURL));
+  const font = fontURL ? readGlyphs(await fetchText(fontURL)) : null;
+  const strip = sprite ? decodePNG(await fetchBuffer(sprite.url)) : null;
 
   // Which glyphs matter, and what colour the legend gives them, comes from the
   // maps themselves.
@@ -210,16 +246,52 @@ const renderGame = async (archiveRoot, game, directory) => {
   const index = [];
   let missing = 0;
   for (const [key, uses] of [...usages].sort(([a], [b]) => a.localeCompare(b))) {
+    const legend = uses.find((use) => use.legendColor)?.legendColor;
+    const defaultColor = legend ? `#${legend.toLowerCase()}` : FALLBACK_COLOR;
+
+    if (strip) {
+      const offset = sprite.offsets.get(key);
+      if (offset === undefined) {
+        missing += 1;
+        continue;
+      }
+      // Offsets are in displayed pixels; the strip may be published at a
+      // multiple of that, so they are scaled to source pixels before cutting.
+      const scale = strip.width / sprite.displayWidth;
+      const cell = Math.round(sprite.cell * scale);
+      const top = Math.round(offset * scale);
+      if (top + cell > strip.height) {
+        missing += 1;
+        continue;
+      }
+      const slice = cropPNG(strip, 0, top, Math.min(cell, strip.width), cell);
+      if (isBlank(slice)) {
+        missing += 1;
+        continue;
+      }
+      const png = encodePNG(slice);
+      await writeFile(path.join(iconDirectory, `${key}.png`), png);
+      index.push({
+        contentHash: createHash("sha256").update(png).digest("hex"),
+        defaultColor,
+        file: `${key}.png`,
+        key,
+        spriteOffset: offset,
+        sourceCssUrl: `${CDN}/css/themes/icons/${game.slug}-icons.css`,
+        sourceSpriteUrl: sprite.url,
+        usages: uses,
+      });
+      continue;
+    }
+
     const drawn = (icons.get(key) ?? [])
-      .map((layer) => ({ ...layer, outline: glyphs.get(layer.codepoint) }))
+      .map((layer) => ({ ...layer, outline: font.glyphs.get(layer.codepoint) }))
       .filter((layer) => layer.outline);
     if (drawn.length === 0) {
       missing += 1;
       continue;
     }
-    const legend = uses.find((use) => use.legendColor)?.legendColor;
-    const defaultColor = legend ? `#${legend.toLowerCase()}` : FALLBACK_COLOR;
-    const svg = renderSVG(key, drawn, unitsPerEm, ascent, defaultColor);
+    const svg = renderSVG(key, drawn, font.unitsPerEm, font.ascent, defaultColor);
     await writeFile(path.join(iconDirectory, `${key}.svg`), svg);
     index.push({
       codepoint: drawn.map((layer) => layer.codepoint).join("+"),

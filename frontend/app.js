@@ -1869,6 +1869,9 @@ function exposeDiagnostics() {
   });
   window.__atlasDebug = {
     snapshot,
+    // Raster layers are reachable so a render fault can be narrowed to the
+    // complete base or the deep detail riding on top of it.
+    setLayerVisible: (name, visible) => state.layers[name]?.setVisible(visible),
   };
   window.render_game_to_text = () => JSON.stringify({
     coordinateSystem: "ATLAS:PIXELS; origin top-left; x increases right; y decreases downward",
