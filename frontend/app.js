@@ -491,7 +491,22 @@ function bindUIEvents() {
     else return;
     event.preventDefault();
   });
+  // The webview's own menu offers Reload and Inspect Element, which belong to a
+  // browser rather than to a map. Text fields keep theirs, where cut and paste
+  // are worth having.
+  window.addEventListener("contextmenu", (event) => {
+    if (isEditableTarget(event.target)) return;
+    event.preventDefault();
+  });
+
   window.addEventListener("keydown", (event) => {
+    // Reload keeps its usual shortcut now that the menu offering it is gone.
+    // The session is restored on the way back, so the view returns as it was.
+    if ((event.metaKey || event.ctrlKey) && event.key.toLocaleLowerCase() === "r") {
+      event.preventDefault();
+      location.reload();
+      return;
+    }
     if (isEditableTarget(event.target)) return;
     if ((event.metaKey || event.ctrlKey) && event.key.toLocaleLowerCase() === "k") {
       event.preventDefault();
@@ -1847,7 +1862,7 @@ function priorityFeatureStyle(feature) {
 function markerStyles(pin, selected) {
   const key = `marker:${pin.category.id}:${selected ? 1 : 0}`;
   if (state.styleCache.has(key)) return state.styleCache.get(key);
-  const color = pin.category.color || colorFor(pin.category.id);
+  const color = categoryColor(pin.category);
   const zIndex = selected ? 20_000_000 : pin.priority;
   const renderedIcon = state.markerIcons.get(markerIconKey(pin.category));
   let style;
@@ -1906,7 +1921,7 @@ function prepareMarkerIcon(category) {
     canvas.width = 64;
     canvas.height = 64;
     const context = canvas.getContext("2d");
-    const color = category.color || colorFor(category.id);
+    const color = categoryColor(category);
 
     // A glyph is a silhouette, so it takes the category colour. A picture
     // already carries its own, and flattening it to one colour would leave
@@ -1950,13 +1965,63 @@ function prepareMarkerIcon(category) {
 }
 
 function markerIconKey(category) {
-  return `${category.iconAsset || ""}:${category.color || colorFor(category.id)}:${state.map?.iconOutset || "light"}`;
+  return `${category.iconAsset || ""}:${categoryColor(category)}:${state.map?.iconOutset || "light"}`;
 }
 
+const outsetColors = {
+  light: "rgba(255, 255, 255, 0.96)",
+  dark: "rgba(7, 9, 7, 0.98)",
+};
+
 function iconOutsetColor() {
-  return state.map?.iconOutset === "dark"
-    ? "rgba(7, 9, 7, 0.98)"
-    : "rgba(255, 255, 255, 0.96)";
+  return outsetColors[state.map?.iconOutset === "dark" ? "dark" : "light"];
+}
+
+// A marker is drawn in its category's colour and edged with the map's outset,
+// so a colour close to that outset leaves the marker with nothing to stand
+// against. Rather than edge it the other way -- which would put a pale rim on
+// a map that asked for dark ones -- the colour itself is taken to a lighter or
+// darker variant of the same hue, so the legend still matches the map.
+function legibleIconColor(color) {
+  const dark = state.map?.iconOutset === "dark";
+  const luminance = relativeLuminance(color);
+  if (dark ? luminance > 0.3 : luminance < 0.88) return color;
+  return withLightness(color, dark ? 0.74 : 0.42);
+}
+
+function withLightness(color, lightness) {
+  const hex = String(color).replace("#", "");
+  if (hex.length !== 6) return color;
+  const [r, g, b] = [0, 2, 4].map((at) => parseInt(hex.slice(at, at + 2), 16) / 255);
+  const high = Math.max(r, g, b);
+  const low = Math.min(r, g, b);
+  const light = (high + low) / 2;
+  let hue = 0;
+  const chroma = high - low;
+  const saturation = chroma === 0 ? 0 : chroma / (1 - Math.abs(2 * light - 1));
+  if (chroma !== 0) {
+    if (high === r) hue = ((g - b) / chroma) % 6;
+    else if (high === g) hue = (b - r) / chroma + 2;
+    else hue = (r - g) / chroma + 4;
+    hue *= 60;
+    if (hue < 0) hue += 360;
+  }
+  const c = (1 - Math.abs(2 * lightness - 1)) * saturation;
+  const x = c * (1 - Math.abs(((hue / 60) % 2) - 1));
+  const m = lightness - c / 2;
+  const [rr, gg, bb] =
+    hue < 60 ? [c, x, 0] : hue < 120 ? [x, c, 0] : hue < 180 ? [0, c, x] :
+    hue < 240 ? [0, x, c] : hue < 300 ? [x, 0, c] : [c, 0, x];
+  const channel = (value) =>
+    Math.round((value + m) * 255).toString(16).padStart(2, "0");
+  return `#${channel(rr)}${channel(gg)}${channel(bb)}`;
+}
+
+function relativeLuminance(color) {
+  const hex = String(color).replace("#", "");
+  if (hex.length !== 6) return 0.5;
+  const channel = (offset) => parseInt(hex.slice(offset, offset + 2), 16) / 255;
+  return 0.2126 * channel(0) + 0.7152 * channel(2) + 0.0722 * channel(4);
 }
 
 function textStyles(pin, selected) {
@@ -2208,7 +2273,13 @@ function hexToRGBA(value, alpha) {
 }
 
 function applyCategoryVisual(element, category) {
-  element.style.setProperty("--pin-color", category.color || colorFor(category.id));
+  element.style.setProperty("--pin-color", categoryColor(category));
+}
+
+// One colour for a category wherever it is drawn, so the legend and the map
+// agree on what it looks like.
+function categoryColor(category) {
+  return legibleIconColor(category.color || colorFor(category.id));
 }
 
 function applyCategoryGlyph(element, category, fallback) {
