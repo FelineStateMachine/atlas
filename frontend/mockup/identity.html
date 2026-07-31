@@ -1,0 +1,595 @@
+<!doctype html>
+<html lang="en" data-theme="paper" data-dock="list">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Atlas — visual identity mockup</title>
+<style>
+/* ---------- palette: #463f1a #60492c #f9ebe0 #208aae #0d2149 ---------- */
+:root {
+  --olive: #463f1a;
+  --umber: #60492c;
+  --linen: #f9ebe0;
+  --cerulean: #208aae;
+  --navy: #0d2149;
+  --radius: 8px;
+  --topbar: 64px;
+  --sidebar: 316px;
+  --dock: 336px;
+  font-family: ui-sans-serif, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  font-synthesis: none;
+}
+:root[data-theme="paper"] {
+  color-scheme: light;
+  --bg: var(--linen);
+  --panel: #f3e7d8;
+  --panel-raised: #fdf7ef;
+  --ink: var(--olive);
+  --ink-strong: #33300f;
+  --muted: rgba(96, 73, 44, 0.72);
+  --line: rgba(96, 73, 44, 0.22);
+  --line-strong: rgba(96, 73, 44, 0.38);
+  --accent: var(--cerulean);
+  --accent-ink: #f9ebe0;
+  --accent-wash: rgba(32, 138, 174, 0.11);
+  --accent-wash-strong: rgba(32, 138, 174, 0.2);
+  --data: var(--navy);
+  --map-surround: var(--navy);
+  --hover: rgba(96, 73, 44, 0.08);
+  --shadow: 0 10px 30px rgba(13, 33, 73, 0.18);
+  --shadow-soft: 0 2px 10px rgba(13, 33, 73, 0.1);
+  --scrim: rgba(249, 235, 224, 0.86);
+}
+:root[data-theme="night"] {
+  color-scheme: dark;
+  --bg: #081530;
+  --panel: var(--navy);
+  --panel-raised: #16305e;
+  --ink: var(--linen);
+  --ink-strong: #fdf7ef;
+  --muted: rgba(249, 235, 224, 0.6);
+  --line: rgba(249, 235, 224, 0.14);
+  --line-strong: rgba(249, 235, 224, 0.28);
+  --accent: #35a9cf;
+  --accent-ink: #081530;
+  --accent-wash: rgba(53, 169, 207, 0.14);
+  --accent-wash-strong: rgba(53, 169, 207, 0.26);
+  --data: #8fd6ee;
+  --map-surround: #050e21;
+  --hover: rgba(249, 235, 224, 0.07);
+  --shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
+  --shadow-soft: 0 2px 10px rgba(0, 0, 0, 0.35);
+  --scrim: rgba(13, 33, 73, 0.82);
+}
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body { background: #202020; color: var(--ink); }
+
+/* ---------- mockup chrome (not part of the app) ---------- */
+.mock-bar {
+  display: flex; gap: 24px; align-items: center; justify-content: center;
+  padding: 10px; background: #161616; color: #bbb;
+  font: 500 12px ui-monospace, SFMono-Regular, Menlo, monospace;
+}
+.mock-bar strong { color: #eee; font-weight: 600; }
+.mock-bar .set { display: flex; gap: 4px; align-items: center; }
+.mock-bar button {
+  font: inherit; color: #bbb; background: #262626; border: 1px solid #333;
+  padding: 4px 10px; border-radius: 5px; cursor: pointer;
+}
+.mock-bar button.on { background: #3b3b3b; color: #fff; border-color: #555; }
+
+/* ---------- app frame ---------- */
+.frame {
+  width: min(1560px, calc(100vw - 32px)); height: 940px; margin: 16px auto 40px;
+  border-radius: 10px; overflow: hidden; box-shadow: 0 30px 80px rgba(0,0,0,0.55);
+  display: grid;
+  grid-template-columns: var(--sidebar) minmax(0, 1fr) auto;
+  grid-template-rows: var(--topbar) minmax(0, 1fr);
+  background: var(--bg);
+  transition: background 200ms ease;
+}
+
+/* ---------- topbar ---------- */
+.topbar {
+  grid-column: 1 / 4; display: flex; align-items: center; gap: 28px;
+  padding: 0 20px; background: var(--panel);
+  border-bottom: 1px solid var(--line);
+}
+.brand { display: flex; gap: 12px; align-items: center; width: calc(var(--sidebar) - 20px); }
+.brand-mark {
+  width: 34px; height: 34px; display: grid; place-items: center;
+  color: var(--accent-ink); background: var(--accent); border-radius: 9px;
+}
+.brand-mark svg { width: 22px; height: 22px; stroke: currentColor; fill: none; stroke-width: 1.8; }
+.brand-word strong {
+  display: block; font-family: "Arial Narrow", "Roboto Condensed", sans-serif;
+  font-size: 19px; letter-spacing: 0.34em; color: var(--ink-strong);
+}
+.brand-word small {
+  font-size: 9px; letter-spacing: 0.18em; text-transform: uppercase; color: var(--muted);
+}
+.pickers { display: flex; gap: 18px; }
+.pickers label { display: flex; flex-direction: column; gap: 3px; }
+.pickers span {
+  font-size: 8.5px; font-weight: 700; letter-spacing: 0.17em;
+  text-transform: uppercase; color: var(--muted);
+}
+.pickers select {
+  font: 600 13px inherit; font-family: inherit; color: var(--ink-strong);
+  background: var(--panel-raised); border: 1px solid var(--line);
+  border-radius: 7px; padding: 6px 30px 6px 10px; appearance: none;
+  background-image: linear-gradient(45deg, transparent 50%, var(--muted) 50%),
+    linear-gradient(135deg, var(--muted) 50%, transparent 50%);
+  background-position: calc(100% - 15px) 55%, calc(100% - 10px) 55%;
+  background-size: 5px 5px;
+  background-repeat: no-repeat;
+}
+.topbar-scale {
+  margin-left: auto; display: flex; align-items: center; gap: 10px;
+  font: 500 10px ui-monospace, SFMono-Regular, Menlo, monospace; color: var(--muted);
+}
+.topbar-scale .rule { width: 74px; height: 5px; border: 1px solid var(--muted); border-top: none; }
+
+/* ---------- left sidebar ---------- */
+.sidebar {
+  grid-row: 2; grid-column: 1; overflow: hidden auto; background: var(--panel);
+  border-right: 1px solid var(--line); display: flex; flex-direction: column;
+}
+.sidebar-heading { padding: 20px 20px 14px; border-bottom: 1px solid var(--line); }
+.eyebrow {
+  font-size: 9px; font-weight: 800; letter-spacing: 0.24em; color: var(--accent);
+  text-transform: uppercase;
+}
+.sidebar-heading h1 {
+  font-family: "Arial Narrow", "Roboto Condensed", sans-serif;
+  font-size: 25px; line-height: 1.08; letter-spacing: -0.01em; color: var(--ink-strong);
+  margin: 5px 0 4px;
+}
+.map-name { font-size: 12.5px; font-weight: 600; }
+.map-meta { font: 500 10.5px ui-monospace, SFMono-Regular, Menlo, monospace; color: var(--data); margin-top: 5px; }
+.search {
+  margin: 14px 16px 0; display: flex; align-items: center; gap: 9px;
+  background: var(--panel-raised); border: 1px solid var(--line); border-radius: var(--radius);
+  padding: 8px 12px; color: var(--muted); font-size: 12.5px;
+}
+.search svg { width: 13px; height: 13px; stroke: currentColor; fill: none; stroke-width: 2; }
+.search kbd {
+  margin-left: auto; font: 600 9.5px ui-monospace, SFMono-Regular, Menlo, monospace;
+  background: var(--hover); border: 1px solid var(--line); border-radius: 4px; padding: 2px 5px;
+}
+.legend-toolbar {
+  display: flex; align-items: baseline; gap: 8px; padding: 18px 20px 8px;
+}
+.legend-toolbar > span {
+  font-size: 9px; font-weight: 800; letter-spacing: 0.2em; text-transform: uppercase;
+  color: var(--muted);
+}
+.legend-toolbar .actions { margin-left: auto; display: flex; gap: 2px; }
+.legend-toolbar .actions i {
+  width: 22px; height: 22px; border-radius: 5px; display: grid; place-items: center;
+  color: var(--muted); font-style: normal;
+}
+.legend-toolbar .actions i:hover { background: var(--hover); color: var(--ink-strong); }
+.legend-toolbar .actions svg { width: 13px; height: 13px; stroke: currentColor; fill: none; stroke-width: 1.6; }
+.group { border-top: 1px solid var(--line); }
+.group-header {
+  display: flex; align-items: center; gap: 8px; padding: 9px 20px; cursor: pointer;
+}
+.group-header:hover { background: var(--hover); }
+.chev { color: var(--muted); display: grid; }
+.chev svg { width: 11px; height: 11px; stroke: currentColor; fill: none; stroke-width: 2.4; transform: rotate(90deg); }
+.group-title {
+  font-size: 10.5px; font-weight: 800; letter-spacing: 0.13em; text-transform: uppercase;
+  color: var(--ink-strong);
+}
+.group-count { font: 600 10px ui-monospace, SFMono-Regular, Menlo, monospace; color: var(--data); }
+.switch {
+  margin-left: auto; width: 26px; height: 15px; border-radius: 8px;
+  background: var(--accent); position: relative;
+}
+.switch::after {
+  content: ""; position: absolute; top: 2px; right: 2px; width: 11px; height: 11px;
+  border-radius: 50%; background: var(--panel-raised);
+}
+.switch.off { background: var(--line-strong); }
+.switch.off::after { right: auto; left: 2px; }
+.rows { padding-bottom: 6px; }
+.row {
+  display: flex; align-items: center; gap: 10px; padding: 5px 20px 5px 30px; font-size: 12.5px;
+}
+.row:hover { background: var(--hover); }
+.dot {
+  width: 17px; height: 17px; border-radius: 50%; display: grid; place-items: center;
+  color: #fff; font: 800 8px ui-sans-serif, sans-serif; flex: none;
+  box-shadow: 0 0 0 1.5px var(--panel-raised), var(--shadow-soft);
+}
+.row .n { font: 600 10px ui-monospace, SFMono-Regular, Menlo, monospace; color: var(--muted); margin-left: auto; }
+.row.dim { opacity: 0.45; }
+.zone-row { display: flex; gap: 9px; padding: 4.5px 20px 4.5px 30px; font-size: 12.5px; align-items: center; }
+.zone-row:hover { background: var(--hover); }
+.zone-row .zm { width: 9px; height: 9px; border: 2px solid var(--umber); border-radius: 2.5px; flex: none; }
+.zone-row.current { color: var(--ink-strong); font-weight: 700; }
+.zone-row.current .zm { background: var(--accent); border-color: var(--accent); }
+.sidebar-footer {
+  margin-top: auto; display: flex; gap: 8px; align-items: center;
+  padding: 11px 20px; border-top: 1px solid var(--line);
+  font: 600 10.5px ui-monospace, SFMono-Regular, Menlo, monospace; color: var(--data);
+}
+.live { width: 7px; height: 7px; border-radius: 50%; background: var(--accent); box-shadow: 0 0 8px var(--accent); }
+
+/* ---------- map ---------- */
+.map { grid-row: 2; grid-column: 2; position: relative; background: var(--map-surround); overflow: hidden; }
+.map svg.terrain { position: absolute; inset: 0; width: 100%; height: 100%; }
+.zoom {
+  position: absolute; top: 16px; right: 16px; display: flex; flex-direction: column;
+  border-radius: var(--radius); overflow: hidden; box-shadow: var(--shadow-soft);
+  border: 1px solid var(--line-strong);
+}
+.zoom b {
+  width: 34px; height: 33px; display: grid; place-items: center; background: var(--panel-raised);
+  color: var(--ink-strong); font: 500 17px ui-sans-serif, sans-serif; cursor: pointer;
+}
+.zoom b + b { border-top: 1px solid var(--line); }
+.zoom b:hover { background: var(--panel); }
+.map-hint {
+  position: absolute; left: 16px; bottom: 14px; display: flex; gap: 9px; align-items: center;
+  padding: 5px 12px; border-radius: 20px; background: var(--scrim);
+  backdrop-filter: blur(8px); border: 1px solid var(--line);
+  font: 600 9.5px ui-monospace, SFMono-Regular, Menlo, monospace; letter-spacing: 0.04em;
+  color: var(--muted); text-transform: uppercase;
+}
+.map-hint i { width: 3px; height: 3px; border-radius: 50%; background: var(--line-strong); }
+.overview {
+  position: absolute; right: 16px; bottom: 14px; width: 168px; border-radius: var(--radius);
+  overflow: hidden; border: 1px solid var(--line-strong); box-shadow: var(--shadow);
+  background: var(--map-surround);
+}
+.overview .ov-map { height: 110px; position: relative; }
+.overview .ov-map svg { position: absolute; inset: 0; width: 100%; height: 100%; }
+.overview .viewport {
+  position: absolute; left: 34%; top: 26%; width: 38%; height: 42%;
+  border: 1.5px solid var(--accent); background: var(--accent-wash);
+}
+.overview footer {
+  padding: 4px 9px; background: var(--panel); color: var(--muted);
+  font: 600 8.5px ui-monospace, SFMono-Regular, Menlo, monospace; letter-spacing: 0.08em;
+}
+.pin { position: absolute; translate: -50% -50%; width: 26px; height: 26px; border-radius: 50%;
+  display: grid; place-items: center; color: #fff; font: 800 10px ui-sans-serif, sans-serif;
+  box-shadow: 0 0 0 2px rgba(255,255,255,0.95), 0 3px 6px rgba(0,0,0,0.4); }
+.pin.sel { outline: 3px solid var(--accent); outline-offset: 1.5px; }
+.pin-label {
+  position: absolute; translate: -50% 14px; padding: 2px 6px; border-radius: 4px;
+  background: rgba(8, 14, 24, 0.82); color: #f4f0e6; white-space: nowrap;
+  font: 700 10px "Arial Narrow", "Roboto Condensed", sans-serif; letter-spacing: 0.04em;
+}
+
+/* ---------- right dock: the signature ---------- */
+.dock {
+  grid-row: 2; grid-column: 3; width: var(--dock); display: flex; flex-direction: column;
+  background: var(--panel); border-left: 1px solid var(--line); overflow: hidden;
+  transition: width 200ms ease;
+}
+.dock-readout {
+  display: flex; align-items: center; gap: 8px; padding: 11px 16px;
+  border-bottom: 1px solid var(--line); background: var(--panel-raised);
+  font: 600 10px ui-monospace, SFMono-Regular, Menlo, monospace; letter-spacing: 0.1em;
+  color: var(--data); text-transform: uppercase; white-space: nowrap;
+}
+.dock-readout .flag {
+  padding: 2px 7px; border-radius: 4px; background: var(--accent-wash-strong); color: var(--accent);
+}
+.dock-readout .fold {
+  margin-left: auto; width: 22px; height: 22px; display: grid; place-items: center;
+  border-radius: 5px; color: var(--muted); cursor: pointer;
+}
+.dock-readout .fold:hover { background: var(--hover); color: var(--ink-strong); }
+.dock-readout .fold svg { width: 13px; height: 13px; stroke: currentColor; fill: none; stroke-width: 2; }
+.dock-body { position: relative; flex: 1; overflow: hidden; }
+.pane { position: absolute; inset: 0; overflow: hidden auto; transition: transform 220ms cubic-bezier(0.22,0.61,0.36,1); }
+.pane.list { transform: translateX(0); }
+.pane.detail { transform: translateX(100%); border-left: 1px solid var(--line); background: var(--panel); }
+[data-dock="detail"] .pane.list { transform: translateX(-24%); }
+[data-dock="detail"] .pane.detail { transform: translateX(0); }
+.result {
+  display: flex; gap: 11px; padding: 11px 16px; border-bottom: 1px solid var(--line); cursor: pointer;
+}
+.result:hover { background: var(--hover); }
+.result.sel { background: var(--accent-wash); box-shadow: inset 3px 0 0 var(--accent); }
+.result .dot { margin-top: 2px; }
+.result b { display: block; font-size: 13px; color: var(--ink-strong); }
+.result .sub { display: flex; gap: 7px; margin-top: 2px; font-size: 10.5px; color: var(--muted); }
+.result .sub .zone::before { content: "▸ "; color: var(--line-strong); }
+.result .dist {
+  margin-left: auto; align-self: center;
+  font: 600 9.5px ui-monospace, SFMono-Regular, Menlo, monospace; color: var(--muted);
+}
+/* detail pane */
+.detail-top { padding: 14px 18px 0; }
+.back {
+  display: inline-flex; align-items: center; gap: 6px; font-size: 11px; font-weight: 700;
+  color: var(--accent); cursor: pointer; letter-spacing: 0.04em;
+}
+.back svg { width: 11px; height: 11px; stroke: currentColor; fill: none; stroke-width: 2.4; }
+.cat-chip {
+  display: inline-flex; align-items: center; gap: 7px; margin: 14px 0 8px;
+  font-size: 9px; font-weight: 800; letter-spacing: 0.18em; text-transform: uppercase; color: var(--muted);
+}
+.detail-top h2 {
+  font-family: "Arial Narrow", "Roboto Condensed", sans-serif; font-size: 26px;
+  line-height: 1.05; color: var(--ink-strong);
+}
+.detail-desc { padding: 10px 18px 0; font-size: 12.5px; line-height: 1.55; }
+.detail-links { padding: 14px 18px 0; display: grid; gap: 6px; }
+.detail-links a { font-size: 12px; font-weight: 600; color: var(--accent); text-decoration: none; }
+.detail-links a::before { content: "↳ "; color: var(--muted); }
+.detail-data {
+  margin: 16px 18px; border: 1px solid var(--line); border-radius: var(--radius);
+  background: var(--panel-raised); padding: 11px 13px; display: grid; gap: 7px;
+}
+.detail-data div { display: flex; justify-content: space-between; font-size: 10px; }
+.detail-data dt { font-weight: 800; letter-spacing: 0.14em; text-transform: uppercase; color: var(--muted); }
+.detail-data dd { font: 600 10.5px ui-monospace, SFMono-Regular, Menlo, monospace; color: var(--data); }
+/* folded rail */
+[data-dock="hidden"] .dock { width: 40px; }
+[data-dock="hidden"] .dock-readout { padding: 11px 0; justify-content: center; }
+[data-dock="hidden"] .dock-readout > :not(.fold) { display: none; }
+[data-dock="hidden"] .dock-readout .fold { margin: 0; }
+[data-dock="hidden"] .dock-readout .fold svg { transform: rotate(180deg); }
+[data-dock="hidden"] .dock-body { display: none; }
+[data-dock="hidden"] .dock .rail-label {
+  display: block; writing-mode: vertical-rl; margin: 14px auto 0;
+  font: 700 9.5px ui-monospace, SFMono-Regular, Menlo, monospace; letter-spacing: 0.18em;
+  color: var(--muted); text-transform: uppercase;
+}
+.rail-label { display: none; }
+</style>
+</head>
+<body>
+
+<div class="mock-bar">
+  <strong>ATLAS IDENTITY MOCKUP</strong>
+  <span class="set">theme
+    <button data-set-theme="paper" class="on">paper</button>
+    <button data-set-theme="night">night</button>
+  </span>
+  <span class="set">dock
+    <button data-set-dock="list" class="on">results</button>
+    <button data-set-dock="detail">detail</button>
+    <button data-set-dock="hidden">hidden</button>
+  </span>
+</div>
+
+<div class="frame">
+  <!-- topbar -->
+  <header class="topbar">
+    <div class="brand">
+      <span class="brand-mark">
+        <svg viewBox="0 0 24 24"><path d="M12 2c3.9 0 7 3 7 6.8 0 4.8-5 10.4-6.5 12.6a.6.6 0 0 1-1 0C10 19.2 5 13.6 5 8.8 5 5 8.1 2 12 2Z"/><path d="m8.8 10.5 2.2-4.6 1.6 3.4 1-1.9 1.6 3.1"/></svg>
+      </span>
+      <span class="brand-word"><strong>ATLAS</strong><small>Game map explorer</small></span>
+    </div>
+    <div class="pickers">
+      <label><span>Game</span><select><option>Clair Obscur: Expedition 33</option></select></label>
+      <label><span>Map</span><select><option>The Continent</option></select></label>
+      <label><span>Layer</span><select disabled><option>Base</option></select></label>
+    </div>
+    <div class="topbar-scale"><span class="rule"></span>500 m</div>
+  </header>
+
+  <!-- left sidebar -->
+  <aside class="sidebar">
+    <div class="sidebar-heading">
+      <p class="eyebrow">Explore</p>
+      <h1>Clair Obscur: Expedition 33</h1>
+      <p class="map-name">The Continent</p>
+      <p class="map-meta">2,814 LOCATIONS · 24 REGIONS</p>
+    </div>
+    <div class="search">
+      <svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="6"/><path d="m16 16 4 4"/></svg>
+      Search locations <kbd>⌘K</kbd>
+    </div>
+    <div class="legend-toolbar"><span>Layers</span>
+      <span class="actions">
+        <i><svg viewBox="0 0 16 16"><path d="M5 6.5 8 3.5l3 3M5 9.5l3 3 3-3"/></svg></i>
+        <i><svg viewBox="0 0 16 16"><path d="M5 3.5 8 6.5l3-3M5 12.5l3-3 3 3"/></svg></i>
+        <i><svg viewBox="0 0 16 16"><path d="M1.5 8S4 4 8 4s6.5 4 6.5 4-2.5 4-6.5 4-6.5-4-6.5-4Z"/><circle cx="8" cy="8" r="1.9"/></svg></i>
+        <i><svg viewBox="0 0 16 16"><path d="M1.5 8S4 4 8 4s6.5 4 6.5 4-2.5 4-6.5 4-6.5-4-6.5-4Z"/><path d="m3 13 10-10"/></svg></i>
+      </span>
+    </div>
+    <section class="group">
+      <div class="group-header">
+        <span class="chev"><svg viewBox="0 0 24 24"><path d="m9 6 6 6-6 6"/></svg></span>
+        <span class="group-title">Zones</span><span class="group-count">24</span>
+        <span class="switch"></span>
+      </div>
+      <div class="rows">
+        <div class="zone-row"><span class="zm"></span>Ancient Sanctuary</div>
+        <div class="zone-row current"><span class="zm"></span>Crimson Forest</div>
+        <div class="zone-row"><span class="zm"></span>Esquie's Nest</div>
+        <div class="zone-row"><span class="zm"></span>Flying Manor</div>
+        <div class="zone-row"><span class="zm"></span>Gestral Village</div>
+      </div>
+    </section>
+    <section class="group">
+      <div class="group-header">
+        <span class="chev"><svg viewBox="0 0 24 24"><path d="m9 6 6 6-6 6"/></svg></span>
+        <span class="group-title">Collectibles</span><span class="group-count">718</span>
+        <span class="switch"></span>
+      </div>
+      <div class="rows">
+        <div class="row"><span class="dot" style="background:#a4553a">H</span>Haircut<span class="n">105</span></div>
+        <div class="row"><span class="dot" style="background:#3e7a4e">J</span>Journal Entry<span class="n">49</span></div>
+        <div class="row"><span class="dot" style="background:#208aae">P</span>Pictos<span class="n">252</span></div>
+        <div class="row dim"><span class="dot" style="background:#7e5fa0">M</span>Music Record<span class="n">34</span></div>
+        <div class="row"><span class="dot" style="background:#b0812e">W</span>Weapon<span class="n">121</span></div>
+      </div>
+    </section>
+    <section class="group">
+      <div class="group-header">
+        <span class="chev"><svg viewBox="0 0 24 24"><path d="m9 6 6 6-6 6"/></svg></span>
+        <span class="group-title">Locations</span><span class="group-count">326</span>
+        <span class="switch off"></span>
+      </div>
+    </section>
+    <footer class="sidebar-footer"><span class="live"></span>2,780 ENABLED · 252 IN VIEW</footer>
+  </aside>
+
+  <!-- map -->
+  <main class="map">
+    <svg class="terrain" viewBox="0 0 900 800" preserveAspectRatio="xMidYMid slice">
+      <defs>
+        <pattern id="contour" width="90" height="90" patternUnits="userSpaceOnUse">
+          <circle cx="45" cy="45" r="28" fill="none" stroke="rgba(70,63,26,0.14)" stroke-width="1"/>
+          <circle cx="45" cy="45" r="14" fill="none" stroke="rgba(70,63,26,0.1)" stroke-width="1"/>
+        </pattern>
+      </defs>
+      <rect width="900" height="800" fill="#123c63"/>
+      <path d="M170 90 C 380 20, 600 60, 730 150 C 850 230, 840 420, 760 540 C 690 650, 520 740, 360 700 C 200 660, 90 540, 110 380 C 125 250, 90 160, 170 90 Z" fill="#e8d9bd" stroke="#a08a5f" stroke-width="3"/>
+      <path d="M170 90 C 380 20, 600 60, 730 150 C 850 230, 840 420, 760 540 C 690 650, 520 740, 360 700 C 200 660, 90 540, 110 380 C 125 250, 90 160, 170 90 Z" fill="url(#contour)"/>
+      <path d="M300 240 C 380 180, 520 190, 590 260 C 650 320, 640 420, 560 470 C 470 520, 350 500, 300 420 C 260 350, 250 290, 300 240 Z" fill="#cfe0c2" stroke="#7e9a6b" stroke-width="2"/>
+      <path d="M600 300 C 660 280, 720 320, 710 380 C 700 430, 640 450, 600 420 C 560 390, 560 330, 600 300 Z" fill="#e0e4e6" stroke="#9aa4ab" stroke-width="2"/>
+      <path d="M420 560 q 60 -30 130 0" fill="none" stroke="#3c78a8" stroke-width="5" stroke-linecap="round"/>
+      <text x="450" y="150" text-anchor="middle" font-family="Arial Narrow, sans-serif" font-size="26" letter-spacing="8" fill="rgba(70,63,26,0.55)">CRIMSON FOREST</text>
+      <text x="660" y="500" text-anchor="middle" font-family="Arial Narrow, sans-serif" font-size="17" letter-spacing="5" fill="rgba(70,63,26,0.45)">DARK SHORES</text>
+    </svg>
+    <span class="pin sel" style="left:46%;top:38%;background:#208aae">P</span>
+    <span class="pin-label" style="left:46%;top:38%">Confrontation</span>
+    <span class="pin" style="left:57%;top:47%;background:#a4553a">H</span>
+    <span class="pin" style="left:38%;top:55%;background:#3e7a4e">J</span>
+    <span class="pin" style="left:64%;top:30%;background:#b0812e">W</span>
+    <span class="pin" style="left:30%;top:34%;background:#208aae">P</span>
+    <div class="zoom"><b>+</b><b>−</b></div>
+    <div class="map-hint">
+      <span>Drag to pan</span><i></i><span>Scroll to zoom</span><i></i>
+      <span>Z · labels off</span><i></i><span>G · grid off</span>
+    </div>
+    <div class="overview">
+      <div class="ov-map">
+        <svg viewBox="0 0 168 110" preserveAspectRatio="xMidYMid slice">
+          <rect width="168" height="110" fill="#123c63"/>
+          <path d="M35 18 C 70 5, 115 12, 135 28 C 155 44, 152 78, 138 92 C 120 108, 70 108, 48 96 C 25 84, 18 60, 22 44 C 25 32, 20 26, 35 18 Z" fill="#e8d9bd"/>
+        </svg>
+        <span class="viewport"></span>
+      </div>
+      <footer>THE CONTINENT</footer>
+    </div>
+  </main>
+
+  <!-- right dock -->
+  <aside class="dock">
+    <div class="dock-readout">
+      <span class="count">252 RESULTS</span>
+      <span class="flag">PICTOS</span>
+      <span class="fold" data-toggle-dock>
+        <svg viewBox="0 0 16 16"><path d="m6 3 5 5-5 5"/></svg>
+      </span>
+    </div>
+    <span class="rail-label">252 results</span>
+    <div class="dock-body">
+      <div class="pane list">
+        <div class="result sel" data-open-detail>
+          <span class="dot" style="background:#208aae">P</span>
+          <span><b>Confrontation</b>
+            <span class="sub">Pictos<span class="zone">Crimson Forest</span></span></span>
+          <span class="dist">g4x·2</span>
+        </div>
+        <div class="result" data-open-detail>
+          <span class="dot" style="background:#208aae">P</span>
+          <span><b>Augmented Counter III</b>
+            <span class="sub">Pictos<span class="zone">Ancient Sanctuary</span></span></span>
+          <span class="dist">g4x·8</span>
+        </div>
+        <div class="result" data-open-detail>
+          <span class="dot" style="background:#208aae">P</span>
+          <span><b>Critical Burn</b>
+            <span class="sub">Pictos<span class="zone">Dark Shores</span></span></span>
+          <span class="dist">g5m·1</span>
+        </div>
+        <div class="result" data-open-detail>
+          <span class="dot" style="background:#208aae">P</span>
+          <span><b>Energising Start</b>
+            <span class="sub">Pictos<span class="zone">Esquie's Nest</span></span></span>
+          <span class="dist">g5m·4</span>
+        </div>
+        <div class="result" data-open-detail>
+          <span class="dot" style="background:#208aae">P</span>
+          <span><b>Glass Canevas</b>
+            <span class="sub">Pictos<span class="zone">Flying Manor</span></span></span>
+          <span class="dist">g5q·0</span>
+        </div>
+        <div class="result" data-open-detail>
+          <span class="dot" style="background:#208aae">P</span>
+          <span><b>Painted Power</b>
+            <span class="sub">Pictos<span class="zone">Gestral Village</span></span></span>
+          <span class="dist">g5q·6</span>
+        </div>
+        <div class="result" data-open-detail>
+          <span class="dot" style="background:#208aae">P</span>
+          <span><b>Rewarding Mark</b>
+            <span class="sub">Pictos<span class="zone">Old Lumiere</span></span></span>
+          <span class="dist">g5r·3</span>
+        </div>
+      </div>
+      <div class="pane detail">
+        <div class="detail-top">
+          <span class="back" data-close-detail>
+            <svg viewBox="0 0 16 16"><path d="M10 3 5 8l5 5"/></svg>Back to results
+          </span>
+          <p class="cat-chip"><span class="dot" style="background:#208aae">P</span>Pictos</p>
+          <h2>Confrontation</h2>
+        </div>
+        <p class="detail-desc">On parry: gain a burn charge. Consumed on the next base attack,
+          applying two burn stacks per charge. Found on the ridge west of the
+          Crimson Forest flag, behind the paint wall.</p>
+        <div class="detail-links">
+          <a href="#">Crimson Forest flag</a>
+          <a href="#">Paint wall (Quest Item)</a>
+        </div>
+        <dl class="detail-data">
+          <div><dt>Location ID</dt><dd>112 048</dd></div>
+          <div><dt>Coordinates</dt><dd>4 812 · 3 097</dd></div>
+          <div><dt>Geohash</dt><dd>g4x2m</dd></div>
+        </dl>
+      </div>
+    </div>
+  </aside>
+</div>
+
+<script>
+const root = document.documentElement;
+for (const button of document.querySelectorAll("[data-set-theme]")) {
+  button.addEventListener("click", () => {
+    root.dataset.theme = button.dataset.setTheme;
+    sync("data-set-theme", button);
+  });
+}
+for (const button of document.querySelectorAll("[data-set-dock]")) {
+  button.addEventListener("click", () => {
+    root.dataset.dock = button.dataset.setDock;
+    sync("data-set-dock", button);
+  });
+}
+function sync(attribute, active) {
+  for (const button of document.querySelectorAll(`[${attribute}]`)) {
+    button.classList.toggle("on", button === active);
+  }
+}
+for (const result of document.querySelectorAll("[data-open-detail]")) {
+  result.addEventListener("click", () => { root.dataset.dock = "detail"; syncDock(); });
+}
+document.querySelector("[data-close-detail]").addEventListener("click", () => {
+  root.dataset.dock = "list"; syncDock();
+});
+document.querySelector("[data-toggle-dock]").addEventListener("click", () => {
+  root.dataset.dock = root.dataset.dock === "hidden" ? "list" : "hidden"; syncDock();
+});
+function syncDock() {
+  const current = root.dataset.dock;
+  for (const button of document.querySelectorAll("[data-set-dock]")) {
+    button.classList.toggle("on", button.dataset.setDock === current);
+  }
+}
+</script>
+</body>
+</html>
