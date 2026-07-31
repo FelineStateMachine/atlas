@@ -523,8 +523,10 @@ function selectMap(id) {
 }
 
 function selectVariant(index, resetView = false) {
+  const priorVariant = state.variant;
   state.variant = state.map.variants[index] || state.map.variants[0];
   const variant = state.variant;
+  const carried = resetView ? null : carryViewAcrossShards(priorVariant, variant);
   const maxViewZoom = viewMaxZoom(variant);
   elements.variant.value = String(state.map.variants.indexOf(state.variant));
   if (resetView) state.engine.setView(createView(maxViewZoom));
@@ -608,8 +610,15 @@ function selectVariant(index, resetView = false) {
   }
   state.overviewKey = "";
   renderOverview();
+  if (priorVariant && priorVariant.shard !== variant.shard) {
+    renderZones();
+    applyPinFilters();
+  }
   if (resetView) requestAnimationFrame(fitMap);
-  else updateVisibleCount();
+  else if (carried) {
+    state.engine.getView().animate({ center: carried, duration: 200 });
+    updateVisibleCount();
+  } else updateVisibleCount();
 }
 
 // Levels are sparse: background tiles are never written, and levels above
@@ -745,6 +754,24 @@ function overviewJump(event) {
     ],
     duration: 180,
   });
+}
+
+// The layers of a split map are the same ground at different heights, stacked
+// down one sheet. Switching between them should leave the reader over the same
+// place, so the view is carried across by its position within each layer's box
+// rather than by its absolute coordinates.
+function carryViewAcrossShards(previous, next) {
+  if (!previous || !next || !previous.shard || !next.shard) return null;
+  if (previous.shard === next.shard || !previous.bounds || !next.bounds) return null;
+  const view = state.engine?.getView();
+  const centre = view?.getCenter();
+  if (!centre) return null;
+  const across = (centre[0] - previous.bounds.x) / previous.bounds.width;
+  const down = (-centre[1] - previous.bounds.y) / previous.bounds.height;
+  return [
+    next.bounds.x + clamp(across, 0, 1) * next.bounds.width,
+    -(next.bounds.y + clamp(down, 0, 1) * next.bounds.height),
+  ];
 }
 
 function activeExtent() {
@@ -1060,7 +1087,7 @@ function buildPins() {
 }
 
 function renderZones() {
-  const zones = state.map.zones || [];
+  const zones = (state.map.zones || []).filter(onActiveShard);
   state.sources.zones.clear();
   state.sources.zoneTitles.clear();
   state.zoneRecords.clear();
@@ -1954,7 +1981,14 @@ function isPriorityPin(pin) {
 }
 
 function pinIsHidden(pin) {
-  return pin.filteredHidden || pinIsZoneCulled(pin);
+  return pin.filteredHidden || pinIsZoneCulled(pin) || !onActiveShard(pin.location);
+}
+
+// A map split into layers offers one at a time. Anything belonging to another
+// layer is elsewhere in the world, not merely filtered out.
+function onActiveShard(item) {
+  const shard = state.variant?.shard;
+  return !shard || !item.shard || item.shard === shard;
 }
 
 function pinIsZoneCulled(pin) {

@@ -135,8 +135,11 @@ type catalogMap struct {
 	Variants   []variant      `json:"variants"`
 	Groups     []catalogGroup `json:"groups"`
 	Zones      []zone         `json:"zones,omitempty"`
-	PinCount   int            `json:"pinCount"`
-	UpdatedAt  string         `json:"updatedAt"`
+	// Parent names the map this one was split out of, so an inset sorts with
+	// the sheet it came from rather than alphabetically among unrelated maps.
+	Parent    string `json:"parent,omitempty"`
+	PinCount  int    `json:"pinCount"`
+	UpdatedAt string `json:"updatedAt"`
 }
 
 type coordinate struct {
@@ -155,6 +158,7 @@ type variant struct {
 	Bounds      *contentBounds            `json:"bounds,omitempty"`
 	Interpolate bool                      `json:"interpolate"`
 	Background  string                    `json:"background,omitempty"`
+	Shard       int64                     `json:"shard,omitempty"`
 	Coverage    map[string]*levelCoverage `json:"coverage,omitempty"`
 }
 
@@ -216,13 +220,16 @@ type catalogCategory struct {
 }
 
 type catalogLocation struct {
-	ID          int64         `json:"id"`
-	Title       string        `json:"title"`
-	Description string        `json:"description,omitempty"`
-	Latitude    float64       `json:"lat"`
-	Longitude   float64       `json:"lng"`
-	RegionID    *int64        `json:"regionId,omitempty"`
-	Links       []catalogLink `json:"links,omitempty"`
+	ID          int64   `json:"id"`
+	Title       string  `json:"title"`
+	Description string  `json:"description,omitempty"`
+	Latitude    float64 `json:"lat"`
+	Longitude   float64 `json:"lng"`
+	RegionID    *int64  `json:"regionId,omitempty"`
+	// Shard names the layer this location belongs to on a map split into
+	// layers, and is absent on maps that are not.
+	Shard int64         `json:"shard,omitempty"`
+	Links []catalogLink `json:"links,omitempty"`
 }
 
 // catalogLink is a cross-reference the source wrote as a mapgenie URL, resolved
@@ -239,6 +246,7 @@ type zone struct {
 	Subtitle       string      `json:"subtitle,omitempty"`
 	ParentRegionID *int64      `json:"parentRegionId,omitempty"`
 	Center         *coordinate `json:"center,omitempty"`
+	Shard          int64       `json:"shard,omitempty"`
 	Features       []geometry  `json:"features"`
 }
 
@@ -301,7 +309,7 @@ func run(source, tileManifestPath, output string) error {
 	}
 	iconRoot := filepath.Join(filepath.Dir(output), "icons")
 	for _, gameRef := range index.Games {
-		game, err := buildGame(archiveRoot, iconRoot, tilesByPath, gameRef)
+		game, err := buildGame(archiveRoot, iconRoot, tilesByPath, gameRef, out.TileGrid)
 		if err != nil {
 			return fmt.Errorf("%s: %w", gameRef.Title, err)
 		}
@@ -329,6 +337,7 @@ func buildGame(
 	iconRoot string,
 	tilesByPath map[string]tileVariantManifest,
 	ref archiveGame,
+	grid tileGrid,
 ) (catalogGame, error) {
 	gamePath := filepath.Join(archiveRoot, ref.Directory)
 	mapDirs, err := filepath.Glob(filepath.Join(gamePath, "maps", "*"))
@@ -341,7 +350,7 @@ func buildGame(
 		if err != nil || !info.IsDir() {
 			continue
 		}
-		m, gameSlug, err := buildMap(mapDir, tilesByPath)
+		pieces, gameSlug, err := buildMap(mapDir, tilesByPath, grid)
 		if err != nil {
 			if errors.Is(err, errMapNotReady) {
 				continue
@@ -351,7 +360,7 @@ func buildGame(
 		if game.Slug == "" {
 			game.Slug = gameSlug
 		}
-		game.Maps = append(game.Maps, m)
+		game.Maps = append(game.Maps, pieces...)
 	}
 	sortGameMaps(game.Slug, game.Maps)
 	if err := attachGameIcons(gamePath, iconRoot, &game); err != nil {
@@ -365,33 +374,56 @@ func sortGameMaps(gameSlug string, maps []catalogMap) {
 	for index, slug := range preferredMapOrder[gameSlug] {
 		order[slug] = index
 	}
+	titles := make(map[string]string, len(maps))
+	for _, m := range maps {
+		titles[m.Slug] = m.Title
+	}
+	// Maps sort as families: an inset carries its parent's position and follows
+	// it, so a split sheet stays together in the picker.
+	family := func(m catalogMap) (string, string) {
+		if m.Parent == "" {
+			return m.Slug, m.Title
+		}
+		return m.Parent, titles[m.Parent]
+	}
 	sort.SliceStable(maps, func(i, j int) bool {
-		left, leftPreferred := order[maps[i].Slug]
-		right, rightPreferred := order[maps[j].Slug]
+		leftSlug, leftTitle := family(maps[i])
+		rightSlug, rightTitle := family(maps[j])
+		left, leftPreferred := order[leftSlug]
+		right, rightPreferred := order[rightSlug]
 		if leftPreferred != rightPreferred {
 			return leftPreferred
 		}
 		if leftPreferred && left != right {
 			return left < right
 		}
+		if leftTitle != rightTitle {
+			return leftTitle < rightTitle
+		}
+		if (maps[i].Parent == "") != (maps[j].Parent == "") {
+			return maps[i].Parent == ""
+		}
 		return maps[i].Title < maps[j].Title
 	})
 }
 
+// buildMap returns one entry per map, or several when a sheet holding separate
+// places is declared for splitting.
 func buildMap(
 	mapDir string,
 	tilesByPath map[string]tileVariantManifest,
-) (catalogMap, string, error) {
+	grid tileGrid,
+) ([]catalogMap, string, error) {
 	var snapshots []snapshotIndex
 	indexPath := filepath.Join(mapDir, "snapshots", "index.json")
 	if err := readJSON(indexPath, &snapshots); err != nil {
 		if errors.Is(err, os.ErrNotExist) {
-			return catalogMap{}, "", fmt.Errorf("%w: snapshot index is missing", errMapNotReady)
+			return nil, "", fmt.Errorf("%w: snapshot index is missing", errMapNotReady)
 		}
-		return catalogMap{}, "", err
+		return nil, "", err
 	}
 	if len(snapshots) == 0 {
-		return catalogMap{}, "", fmt.Errorf("%w: snapshot index is empty", errMapNotReady)
+		return nil, "", fmt.Errorf("%w: snapshot index is empty", errMapNotReady)
 	}
 	sort.Slice(snapshots, func(i, j int) bool { return snapshots[i].CapturedAt < snapshots[j].CapturedAt })
 	latest := snapshots[len(snapshots)-1]
@@ -399,7 +431,7 @@ func buildMap(
 	var raw rawMap
 	snapshotPath := filepath.Join(mapDir, "snapshots", "map", latest.ContentHash+".json")
 	if err := readJSON(snapshotPath, &raw); err != nil {
-		return catalogMap{}, "", err
+		return nil, "", err
 	}
 
 	m := catalogMap{
@@ -411,12 +443,12 @@ func buildMap(
 		UpdatedAt:  latest.CapturedAt,
 	}
 	if len(raw.Config.TileSets) == 0 {
-		return catalogMap{}, "", fmt.Errorf("%w: no tile sets", errMapNotReady)
+		return nil, "", fmt.Errorf("%w: no tile sets", errMapNotReady)
 	}
 	for _, set := range raw.Config.TileSets {
 		tiles, ok := tilesByPath[set.Path]
 		if !ok {
-			return catalogMap{}, "", fmt.Errorf("%w: tile layer %s is missing", errMapNotReady, set.Path)
+			return nil, "", fmt.Errorf("%w: tile layer %s is missing", errMapNotReady, set.Path)
 		}
 		m.Variants = append(m.Variants, variant{
 			Name:        set.Name,
@@ -447,11 +479,11 @@ func buildMap(
 			for _, rawLocation := range rawCategory.Locations {
 				lat, err := number(rawLocation.Latitude)
 				if err != nil {
-					return catalogMap{}, "", fmt.Errorf("location %d latitude: %w", rawLocation.ID, err)
+					return nil, "", fmt.Errorf("location %d latitude: %w", rawLocation.ID, err)
 				}
 				lng, err := number(rawLocation.Longitude)
 				if err != nil {
-					return catalogMap{}, "", fmt.Errorf("location %d longitude: %w", rawLocation.ID, err)
+					return nil, "", fmt.Errorf("location %d longitude: %w", rawLocation.ID, err)
 				}
 				category.Locations = append(category.Locations, catalogLocation{
 					ID:          rawLocation.ID,
@@ -476,11 +508,11 @@ func buildMap(
 		}
 		centerX, hasX, err := optionalNumber(rawRegion.CenterX)
 		if err != nil {
-			return catalogMap{}, "", fmt.Errorf("region %d center_x: %w", rawRegion.ID, err)
+			return nil, "", fmt.Errorf("region %d center_x: %w", rawRegion.ID, err)
 		}
 		centerY, hasY, err := optionalNumber(rawRegion.CenterY)
 		if err != nil {
-			return catalogMap{}, "", fmt.Errorf("region %d center_y: %w", rawRegion.ID, err)
+			return nil, "", fmt.Errorf("region %d center_y: %w", rawRegion.ID, err)
 		}
 		if hasX && hasY {
 			z.Center = &coordinate{Latitude: centerY, Longitude: centerX}
@@ -495,7 +527,11 @@ func buildMap(
 		}
 	}
 	resolveDescriptionLinks(&m)
-	return m, raw.Game.Slug, nil
+	pieces, err := splitMap(m, raw, grid)
+	if err != nil {
+		return nil, "", err
+	}
+	return pieces, raw.Game.Slug, nil
 }
 
 // Labels may themselves contain a bracketed aside, as in

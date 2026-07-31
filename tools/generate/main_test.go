@@ -100,6 +100,7 @@ func TestBuildGameSkipsMapWithoutSnapshotIndex(t *testing.T) {
 			ID:        246,
 			Title:     "Pokémon Red/Blue/Yellow",
 		},
+		tileGrid{SourceZoom: 13, FirstTile: 4064, TileSize: 256, Size: 8192},
 	)
 	if err != nil {
 		t.Fatal(err)
