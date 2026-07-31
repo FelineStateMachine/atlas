@@ -148,14 +148,19 @@ type coordinate struct {
 }
 
 type variant struct {
-	Name        string                    `json:"name"`
-	Tiles       string                    `json:"tiles"`
-	MinZoom     int                       `json:"minZoom"`
-	MaxZoom     int                       `json:"maxZoom"`
-	FullZoom    int                       `json:"fullZoom"`
-	SourceZoom  int                       `json:"sourceZoom"`
-	Formats     []string                  `json:"formats"`
-	Bounds      *contentBounds            `json:"bounds,omitempty"`
+	Name       string         `json:"name"`
+	Tiles      string         `json:"tiles"`
+	MinZoom    int            `json:"minZoom"`
+	MaxZoom    int            `json:"maxZoom"`
+	FullZoom   int            `json:"fullZoom"`
+	SourceZoom int            `json:"sourceZoom"`
+	Formats    []string       `json:"formats"`
+	Bounds     *contentBounds `json:"bounds,omitempty"`
+	// Surface is the ground the map covers, where Bounds is the window cut from
+	// the tile pyramid to draw it. On a piece of a sheet the window is grown to
+	// take in the title drawn beside it, so anything dividing the map up -- the
+	// geohash grid -- measures the surface instead and leaves no cell on margin.
+	Surface     *contentBounds            `json:"surface,omitempty"`
 	Interpolate bool                      `json:"interpolate"`
 	Background  string                    `json:"background,omitempty"`
 	Shard       int64                     `json:"shard,omitempty"`
@@ -535,6 +540,9 @@ func buildMap(
 	pieces, err := splitMap(m, raw, grid)
 	if err != nil {
 		return nil, "", err
+	}
+	for index := range pieces {
+		markSurfaces(&pieces[index], grid)
 	}
 	return pieces, raw.Game.Slug, nil
 }

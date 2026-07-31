@@ -268,6 +268,63 @@ func TestLayeredMapLocationsNameTheirLayer(t *testing.T) {
 	}
 }
 
+// A piece cut from a sheet keeps a margin in its raster so the title drawn
+// beside it is not sliced in half. The geohash grid divides the ground instead,
+// or a small map spends whole cells on blank sheet -- so the two rectangles
+// travel separately, with the ground inside the window it is drawn through.
+func TestSheetPiecesCarryTheirGroundSeparately(t *testing.T) {
+	const mccarran = 3758
+	for _, variant := range readMapPayload(t, mccarran).Variants {
+		if variant.Bounds == nil || variant.Surface == nil {
+			t.Fatalf("Camp McCarran layer %q has bounds %v and surface %v, wanting both",
+				variant.Name, variant.Bounds, variant.Surface)
+		}
+		if variant.Surface.Width <= 0 || variant.Surface.Height <= 0 {
+			t.Fatalf("Camp McCarran surface is %dx%d", variant.Surface.Width, variant.Surface.Height)
+		}
+		if variant.Surface.X < variant.Bounds.X || variant.Surface.Y < variant.Bounds.Y ||
+			variant.Surface.X+variant.Surface.Width > variant.Bounds.X+variant.Bounds.Width ||
+			variant.Surface.Y+variant.Surface.Height > variant.Bounds.Y+variant.Bounds.Height {
+			t.Fatalf("Camp McCarran ground %v reaches outside the window %v drawn for it",
+				*variant.Surface, *variant.Bounds)
+		}
+		if variant.Surface.Width >= variant.Bounds.Width &&
+			variant.Surface.Height >= variant.Bounds.Height {
+			t.Error("Camp McCarran keeps no margin, so the split no longer grows its pieces")
+		}
+	}
+
+	// Every map names its ground, split or not: the sheets that were never cut
+	// up are the ones with a printed border or a title panel around them, and
+	// the grid has to know the difference there too.
+	for _, mapID := range []int64{3, 427, 604, 877} {
+		for _, variant := range readMapPayload(t, mapID).Variants {
+			if variant.Surface == nil || variant.Surface.Width <= 0 || variant.Surface.Height <= 0 {
+				t.Errorf("map %d layer %q measures no ground", mapID, variant.Name)
+				continue
+			}
+			if variant.Bounds == nil {
+				continue
+			}
+			if variant.Surface.X < variant.Bounds.X || variant.Surface.Y < variant.Bounds.Y ||
+				variant.Surface.X+variant.Surface.Width > variant.Bounds.X+variant.Bounds.Width ||
+				variant.Surface.Y+variant.Surface.Height > variant.Bounds.Y+variant.Bounds.Height {
+				t.Errorf("map %d ground %v reaches outside its window %v",
+					mapID, *variant.Surface, *variant.Bounds)
+			}
+		}
+	}
+
+	// Tunic is drawn inside a solid border filling a full-world window, so its
+	// ground has to be a fraction of what it is cut from.
+	for _, variant := range readMapPayload(t, 427).Variants {
+		if variant.Surface.Width > 6000 || variant.Surface.Height > 6000 {
+			t.Errorf("Tunic ground is %dx%d, so the border is still being divided up",
+				variant.Surface.Width, variant.Surface.Height)
+		}
+	}
+}
+
 func TestEmbeddedCatalogCarriesTextLabelsAndZones(t *testing.T) {
 	index := readIndex(t)
 	find := func(game, name string) int64 {

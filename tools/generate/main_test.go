@@ -176,3 +176,102 @@ func TestPackLocationsCarriesEveryColumn(t *testing.T) {
 		t.Fatalf("titles = %q, want %q", titles, "Sky MineDeep Well")
 	}
 }
+
+// A piece is cropped from the sheet by growing its ground into the space around
+// it and then easing it away from its neighbours. Easing may only give back
+// what the growth added: it once cut into the ground itself, which took the
+// bottom border off the Camp McCarran panel -- the crop stopped inside the
+// frame the panel is drawn with.
+func TestGrowIntoGapsKeepsEveryPieceAroundItsGround(t *testing.T) {
+	// Two pieces set corner to corner, sharing a span on neither axis, so both
+	// grow into the same diagonal space and have to be eased apart again.
+	ground := [][4]float64{
+		{0, 0, 100, 100},
+		{110, 110, 210, 210},
+	}
+
+	grown := growIntoGaps(ground, 8192)
+
+	for index, box := range ground {
+		got := grown[index]
+		if got[0] > box[0] || got[1] > box[1] || got[2] < box[2] || got[3] < box[3] {
+			t.Errorf("piece %d cropped to %v, which cuts into its ground %v", index, got, box)
+		}
+	}
+}
+
+// The window a raster is cut from is not the ground the map is about: a sheet
+// drawn inside a printed border or a title panel spends most of its thirty-two
+// named cells on nothing. What the grid divides is measured from the map's own
+// contents instead, and a location drawn off the sheet entirely does not get to
+// stretch that measurement back over everything it left out.
+func TestMarkSurfacesMeasuresContentsNotTheWindow(t *testing.T) {
+	grid := tileGrid{SourceZoom: 13, FirstTile: 4064, TileSize: 256, Size: 8192}
+	at := func(x, y float64) catalogLocation {
+		return catalogLocation{
+			Latitude:  unprojectLatitude(y, grid),
+			Longitude: unprojectLongitude(x, grid),
+		}
+	}
+	window := contentBounds{X: 2000, Y: 2000, Width: 3000, Height: 3000}
+	m := catalogMap{
+		Variants: []variant{{Bounds: &window}},
+		Groups: []catalogGroup{{
+			Categories: []catalogCategory{{
+				Locations: []catalogLocation{
+					at(3000, 3000),
+					at(4000, 4000),
+					// Off the sheet, and so no part of what the map covers.
+					at(6000, 6000),
+				},
+			}},
+		}},
+	}
+
+	markSurfaces(&m, grid)
+
+	surface := m.Variants[0].Surface
+	if surface == nil {
+		t.Fatal("no surface measured")
+	}
+	near := func(got, want int) bool { return got >= want-2 && got <= want+2 }
+	// The margin is the larger of 32 pixels and a fiftieth of the longer side.
+	if !near(surface.X, 2968) || !near(surface.Y, 2968) ||
+		!near(surface.Width, 1064) || !near(surface.Height, 1064) {
+		t.Fatalf("surface = %+v, want about {2968 2968 1064 1064}", *surface)
+	}
+	if surface.X < window.X || surface.Y < window.Y ||
+		surface.X+surface.Width > window.X+window.Width ||
+		surface.Y+surface.Height > window.Y+window.Height {
+		t.Errorf("surface %+v reaches outside the window %+v", *surface, window)
+	}
+}
+
+// A piece of a sheet already knows the ground its regions cover, and that
+// ground is kept: the pieces are cropped to it, and their locations need not
+// reach every corner of what the piece is drawn to show.
+func TestMarkSurfacesKeepsGroundAlreadyMeasured(t *testing.T) {
+	grid := tileGrid{SourceZoom: 13, FirstTile: 4064, TileSize: 256, Size: 8192}
+	window := contentBounds{X: 2000, Y: 2000, Width: 3000, Height: 3000}
+	ground := contentBounds{X: 2500, Y: 2500, Width: 2000, Height: 2000}
+	m := catalogMap{
+		Variants: []variant{{Bounds: &window, Surface: &ground}},
+		Groups: []catalogGroup{{
+			Categories: []catalogCategory{{
+				Locations: []catalogLocation{{
+					Latitude:  unprojectLatitude(3000, grid),
+					Longitude: unprojectLongitude(3000, grid),
+				}},
+			}},
+		}},
+	}
+
+	markSurfaces(&m, grid)
+
+	surface := m.Variants[0].Surface
+	if surface.X > ground.X || surface.Y > ground.Y ||
+		surface.X+surface.Width < ground.X+ground.Width ||
+		surface.Y+surface.Height < ground.Y+ground.Height {
+		t.Fatalf("surface = %+v, which drops part of the ground %+v", *surface, ground)
+	}
+}

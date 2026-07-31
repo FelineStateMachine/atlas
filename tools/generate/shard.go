@@ -42,7 +42,11 @@ type shard struct {
 	Regions   map[int64]bool
 	// Bounds is in the shared world pixel space the tile pyramid uses.
 	Bounds contentBounds
-	Center coordinate
+	// Surface is the same box before it was grown into the space around it: the
+	// ground the piece's regions actually cover, without the margin the raster
+	// keeps so a title banner is not sliced in half.
+	Surface contentBounds
+	Center  coordinate
 }
 
 // planShards groups a map's regions and locations under their top-level region.
@@ -169,6 +173,13 @@ func planShards(raw rawMap, grid tileGrid, mode shardMode) ([]shard, error) {
 			Width:  int(right - left),
 			Height: int(bottom - top),
 		}
+		box := boxes[index]
+		piece.Surface = contentBounds{
+			X:      int(box[0]),
+			Y:      int(box[1]),
+			Width:  int(box[2] - box[0]),
+			Height: int(box[3] - box[1]),
+		}
 		piece.Center = coordinate{
 			Latitude:  unprojectLatitude((top+bottom)/2, grid),
 			Longitude: unprojectLongitude((left+right)/2, grid),
@@ -238,7 +249,7 @@ func growIntoGaps(boxes [][4]float64, world float64) [][4]float64 {
 			math.Min(world, box[3]+room[3]),
 		}
 	}
-	separate(grown)
+	separate(grown, boxes)
 	return grown
 }
 
@@ -246,7 +257,13 @@ func growIntoGaps(boxes [][4]float64, world float64) [][4]float64 {
 // share no span on either axis do not hold each other back, so both can expand
 // into the same diagonal space. Whichever way they now overlap least is the way
 // they are eased apart.
-func separate(boxes [][4]float64) {
+//
+// Only the growth is ever given back. Easing two pieces apart used to be free
+// to cut into the ground a piece was cut for, which took the bottom border off
+// the Camp McCarran panel: the crop stopped inside the frame the panel is drawn
+// with. Where two pieces genuinely cover the same ground they are left
+// overlapping, because that is the sheet saying so, not the crop.
+func separate(boxes, floors [][4]float64) {
 	for pass := 0; pass < len(boxes); pass++ {
 		clear := true
 		for a := range boxes {
@@ -259,15 +276,25 @@ func separate(boxes [][4]float64) {
 				clear = false
 				if across <= down {
 					give(&boxes[a], &boxes[b], across/2, 0)
-					continue
+				} else {
+					give(&boxes[a], &boxes[b], down/2, 1)
 				}
-				give(&boxes[a], &boxes[b], down/2, 1)
+				hold(&boxes[a], floors[a])
+				hold(&boxes[b], floors[b])
 			}
 		}
 		if clear {
 			return
 		}
 	}
+}
+
+// hold keeps a box around the ground it was grown from.
+func hold(box *[4]float64, floor [4]float64) {
+	box[0] = math.Min(box[0], floor[0])
+	box[1] = math.Min(box[1], floor[1])
+	box[2] = math.Max(box[2], floor[2])
+	box[3] = math.Max(box[3], floor[3])
 }
 
 // give pulls two boxes back from each other along one axis, axis 0 across and
@@ -428,7 +455,7 @@ func asMaps(m catalogMap, pieces []shard) []catalogMap {
 		copied.Zones = keepZones(m.Zones, piece.Regions, piece.Region.ID)
 		copied.PinCount = countLocations(copied.Groups)
 		copied.Center = piece.Center
-		copied.Variants = boundVariants(m.Variants, piece.Bounds, 0)
+		copied.Variants = boundVariants(m.Variants, piece.Bounds, piece.Surface, 0)
 		if index > 0 {
 			copied.ID = piece.Region.ID
 			copied.Title = m.Title + " — " + piece.Region.Title
@@ -447,7 +474,7 @@ func asVariants(m catalogMap, pieces []shard) catalogMap {
 	var variants []variant
 	var dropped []int64
 	for _, piece := range pieces {
-		bound := boundVariants(m.Variants, piece.Bounds, piece.Region.ID)
+		bound := boundVariants(m.Variants, piece.Bounds, piece.Surface, piece.Region.ID)
 		for index := range bound {
 			bound[index].Name = piece.Region.Title
 		}
@@ -479,18 +506,133 @@ func asVariants(m catalogMap, pieces []shard) catalogMap {
 }
 
 // boundVariants clips each raster to the piece. The tiles are the same pyramid
-// either way; only the window onto it changes.
-func boundVariants(variants []variant, bounds contentBounds, shardID int64) []variant {
+// either way; only the window onto it changes. The ground the piece covers
+// travels alongside the window, because they are not the same rectangle and
+// anything measuring the map rather than drawing it wants the ground.
+func boundVariants(variants []variant, bounds, surface contentBounds, shardID int64) []variant {
+	// Easing two pieces apart can pull a window in past the ground it grew
+	// from, and what the grid divides has to be drawn, so the ground is clipped
+	// to the window rather than reaching beyond it.
+	ground := intersectBounds(surface, bounds)
 	out := make([]variant, 0, len(variants))
 	for _, source := range variants {
 		clipped := source
 		clipped.Bounds = &contentBounds{
 			X: bounds.X, Y: bounds.Y, Width: bounds.Width, Height: bounds.Height,
 		}
+		clipped.Surface = &contentBounds{
+			X: ground.X, Y: ground.Y, Width: ground.Width, Height: ground.Height,
+		}
 		clipped.Shard = shardID
 		out = append(out, clipped)
 	}
 	return out
+}
+
+// The window a raster is cut from is not the ground the map is about. Several
+// sheets are drawn inside a printed border or a wide margin of nothing -- Zion
+// Canyon and Tunic sit in the middle of a full-world window -- and dividing
+// that window into thirty-two named cells spends most of them on blank paper.
+//
+// So what the grid divides is measured from the map's own contents: where its
+// locations are, and the ground its regions outline. That is the archive
+// answering for each map rather than a list of maps to treat specially, and it
+// says the same thing about a border whether the border is solid or patterned.
+func markSurfaces(m *catalogMap, grid tileGrid) {
+	for index := range m.Variants {
+		variant := &m.Variants[index]
+		window := worldBounds(grid)
+		if variant.Bounds != nil {
+			window = *variant.Bounds
+		}
+		box, ok := contentExtent(*m, variant.Shard, window, grid)
+		if !ok {
+			continue
+		}
+		if variant.Surface != nil {
+			box = unionBounds(*variant.Surface, box)
+		}
+		box = intersectBounds(box, window)
+		variant.Surface = &box
+	}
+}
+
+// contentExtent is where a map's own contents lie, in the world pixel space the
+// tiles are cut in and measured down from the top of it, as the raster clip is.
+// Anything drawn outside the window is left out of the reckoning: a few
+// locations sit off the sheet entirely -- three of Marathon's eighty -- and one
+// of those would stretch the ground back over everything it had just left out.
+func contentExtent(m catalogMap, shard int64, window contentBounds, grid tileGrid) (contentBounds, bool) {
+	left, top := math.Inf(1), math.Inf(1)
+	right, bottom := math.Inf(-1), math.Inf(-1)
+	found := false
+	grow := func(x, y float64) {
+		if x < float64(window.X) || y < float64(window.Y) ||
+			x > float64(window.X+window.Width) || y > float64(window.Y+window.Height) {
+			return
+		}
+		left, top = math.Min(left, x), math.Min(top, y)
+		right, bottom = math.Max(right, x), math.Max(bottom, y)
+		found = true
+	}
+
+	for _, group := range m.Groups {
+		for _, category := range group.Categories {
+			for _, location := range category.Locations {
+				if shard != 0 && location.Shard != shard {
+					continue
+				}
+				x, y := projectPoint(location.Latitude, location.Longitude, grid)
+				grow(x, y)
+			}
+		}
+	}
+	for _, z := range m.Zones {
+		if shard != 0 && z.Shard != shard {
+			continue
+		}
+		for _, feature := range z.Features {
+			for _, point := range flattenCoordinates(feature.Coordinates) {
+				x, y := projectPoint(point[1], point[0], grid)
+				grow(x, y)
+			}
+		}
+	}
+	if !found {
+		return contentBounds{}, false
+	}
+
+	// A margin, so the outermost location sits inside a cell rather than along
+	// its edge, and so a map drawn right up to its own border keeps a little of
+	// what surrounds it.
+	margin := math.Max(32, 0.02*math.Max(right-left, bottom-top))
+	return contentBounds{
+		X:      int(left - margin),
+		Y:      int(top - margin),
+		Width:  int((right - left) + margin*2),
+		Height: int((bottom - top) + margin*2),
+	}, true
+}
+
+func worldBounds(grid tileGrid) contentBounds {
+	return contentBounds{Width: grid.Size, Height: grid.Size}
+}
+
+func unionBounds(a, b contentBounds) contentBounds {
+	left, top := min(a.X, b.X), min(a.Y, b.Y)
+	right, bottom := max(a.X+a.Width, b.X+b.Width), max(a.Y+a.Height, b.Y+b.Height)
+	return contentBounds{X: left, Y: top, Width: right - left, Height: bottom - top}
+}
+
+// intersectBounds is the overlap of two rectangles, or the second of them where
+// they do not meet at all.
+func intersectBounds(a, b contentBounds) contentBounds {
+	left, top := max(a.X, b.X), max(a.Y, b.Y)
+	right, bottom := min(a.X+a.Width, b.X+b.Width), min(a.Y+a.Height, b.Y+b.Height)
+	if right <= left || bottom <= top {
+		return b
+	}
+	return contentBounds{X: left, Y: top, Width: right - left, Height: bottom - top}
 }
 
 func keepLocations(groups []catalogGroup, wanted map[int64]bool) []catalogGroup {
