@@ -4,3 +4,4 @@
 /.playwright-cli/
 /output/
 /crawl
+/generate
