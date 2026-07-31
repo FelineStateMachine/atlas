@@ -21,7 +21,7 @@
 .layer-switch > span {
   width: 9px;
   height: 9px;
-  border: 1px solid #6b7163;
+  border: 1px solid #6b665a;
   transition: background 140ms ease, border-color 140ms ease;
 }
 

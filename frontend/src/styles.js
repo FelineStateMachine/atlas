@@ -124,9 +124,9 @@ export function markerLabelStyle(pin) {
       text: pin.location.title,
       offsetY: 21,
       font: '700 10px "Arial Narrow", "Roboto Condensed", sans-serif',
-      fill: new Fill({ color: "#f4f6ed" }),
+      fill: new Fill({ color: "#f2ece0" }),
       stroke: new Stroke({ color: "rgba(0,0,0,0.98)", width: 3 }),
-      backgroundFill: new Fill({ color: "rgba(10,13,9,0.72)" }),
+      backgroundFill: new Fill({ color: "rgba(10,12,17,0.72)" }),
       padding: [2, 4, 2, 4],
       overflow: true,
     }),
@@ -211,10 +211,10 @@ export function textStyles(pin, selected) {
     text: new Text({
       text: pin.location.title,
       font: `${selected ? "900" : "800"} 14px "Arial Narrow", "Roboto Condensed", sans-serif`,
-      fill: new Fill({ color: selected ? "#d6f36b" : "#f3f5e9" }),
+      fill: new Fill({ color: selected ? "#7fd0ea" : "#f2ece0" }),
       stroke: new Stroke({ color: "rgba(0,0,0,0.95)", width: 4 }),
-      backgroundFill: new Fill({ color: selected ? "rgba(17,21,14,0.9)" : "rgba(10,13,9,0.58)" }),
-      backgroundStroke: selected ? new Stroke({ color: "#d6f36b", width: 1 }) : undefined,
+      backgroundFill: new Fill({ color: selected ? "rgba(13,16,23,0.9)" : "rgba(10,12,17,0.58)" }),
+      backgroundStroke: selected ? new Stroke({ color: "#3aa5c9", width: 1 }) : undefined,
       padding: [3, 6, 3, 6],
       overflow: true,
     }),
@@ -263,7 +263,7 @@ export function gridStyle(feature, resolution) {
       ? undefined
       : new Fill({
         color: neighbor
-          ? `rgba(3, 5, 3, ${Math.min(0.52, 0.30 + cell.contextDistance * 0.06)})`
+          ? `rgba(5, 8, 16, ${Math.min(0.52, 0.30 + cell.contextDistance * 0.06)})`
           : hexToRGBA(color, leaf ? 0.14 : 0.055),
       }),
     stroke: new Stroke({
@@ -279,7 +279,7 @@ export function gridStyle(feature, resolution) {
         }),
         stroke: new Stroke({ color: "rgba(0,0,0,0.96)", width: 4 }),
         backgroundFill: new Fill({
-          color: neighbor ? "rgba(4,6,4,0.88)" : "rgba(9,12,8,0.76)",
+          color: neighbor ? "rgba(8,11,18,0.88)" : "rgba(12,15,22,0.76)",
         }),
         padding,
         overflow: true,
@@ -317,7 +317,7 @@ export function measureLabel(text, font) {
   return width;
 }
 
-export const zoneScrimFill = new Style({ fill: new Fill({ color: "rgba(3, 5, 3, 0.62)" }) });
+export const zoneScrimFill = new Style({ fill: new Fill({ color: "rgba(5, 8, 16, 0.62)" }) });
 
 export function zoneScrimStyle() {
   return state.zonesVisible ? zoneScrimFill : null;
@@ -409,10 +409,10 @@ export function renderedZoneTitleStyle(feature) {
       font: `${child ? "700 12px" : "800 14px"} "Arial Narrow", "Roboto Condensed", sans-serif`,
       fill: new Fill({
         color: highlighted
-          ? "#11140f"
+          ? "#10131a"
           : dimmed
-            ? "rgba(185,192,177,0.56)"
-            : child ? "#c7ccbd" : "#f1f4e7",
+            ? "rgba(196,191,177,0.56)"
+            : child ? "#c8c2b4" : "#f2ece0",
       }),
       stroke: new Stroke({
         color: highlighted
@@ -421,7 +421,7 @@ export function renderedZoneTitleStyle(feature) {
         width: highlighted ? 2 : dimmed ? 3 : 4,
       }),
       backgroundFill: new Fill({
-        color: highlighted ? color : dimmed ? "rgba(4,6,4,0.84)" : "rgba(11,14,10,0.72)",
+        color: highlighted ? color : dimmed ? "rgba(8,11,18,0.84)" : "rgba(13,16,23,0.72)",
       }),
       backgroundStroke: new Stroke({
         color: highlighted ? "#ffffff" : hexToRGBA(color, dimmed ? 0.24 : 0.55),

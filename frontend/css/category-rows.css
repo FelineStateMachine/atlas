@@ -15,7 +15,7 @@
   min-height: 26px;
   padding: 0 4px;
   border-radius: 3px;
-  color: #7d8275;
+  color: #7d786c;
   cursor: pointer;
   user-select: none;
 }
@@ -26,7 +26,7 @@
 }
 
 .category-row:has(input:checked) {
-  color: #d8dccf;
+  color: #d8d2c4;
 }
 
 .category-row input {
@@ -98,7 +98,7 @@
 }
 
 .category-count {
-  color: #6f7568;
+  color: #6f6a5e;
   font-size: 10px;
   font-variant-numeric: tabular-nums;
   text-align: right;

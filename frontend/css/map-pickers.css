@@ -34,13 +34,13 @@
 }
 
 .map-pickers select:focus {
-  border-color: rgba(214, 243, 107, 0.6);
+  border-color: rgba(58, 165, 201, 0.6);
 }
 
 .map-pickers select:disabled {
   border-color: transparent;
   background: rgba(255, 255, 255, 0.025);
-  color: #9ca193;
+  color: #9c968a;
   cursor: default;
   opacity: 1;
 }

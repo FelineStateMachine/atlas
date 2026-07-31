@@ -22,18 +22,18 @@
   border: 1px solid var(--line);
   border-radius: 8px;
   outline: none;
-  background: #11140f;
+  background: #111318;
   color: var(--text);
   font-size: 13px;
 }
 
 .search-wrap input::placeholder {
-  color: #757a6e;
+  color: #757064;
 }
 
 .search-wrap input:focus {
-  border-color: rgba(214, 243, 107, 0.5);
-  box-shadow: 0 0 0 3px rgba(214, 243, 107, 0.06);
+  border-color: rgba(58, 165, 201, 0.5);
+  box-shadow: 0 0 0 3px rgba(58, 165, 201, 0.06);
 }
 
 .search-wrap kbd {
@@ -55,7 +55,7 @@
   margin: -8px 17px 14px;
   border: 1px solid var(--line);
   border-radius: 8px;
-  background: #11140f;
+  background: #111318;
   box-shadow: 0 15px 35px rgba(0, 0, 0, 0.32);
 }
 

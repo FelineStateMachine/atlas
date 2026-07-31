@@ -12,7 +12,9 @@
   width: 35px;
   height: 35px;
   place-items: center;
-  color: var(--accent);
+  border-radius: 9px;
+  background: var(--accent);
+  color: var(--accent-ink);
 }
 
 .brand-mark svg {

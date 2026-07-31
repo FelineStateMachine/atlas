@@ -15,7 +15,7 @@
   border: 1px solid var(--line-strong);
   border-radius: 4px;
   opacity: 0;
-  background: rgba(12, 14, 11, 0.97);
+  background: rgba(15, 16, 20, 0.97);
   box-shadow: 0 6px 18px rgba(0, 0, 0, 0.4);
   color: var(--text);
   content: attr(data-label);

@@ -4,7 +4,7 @@
   grid-row: 2;
   min-width: 0;
   min-height: 0;
-  background: #0c0e0c;
+  background: var(--map-surround);
 }
 
 .map {
@@ -13,8 +13,8 @@
   overflow: hidden;
   outline: none;
   background:
-    radial-gradient(circle at 50% 50%, rgba(102, 111, 86, 0.13), transparent 56%),
-    #0b0d0b;
+    radial-gradient(circle at 50% 50%, rgba(32, 138, 174, 0.07), transparent 56%),
+    #0b1220;
   cursor: grab;
   touch-action: none;
   user-select: none;
@@ -38,8 +38,8 @@
   z-index: 2;
   inset: 0;
   background:
-    linear-gradient(90deg, rgba(5, 7, 5, 0.36), transparent 7%, transparent 93%, rgba(5, 7, 5, 0.25)),
-    linear-gradient(180deg, rgba(5, 7, 5, 0.2), transparent 10%, transparent 92%, rgba(5, 7, 5, 0.35));
+    linear-gradient(90deg, rgba(4, 7, 14, 0.36), transparent 7%, transparent 93%, rgba(4, 7, 14, 0.25)),
+    linear-gradient(180deg, rgba(4, 7, 14, 0.2), transparent 10%, transparent 92%, rgba(4, 7, 14, 0.35));
   content: "";
   pointer-events: none;
 }

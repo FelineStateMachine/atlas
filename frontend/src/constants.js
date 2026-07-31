@@ -1,6 +1,10 @@
+// Zones, grid cells, and categories without an archive color draw from this
+// wheel. Mid-tone hues anchored on the identity's cerulean and earths: bright
+// enough to read over game tiles under the white outset, muted enough not to
+// shout over the neutral chrome.
 export const palette = [
-  "#d6f36b", "#72d5f4", "#ff9e64", "#df83ff", "#62e6ae",
-  "#ff6f91", "#f4d35e", "#8aa9ff", "#e7a56d", "#83d483",
+  "#4fb3d5", "#c9924b", "#82b56a", "#c96a6a", "#9581cc",
+  "#4bc9a9", "#d4b04a", "#6a92c9", "#b08a5a", "#8fb3a2",
 ];
 
 export const geohashAlphabet = "0123456789bcdefghjkmnpqrstuvwxyz";

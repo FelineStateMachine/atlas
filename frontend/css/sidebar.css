@@ -8,7 +8,7 @@
   flex-direction: column;
   border-right: 1px solid var(--line);
   background:
-    linear-gradient(180deg, rgba(214, 243, 107, 0.025), transparent 22%),
+    linear-gradient(180deg, rgba(58, 165, 201, 0.025), transparent 22%),
     var(--panel);
 }
 

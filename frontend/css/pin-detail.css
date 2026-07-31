@@ -9,7 +9,7 @@
   padding: 20px;
   border: 1px solid var(--line-strong);
   border-radius: 11px;
-  background: rgba(21, 24, 20, 0.96);
+  background: rgba(23, 25, 29, 0.96);
   box-shadow: 0 18px 55px rgba(0, 0, 0, 0.45);
   -webkit-user-select: text;
   user-select: text;
@@ -78,7 +78,7 @@
 
 .pin-detail > p {
   margin: 0;
-  color: #b9bdb0;
+  color: #b9b3a5;
   font-size: 12px;
   line-height: 1.55;
   white-space: pre-line;
@@ -129,7 +129,7 @@
 }
 
 .pin-detail dt {
-  color: #71766a;
+  color: #716c60;
   font-size: 8px;
   font-weight: 800;
   letter-spacing: 0.1em;
@@ -139,7 +139,7 @@
 .pin-detail dd {
   overflow: hidden;
   margin: 4px 0 0;
-  color: #c6cabd;
+  color: #c6c0b2;
   font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
   font-size: 9px;
   text-overflow: ellipsis;

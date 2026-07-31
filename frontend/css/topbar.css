@@ -6,7 +6,7 @@
   grid-template-columns: var(--sidebar) minmax(0, 1fr) auto;
   align-items: center;
   border-bottom: 1px solid var(--line);
-  background: rgba(19, 21, 18, 0.96);
+  background: rgba(23, 25, 29, 0.96);
   box-shadow: 0 8px 30px rgba(0, 0, 0, 0.18);
 }
 

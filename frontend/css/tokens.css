@@ -1,19 +1,29 @@
+/* The identity palette — #463f1a olive, #60492c umber, #f9ebe0 linen,
+   #208aae cerulean, #0d2149 navy — speaks through roles, not surfaces. The
+   chrome is a neutral near-black with a faint cool cast; linen is the text,
+   cerulean marks everything interactive and the data readouts, the earth
+   browns carry zone markers and warm details, and the navy holds the water
+   around the map. */
 :root {
   color-scheme: dark;
-  --bg: #111310;
-  --panel: #171a16;
-  --panel-raised: #1e211c;
-  --line: rgba(236, 240, 218, 0.11);
-  --line-strong: rgba(236, 240, 218, 0.2);
-  --text: #eef0e4;
-  --muted: #93988b;
-  --accent: #d6f36b;
-  --accent-dark: #202a0e;
+  --bg: #121417;
+  --panel: #17191d;
+  --panel-raised: #1e2126;
+  --line: rgba(236, 229, 216, 0.1);
+  --line-strong: rgba(236, 229, 216, 0.22);
+  --text: #ece5d8;
+  --text-strong: #f9ebe0;
+  --muted: #8e897c;
+  --accent: #3aa5c9;
+  --accent-ink: #0c1216;
+  --accent-wash: rgba(32, 138, 174, 0.13);
+  --accent-wash-strong: rgba(32, 138, 174, 0.24);
+  --data: #7fc5de;
+  --warm: #8a6a44;
+  --warm-strong: #b08a5a;
+  --map-surround: #0d1626;
   --topbar: 72px;
   --sidebar: 330px;
-  --pin-overlay-size: 28px;
-  --text-overlay-size: 14px;
-  --zone-overlay-size: 14px;
   --icon-outset-color: rgba(255, 255, 255, 0.96);
   --icon-outset:
     drop-shadow(1px 0 0 var(--icon-outset-color))
@@ -24,4 +34,3 @@
   font-family: Inter, ui-sans-serif, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
   font-synthesis: none;
 }
-
