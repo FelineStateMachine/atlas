@@ -38,6 +38,16 @@ const (
 	wholeLevelBudget = 1024
 )
 
+// lineEnd redraws the progress line in place on a terminal, and leaves ordinary
+// lines behind when the output is being piped into a log.
+var lineEnd = func() string {
+	info, err := os.Stdout.Stat()
+	if err == nil && info.Mode()&os.ModeCharDevice != 0 {
+		return "\r"
+	}
+	return "\n"
+}()
+
 func main() {
 	options := parseOptions()
 	if err := run(options); err != nil {
@@ -260,6 +270,30 @@ func fetchLevel(
 	var failure error
 	gate := make(chan struct{}, o.concurrency)
 
+	// A deep level is tens of thousands of tiles and takes hours. Report as it
+	// goes, so the run can be watched rather than waited on. Held under mu with
+	// the counters it reads.
+	started := time.Now()
+	lastReport := started
+	report := func(done bool) {
+		if !done && (time.Since(lastReport) < 15*time.Second) {
+			return
+		}
+		lastReport = time.Now()
+		seen := result.fetched + result.skipped + result.absent + result.failed
+		if seen == 0 {
+			return
+		}
+		elapsed := time.Since(started)
+		remaining := time.Duration(0)
+		if seen < len(wanted) {
+			remaining = time.Duration(float64(elapsed) / float64(seen) * float64(len(wanted)-seen))
+		}
+		fmt.Printf("     z%-2d %6d/%d  %5.1f MB  %s elapsed  %s left%s",
+			zoom, seen, len(wanted), float64(result.bytes)/1e6,
+			elapsed.Truncate(time.Second), remaining.Truncate(time.Second), lineEnd)
+	}
+
 	for _, coordinate := range wanted {
 		url := fmt.Sprintf("%s/games/%s/%d/%d/%d.%s",
 			strings.TrimSuffix(base, "/"), set.Path, zoom, coordinate[0], coordinate[1], extension)
@@ -312,6 +346,7 @@ func fetchLevel(
 						failure = err
 					}
 				}
+				report(false)
 				index.put(tileRecord{
 					URL: url, Status: status, TileSetID: setID,
 					Zoom: zoom, X: coordinate[0], Y: coordinate[1],
@@ -337,9 +372,16 @@ func fetchLevel(
 			result.fetched++
 			result.bytes += int64(len(body))
 			result.hashes[coordinate] = hash
+			report(false)
 		}(coordinate, url, path)
 	}
 	group.Wait()
+	mu.Lock()
+	if result.fetched > 0 && lineEnd == "\r" {
+		report(true)
+		fmt.Println()
+	}
+	mu.Unlock()
 	return result, failure
 }
 

@@ -936,8 +936,18 @@ func normalizeFormat(value string) string {
 	return value
 }
 
+// isPixelArt marks maps drawn on a pixel grid. They are folded down with
+// nearest-neighbour sampling and rendered without interpolation, so the grid
+// survives instead of being blurred into it.
 func isPixelArt(gameSlug string) bool {
-	return strings.HasPrefix(gameSlug, "pokemon-")
+	if strings.HasPrefix(gameSlug, "pokemon-") {
+		return true
+	}
+	switch gameSlug {
+	case "old-school-runescape":
+		return true
+	}
+	return false
 }
 
 func slugify(value string) string {
