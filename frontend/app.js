@@ -1064,7 +1064,7 @@ function layerHeader(key, title, count, groupID) {
 function categoryToggle(category) {
   const isText = category.displayType === "text";
   const row = document.createElement("label");
-  row.className = "category-toggle";
+  row.className = "category-row";
   applyCategoryVisual(row, category);
   const checkbox = document.createElement("input");
   checkbox.type = "checkbox";
@@ -1094,7 +1094,7 @@ function categoryToggle(category) {
   only.dataset.onlyCategory = String(category.id);
   only.textContent = "only";
   only.title = `Show only ${category.title}`;
-  row.append(checkbox, icon, name, locations, only);
+  row.append(checkbox, icon, name, only, locations);
   return row;
 }
 

@@ -511,75 +511,47 @@ input {
 
 /* Overlaid on the count so a hovered pill never changes size: these wrap, and
    a row that grew would push the one under the cursor out from under it. */
+/* An action in the row's own gutter, not a control laid over the count. The
+   column is reserved whether or not it is showing, so a row never changes
+   shape under the cursor. */
 .only-button {
-  position: absolute;
-  top: 50%;
-  right: 5px;
-  padding: 2px 5px;
-  border: 1px solid rgba(214, 243, 107, 0.5);
-  border-radius: 999px;
+  padding: 0;
+  border: 0;
   opacity: 0;
-  /* Opaque, and the pill's own colour: whatever is under the button must not
-     show through it, in either state. */
-  background: var(--pill-bg, #1d211a);
+  background: none;
   color: var(--accent);
-  font-size: 8px;
-  font-weight: 800;
-  letter-spacing: 0.08em;
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-align: right;
   text-transform: uppercase;
-  transform: translateY(-50%);
   cursor: pointer;
   transition: opacity 110ms ease;
 }
 
-.category-toggle:hover .only-button,
+.category-row:hover .only-button,
 .layer-header:hover .only-button,
 .only-button:focus-visible {
   opacity: 1;
 }
 
-.category-toggle:hover .category-count {
-  opacity: 0;
-}
-
-/* A long title runs the full width of its pill, so the button lands on top of
-   the last word rather than on the count it replaces. Just enough fade to stop
-   the title ending in a hard vertical cut against the button; any wider and it
-   dims a title that was never in the way. */
-.category-toggle .only-button::before {
-  position: absolute;
-  top: -9px;
-  right: 100%;
-  bottom: -9px;
-  width: 12px;
-  background: linear-gradient(90deg, transparent, var(--pill-bg));
-  content: "";
-  pointer-events: none;
-}
-
 .only-button:hover {
-  background: color-mix(in srgb, var(--accent) 18%, var(--pill-bg, #1d211a));
-}
-
-.only-group {
-  position: static;
-  flex: none;
-  transform: none;
+  text-decoration: underline;
+  text-underline-offset: 2px;
 }
 
 .solo-chip {
   overflow: hidden;
-  max-width: 150px;
-  padding: 3px 8px;
-  border: 1px solid rgba(214, 243, 107, 0.5);
-  border-radius: 999px;
-  background: rgba(214, 243, 107, 0.12);
+  max-width: 160px;
+  padding: 0;
+  border: 0;
+  background: none;
   color: var(--accent);
   font-size: 9px;
   font-weight: 700;
-  letter-spacing: 0.04em;
+  letter-spacing: 0.06em;
   text-overflow: ellipsis;
-  text-transform: none;
+  text-transform: uppercase;
   white-space: nowrap;
   cursor: pointer;
 }
@@ -589,26 +561,26 @@ input {
 }
 
 .solo-chip::after {
-  margin-left: 5px;
+  margin-left: 6px;
   content: "\00d7";
-  opacity: 0.75;
+  opacity: 0.8;
 }
 
 .solo-chip:hover {
-  background: rgba(214, 243, 107, 0.22);
+  text-decoration: underline;
+  text-underline-offset: 2px;
 }
 
+/* The group's mark reads the same way as the marks in its rows: lit when the
+   group is showing, hollow when it is not. */
 .layer-switch {
   position: relative;
-  display: block;
-  width: 26px;
+  display: grid;
+  width: 15px;
   height: 15px;
   flex: none;
-  border: 1px solid #3d4239;
-  border-radius: 999px;
-  background: rgba(255, 255, 255, 0.03);
+  place-items: center;
   cursor: pointer;
-  transition: background 140ms ease, border-color 140ms ease;
 }
 
 .layer-switch input {
@@ -619,38 +591,24 @@ input {
 }
 
 .layer-switch > span {
-  position: absolute;
-  top: 2px;
-  left: 2px;
   width: 9px;
   height: 9px;
-  border-radius: 50%;
-  background: #6b7163;
-  transition: transform 140ms ease, background 140ms ease;
+  border: 1px solid #6b7163;
+  transition: background 140ms ease, border-color 140ms ease;
 }
 
-.layer-switch:hover {
-  border-color: #5a6053;
-}
-
-.layer-switch:has(input:checked) {
-  border-color: rgba(214, 243, 107, 0.5);
-  background: rgba(214, 243, 107, 0.14);
+.layer-switch:hover > span {
+  border-color: var(--accent);
 }
 
 .layer-switch:has(input:checked) > span {
+  border-color: var(--accent);
   background: var(--accent);
-  transform: translateX(11px);
 }
 
-.layer-switch:has(input:focus-visible) {
-  outline: 2px solid var(--accent);
+.layer-switch:has(input:focus-visible) > span {
+  outline: 1px solid var(--accent);
   outline-offset: 2px;
-}
-
-.layer-section.is-collapsed .category-toggles,
-.layer-section.is-collapsed .zone-list {
-  display: none;
 }
 
 .text-symbol {
@@ -659,35 +617,27 @@ input {
   height: 22px;
   flex: none;
   place-items: center;
-  border: 1px solid color-mix(in srgb, var(--pin-color) 38%, transparent);
-  border-radius: 7px;
-  background: color-mix(in srgb, var(--pin-color) 38%, #151814);
-  color: #f1f4e7;
+  color: var(--pin-color);
   font-family: "Arial Narrow", "Roboto Condensed", sans-serif;
-  font-size: 10px;
+  font-size: 11px;
   font-weight: 900;
   letter-spacing: -0.04em;
-  text-shadow: 0 1px 2px #000;
-}
-
-.zone-list {
-  padding: 0 10px 11px;
 }
 
 .zone-index-item {
   --zone-depth: 0;
   display: grid;
   width: 100%;
-  min-height: 27px;
-  grid-template-columns: 10px minmax(0, 1fr);
-  gap: 7px;
   align-items: center;
-  padding: 4px 8px 4px calc(8px + var(--zone-depth) * 13px);
-  border: 1px solid transparent;
-  border-radius: 5px;
+  grid-template-columns: 10px minmax(0, 1fr);
+  gap: 8px;
+  min-height: 26px;
+  padding: 0 4px 0 calc(4px + var(--zone-depth) * 13px);
+  border: 0;
+  border-radius: 3px;
   background: transparent;
-  color: #aeb3a5;
-  font-size: 10px;
+  color: #9aa093;
+  font-size: 11px;
   font-weight: 600;
   text-align: left;
   cursor: pointer;
@@ -695,9 +645,8 @@ input {
 
 .zone-index-item:hover,
 .zone-index-item:focus-visible {
-  border-color: color-mix(in srgb, var(--zone-color) 42%, transparent);
   outline: none;
-  background: rgba(255, 255, 255, 0.035);
+  background: rgba(255, 255, 255, 0.04);
   color: var(--text);
 }
 
@@ -707,13 +656,11 @@ input {
 }
 
 .zone-index-item.is-highlighted {
-  border-color: color-mix(in srgb, var(--zone-color) 70%, white 18%);
-  background: color-mix(in srgb, var(--zone-color) 15%, transparent);
   color: #fff;
 }
 
 #zone-index.has-highlights .zone-index-item:not(.is-highlighted):not(.is-current) {
-  opacity: 0.58;
+  opacity: 0.5;
 }
 
 .zone-index-item > span:last-child {
@@ -736,50 +683,53 @@ input {
   box-shadow: 0 0 7px color-mix(in srgb, var(--zone-color) 65%, transparent);
 }
 
+/* A legend, not a row of buttons: symbols in a column, titles left, counts
+   right in tabular figures so they read down the page. State is carried by
+   the mark and the weight of the text, so nothing needs an outline to say it
+   is interactive. */
 .category-toggles {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 6px;
-  padding: 0 16px 12px 12px;
+  padding: 2px 14px 10px;
 }
 
-.category-toggle {
-  position: relative;
-  display: inline-flex;
-  overflow: hidden;
+.category-row {
+  display: grid;
+  width: 100%;
   align-items: center;
-  gap: 5px;
-  max-width: 100%;
-  min-height: 30px;
-  padding: 3px 8px 3px 4px;
-  border: 1px solid #363a32;
-  border-radius: 999px;
-  /* Named so the only-button can fade a long title into itself using whatever
-     colour the pill happens to be. */
-  --pill-bg: #1a1c19;
-  background: var(--pill-bg);
-  color: #777c70;
+  grid-template-columns: 22px minmax(0, 1fr) 34px 46px;
+  gap: 8px;
+  min-height: 26px;
+  padding: 0 4px;
+  border-radius: 3px;
+  color: #7d8275;
   cursor: pointer;
   user-select: none;
 }
 
-.category-toggle:hover {
-  border-color: #5a6053;
+.category-row:hover {
+  background: rgba(255, 255, 255, 0.04);
   color: var(--text);
 }
 
-.category-toggle:has(input:checked) {
-  border-color: color-mix(in srgb, var(--pin-color) 48%, #454a40);
-  --pill-bg: color-mix(in srgb, var(--pin-color) 10%, #171a16);
+.category-row:has(input:checked) {
   color: #d8dccf;
-  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--pin-color) 9%, transparent);
 }
 
-.category-toggle input {
+.category-row input {
   position: absolute;
   width: 1px;
   height: 1px;
   opacity: 0;
+}
+
+.category-row:has(input:focus-visible) {
+  outline: 1px solid var(--accent);
+  outline-offset: -1px;
+}
+
+/* Unlit rather than absent: an unchecked category is still part of the key. */
+.category-row:not(:has(input:checked)) .category-icon,
+.category-row:not(:has(input:checked)) .text-symbol {
+  opacity: 0.32;
 }
 
 .category-icon {
@@ -826,18 +776,17 @@ input {
 
 .category-name {
   overflow: hidden;
-  max-width: 118px;
-  font-size: 10px;
-  font-weight: 650;
+  font-size: 11px;
+  font-weight: 600;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
 .category-count {
-  color: #747a6d;
-  transition: opacity 110ms ease;
-  font-size: 9px;
+  color: #6f7568;
+  font-size: 10px;
   font-variant-numeric: tabular-nums;
+  text-align: right;
 }
 
 .sidebar-footer {
@@ -1217,7 +1166,7 @@ input {
 .detail-links {
   display: flex;
   flex-wrap: wrap;
-  gap: 6px;
+  gap: 4px 14px;
   margin-top: 12px;
 }
 
@@ -1228,21 +1177,20 @@ input {
 .detail-link {
   overflow: hidden;
   max-width: 100%;
-  padding: 5px 10px;
-  border: 1px solid #3d4239;
-  border-radius: 999px;
-  background: rgba(255, 255, 255, 0.03);
-  color: #b9bdb0;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--accent);
   font-size: 11px;
-  font-weight: 650;
+  font-weight: 600;
+  text-decoration: underline;
   text-overflow: ellipsis;
+  text-underline-offset: 3px;
   white-space: nowrap;
   cursor: pointer;
 }
 
 .detail-link:hover {
-  border-color: rgba(214, 243, 107, 0.5);
-  background: rgba(214, 243, 107, 0.1);
   color: var(--text);
 }
 
