@@ -61,3 +61,11 @@ context around active highlights.
   console errors were reported.
 - Final `go generate .`, `go test ./...`, `go vet ./...`,
   `go build -tags dev .`, and `git diff --check` all pass.
+
+Follow-up: cap geohash precision at three characters and make terminal cells
+inspectable.
+
+- Geohash input and click descent now stop at three characters for every map.
+- All raster types permit two display-only overzoom levels. The source tile
+  grid remains bounded at native detail, so overzoom reuses the final native
+  tiles with each map's configured nearest-neighbor or smooth interpolation.

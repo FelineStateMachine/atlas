@@ -70,6 +70,8 @@ const palette = [
 ];
 
 const geohashAlphabet = "0123456789bcdefghjkmnpqrstuvwxyz";
+const geohashMaxDepth = 3;
+const overzoomLevels = 2;
 
 const state = {
   catalog: null,
@@ -502,8 +504,8 @@ function selectVariant(index, resetView = false) {
   const tileGrid = new TileGrid({
     extent: [0, -state.catalog.tileGrid.size, state.catalog.tileGrid.size, 0],
     origin: [0, 0],
-    // Keep the source grid native. Pixel-art views may overzoom this last
-    // resolution, but no nonexistent tile level is requested.
+    // Keep the source grid native. Views may overzoom this last resolution,
+    // but no nonexistent tile level is requested.
     resolutions: resolutions(variant.maxZoom),
     tileSize: state.catalog.tileGrid.tileSize,
   });
@@ -557,7 +559,7 @@ function resolutions(maxZoom) {
 }
 
 function viewMaxZoom(variant) {
-  return variant.maxZoom + (variant.interpolate ? 0 : 2);
+  return variant.maxZoom + overzoomLevels;
 }
 
 function activeExtent() {
@@ -711,7 +713,7 @@ function geohashExtent(hash) {
 }
 
 function gridMaxDepth() {
-  return state.variant?.interpolate ? 3 : 4;
+  return geohashMaxDepth;
 }
 
 function pinInGridCell(pin) {

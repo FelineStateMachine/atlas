@@ -38,10 +38,10 @@ zoom levels use stable, priority-based decluttering. Selected and searched
 locations bypass decluttering, and hovering a pin reveals its title. `Z` opts
 into all visible pin labels at native-detail zoom or closer; the default
 remains uncluttered. Area and region titles retain their independent toggles
-and full-detail pass. Pixel-art maps additionally permit two nearest-neighbor
-overzoom levels so labels can spread out without blurring the raster or
-requesting synthetic tiles. Photographic maps stop at their highest native
-tile level.
+and full-detail pass. Every map permits two display-only overzoom levels so
+three-character geohash cells and dense annotations can be inspected without
+requesting synthetic tiles. Pixel-art maps remain nearest-neighbor sharp;
+photographic maps retain smooth interpolation.
 
 [SCRAPER_PROMPT.md](SCRAPER_PROMPT.md) contains a ready-to-use prompt for
 preserving MapGenie's text-display and zone fields in the upstream archive.
@@ -82,10 +82,12 @@ are decoded and drawn.
 OpenLayers vector layers are ordered as raster, geohash grid, zones, zone
 names, floating titles, pins, full-detail labels, and selected or searched
 annotations. The grid uses a standard base32 hierarchy over the active map's
-pixel bounds. Press `G` to toggle it, click a cell to descend, or enter a hash
-in the dedicated field to jump one character at a time. `Escape` and the back
-button ascend one level; escaping from the root closes the grid. Selecting a
-cell promotes every enabled annotation inside it above normal decluttering.
+pixel bounds, capped at three characters so its terminal cells remain useful
+at the available overzoom. Press `G` to toggle it, click a cell to descend, or
+enter a hash in the dedicated field to jump one character at a time. `Escape`
+and the back button ascend one level; escaping from the root closes the grid.
+Selecting a cell promotes every enabled annotation inside it above normal
+decluttering.
 Ancestor sibling cells remain visible as shaded, clickable context. Together
 they dim everything outside the selected cell and permit direct lateral
 traversal without backing all the way out.
