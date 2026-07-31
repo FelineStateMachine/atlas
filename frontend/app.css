@@ -495,6 +495,78 @@ input {
   letter-spacing: 0;
 }
 
+/* Overlaid on the count so a hovered pill never changes size: these wrap, and
+   a row that grew would push the one under the cursor out from under it. */
+.only-button {
+  position: absolute;
+  top: 50%;
+  right: 5px;
+  padding: 2px 5px;
+  border: 1px solid rgba(214, 243, 107, 0.5);
+  border-radius: 999px;
+  opacity: 0;
+  background: #1d211a;
+  color: var(--accent);
+  font-size: 8px;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  transform: translateY(-50%);
+  cursor: pointer;
+  transition: opacity 110ms ease;
+}
+
+.category-toggle:hover .only-button,
+.layer-header:hover .only-button,
+.only-button:focus-visible {
+  opacity: 1;
+}
+
+.category-toggle:hover .category-count {
+  opacity: 0;
+}
+
+.only-button:hover {
+  background: rgba(214, 243, 107, 0.16);
+}
+
+.only-group {
+  position: static;
+  flex: none;
+  transform: none;
+}
+
+.solo-chip {
+  overflow: hidden;
+  max-width: 150px;
+  padding: 3px 8px;
+  border: 1px solid rgba(214, 243, 107, 0.5);
+  border-radius: 999px;
+  background: rgba(214, 243, 107, 0.12);
+  color: var(--accent);
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-overflow: ellipsis;
+  text-transform: none;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.solo-chip[hidden] {
+  display: none;
+}
+
+.solo-chip::after {
+  margin-left: 5px;
+  content: "\00d7";
+  opacity: 0.75;
+}
+
+.solo-chip:hover {
+  background: rgba(214, 243, 107, 0.22);
+}
+
 .layer-switch {
   position: relative;
   display: block;
@@ -641,6 +713,7 @@ input {
 }
 
 .category-toggle {
+  position: relative;
   display: inline-flex;
   overflow: hidden;
   align-items: center;
@@ -728,6 +801,7 @@ input {
 
 .category-count {
   color: #747a6d;
+  transition: opacity 110ms ease;
   font-size: 9px;
   font-variant-numeric: tabular-nums;
 }

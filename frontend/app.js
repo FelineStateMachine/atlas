@@ -46,6 +46,7 @@ const elements = {
   loading: $("#map-loading"),
   labelsHint: $("#labels-hint"),
   gridHint: $("#grid-hint"),
+  soloChip: $("#solo-chip"),
   overview: $("#overview"),
   overviewCanvas: $("#overview-canvas"),
   overviewViewport: $("#overview-viewport"),
@@ -370,6 +371,17 @@ function bindUIEvents() {
   });
 
   elements.layers.addEventListener("click", (event) => {
+    const only = event.target.closest("[data-only-category], [data-only-group]");
+    if (only) {
+      // The button sits inside the row's label, whose default action would
+      // otherwise toggle the very checkbox this is meant to override.
+      event.preventDefault();
+      event.stopPropagation();
+      showOnly(only.dataset.onlyCategory
+        ? { category: Number(only.dataset.onlyCategory) }
+        : { group: Number(only.dataset.onlyGroup) });
+      return;
+    }
     const button = event.target.closest("[data-section]");
     if (!button) return;
     const key = button.dataset.section;
@@ -378,6 +390,7 @@ function bindUIEvents() {
     syncSectionCollapse();
   });
 
+  elements.soloChip.addEventListener("click", () => setAllCategories(true));
   $("#show-all").addEventListener("click", () => setAllCategories(true));
   $("#hide-all").addEventListener("click", () => setAllCategories(false));
   elements.zoneToggle.addEventListener("change", () => {
@@ -946,6 +959,13 @@ function layerHeader(key, title, count, groupID) {
   total.textContent = formatNumber(count);
   disclosure.append(chevron, name, total);
 
+  const only = document.createElement("button");
+  only.type = "button";
+  only.className = "only-button only-group";
+  only.dataset.onlyGroup = String(groupID);
+  only.textContent = "only";
+  only.title = `Show only ${title}`;
+
   const toggle = document.createElement("label");
   toggle.className = "layer-switch";
   const checkbox = document.createElement("input");
@@ -956,7 +976,7 @@ function layerHeader(key, title, count, groupID) {
   knob.setAttribute("aria-hidden", "true");
   toggle.append(checkbox, knob);
 
-  header.append(disclosure, toggle);
+  header.append(disclosure, only, toggle);
   return header;
 }
 
@@ -985,7 +1005,15 @@ function categoryToggle(category) {
   const locations = document.createElement("span");
   locations.className = "category-count";
   locations.textContent = formatNumber(category.locations.length);
-  row.append(checkbox, icon, name, locations);
+  // Overlaid on the count rather than appended: these pills wrap, and a row
+  // that grows on hover would shove the one under the cursor somewhere else.
+  const only = document.createElement("button");
+  only.type = "button";
+  only.className = "only-button";
+  only.dataset.onlyCategory = String(category.id);
+  only.textContent = "only";
+  only.title = `Show only ${category.title}`;
+  row.append(checkbox, icon, name, locations, only);
   return row;
 }
 
@@ -1355,6 +1383,59 @@ function toggleGroup(groupID) {
   syncGroupSwitches();
 }
 
+// Isolating is the common request of a long legend: "just the Korok Seeds",
+// out of a hundred and sixty categories. Everything else is hidden rather than
+// remembered, so Show all is the single, obvious way back.
+function showOnly(target) {
+  if (!state.map) return;
+  state.hiddenCategories.clear();
+  for (const group of state.map.groups) {
+    const wanted = target.group === group.id;
+    for (const category of group.categories) {
+      if (!wanted && target.category !== category.id) {
+        state.hiddenCategories.add(category.id);
+      }
+    }
+  }
+  syncLegendCheckboxes();
+  applyPinFilters();
+  renderSearchResults();
+  syncGroupSwitches();
+}
+
+// Derived rather than remembered, so the chip is right however the state was
+// reached -- including by switching categories off one at a time.
+function updateSoloChip() {
+  const chip = elements.soloChip;
+  if (!state.map) {
+    chip.hidden = true;
+    return;
+  }
+  let onlyVisible = null;
+  let visibleCount = 0;
+  let soleGroup = null;
+  let groupsShowing = 0;
+  for (const group of state.map.groups) {
+    let shown = 0;
+    for (const category of group.categories) {
+      if (state.hiddenCategories.has(category.id)) continue;
+      shown++;
+      visibleCount++;
+      onlyVisible = category;
+    }
+    if (shown > 0) {
+      groupsShowing++;
+      soleGroup = shown === group.categories.length ? group : null;
+    }
+  }
+  let label = "";
+  if (visibleCount === 1 && onlyVisible) label = onlyVisible.title;
+  else if (groupsShowing === 1 && soleGroup) label = soleGroup.title;
+  chip.hidden = !label;
+  chip.textContent = label ? `only: ${label}` : "";
+  chip.title = label ? `Showing only ${label} — click to show everything` : "";
+}
+
 function syncGroupSwitches() {
   if (!state.map) return;
   for (const group of state.map.groups) {
@@ -1363,6 +1444,7 @@ function syncGroupSwitches() {
       input.checked = group.categories.some((category) => !state.hiddenCategories.has(category.id));
     }
   }
+  updateSoloChip();
 }
 
 function revealPin(pin) {
