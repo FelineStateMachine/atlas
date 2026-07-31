@@ -145,20 +145,22 @@ func planShards(raw rawMap, grid tileGrid, mode shardMode) ([]shard, error) {
 		return nil, fmt.Errorf("%d locations belong to no region, so they would vanish when split", orphans)
 	}
 
-	// Barely any air. The insets on the Mojave sheet sit about twenty pixels
-	// apart, so a generous margin would show a slice of the neighbouring panel
-	// along the edge of each one.
-	const padding = 8
-	pieces := make([]shard, 0, len(byRoot))
-	for root, piece := range byRoot {
+	boxes := make([][4]float64, 0, len(byRoot))
+	order := make([]int64, 0, len(byRoot))
+	for root := range byRoot {
 		box := extents[root]
 		if box == nil || math.IsInf(box[0], 1) {
 			continue
 		}
-		left := math.Max(0, box[0]-padding)
-		top := math.Max(0, box[1]-padding)
-		right := math.Min(float64(grid.Size), box[2]+padding)
-		bottom := math.Min(float64(grid.Size), box[3]+padding)
+		boxes = append(boxes, *box)
+		order = append(order, root)
+	}
+	grown := growIntoGaps(boxes, float64(grid.Size))
+
+	pieces := make([]shard, 0, len(byRoot))
+	for index, root := range order {
+		piece := byRoot[root]
+		left, top, right, bottom := grown[index][0], grown[index][1], grown[index][2], grown[index][3]
 		// Bounds are measured down from the top of the world, matching how the
 		// viewer clips the raster.
 		piece.Bounds = contentBounds{
@@ -173,24 +175,7 @@ func planShards(raw rawMap, grid tileGrid, mode shardMode) ([]shard, error) {
 		}
 		pieces = append(pieces, *piece)
 	}
-	for index := range pieces {
-		var strays int
-		for id := range pieces[index].Locations {
-			at, ok := placed[id]
-			b := pieces[index].Bounds
-			if !ok {
-				continue
-			}
-			if at[0] < float64(b.X) || at[0] > float64(b.X+b.Width) ||
-				at[1] < float64(b.Y) || at[1] > float64(b.Y+b.Height) {
-				strays++
-			}
-		}
-		if strays > 0 {
-			fmt.Printf("   %s: %d of %d locations sit outside the region that claims them\n",
-				pieces[index].Region.Title, strays, len(pieces[index].Locations))
-		}
-	}
+	rehomeStrays(pieces, placed)
 	orderShards(pieces, mode)
 	if len(pieces) < 2 {
 		return nil, fmt.Errorf("only %d top-level region, nothing to split", len(pieces))
@@ -201,6 +186,145 @@ func planShards(raw rawMap, grid tileGrid, mode shardMode) ([]shard, error) {
 // orderShards puts the pieces in the order they are offered. Layers read down
 // the way they are stacked, so the sky comes before the ground beneath it.
 // Separate places lead with the largest, so a sheet's main map heads its insets.
+// rehomeStrays moves a location to the piece it is actually drawn on.
+//
+// Some locations name a region they do not sit in: on the Mojave sheet forty
+// claim the main map while lying inside the panels around it. Trusting the
+// claim left them floating in the dark beside the map they were split from,
+// exactly where their panel used to be. Where a location sits is not in doubt,
+// so position decides and the claim is treated as the mistake it is.
+// growIntoGaps widens each piece into the empty space around it, stopping
+// halfway to whatever it would otherwise run into.
+//
+// A region outlines the ground it covers, not the art drawn around it. Tears of
+// the Kingdom titles each of its layers with a banner sitting just above the
+// region, so cropping to the outline alone sliced the words in half. Claiming
+// the space between pieces takes the banner with the layer it names, while
+// stopping at the midpoint keeps the Mojave sheet's panels -- barely twenty
+// pixels apart -- from showing a slice of their neighbour.
+func growIntoGaps(boxes [][4]float64, world float64) [][4]float64 {
+	// Far enough to reach a title banner, short enough that an isolated piece
+	// does not swallow the sheet around it.
+	const reach = 256
+	grown := make([][4]float64, len(boxes))
+	for index, box := range boxes {
+		room := [4]float64{reach, reach, reach, reach}
+		for other, rival := range boxes {
+			if other == index {
+				continue
+			}
+			// Only pieces sharing a span on the other axis can be run into.
+			if overlaps(box[1], box[3], rival[1], rival[3]) {
+				if rival[2] <= box[0] {
+					room[0] = math.Min(room[0], (box[0]-rival[2])/2)
+				}
+				if rival[0] >= box[2] {
+					room[2] = math.Min(room[2], (rival[0]-box[2])/2)
+				}
+			}
+			if overlaps(box[0], box[2], rival[0], rival[2]) {
+				if rival[3] <= box[1] {
+					room[1] = math.Min(room[1], (box[1]-rival[3])/2)
+				}
+				if rival[1] >= box[3] {
+					room[3] = math.Min(room[3], (rival[1]-box[3])/2)
+				}
+			}
+		}
+		grown[index] = [4]float64{
+			math.Max(0, box[0]-room[0]),
+			math.Max(0, box[1]-room[1]),
+			math.Min(world, box[2]+room[2]),
+			math.Min(world, box[3]+room[3]),
+		}
+	}
+	separate(grown)
+	return grown
+}
+
+// separate undoes the growth where two pieces met in a corner. Pieces that
+// share no span on either axis do not hold each other back, so both can expand
+// into the same diagonal space. Whichever way they now overlap least is the way
+// they are eased apart.
+func separate(boxes [][4]float64) {
+	for pass := 0; pass < len(boxes); pass++ {
+		clear := true
+		for a := range boxes {
+			for b := a + 1; b < len(boxes); b++ {
+				across := math.Min(boxes[a][2], boxes[b][2]) - math.Max(boxes[a][0], boxes[b][0])
+				down := math.Min(boxes[a][3], boxes[b][3]) - math.Max(boxes[a][1], boxes[b][1])
+				if across <= 0 || down <= 0 {
+					continue
+				}
+				clear = false
+				if across <= down {
+					give(&boxes[a], &boxes[b], across/2, 0)
+					continue
+				}
+				give(&boxes[a], &boxes[b], down/2, 1)
+			}
+		}
+		if clear {
+			return
+		}
+	}
+}
+
+// give pulls two boxes back from each other along one axis, axis 0 across and
+// axis 1 down.
+func give(a, b *[4]float64, by float64, axis int) {
+	low, high := axis, axis+2
+	if a[low] < b[low] {
+		a[high] -= by
+		b[low] += by
+		return
+	}
+	b[high] -= by
+	a[low] += by
+}
+
+func overlaps(lowA, highA, lowB, highB float64) bool {
+	return lowA < highB && lowB < highA
+}
+
+func rehomeStrays(pieces []shard, placed map[int64][2]float64) {
+	inside := func(piece shard, at [2]float64) bool {
+		b := piece.Bounds
+		return at[0] >= float64(b.X) && at[0] <= float64(b.X+b.Width) &&
+			at[1] >= float64(b.Y) && at[1] <= float64(b.Y+b.Height)
+	}
+	moved, homeless := 0, 0
+	for index := range pieces {
+		for id := range pieces[index].Locations {
+			at, known := placed[id]
+			if !known || inside(pieces[index], at) {
+				continue
+			}
+			hosts := make([]int, 0, 2)
+			for other := range pieces {
+				if other != index && inside(pieces[other], at) {
+					hosts = append(hosts, other)
+				}
+			}
+			// Only an unambiguous home is worth moving to: a location inside two
+			// overlapping pieces has not told us anything the claim did not.
+			if len(hosts) != 1 {
+				homeless++
+				continue
+			}
+			delete(pieces[index].Locations, id)
+			pieces[hosts[0]].Locations[id] = true
+			moved++
+		}
+	}
+	if moved > 0 {
+		fmt.Printf("   moved %d locations to the piece they are drawn on\n", moved)
+	}
+	if homeless > 0 {
+		fmt.Printf("   %d locations sit on no piece and stay where they were claimed\n", homeless)
+	}
+}
+
 func orderShards(pieces []shard, mode shardMode) {
 	sort.Slice(pieces, func(a, b int) bool {
 		if mode == shardIntoVariants {

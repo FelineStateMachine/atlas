@@ -106,6 +106,7 @@ const state = {
   tileStats: { requested: 0, loaded: 0, errors: 0, peakPending: 0 },
   overviewRun: 0,
   overviewKey: "",
+  renderedShard: 0,
   styleCache: new Map(),
   markerIcons: new Map(),
 };
@@ -119,7 +120,8 @@ async function start() {
     if (!state.catalog.games.length) throw new Error("the embedded catalog contains no maps");
     initializeMap();
     populateSelect(elements.game, state.catalog.games, "title");
-    selectGame(state.catalog.games[0].slug);
+    const route = readRoute();
+    selectGame(route.game || state.catalog.games[0].slug, route.map);
     exposeDiagnostics();
     requestAnimationFrame(() => elements.viewport.focus({ preventScroll: true }));
   } catch (error) {
@@ -456,6 +458,13 @@ function bindUIEvents() {
       elements.search.select();
       return;
     }
+    // ⌘B on a Mac, Ctrl+B elsewhere: the usual shortcut for putting a sidebar
+    // away, and the map is the reason the window is open.
+    if ((event.metaKey || event.ctrlKey) && event.key.toLocaleLowerCase() === "b") {
+      event.preventDefault();
+      toggleSidebar();
+      return;
+    }
     if (handleGridKey(event)) return;
     if (event.key.toLocaleLowerCase() === "z") {
       event.preventDefault();
@@ -463,6 +472,11 @@ function bindUIEvents() {
       elements.labelsHint.textContent = `Z · labels ${state.pinLabelsVisible ? "on" : "off"}`;
       state.layers.pinLabels.changed();
     }
+  });
+  window.addEventListener("hashchange", () => {
+    const route = readRoute();
+    if (route.game === state.game?.slug && route.map === state.map?.slug) return;
+    selectGame(route.game || state.catalog.games[0].slug, route.map);
   });
   window.addEventListener("resize", () => {
     state.engine?.updateSize();
@@ -478,13 +492,37 @@ function bindUIEvents() {
   });
 }
 
-function selectGame(slug) {
+function selectGame(slug, mapSlug) {
   state.game = state.catalog.games.find((game) => game.slug === slug) || state.catalog.games[0];
   elements.game.value = state.game.slug;
   populateSelect(elements.map, state.game.maps, "title", "id");
   elements.map.disabled = state.game.maps.length === 1;
   elements.map.title = elements.map.disabled ? "This game has one map" : "Choose a map";
-  selectMap(state.game.maps[0].id);
+  const wanted = mapSlug && state.game.maps.find((item) => item.slug === mapSlug);
+  selectMap((wanted || state.game.maps[0]).id);
+}
+
+// The address carries where the reader is, and nothing about what they have
+// filtered or searched. Reloading therefore lands on the same map with a clean
+// legend, which is the quickest way to start a fresh question about it.
+//
+// A fragment rather than a path: the window has no address bar to make a path
+// worth reading, the app can be mounted under a workspace prefix that a pushed
+// path would navigate out of, and a fragment cannot 404. Slash-separated
+// because both slugs contain dashes.
+function readRoute() {
+  const [game, map] = decodeURIComponent(location.hash.replace(/^#\/?/, ""))
+    .split("/")
+    .map((part) => part.trim());
+  return { game, map };
+}
+
+function writeRoute() {
+  if (!state.game || !state.map) return;
+  const route = `#${state.game.slug}/${state.map.slug}`;
+  if (location.hash === route) return;
+  // Replaced rather than pushed: this records a location, not a trail.
+  history.replaceState(null, "", route);
 }
 
 function selectMap(id) {
@@ -520,6 +558,7 @@ function selectMap(id) {
     `${formatNumber(state.map.pinCount)} locations · ${formatNumber(state.map.zones?.length || 0)} regions`;
   elements.sidebar.classList.remove("is-open");
   elements.mobileLegend.setAttribute("aria-expanded", "false");
+  writeRoute();
 }
 
 function selectVariant(index, resetView = false) {
@@ -610,7 +649,10 @@ function selectVariant(index, resetView = false) {
   }
   state.overviewKey = "";
   renderOverview();
-  if (priorVariant && priorVariant.shard !== variant.shard) {
+  // Zones and pins are built before a variant is chosen, so on a split map the
+  // first render shows every layer at once. Comparing against what was actually
+  // rendered catches that as well as a later switch between layers.
+  if (state.renderedShard !== (variant.shard || 0)) {
     renderZones();
     applyPinFilters();
   }
@@ -772,6 +814,14 @@ function carryViewAcrossShards(previous, next) {
     next.bounds.x + clamp(across, 0, 1) * next.bounds.width,
     -(next.bounds.y + clamp(down, 0, 1) * next.bounds.height),
   ];
+}
+
+function toggleSidebar() {
+  const shell = document.querySelector(".app-shell");
+  const collapsed = shell.classList.toggle("sidebar-collapsed");
+  elements.mobileLegend.setAttribute("aria-expanded", String(!collapsed));
+  // The map keeps its own idea of how big it is.
+  requestAnimationFrame(() => state.engine?.updateSize());
 }
 
 function activeExtent() {
@@ -1088,6 +1138,7 @@ function buildPins() {
 
 function renderZones() {
   const zones = (state.map.zones || []).filter(onActiveShard);
+  state.renderedShard = state.variant?.shard || 0;
   state.sources.zones.clear();
   state.sources.zoneTitles.clear();
   state.zoneRecords.clear();
