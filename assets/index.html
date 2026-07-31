@@ -135,9 +135,15 @@
         </div>
 
         <div class="map-corner">
-          <div id="overview" class="overview" hidden aria-label="Map overview">
-            <canvas id="overview-canvas"></canvas>
-            <div id="overview-viewport" class="overview-viewport"></div>
+          <div id="overview-shelf" class="overview-shelf" hidden>
+            <button id="overview-dock" class="overview-dock" type="button" aria-expanded="true"
+              aria-label="Put the overview away" title="Put the overview away">
+              <svg viewBox="0 0 16 16" aria-hidden="true"><path d="m6 3 5 5-5 5"/></svg>
+            </button>
+            <div id="overview" class="overview" aria-label="Map overview">
+              <canvas id="overview-canvas"></canvas>
+              <div id="overview-viewport" class="overview-viewport"></div>
+            </div>
           </div>
 
           <div class="map-hint" id="map-hint">

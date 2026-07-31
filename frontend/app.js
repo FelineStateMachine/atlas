@@ -48,6 +48,8 @@ const elements = {
   gridHint: $("#grid-hint"),
   soloChip: $("#solo-chip"),
   overview: $("#overview"),
+  overviewShelf: $("#overview-shelf"),
+  overviewDock: $("#overview-dock"),
   overviewCanvas: $("#overview-canvas"),
   overviewViewport: $("#overview-viewport"),
   gridNavigator: $("#grid-navigator"),
@@ -111,6 +113,7 @@ const state = {
   overviewRun: 0,
   overviewKey: "",
   overviewPointer: null,
+  overviewDocked: false,
   renderedShard: 0,
   mapRun: 0,
   textByMap: new Map(),
@@ -587,6 +590,7 @@ function bindUIEvents() {
   // Capturing the pointer keeps the sweep alive past the edge of the overview,
   // where the destination is simply the nearest point still on the map.
   elements.overview.addEventListener("pointerdown", (event) => {
+    if (state.overviewDocked) return;
     if (event.pointerType === "mouse" && event.button !== 0) return;
     event.preventDefault();
     elements.overview.setPointerCapture(event.pointerId);
@@ -605,6 +609,10 @@ function bindUIEvents() {
   };
   elements.overview.addEventListener("pointerup", releaseOverview);
   elements.overview.addEventListener("pointercancel", releaseOverview);
+  elements.overviewDock.addEventListener("click", () => {
+    setOverviewDocked(!state.overviewDocked);
+    elements.viewport.focus({ preventScroll: true });
+  });
   elements.mobileLegend.addEventListener("click", () => {
     const open = elements.sidebar.classList.toggle("is-open");
     elements.mobileLegend.setAttribute("aria-expanded", String(open));
@@ -725,6 +733,7 @@ function saveSession() {
       zoom: view?.getZoom(),
       hidden: [...state.hiddenCategories],
       collapsed: [...state.collapsedSections],
+      overviewDocked: state.overviewDocked,
     };
     localStorage.setItem(sessionKey, JSON.stringify(stored));
   } catch {
@@ -796,6 +805,9 @@ async function selectMap(id) {
     state.hiddenCategories = new Set(restore.hidden);
     state.collapsedSections = new Set(restore.collapsed);
   }
+  // Where the corner of the screen is wanted is a preference about the game
+  // rather than about one of its maps, so it carries across them.
+  setOverviewDocked(Boolean(state.restore?.overviewDocked), false);
   state.search = "";
   elements.search.value = "";
   elements.searchResults.hidden = true;
@@ -1037,7 +1049,9 @@ function updateOverviewViewport() {
   const key = covered ? "hidden" : visible.map(Math.round).join(",");
   if (key === state.overviewKey) return;
   state.overviewKey = key;
-  elements.overview.hidden = covered;
+  // The handle goes with it: there is nothing to send for while the whole map
+  // is already on screen.
+  elements.overviewShelf.hidden = covered;
   if (covered) return;
 
   const canvas = elements.overviewCanvas;
@@ -1052,6 +1066,25 @@ function updateOverviewViewport() {
   // true-to-scale box would be a couple of pixels.
   box.width = `${Math.max(8, (right - left) * canvas.width)}px`;
   box.height = `${Math.max(8, (lower - upper) * canvas.height)}px`;
+}
+
+// Put away rather than switched off: the overview keeps drawing, and the handle
+// it leaves behind is the whole of the way back. A reader who wants the corner
+// of their map usually wants it for that map's whole session, so the choice is
+// remembered with the rest of what a game is left in.
+function setOverviewDocked(docked, remember = true) {
+  state.overviewDocked = docked;
+  // A sweep in progress ends where it is rather than following the panel out.
+  if (docked && state.overviewPointer !== null) {
+    state.overviewPointer = null;
+    settleView();
+  }
+  elements.overviewShelf.classList.toggle("is-docked", docked);
+  elements.overviewDock.setAttribute("aria-expanded", String(!docked));
+  const label = docked ? "Bring the overview back" : "Put the overview away";
+  elements.overviewDock.setAttribute("aria-label", label);
+  elements.overviewDock.title = label;
+  if (remember) saveSession();
 }
 
 // The press that opens a gesture eases across, so a plain click reads as a
