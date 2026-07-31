@@ -2131,14 +2131,24 @@ function prepareMarkerIcon(category) {
     }
     context.drawImage(tinted, 0, 0);
     state.markerIcons.set(key, canvas.toDataURL("image/png"));
-    state.styleCache.delete(`marker:${category.id}:0`);
-    state.styleCache.delete(`marker:${category.id}:1`);
+    // A raster is keyed by asset and colour, so it stands in for every category
+    // drawn that way -- Shrine and Daedric Shrine, House and House (Ownable) --
+    // and only one of them asked for it. Every marker style is dropped rather
+    // than that category's two, because the others cached their initials while
+    // this was still loading and have nothing to tell them the icon arrived.
+    dropMarkerStyles();
     state.layers.pins.changed();
     state.layers.zonePins.changed();
     state.layers.priority.changed();
   };
   source.onerror = () => state.markerIcons.set(key, false);
   source.src = iconURL(category.iconAsset);
+}
+
+function dropMarkerStyles() {
+  for (const key of state.styleCache.keys()) {
+    if (key.startsWith("marker:")) state.styleCache.delete(key);
+  }
 }
 
 function markerIconKey(category) {
