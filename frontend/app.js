@@ -1388,6 +1388,12 @@ function toggleGroup(groupID) {
 // remembered, so Show all is the single, obvious way back.
 function showOnly(target) {
   if (!state.map) return;
+  // Asking to isolate what is already isolated means the reader is done with
+  // it, so the same control lets them back out.
+  if (isOnly(target)) {
+    setAllCategories(true);
+    return;
+  }
   state.hiddenCategories.clear();
   for (const group of state.map.groups) {
     const wanted = target.group === group.id;
@@ -1401,6 +1407,17 @@ function showOnly(target) {
   applyPinFilters();
   renderSearchResults();
   syncGroupSwitches();
+}
+
+// True when what is on screen is already exactly what this target would isolate.
+function isOnly(target) {
+  for (const group of state.map.groups) {
+    for (const category of group.categories) {
+      const wanted = target.group === group.id || target.category === category.id;
+      if (wanted === state.hiddenCategories.has(category.id)) return false;
+    }
+  }
+  return true;
 }
 
 // Derived rather than remembered, so the chip is right however the state was
