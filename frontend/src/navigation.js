@@ -83,10 +83,6 @@ export async function selectMap(id) {
   renderZones();
   buildPins();
   selectVariant(restore ? clamp(restore.variant, 0, state.map.variants.length - 1) : 0, true);
-  elements.gameTitle.textContent = state.game.title;
-  elements.title.textContent = state.map.title;
-  elements.meta.textContent =
-    `${formatNumber(state.map.pinCount)} locations · ${formatNumber(state.map.zones?.length || 0)} regions`;
   elements.sidebar.classList.remove("is-open");
   elements.mobileLegend.setAttribute("aria-expanded", "false");
   writeRoute();
