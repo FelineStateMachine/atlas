@@ -1,0 +1,101 @@
+.layer-header {
+  display: grid;
+  align-items: center;
+  grid-template-columns: minmax(0, 1fr) 22px 46px;
+  gap: 8px;
+  padding: 8px 18px 8px 12px;
+}
+
+.layer-title {
+  display: flex;
+  min-width: 0;
+  flex: 1;
+  align-items: center;
+  gap: 7px;
+  padding: 4px 0;
+  border: 0;
+  background: transparent;
+  color: #c8ccbd;
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0.12em;
+  text-align: left;
+  text-transform: uppercase;
+  cursor: pointer;
+}
+
+.layer-title:hover {
+  color: var(--text);
+}
+
+.layer-title > span:nth-child(2) {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.layer-chevron {
+  display: grid;
+  width: 13px;
+  height: 13px;
+  flex: none;
+  place-items: center;
+  color: #6b7163;
+  transform: rotate(90deg);
+  transition: transform 140ms ease;
+}
+
+.layer-section.is-collapsed .layer-chevron {
+  transform: rotate(0deg);
+}
+
+.layer-chevron svg {
+  width: 12px;
+  fill: none;
+  stroke: currentColor;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-width: 2.4;
+}
+
+.layer-count {
+  color: var(--muted);
+  font-size: 9px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0;
+}
+
+/* Overlaid on the count so a hovered pill never changes size: these wrap, and
+   a row that grew would push the one under the cursor out from under it. */
+/* An action in the row's own gutter, not a control laid over the count. The
+   column is reserved whether or not it is showing, so a row never changes
+   shape under the cursor. */
+.only-button {
+  display: grid;
+  justify-self: end;
+  width: 20px;
+  height: 20px;
+  padding: 0;
+  place-items: center;
+  border: 0;
+  border-radius: 3px;
+  opacity: 0;
+  background: none;
+  color: var(--accent);
+  cursor: pointer;
+  transition: opacity 110ms ease;
+}
+
+/* Driven by the pointer's position rather than by :hover -- see markHoveredRow.
+   Keyboard focus is unconditional. */
+.category-row.is-hovered .only-button,
+.layer-header.is-hovered .only-button,
+.only-button:focus-visible {
+  opacity: 1;
+}
+
+.only-button:hover {
+  background: rgba(214, 243, 107, 0.14);
+}
+

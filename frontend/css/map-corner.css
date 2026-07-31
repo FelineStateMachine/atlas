@@ -1,0 +1,19 @@
+/* The overview and the key share one corner, stacked, so neither has to guess
+   how tall the other is. The column is only as wide as its widest child and
+   passes clicks through, so the map stays draggable around them. */
+.map-corner {
+  position: absolute;
+  z-index: 7;
+  right: 17px;
+  bottom: 17px;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 10px;
+  pointer-events: none;
+}
+
+.map-corner > * {
+  pointer-events: auto;
+}
+

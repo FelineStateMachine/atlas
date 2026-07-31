@@ -1,0 +1,46 @@
+.map-loading {
+  position: absolute;
+  z-index: 10;
+  top: 50%;
+  left: 50%;
+  display: grid;
+  min-width: 235px;
+  padding: 24px;
+  place-items: center;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: rgba(20, 23, 19, 0.92);
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.4);
+  text-align: center;
+  transform: translate(-50%, -50%);
+  transition: opacity 180ms ease;
+}
+
+.map-loading[hidden] {
+  display: none;
+}
+
+.map-loading strong {
+  margin-top: 12px;
+  font-size: 13px;
+}
+
+.map-loading small {
+  margin-top: 5px;
+  color: var(--muted);
+  font-size: 10px;
+}
+
+.spinner {
+  width: 25px;
+  height: 25px;
+  border: 2px solid rgba(214, 243, 107, 0.18);
+  border-top-color: var(--accent);
+  border-radius: 50%;
+  animation: spin 0.75s linear infinite;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+

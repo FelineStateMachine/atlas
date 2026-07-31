@@ -1,0 +1,27 @@
+:root {
+  color-scheme: dark;
+  --bg: #111310;
+  --panel: #171a16;
+  --panel-raised: #1e211c;
+  --line: rgba(236, 240, 218, 0.11);
+  --line-strong: rgba(236, 240, 218, 0.2);
+  --text: #eef0e4;
+  --muted: #93988b;
+  --accent: #d6f36b;
+  --accent-dark: #202a0e;
+  --topbar: 72px;
+  --sidebar: 330px;
+  --pin-overlay-size: 28px;
+  --text-overlay-size: 14px;
+  --zone-overlay-size: 14px;
+  --icon-outset-color: rgba(255, 255, 255, 0.96);
+  --icon-outset:
+    drop-shadow(1px 0 0 var(--icon-outset-color))
+    drop-shadow(-1px 0 0 var(--icon-outset-color))
+    drop-shadow(0 1px 0 var(--icon-outset-color))
+    drop-shadow(0 -1px 0 var(--icon-outset-color))
+    drop-shadow(0 2px 2px rgba(0, 0, 0, 0.9));
+  font-family: Inter, ui-sans-serif, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  font-synthesis: none;
+}
+

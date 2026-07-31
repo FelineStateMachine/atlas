@@ -1,0 +1,79 @@
+@media (max-width: 980px) {
+  :root {
+    --sidebar: 300px;
+  }
+
+  .map-pickers label > span {
+    display: none;
+  }
+
+  .map-pickers select {
+    max-width: 190px;
+  }
+}
+
+@media (max-width: 760px) {
+  :root {
+    --topbar: 64px;
+  }
+
+  .app-shell {
+    grid-template-columns: 1fr;
+  }
+
+  .topbar {
+    grid-template-columns: auto minmax(0, 1fr) auto;
+  }
+
+  .brand {
+    padding: 0 15px;
+    border-right: 0;
+  }
+
+  .brand small {
+    display: none;
+  }
+
+  .map-pickers {
+    justify-content: center;
+    padding: 0 7px;
+  }
+
+  .map-pickers select {
+    max-width: 135px;
+    height: 35px;
+    padding-left: 8px;
+    font-size: 11px;
+  }
+
+  .mobile-legend {
+    display: grid;
+  }
+
+  .sidebar {
+    position: fixed;
+    z-index: 30;
+    top: var(--topbar);
+    bottom: 0;
+    left: 0;
+    width: min(330px, calc(100% - 42px));
+    box-shadow: 18px 0 50px rgba(0, 0, 0, 0.45);
+    transform: translateX(-102%);
+    transition: transform 180ms ease;
+  }
+
+  .sidebar.is-open {
+    transform: translateX(0);
+  }
+
+  .map-panel {
+    grid-column: 1;
+  }
+
+  .pin-detail {
+    right: 14px;
+    bottom: 55px;
+    width: calc(100% - 28px);
+  }
+
+}

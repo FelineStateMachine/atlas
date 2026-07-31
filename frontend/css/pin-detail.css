@@ -1,0 +1,148 @@
+.pin-detail {
+  position: absolute;
+  z-index: 9;
+  right: 68px;
+  bottom: 17px;
+  width: min(360px, calc(100% - 100px));
+  max-height: min(500px, calc(100% - 40px));
+  overflow: auto;
+  padding: 20px;
+  border: 1px solid var(--line-strong);
+  border-radius: 11px;
+  background: rgba(21, 24, 20, 0.96);
+  box-shadow: 0 18px 55px rgba(0, 0, 0, 0.45);
+  -webkit-user-select: text;
+  user-select: text;
+  backdrop-filter: blur(14px);
+}
+
+.pin-detail[hidden] {
+  display: none;
+}
+
+.detail-close {
+  position: absolute;
+  top: 10px;
+  right: 11px;
+  width: 29px;
+  height: 29px;
+  padding: 0;
+  border: 0;
+  border-radius: 6px;
+  background: rgba(255, 255, 255, 0.04);
+  color: var(--muted);
+  font-size: 21px;
+  cursor: pointer;
+}
+
+.detail-close:hover {
+  color: var(--text);
+}
+
+.detail-category {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  padding-right: 30px;
+  color: var(--muted);
+  font-size: 9px;
+  font-weight: 800;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.detail-category #detail-dot {
+  display: grid;
+  width: 20px;
+  height: 20px;
+  flex: 0 0 20px;
+  place-items: center;
+  border-radius: 50%;
+  background: var(--pin-color);
+  color: #fff;
+  font-size: 7px;
+  letter-spacing: 0;
+}
+
+#detail-dot.has-source-icon::before {
+  width: 16px;
+  height: 16px;
+}
+
+.pin-detail h2 {
+  margin: 10px 0 11px;
+  font-family: "Arial Narrow", "Roboto Condensed", sans-serif;
+  font-size: 22px;
+  line-height: 1.12;
+}
+
+.pin-detail > p {
+  margin: 0;
+  color: #b9bdb0;
+  font-size: 12px;
+  line-height: 1.55;
+  white-space: pre-line;
+}
+
+.detail-links {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 14px;
+  margin-top: 12px;
+}
+
+.detail-links[hidden] {
+  display: none;
+}
+
+.detail-link {
+  overflow: hidden;
+  max-width: 100%;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--accent);
+  font-size: 11px;
+  font-weight: 600;
+  text-decoration: underline;
+  text-overflow: ellipsis;
+  text-underline-offset: 3px;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.detail-link:hover {
+  color: var(--text);
+}
+
+.pin-detail dl {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+  margin: 17px 0 0;
+  padding-top: 13px;
+  border-top: 1px solid var(--line);
+}
+
+.pin-detail dl div {
+  min-width: 0;
+}
+
+.pin-detail dt {
+  color: #71766a;
+  font-size: 8px;
+  font-weight: 800;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+
+.pin-detail dd {
+  overflow: hidden;
+  margin: 4px 0 0;
+  color: #c6cabd;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 9px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+

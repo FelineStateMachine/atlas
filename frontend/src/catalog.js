@@ -1,0 +1,68 @@
+import { state } from "./state.js";
+import { legendSections } from "./legend.js";
+
+// A map arrives in two pieces: its layers, categories and regions as JSON, and
+// its locations packed as parallel arrays. Nothing here is fetched until the
+// map is opened, so the catalog can grow without the wait growing with it.
+export async function loadMap(entry) {
+  const [detail, packed] = await Promise.all([
+    fetch(`/static/catalog/${entry.id}.json`).then((r) => r.json()),
+    fetch(`/static/catalog/${entry.id}.bin`).then((r) => r.arrayBuffer()),
+  ]);
+  const categories = detail.groups.flatMap((group) => group.categories);
+  unpackLocations(packed, categories);
+  return {
+    ...entry,
+    variants: detail.variants,
+    groups: detail.groups,
+    zones: detail.zones || [],
+    sections: legendSections(detail.groups),
+  };
+}
+
+// The reader of packLocations. Each field is a view straight onto the buffer,
+// laid out so no copying or realignment is needed to get at it.
+export function unpackLocations(buffer, categories) {
+  const view = new DataView(buffer);
+  const magic = String.fromCharCode(...new Uint8Array(buffer, 0, 8));
+  if (magic !== "ATLASLOC") throw new Error("location payload is not in the expected form");
+  const version = view.getUint16(8, true);
+  if (version !== 2) throw new Error(`location payload is version ${version}, and this reads 2`);
+  const count = view.getUint32(10, true);
+
+  let at = 16;
+  const ids = new Int32Array(buffer, at, count);
+  const latitudes = new Float32Array(buffer, (at += count * 4), count);
+  const longitudes = new Float32Array(buffer, (at += count * 4), count);
+  const regions = new Int32Array(buffer, (at += count * 4), count);
+  const shards = new Int32Array(buffer, (at += count * 4), count);
+  const offsets = new Uint32Array(buffer, (at += count * 4), count + 1);
+  const owners = new Uint16Array(buffer, (at += (count + 1) * 4), count);
+  const titles = new Uint8Array(buffer, at + count * 2);
+
+  const decoder = new TextDecoder();
+  for (const category of categories) category.locations = [];
+  for (let index = 0; index < count; index++) {
+    categories[owners[index]].locations.push({
+      id: ids[index],
+      title: decoder.decode(titles.subarray(offsets[index], offsets[index + 1])),
+      lat: latitudes[index],
+      lng: longitudes[index],
+      regionId: regions[index] || undefined,
+      shard: shards[index] || undefined,
+    });
+  }
+}
+
+// Descriptions and cross-references are half the catalog by weight and are read
+// one pin at a time, so a map's are fetched the first time one of its pins is
+// opened, and not at all if none ever is.
+export async function mapText(mapID) {
+  if (!state.textByMap.has(mapID)) {
+    state.textByMap.set(
+      mapID,
+      fetch(`/static/catalog/${mapID}.text`).then((r) => r.json()).catch(() => ({})),
+    );
+  }
+  return state.textByMap.get(mapID);
+}

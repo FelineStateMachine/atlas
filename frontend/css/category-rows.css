@@ -1,0 +1,106 @@
+/* A legend, not a row of buttons: symbols in a column, titles left, counts
+   right in tabular figures so they read down the page. State is carried by
+   the mark and the weight of the text, so nothing needs an outline to say it
+   is interactive. */
+.category-toggles {
+  padding: 2px 14px 10px;
+}
+
+.category-row {
+  display: grid;
+  width: 100%;
+  align-items: center;
+  grid-template-columns: 22px minmax(0, 1fr) 22px 46px;
+  gap: 8px;
+  min-height: 26px;
+  padding: 0 4px;
+  border-radius: 3px;
+  color: #7d8275;
+  cursor: pointer;
+  user-select: none;
+}
+
+.category-row.is-hovered {
+  background: rgba(255, 255, 255, 0.04);
+  color: var(--text);
+}
+
+.category-row:has(input:checked) {
+  color: #d8dccf;
+}
+
+.category-row input {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  opacity: 0;
+}
+
+.category-row:has(input:focus-visible) {
+  outline: 1px solid var(--accent);
+  outline-offset: -1px;
+}
+
+/* Unlit rather than absent: an unchecked category is still part of the key. */
+.category-row:not(:has(input:checked)) .category-icon,
+.category-row:not(:has(input:checked)) .text-symbol {
+  opacity: 0.32;
+}
+
+.category-icon {
+  display: grid;
+  width: 22px;
+  height: 22px;
+  flex: none;
+  place-items: center;
+  border: 0;
+  background: transparent;
+  color: var(--pin-color);
+  font-size: 9px;
+  font-weight: 900;
+  text-transform: uppercase;
+}
+
+.category-icon.has-source-icon::before,
+.result-dot.has-source-icon::before,
+#detail-dot.has-source-icon::before,
+.pin.has-source-icon::after {
+  display: block;
+  background: var(--pin-icon) center / contain no-repeat;
+  content: "";
+  filter: var(--icon-outset);
+}
+
+.category-icon.has-source-icon::before {
+  width: 14px;
+  height: 14px;
+  filter: var(--icon-outset);
+}
+
+.result-dot.has-source-icon,
+#detail-dot.has-source-icon {
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+}
+
+.result-dot.has-source-icon::before {
+  width: 16px;
+  height: 16px;
+}
+
+.category-name {
+  overflow: hidden;
+  font-size: 11px;
+  font-weight: 600;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.category-count {
+  color: #6f7568;
+  font-size: 10px;
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+}
+

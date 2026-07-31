@@ -1,0 +1,41 @@
+.sidebar-heading {
+  padding: 25px 22px 18px;
+}
+
+.eyebrow {
+  margin: 0 0 8px;
+  color: var(--accent);
+  font-size: 9px;
+  font-weight: 800;
+  letter-spacing: 0.2em;
+}
+
+.sidebar-heading h1 {
+  display: -webkit-box;
+  overflow: hidden;
+  margin: 0;
+  font-family: "Arial Narrow", "Roboto Condensed", sans-serif;
+  font-size: 27px;
+  font-weight: 700;
+  letter-spacing: -0.025em;
+  line-height: 1.05;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+}
+
+.sidebar-heading .map-name {
+  overflow: hidden;
+  margin: 8px 0 0;
+  color: #cdd1c3;
+  font-size: 14px;
+  font-weight: 650;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.sidebar-heading #map-meta {
+  margin: 5px 0 0;
+  color: var(--muted);
+  font-size: 11px;
+}
+

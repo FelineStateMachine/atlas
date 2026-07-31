@@ -1,0 +1,99 @@
+.grid-navigator {
+  position: absolute;
+  z-index: 8;
+  top: 17px;
+  right: 67px;
+  display: flex;
+  overflow: hidden;
+  align-items: stretch;
+  border: 1px solid var(--line-strong);
+  border-radius: 8px;
+  background: rgba(22, 25, 21, 0.94);
+  box-shadow: 0 6px 25px rgba(0, 0, 0, 0.22);
+}
+
+.grid-navigator[hidden] {
+  display: none;
+}
+
+.grid-navigator button {
+  width: 36px;
+  padding: 0;
+  border: 0;
+  border-right: 1px solid var(--line);
+  background: transparent;
+  color: var(--muted);
+  font-size: 17px;
+  cursor: pointer;
+}
+
+.grid-navigator button:hover {
+  color: var(--accent);
+}
+
+/* The subgrid toggle sits after the field it belongs to, so its rule divides it
+   from the field rather than trailing off the end of the control. */
+.subgrid-toggle {
+  display: grid;
+  border-right: 0;
+  border-left: 1px solid var(--line);
+  place-items: center;
+}
+
+.subgrid-toggle svg {
+  width: 15px;
+  fill: none;
+  stroke: currentColor;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-width: 1.3;
+}
+
+.subgrid-toggle .subgrid-toggle-slash {
+  display: none;
+}
+
+.subgrid-toggle[aria-pressed="false"] {
+  color: #6d7466;
+}
+
+.subgrid-toggle[aria-pressed="false"] .subgrid-toggle-slash {
+  display: inline;
+  stroke: currentColor;
+  stroke-width: 1.6;
+}
+
+.grid-navigator label {
+  display: flex;
+  height: 36px;
+  align-items: center;
+  gap: 7px;
+  padding: 0 9px;
+  color: var(--muted);
+  font-size: 8px;
+  font-weight: 800;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.grid-navigator input {
+  width: 74px;
+  padding: 4px 6px;
+  border: 1px solid #3c4137;
+  border-radius: 4px;
+  outline: none;
+  background: #0e110d;
+  color: var(--accent);
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: lowercase;
+  -webkit-user-select: text;
+  user-select: text;
+}
+
+.grid-navigator input:focus {
+  border-color: rgba(214, 243, 107, 0.68);
+}
+

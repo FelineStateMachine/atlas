@@ -1,0 +1,93 @@
+/* The overview earns its corner while the reader is looking for where they are,
+   and stops earning it the moment they are looking at what is underneath it. It
+   slides off to the right when put away, leaving the handle at the edge to
+   bring it back. */
+.overview-shelf {
+  display: flex;
+  align-items: center;
+  transition: transform 220ms cubic-bezier(0.22, 0.61, 0.36, 1);
+}
+
+.overview-shelf[hidden] {
+  display: none;
+}
+
+.overview-shelf.is-docked {
+  transform: translateX(calc(100% - 23px));
+}
+
+/* Put away is put away: what is left of the panel past the edge of the window
+   does not steer the map. */
+.overview-shelf.is-docked .overview {
+  pointer-events: none;
+}
+
+/* The handle is part of the panel it moves, not a control beside it: it shares
+   the panel's edge, and only the outer corners are rounded. */
+.overview-dock {
+  display: grid;
+  width: 24px;
+  height: 52px;
+  padding: 0;
+  border: 1px solid var(--line-strong);
+  border-right: 0;
+  border-radius: 8px 0 0 8px;
+  margin-right: -1px;
+  place-items: center;
+  background: rgba(22, 25, 21, 0.9);
+  box-shadow: -5px 6px 20px rgba(0, 0, 0, 0.24);
+  color: var(--muted);
+  cursor: pointer;
+}
+
+.overview-dock:hover {
+  color: var(--accent);
+}
+
+.overview-dock svg {
+  width: 13px;
+  fill: none;
+  stroke: currentColor;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-width: 1.8;
+  transition: transform 220ms cubic-bezier(0.22, 0.61, 0.36, 1);
+}
+
+.overview-shelf.is-docked .overview-dock svg {
+  transform: rotate(180deg);
+}
+
+/* Only worth the space once the whole map no longer fits on screen, which is
+   why it is hidden until then rather than always present. */
+.overview {
+  position: relative;
+  overflow: hidden;
+  border: 1px solid var(--line-strong);
+  border-radius: 8px;
+  background: rgba(22, 25, 21, 0.9);
+  box-shadow: 0 6px 25px rgba(0, 0, 0, 0.28);
+  cursor: crosshair;
+  line-height: 0;
+  /* The overview is dragged, so a touch on it steers the map rather than
+     scrolling whatever is behind it. */
+  touch-action: none;
+}
+
+.overview[hidden] {
+  display: none;
+}
+
+.overview canvas {
+  display: block;
+  opacity: 0.85;
+}
+
+.overview-viewport {
+  position: absolute;
+  border: 1px solid var(--accent);
+  border-radius: 2px;
+  background: rgba(214, 243, 107, 0.14);
+  pointer-events: none;
+}
+
