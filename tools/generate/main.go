@@ -259,12 +259,26 @@ var preferredMapOrder = map[string][]string{
 	"fallout-new-vegas": {"mojave-wasteland"},
 }
 
-// iconOutsetByMap is deliberately map-specific because the raster beneath an
-// icon determines which outline is legible. Unlisted maps retain the default
-// light outset.
+// The raster beneath an icon decides which outline is legible, so this is
+// declared rather than derived. A game whose maps are all drawn the same way
+// says so once; a single map that differs from its game overrides it.
+var iconOutsetByGame = map[string]string{
+	"clair-obscur-expedition-33": "dark",
+	"fallout-new-vegas":          "dark", // pale Pip-Boy rasters throughout
+	"la-noire":                   "dark",
+	"sonic-frontiers":            "dark",
+}
+
 var iconOutsetByMap = map[int64]string{
 	3:  "dark", // Skyrim
 	18: "dark", // Solstheim
+}
+
+func iconOutsetFor(raw rawMap) string {
+	if outset, ok := iconOutsetByMap[raw.ID]; ok {
+		return outset
+	}
+	return iconOutsetByGame[raw.Game.Slug]
 }
 
 func main() {
@@ -438,7 +452,7 @@ func buildMap(
 		ID:         raw.ID,
 		Title:      raw.Title,
 		Slug:       raw.Slug,
-		IconOutset: iconOutsetByMap[raw.ID],
+		IconOutset: iconOutsetFor(raw),
 		Center:     coordinate{Latitude: raw.InitialLatitude, Longitude: raw.InitialLongitude},
 		UpdatedAt:  latest.CapturedAt,
 	}

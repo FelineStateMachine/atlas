@@ -107,6 +107,8 @@ const state = {
   overviewRun: 0,
   overviewKey: "",
   renderedShard: 0,
+  restore: null,
+  settling: false,
   styleCache: new Map(),
   markerIcons: new Map(),
 };
@@ -121,7 +123,17 @@ async function start() {
     initializeMap();
     populateSelect(elements.game, state.catalog.games, "title");
     const route = readRoute();
-    selectGame(route.game || state.catalog.games[0].slug, route.map);
+    const session = readSession();
+    // An address naming somewhere else was typed on purpose, so it wins and
+    // arrives clean; anything else resumes where the reader left off.
+    const resuming = session &&
+      (!route.game || (route.game === session.game && route.map === session.map));
+    state.restore = resuming ? session : null;
+    selectGame(
+      route.game || session?.game || state.catalog.games[0].slug,
+      route.map || session?.map,
+    );
+    state.restore = null;
     exposeDiagnostics();
     requestAnimationFrame(() => elements.viewport.focus({ preventScroll: true }));
   } catch (error) {
@@ -261,6 +273,7 @@ function initializeMap() {
   state.engine.on("moveend", () => {
     state.engine.getViewport().classList.remove("is-dragging");
     updateVisibleCount();
+    saveSession();
   });
   // The locator follows the view as it moves rather than only once it settles.
   // Repeated calls that would draw the same rectangle cost nothing.
@@ -538,6 +551,41 @@ function selectGame(slug, mapSlug) {
 // worth reading, the app can be mounted under a workspace prefix that a pushed
 // path would navigate out of, and a fragment cannot 404. Slash-separated
 // because both slugs contain dashes.
+// The window is reopened far more often than it is refreshed, and reopening it
+// to a default view discards work the reader did to reach where they were. The
+// whole arrangement is kept: which map, which layer, where the view sits, what
+// is filtered out and which groups are folded.
+const sessionKey = "atlas.session";
+
+function saveSession() {
+  // Nothing is written while a map is being swapped in: the arrangement is
+  // half the old one and half the new until it settles.
+  if (!state.map || !state.variant || state.settling) return;
+  const view = state.engine?.getView();
+  try {
+    localStorage.setItem(sessionKey, JSON.stringify({
+      game: state.game.slug,
+      map: state.map.slug,
+      variant: state.map.variants.indexOf(state.variant),
+      center: view?.getCenter(),
+      zoom: view?.getZoom(),
+      hidden: [...state.hiddenCategories],
+      collapsed: [...state.collapsedSections],
+    }));
+  } catch {
+    // A browsing session that cannot be written is not worth failing over.
+  }
+}
+
+function readSession() {
+  try {
+    const stored = JSON.parse(localStorage.getItem(sessionKey) || "null");
+    return stored && stored.game && stored.map ? stored : null;
+  } catch {
+    return null;
+  }
+}
+
 function readRoute() {
   const [game, map] = decodeURIComponent(location.hash.replace(/^#\/?/, ""))
     .split("/")
@@ -554,6 +602,7 @@ function writeRoute() {
 }
 
 function selectMap(id) {
+  state.settling = true;
   state.map = state.game.maps.find((map) => map.id === id) || state.game.maps[0];
   document.documentElement.style.setProperty("--icon-outset-color", iconOutsetColor());
   elements.map.value = String(state.map.id);
@@ -572,6 +621,11 @@ function selectMap(id) {
       if (!category.visible) state.hiddenCategories.add(category.id);
     }
   }
+  const restore = state.restore?.map === state.map.slug ? state.restore : null;
+  if (restore) {
+    state.hiddenCategories = new Set(restore.hidden);
+    state.collapsedSections = new Set(restore.collapsed);
+  }
   state.search = "";
   elements.search.value = "";
   elements.searchResults.hidden = true;
@@ -579,7 +633,7 @@ function selectMap(id) {
   renderLegend();
   renderZones();
   buildPins();
-  selectVariant(0, true);
+  selectVariant(restore ? clamp(restore.variant, 0, state.map.variants.length - 1) : 0, true);
   elements.gameTitle.textContent = state.game.title;
   elements.title.textContent = state.map.title;
   elements.meta.textContent =
@@ -587,6 +641,8 @@ function selectMap(id) {
   elements.sidebar.classList.remove("is-open");
   elements.mobileLegend.setAttribute("aria-expanded", "false");
   writeRoute();
+  state.settling = false;
+  saveSession();
 }
 
 function selectVariant(index, resetView = false) {
@@ -677,6 +733,7 @@ function selectVariant(index, resetView = false) {
   }
   state.overviewKey = "";
   renderOverview();
+  const resume = state.restore?.map === state.map.slug ? state.restore : null;
   // Zones and pins are built before a variant is chosen, so on a split map the
   // first render shows every layer at once. Comparing against what was actually
   // rendered catches that as well as a later switch between layers.
@@ -684,11 +741,23 @@ function selectVariant(index, resetView = false) {
     renderZones();
     applyPinFilters();
   }
-  if (resetView) requestAnimationFrame(fitMap);
-  else if (carried) {
+  if (resume?.center && Number.isFinite(resume.zoom)) {
+    // Resuming: land exactly where the reader left the view, rather than
+    // fitting the map and losing where they were.
+    const view = state.engine.getView();
+    view.setCenter(resume.center);
+    view.setZoom(resume.zoom);
+    state.fitZoom = resume.zoom;
+    updateVisibleCount();
+  } else if (resetView) {
+    requestAnimationFrame(fitMap);
+  } else if (carried) {
     state.engine.getView().animate({ center: carried, duration: 200 });
     updateVisibleCount();
-  } else updateVisibleCount();
+  } else {
+    updateVisibleCount();
+  }
+  saveSession();
 }
 
 // Levels are sparse: background tiles are never written, and levels above
@@ -1153,6 +1222,7 @@ function syncSectionCollapse() {
     button.setAttribute("aria-expanded", String(!collapsed));
     button.closest(".layer-section").classList.toggle("is-collapsed", collapsed);
   }
+  saveSession();
 }
 
 function buildPins() {
@@ -1593,6 +1663,7 @@ function syncGroupSwitches() {
     }
   }
   updateSoloChip();
+  saveSession();
 }
 
 function revealPin(pin) {
