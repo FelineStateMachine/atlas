@@ -1,6 +1,8 @@
 import "ol/ol.css";
 import "./app.css";
 
+import "./parity/tour.js";
+
 import Feature from "ol/Feature.js";
 import OLMap from "ol/Map.js";
 import View from "ol/View.js";

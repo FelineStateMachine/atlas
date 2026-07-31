@@ -7,6 +7,7 @@ import (
 
 func routes(files fs.FS) http.Handler {
 	mux := http.NewServeMux()
+	registerParityRoutes(mux)
 	mux.HandleFunc("GET /", func(w http.ResponseWriter, r *http.Request) {
 		if r.URL.Path != "/" {
 			http.NotFound(w, r)
