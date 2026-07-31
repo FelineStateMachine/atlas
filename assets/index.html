@@ -55,7 +55,6 @@
         <input id="pin-search" type="search" placeholder="Search locations" autocomplete="off" aria-label="Search locations">
         <kbd>⌘K</kbd>
       </div>
-      <div id="search-results" class="search-results" hidden></div>
 
       <div class="legend-toolbar">
         <span>Layers</span>
@@ -153,8 +152,26 @@
           </div>
         </div>
 
+      </div>
+    </main>
+
+    <aside id="dock" class="dock" hidden>
+      <div class="dock-readout">
+        <span id="dock-count"></span>
+        <span id="dock-flag" class="dock-flag" hidden></span>
+        <button id="dock-fold" class="dock-fold" type="button" aria-expanded="true"
+          aria-label="Put the panel away" title="Put the panel away">
+          <svg viewBox="0 0 16 16" aria-hidden="true"><path d="m6 3 5 5-5 5"/></svg>
+        </button>
+      </div>
+      <span class="dock-rail-label" aria-hidden="true">Locations</span>
+      <div class="dock-body">
+        <div id="dock-results" class="dock-results"></div>
         <article id="pin-detail" class="pin-detail" hidden>
-          <button id="close-detail" class="detail-close" type="button" aria-label="Close location details">×</button>
+          <button id="close-detail" class="detail-back" type="button" aria-label="Back to results">
+            <svg viewBox="0 0 16 16" aria-hidden="true"><path d="M10 3 5 8l5 5"/></svg>
+            Back to results
+          </button>
           <div class="detail-category">
             <span id="detail-dot"></span>
             <span id="detail-category"></span>
@@ -168,7 +185,7 @@
           </dl>
         </article>
       </div>
-    </main>
+    </aside>
   </div>
 
   <div id="fatal-error" class="fatal-error" hidden>

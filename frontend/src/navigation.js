@@ -8,6 +8,7 @@ import { loadMap } from "./catalog.js";
 import { readSession, saveSession, writeRoute } from "./session.js";
 import { createView, resolutions } from "./engine.js";
 import { renderOverview, setOverviewDocked } from "./overview.js";
+import { setDockFolded } from "./search.js";
 import { renderGrid } from "./grid.js";
 import { renderZones } from "./zones.js";
 import { renderLegend } from "./legend.js";
@@ -73,9 +74,10 @@ export async function selectMap(id) {
   // Where the corner of the screen is wanted is a preference about the game
   // rather than about one of its maps, so it carries across them.
   setOverviewDocked(Boolean(state.restore?.overviewDocked), false);
+  setDockFolded(Boolean(state.restore?.dockFolded), false);
   state.search = "";
   elements.search.value = "";
-  elements.searchResults.hidden = true;
+  elements.dock.hidden = false;
   closeDetail();
   renderLegend();
   renderZones();

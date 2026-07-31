@@ -33,6 +33,7 @@ export const state = {
   overviewKey: "",
   overviewPointer: null,
   overviewDocked: false,
+  dockFolded: false,
   renderedShard: 0,
   mapRun: 0,
   textByMap: new Map(),

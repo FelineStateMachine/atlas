@@ -18,11 +18,15 @@ async function waitForBoot() {
   }
 }
 
-// A step is settled when tiles stop arriving and the view stops moving.
+// A step is settled when tiles stop arriving and the view stops moving. Each
+// poll waits through a real animation frame so work the app deferred with
+// requestAnimationFrame - the post-selection map fit above all - lands during
+// the step that caused it rather than surfacing in a later one.
 async function settle() {
   let previous = "";
   for (let i = 0; i < 100; i += 1) {
     await sleep(120);
+    await new Promise((resolve) => requestAnimationFrame(resolve));
     window.advanceTime?.();
     const s = window.__atlasDebug.snapshot();
     const key = JSON.stringify([s.zoom, s.center, s.resolution, s.tileStats]);

@@ -3,15 +3,13 @@ import { elements } from "./dom.js";
 import { syncLegendCheckboxes, syncSectionSwitches } from "./legend.js";
 import { viewMaxZoom } from "./navigation.js";
 import { applyPinFilters, refreshPrioritySource } from "./pins.js";
+import { renderSearchResults } from "./search.js";
 import { state } from "./state.js";
 import { applyCategoryVisual, applyCategoryGlyph, initials } from "./theme.js";
 import { cleanDescription } from "./util.js";
 
 export function revealPin(pin) {
   state.hiddenCategories.delete(pin.category.id);
-  state.search = "";
-  elements.search.value = "";
-  elements.searchResults.hidden = true;
   syncLegendCheckboxes();
   applyPinFilters();
   syncSectionSwitches();
@@ -37,6 +35,7 @@ export function showPin(pin, focus = false) {
   applyCategoryVisual(elements.detailDot, pin.category);
   applyCategoryGlyph(elements.detailDot, pin.category, initials(pin.category.title));
   elements.detail.hidden = false;
+  renderSearchResults();
   if (focus) {
     const view = state.engine.getView();
     view.animate({
@@ -85,6 +84,7 @@ export function renderDetailLinks(pin) {
 }
 
 export function closeDetail() {
+  const hadSelection = state.selectedPin !== null;
   state.selectedPin = null;
   if (state.sources) {
     refreshPrioritySource();
@@ -95,4 +95,5 @@ export function closeDetail() {
     state.layers.priority.changed();
   }
   elements.detail.hidden = true;
+  if (hadSelection) renderSearchResults();
 }

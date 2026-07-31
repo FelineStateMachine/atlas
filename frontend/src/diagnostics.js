@@ -32,12 +32,15 @@ export function exposeDiagnostics() {
       sidebarCollapsed: document.querySelector(".app-shell")
         ?.classList.contains("sidebar-collapsed") ?? false,
       detailOpen: !elements.detail.hidden,
-      detailTitle: elements.detailTitle.textContent || null,
+      detailTitle: elements.detail.hidden
+        ? null
+        : elements.detailTitle.textContent || null,
       searchQuery: state.search,
       searchResultsVisible: !elements.searchResults.hidden,
       soloChip: elements.soloChip.hidden ? null : elements.soloChip.textContent,
       visibleCountText: elements.visibleCount.textContent,
       overviewDocked: state.overviewDocked,
+      dockFolded: state.dockFolded,
       subgridVisible: state.subgridVisible,
     },
     zones: {

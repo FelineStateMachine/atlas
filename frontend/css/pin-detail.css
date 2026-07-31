@@ -1,49 +1,55 @@
+/* The location detail is a pane of the dock rather than a floating card: it
+   replaces the results list when a pin is open and hands back to it when
+   closed. */
 .pin-detail {
-  position: absolute;
-  z-index: 9;
-  right: 68px;
-  bottom: 17px;
-  width: min(360px, calc(100% - 100px));
-  max-height: min(500px, calc(100% - 40px));
-  overflow: auto;
-  padding: 20px;
-  border: 1px solid var(--line-strong);
-  border-radius: 11px;
-  background: rgba(23, 25, 29, 0.96);
-  box-shadow: 0 18px 55px rgba(0, 0, 0, 0.45);
+  overflow: hidden auto;
+  flex: 1;
+  padding: 14px 18px 18px;
   -webkit-user-select: text;
   user-select: text;
-  backdrop-filter: blur(14px);
+  scrollbar-width: thin;
 }
 
 .pin-detail[hidden] {
   display: none;
 }
 
-.detail-close {
-  position: absolute;
-  top: 10px;
-  right: 11px;
-  width: 29px;
-  height: 29px;
+/* The results pane yields while a detail is open. */
+.dock-body:has(.pin-detail:not([hidden])) .dock-results {
+  display: none;
+}
+
+.detail-back {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 14px;
   padding: 0;
   border: 0;
-  border-radius: 6px;
-  background: rgba(255, 255, 255, 0.04);
-  color: var(--muted);
-  font-size: 21px;
+  background: none;
+  color: var(--accent);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
   cursor: pointer;
 }
 
-.detail-close:hover {
+.detail-back:hover {
   color: var(--text);
+}
+
+.detail-back svg {
+  width: 11px;
+  height: 11px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2.4;
 }
 
 .detail-category {
   display: flex;
   align-items: center;
   gap: 7px;
-  padding-right: 30px;
   color: var(--muted);
   font-size: 9px;
   font-weight: 800;
@@ -72,8 +78,9 @@
 .pin-detail h2 {
   margin: 10px 0 11px;
   font-family: "Arial Narrow", "Roboto Condensed", sans-serif;
-  font-size: 22px;
-  line-height: 1.12;
+  font-size: 24px;
+  line-height: 1.1;
+  color: var(--text-strong);
 }
 
 .pin-detail > p {
@@ -120,8 +127,10 @@
   grid-template-columns: 1fr 1fr;
   gap: 8px;
   margin: 17px 0 0;
-  padding-top: 13px;
-  border-top: 1px solid var(--line);
+  padding: 13px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--panel-raised);
 }
 
 .pin-detail dl div {
@@ -139,10 +148,9 @@
 .pin-detail dd {
   overflow: hidden;
   margin: 4px 0 0;
-  color: #c6c0b2;
+  color: var(--data);
   font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
   font-size: 9px;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
-

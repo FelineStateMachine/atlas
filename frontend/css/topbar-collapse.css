@@ -1,7 +1,7 @@
 /* Collapsed by ⌘B. The brand column shrinks with it so the topbar does not
    keep a rule hanging over open map. */
 .app-shell.sidebar-collapsed {
-  grid-template-columns: 0 minmax(0, 1fr);
+  grid-template-columns: 0 minmax(0, 1fr) auto;
 }
 
 .app-shell.sidebar-collapsed .sidebar {

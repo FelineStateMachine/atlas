@@ -28,7 +28,11 @@ itself, so no shell environment setup is needed.
 The app supports scroll/pinch zoom, drag panning, pin search, map and tile-set
 selection, compact category toggles, group-level show/hide controls, floating
 `display_type: "text"` labels, optional region polygons and names, and pin
-details. A game with one map keeps that map visible in a disabled selector.
+details. Search and filter results list in a right-docked panel — a capped,
+alphabetical shortlist of whatever survives the current filters — and opening
+a location pushes the list aside for its detail card, with the way back kept
+on screen. The dock folds to a thin rail and the choice is remembered with
+the game. A game with one map keeps that map visible in a disabled selector.
 Curated map ordering places a game's primary map first; the small ordering
 table lives in `tools/generate/main.go`.
 

@@ -19,7 +19,7 @@ import {
 } from "./legend.js";
 import { applyPinFilters } from "./pins.js";
 import { jumpToZone, setZonesVisible, toggleZoneHighlight } from "./zones.js";
-import { renderSearchResults } from "./search.js";
+import { setDockFolded } from "./search.js";
 import { closeDetail, revealPin } from "./detail.js";
 import {
   ascendGrid,
@@ -122,8 +122,11 @@ export function bindUIEvents() {
   });
   elements.search.addEventListener("input", () => {
     state.search = elements.search.value.trim().toLocaleLowerCase();
+    // applyPinFilters refreshes the dock list along with the canvas.
     applyPinFilters();
-    renderSearchResults();
+  });
+  elements.dockFold.addEventListener("click", () => {
+    setDockFolded(!state.dockFolded);
   });
   elements.searchResults.addEventListener("click", (event) => {
     const result = event.target.closest("[data-location]");

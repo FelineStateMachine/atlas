@@ -24,6 +24,7 @@
   --map-surround: #0d1626;
   --topbar: 72px;
   --sidebar: 330px;
+  --dock: 336px;
   --icon-outset-color: rgba(255, 255, 255, 0.96);
   --icon-outset:
     drop-shadow(1px 0 0 var(--icon-outset-color))

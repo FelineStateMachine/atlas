@@ -20,6 +20,7 @@ export function saveSession() {
       hidden: [...state.hiddenCategories],
       collapsed: [...state.collapsedSections],
       overviewDocked: state.overviewDocked,
+      dockFolded: state.dockFolded,
     };
     localStorage.setItem(sessionKey, JSON.stringify(stored));
   } catch {

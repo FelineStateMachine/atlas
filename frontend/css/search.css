@@ -48,17 +48,6 @@
   font-size: 9px;
 }
 
-.search-results {
-  z-index: 5;
-  overflow: auto;
-  max-height: 238px;
-  margin: -8px 17px 14px;
-  border: 1px solid var(--line);
-  border-radius: 8px;
-  background: #111318;
-  box-shadow: 0 15px 35px rgba(0, 0, 0, 0.32);
-}
-
 .search-result {
   display: grid;
   width: 100%;

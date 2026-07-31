@@ -3,6 +3,7 @@ import Point from "ol/geom/Point.js";
 
 import { closeDetail } from "./detail.js";
 import { pinInGridCell } from "./grid.js";
+import { renderSearchResults } from "./search.js";
 import { updateVisibleCount } from "./navigation.js";
 import { state } from "./state.js";
 import { prepareMarkerIcon } from "./styles.js";
@@ -53,6 +54,7 @@ export function applyPinFilters() {
   updateZonePinFocus();
   refreshPinRendering();
   if (state.selectedPin?.filteredHidden) closeDetail();
+  renderSearchResults();
 }
 
 export function updateZonePinFocus() {
