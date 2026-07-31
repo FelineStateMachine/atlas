@@ -10,6 +10,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"regexp"
 	"sort"
 	"strconv"
 	"strings"
@@ -144,14 +145,25 @@ type coordinate struct {
 }
 
 type variant struct {
-	Name        string         `json:"name"`
-	Tiles       string         `json:"tiles"`
-	MinZoom     int            `json:"minZoom"`
-	MaxZoom     int            `json:"maxZoom"`
-	SourceZoom  int            `json:"sourceZoom"`
-	Formats     []string       `json:"formats"`
-	Bounds      *contentBounds `json:"bounds,omitempty"`
-	Interpolate bool           `json:"interpolate"`
+	Name        string                    `json:"name"`
+	Tiles       string                    `json:"tiles"`
+	MinZoom     int                       `json:"minZoom"`
+	MaxZoom     int                       `json:"maxZoom"`
+	FullZoom    int                       `json:"fullZoom"`
+	SourceZoom  int                       `json:"sourceZoom"`
+	Formats     []string                  `json:"formats"`
+	Bounds      *contentBounds            `json:"bounds,omitempty"`
+	Interpolate bool                      `json:"interpolate"`
+	Background  string                    `json:"background,omitempty"`
+	Coverage    map[string]*levelCoverage `json:"coverage,omitempty"`
+}
+
+type levelCoverage struct {
+	X    int    `json:"x"`
+	Y    int    `json:"y"`
+	W    int    `json:"w"`
+	H    int    `json:"h"`
+	Bits string `json:"bits"`
 }
 
 type contentBounds struct {
@@ -168,14 +180,17 @@ type tileManifest struct {
 }
 
 type tileVariantManifest struct {
-	SourcePath  string         `json:"sourcePath"`
-	AssetPath   string         `json:"assetPath"`
-	MinZoom     int            `json:"minZoom"`
-	MaxZoom     int            `json:"maxZoom"`
-	SourceZoom  int            `json:"sourceZoom"`
-	Formats     []string       `json:"formats"`
-	Bounds      *contentBounds `json:"bounds"`
-	Interpolate bool           `json:"interpolate"`
+	SourcePath  string                    `json:"sourcePath"`
+	AssetPath   string                    `json:"assetPath"`
+	MinZoom     int                       `json:"minZoom"`
+	MaxZoom     int                       `json:"maxZoom"`
+	FullZoom    int                       `json:"fullZoom"`
+	SourceZoom  int                       `json:"sourceZoom"`
+	Formats     []string                  `json:"formats"`
+	Bounds      *contentBounds            `json:"bounds"`
+	Interpolate bool                      `json:"interpolate"`
+	Background  string                    `json:"background"`
+	Coverage    map[string]*levelCoverage `json:"coverage"`
 }
 
 type catalogGroup struct {
@@ -197,12 +212,21 @@ type catalogCategory struct {
 }
 
 type catalogLocation struct {
-	ID          int64   `json:"id"`
-	Title       string  `json:"title"`
-	Description string  `json:"description,omitempty"`
-	Latitude    float64 `json:"lat"`
-	Longitude   float64 `json:"lng"`
-	RegionID    *int64  `json:"regionId,omitempty"`
+	ID          int64         `json:"id"`
+	Title       string        `json:"title"`
+	Description string        `json:"description,omitempty"`
+	Latitude    float64       `json:"lat"`
+	Longitude   float64       `json:"lng"`
+	RegionID    *int64        `json:"regionId,omitempty"`
+	Links       []catalogLink `json:"links,omitempty"`
+}
+
+// catalogLink is a cross-reference the source wrote as a mapgenie URL, resolved
+// to a location in this same map. Atlas is offline, so the URL itself is
+// dropped and only the in-catalog target survives.
+type catalogLink struct {
+	Title      string `json:"title"`
+	LocationID int64  `json:"locationId"`
 }
 
 type zone struct {
@@ -395,10 +419,13 @@ func buildMap(
 			Tiles:       tiles.AssetPath,
 			MinZoom:     tiles.MinZoom,
 			MaxZoom:     tiles.MaxZoom,
+			FullZoom:    tiles.FullZoom,
 			SourceZoom:  tiles.SourceZoom,
 			Formats:     tiles.Formats,
 			Bounds:      tiles.Bounds,
 			Interpolate: tiles.Interpolate,
+			Background:  tiles.Background,
+			Coverage:    tiles.Coverage,
 		})
 	}
 	for _, rawGroup := range raw.Groups {
@@ -463,7 +490,65 @@ func buildMap(
 			m.Zones = append(m.Zones, z)
 		}
 	}
+	resolveDescriptionLinks(&m)
 	return m, raw.Game.Slug, nil
+}
+
+// Labels may themselves contain a bracketed aside, as in
+// "[Oh Baby! [Super Sledge]](url)", so one level of nesting is allowed.
+var markdownLink = regexp.MustCompile(`\[((?:[^\[\]]|\[[^\[\]]*\])*)\]\(([^)\s]+)[^)]*\)`)
+var mapgenieLocation = regexp.MustCompile(`locationIds=(\d+)`)
+
+// Some descriptions carry malformed markdown whose URL never sat inside a link,
+// e.g. "[Boss] (Lv. 55) (https://…)". Nothing may ship a live URL, so any that
+// survive link rewriting are removed outright.
+var bareURL = regexp.MustCompile(`\s*\(?\s*https?://[^\s)]+\)?`)
+
+// resolveDescriptionLinks strips every external URL out of location
+// descriptions. Atlas ships with no network, so a mapgenie or YouTube link is
+// dead weight at best. Where the link pointed at another location in this same
+// map, the target is kept as a structured cross-reference the viewer can
+// navigate to instead.
+func resolveDescriptionLinks(m *catalogMap) {
+	known := make(map[int64]bool)
+	for _, group := range m.Groups {
+		for _, category := range group.Categories {
+			for _, location := range category.Locations {
+				known[location.ID] = true
+			}
+		}
+	}
+	for groupIndex := range m.Groups {
+		categories := m.Groups[groupIndex].Categories
+		for categoryIndex := range categories {
+			locations := categories[categoryIndex].Locations
+			for locationIndex := range locations {
+				location := &locations[locationIndex]
+				if !strings.Contains(location.Description, "http") {
+					continue
+				}
+				location.Description = markdownLink.ReplaceAllStringFunc(
+					location.Description,
+					func(match string) string {
+						parts := markdownLink.FindStringSubmatch(match)
+						label, target := parts[1], parts[2]
+						id := mapgenieLocation.FindStringSubmatch(target)
+						if id != nil && !strings.HasPrefix(label, "!") {
+							if value, err := strconv.ParseInt(id[1], 10, 64); err == nil &&
+								known[value] && value != location.ID {
+								location.Links = append(location.Links, catalogLink{
+									Title:      label,
+									LocationID: value,
+								})
+							}
+						}
+						return label
+					},
+				)
+				location.Description = strings.TrimSpace(bareURL.ReplaceAllString(location.Description, ""))
+			}
+		}
+	}
 }
 
 func attachGameIcons(gamePath, iconRoot string, game *catalogGame) error {

@@ -29,8 +29,33 @@ func TestRoutesServeEmbeddedExplorer(t *testing.T) {
 	if body := rec.Body.String(); strings.Contains(body, "Z13 EMBEDDED ASSETS") {
 		t.Fatal("root response contains the redundant asset credit")
 	}
-	if body := rec.Body.String(); !strings.Contains(body, `id="text-overlay-controls"`) {
-		t.Fatal("root response does not contain the promoted text-overlay controls")
+	// Text-overlay categories are no longer promoted into their own row; they
+	// sit in their own group alongside the other categories, and zones are a
+	// layer section like any other rather than a separate always-open panel.
+	if body := rec.Body.String(); strings.Contains(body, `id="text-overlay-controls"`) {
+		t.Fatal("root response still promotes text-overlay controls out of their group")
+	}
+	if body := rec.Body.String(); !strings.Contains(body, `id="layers"`) {
+		t.Fatal("root response does not contain the layers list")
+	}
+	if body := rec.Body.String(); !strings.Contains(body, `id="zone-toggle"`) {
+		t.Fatal("root response does not contain the zone boundaries switch")
+	}
+}
+
+func TestEmbeddedCatalogCarriesNoExternalURLs(t *testing.T) {
+	data, err := fs.ReadFile(assets, "assets/catalog.json")
+	if err != nil {
+		t.Fatal(err)
+	}
+	// Atlas runs with no network. Source descriptions cite mapgenie and YouTube
+	// URLs that would simply be dead here, so generation strips them and keeps
+	// the ones pointing at this map as in-catalog cross-references instead.
+	for _, scheme := range []string{"http://", "https://"} {
+		if index := strings.Index(string(data), scheme); index >= 0 {
+			extract := string(data[index:min(index+120, len(data))])
+			t.Errorf("catalog carries a runtime URL: %q", extract)
+		}
 	}
 }
 

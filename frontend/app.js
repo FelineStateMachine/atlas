@@ -38,9 +38,7 @@ const elements = {
   searchResults: $("#search-results"),
   visibleCount: $("#visible-count"),
   viewport: $("#map"),
-  overlayControls: $("#overlay-controls"),
-  textOverlayControls: $("#text-overlay-controls"),
-  zoneControl: $("#zone-control"),
+  layers: $("#layers"),
   zoneToggle: $("#zone-toggle"),
   zoneCount: $("#zone-count"),
   zoneIndex: $("#zone-index"),
@@ -57,6 +55,7 @@ const elements = {
   detailDescription: $("#detail-description"),
   detailID: $("#detail-id"),
   detailCoordinates: $("#detail-coordinates"),
+  detailLinks: $("#detail-links"),
   detailDot: $("#detail-dot"),
   sidebar: $("#sidebar"),
   mobileLegend: $("#mobile-legend"),
@@ -83,6 +82,7 @@ const state = {
   layers: null,
   sources: null,
   hiddenCategories: new Set(),
+  collapsedSections: new Set(),
   pins: [],
   pinByID: new Map(),
   selectedPin: null,
@@ -142,6 +142,10 @@ function initializeMap() {
   };
   state.layers = {
     raster: new TileLayer({ zIndex: 0 }),
+    // Levels above the complete one are only captured in patches. They ride on
+    // top of the base layer so the fully-covered pyramid still shows through
+    // wherever the deep capture has a gap.
+    rasterDetail: new TileLayer({ zIndex: 1 }),
     grid: new VectorLayer({
       source: state.sources.grid,
       style: gridStyle,
@@ -345,32 +349,27 @@ function bindUIEvents() {
   elements.map.addEventListener("change", () => selectMap(Number(elements.map.value)));
   elements.variant.addEventListener("change", () => selectVariant(Number(elements.variant.value)));
 
-  const changeCategoryVisibility = (event) => {
-    const checkbox = event.target.closest("[data-category]");
-    if (!checkbox) return;
-    const categoryID = Number(checkbox.dataset.category);
-    if (checkbox.checked) state.hiddenCategories.delete(categoryID);
+  elements.legend.addEventListener("change", (event) => {
+    const input = event.target;
+    if (input.dataset.group) {
+      toggleGroup(Number(input.dataset.group));
+      return;
+    }
+    if (!input.dataset.category) return;
+    const categoryID = Number(input.dataset.category);
+    if (input.checked) state.hiddenCategories.delete(categoryID);
     else state.hiddenCategories.add(categoryID);
     applyPinFilters();
-    updateGroupHeadings();
-  };
-  elements.legend.addEventListener("change", changeCategoryVisibility);
-  elements.textOverlayControls.addEventListener("change", changeCategoryVisibility);
+    syncGroupSwitches();
+  });
 
-  elements.legend.addEventListener("click", (event) => {
-    const button = event.target.closest("[data-group]");
+  elements.layers.addEventListener("click", (event) => {
+    const button = event.target.closest("[data-section]");
     if (!button) return;
-    const group = state.map.groups.find((item) => item.id === Number(button.dataset.group));
-    if (!group) return;
-    const categories = markerCategories(group);
-    const hasVisible = categories.some((category) => !state.hiddenCategories.has(category.id));
-    for (const category of categories) {
-      if (hasVisible) state.hiddenCategories.add(category.id);
-      else state.hiddenCategories.delete(category.id);
-    }
-    syncLegendCheckboxes();
-    applyPinFilters();
-    updateGroupHeadings();
+    const key = button.dataset.section;
+    if (state.collapsedSections.has(key)) state.collapsedSections.delete(key);
+    else state.collapsedSections.add(key);
+    syncSectionCollapse();
   });
 
   $("#show-all").addEventListener("click", () => setAllCategories(true));
@@ -398,6 +397,13 @@ function bindUIEvents() {
     const result = event.target.closest("[data-location]");
     if (!result) return;
     const pin = state.pinByID.get(Number(result.dataset.location));
+    if (pin) revealPin(pin);
+  });
+
+  elements.detailLinks.addEventListener("click", (event) => {
+    const button = event.target.closest("[data-location]");
+    if (!button) return;
+    const pin = state.pinByID.get(Number(button.dataset.location));
     if (pin) revealPin(pin);
   });
 
@@ -465,6 +471,10 @@ function selectMap(id) {
   setHoveredPin(null);
   state.gridPrefix = "";
   state.hiddenCategories.clear();
+  // Zones are a navigation aid, not the primary filter surface: keep boundaries
+  // drawn but fold the index away so pin groups stay above the fold.
+  state.collapsedSections.clear();
+  state.collapsedSections.add("zones");
   for (const group of state.map.groups) {
     for (const category of group.categories) {
       if (!category.visible) state.hiddenCategories.add(category.id);
@@ -501,47 +511,68 @@ function selectVariant(index, resetView = false) {
   let pending = 0;
   state.tileStats = { requested: 0, loaded: 0, errors: 0, peakPending: 0 };
   elements.loading.hidden = false;
-  const tileGrid = new TileGrid({
-    extent: [0, -state.catalog.tileGrid.size, state.catalog.tileGrid.size, 0],
-    origin: [0, 0],
-    // Keep the source grid native. Views may overzoom this last resolution,
-    // but no nonexistent tile level is requested.
-    resolutions: resolutions(variant.maxZoom),
-    tileSize: state.catalog.tileGrid.tileSize,
-  });
-  const source = new XYZ({
+  const trackLoading = (source) => {
+    source.on("tileloadstart", () => {
+      if (state.tileRun !== tileRun) return;
+      pending++;
+      state.tileStats.requested++;
+      state.tileStats.peakPending = Math.max(state.tileStats.peakPending, pending);
+    });
+    const tileFinished = (failed) => {
+      if (state.tileRun !== tileRun) return;
+      pending = Math.max(0, pending - 1);
+      if (failed) state.tileStats.errors++;
+      else state.tileStats.loaded++;
+      if (pending === 0 && state.tileStats.loaded > 0) elements.loading.hidden = true;
+    };
+    source.on("tileloadend", () => tileFinished(false));
+    source.on("tileloaderror", () => tileFinished(true));
+    return source;
+  };
+
+  const buildSource = (maxLevel, wanted) => trackLoading(new XYZ({
     projection: state.projection,
-    tileGrid,
+    tileGrid: new TileGrid({
+      extent: [0, -state.catalog.tileGrid.size, state.catalog.tileGrid.size, 0],
+      origin: [0, 0],
+      // Keep the source grid native. Views may overzoom this last resolution,
+      // but no nonexistent tile level is requested.
+      resolutions: resolutions(maxLevel),
+      tileSize: state.catalog.tileGrid.tileSize,
+    }),
     cacheSize: 64,
     interpolate: variant.interpolate,
     transition: 0,
     wrapX: false,
     tileUrlFunction: ([zoom, x, y]) => {
       const format = variant.formats[zoom];
-      if (!format || x < 0 || y < 0) return undefined;
+      if (!format || x < 0 || y < 0 || !wanted(zoom, x, y)) return undefined;
       return `/static/tiles/${encodeURIComponent(variant.tiles)}/${zoom}/${x}/${y}.${format}`;
     },
-  });
-  source.on("tileloadstart", () => {
-    if (state.tileRun !== tileRun) return;
-    pending++;
-    state.tileStats.requested++;
-    state.tileStats.peakPending = Math.max(state.tileStats.peakPending, pending);
-  });
-  const tileFinished = (failed) => {
-    if (state.tileRun !== tileRun) return;
-    pending = Math.max(0, pending - 1);
-    if (failed) state.tileStats.errors++;
-    else state.tileStats.loaded++;
-    if (pending === 0 && state.tileStats.loaded > 0) elements.loading.hidden = true;
-  };
-  source.on("tileloadend", () => tileFinished(false));
-  source.on("tileloaderror", () => tileFinished(true));
+  }));
 
+  const fullZoom = variant.fullZoom ?? variant.maxZoom;
+  const base = buildSource(fullZoom, (zoom, x, y) => tileExists(variant, zoom, x, y));
   const previous = state.layers.raster.getSource();
-  state.layers.raster.setSource(source);
+  state.layers.raster.setSource(base);
   state.layers.raster.setExtent(activeExtent());
+  // Tiles matching the map's background were never written; painting that
+  // colour behind the layer makes their absence invisible.
+  state.layers.raster.setBackground(variant.background || undefined);
   previous?.clear();
+
+  const previousDetail = state.layers.rasterDetail.getSource();
+  if (variant.maxZoom > fullZoom) {
+    state.layers.rasterDetail.setSource(buildSource(
+      variant.maxZoom,
+      (zoom, x, y) => zoom > fullZoom && tileExists(variant, zoom, x, y),
+    ));
+    state.layers.rasterDetail.setExtent(activeExtent());
+    state.layers.rasterDetail.setVisible(true);
+  } else {
+    state.layers.rasterDetail.setVisible(false);
+  }
+  previousDetail?.clear();
   renderGrid();
   if (state.gridEnabled) {
     refreshPrioritySource();
@@ -551,6 +582,31 @@ function selectVariant(index, resetView = false) {
   }
   if (resetView) requestAnimationFrame(fitMap);
   else updateVisibleCount();
+}
+
+// Levels are sparse: background tiles are never written, and levels above
+// fullZoom exist only where the capture reached. Asking for a tile that was
+// never emitted would be a wasted request and a 404, so consult the coverage
+// bitset first and let OpenLayers show the parent tile instead.
+function tileExists(variant, zoom, x, y) {
+  const coverage = variant.coverage?.[zoom];
+  if (!coverage) return true;
+  const column = x - coverage.x;
+  const row = y - coverage.y;
+  if (column < 0 || row < 0 || column >= coverage.w || row >= coverage.h) return false;
+  const bits = coverageBits(variant, zoom, coverage);
+  const index = row * coverage.w + column;
+  return (bits[index >> 3] & (1 << (index & 7))) !== 0;
+}
+
+function coverageBits(variant, zoom, coverage) {
+  if (!coverage.decoded) {
+    const binary = atob(coverage.bits);
+    const bytes = new Uint8Array(binary.length);
+    for (let index = 0; index < binary.length; index++) bytes[index] = binary.charCodeAt(index);
+    coverage.decoded = bytes;
+  }
+  return coverage.decoded;
 }
 
 function resolutions(maxZoom) {
@@ -735,70 +791,94 @@ function populateSelect(select, items, labelKey, valueKey) {
 
 function renderLegend() {
   const fragment = document.createDocumentFragment();
-  const overlayFragment = document.createDocumentFragment();
-  let textOverlayCount = 0;
   for (const group of state.map.groups) {
-    for (const category of textCategories(group)) {
-      overlayFragment.append(categoryToggle(category, true));
-      textOverlayCount++;
-    }
-    const categories = markerCategories(group);
-    if (!categories.length) continue;
+    if (!group.categories.length) continue;
     const section = document.createElement("section");
-    section.className = "legend-group";
+    section.className = "layer-section";
     section.dataset.groupSection = String(group.id);
-    const heading = document.createElement("button");
-    heading.type = "button";
-    heading.className = "group-heading";
-    heading.dataset.group = String(group.id);
-    heading.title = `Toggle every category in ${group.title}`;
-    const title = document.createElement("span");
-    title.textContent = group.title;
-    const count = document.createElement("span");
-    count.dataset.groupCount = String(group.id);
-    heading.append(title, count);
-    section.append(heading);
+    const locations = group.categories.reduce((total, category) => total + category.locations.length, 0);
+    section.append(layerHeader(`group-${group.id}`, group.title, locations, group.id));
     const toggles = document.createElement("div");
     toggles.className = "category-toggles";
-    for (const category of categories) toggles.append(categoryToggle(category, false));
+    for (const category of group.categories) toggles.append(categoryToggle(category));
     section.append(toggles);
     fragment.append(section);
   }
-  elements.textOverlayControls.replaceChildren(overlayFragment);
   elements.legend.replaceChildren(fragment);
-  elements.overlayControls.hidden = !textOverlayCount && !(state.map.zones || []).length;
-  updateGroupHeadings();
+  syncSectionCollapse();
+  syncGroupSwitches();
 }
 
-function categoryToggle(category, promoted) {
+// Mirrors the markup of the static zones header so every layer section reads the
+// same: disclosure on the left, one switch on the right.
+function layerHeader(key, title, count, groupID) {
+  const header = document.createElement("div");
+  header.className = "layer-header";
+
+  const disclosure = document.createElement("button");
+  disclosure.type = "button";
+  disclosure.className = "layer-title";
+  disclosure.dataset.section = key;
+  const chevron = document.createElement("span");
+  chevron.className = "layer-chevron";
+  chevron.setAttribute("aria-hidden", "true");
+  chevron.innerHTML = '<svg viewBox="0 0 24 24"><path d="m9 6 6 6-6 6"/></svg>';
+  const name = document.createElement("span");
+  name.textContent = title;
+  const total = document.createElement("span");
+  total.className = "layer-count";
+  total.textContent = formatNumber(count);
+  disclosure.append(chevron, name, total);
+
+  const toggle = document.createElement("label");
+  toggle.className = "layer-switch";
+  const checkbox = document.createElement("input");
+  checkbox.type = "checkbox";
+  checkbox.dataset.group = String(groupID);
+  checkbox.setAttribute("aria-label", `Show ${title}`);
+  const knob = document.createElement("span");
+  knob.setAttribute("aria-hidden", "true");
+  toggle.append(checkbox, knob);
+
+  header.append(disclosure, toggle);
+  return header;
+}
+
+function categoryToggle(category) {
+  const isText = category.displayType === "text";
   const row = document.createElement("label");
-  row.className = promoted ? "overlay-control" : "category-toggle";
+  row.className = "category-toggle";
   applyCategoryVisual(row, category);
   const checkbox = document.createElement("input");
   checkbox.type = "checkbox";
   checkbox.dataset.category = String(category.id);
   checkbox.checked = !state.hiddenCategories.has(category.id);
   const icon = document.createElement("span");
-  icon.className = promoted ? "text-symbol" : "category-icon";
-  if (promoted) icon.textContent = "Tt";
-  else applyCategoryGlyph(icon, category, initials(category.title));
-  icon.title = promoted ? "Text overlay" : (category.icon || category.title);
+  if (isText) {
+    icon.className = "text-symbol";
+    icon.textContent = "Tt";
+    icon.title = "Drawn as a text label";
+  } else {
+    icon.className = "category-icon";
+    applyCategoryGlyph(icon, category, initials(category.title));
+    icon.title = category.icon || category.title;
+  }
   const name = document.createElement("span");
   name.className = "category-name";
-  name.textContent = promoted ? `${category.title} titles` : category.title;
+  name.textContent = category.title;
   const locations = document.createElement("span");
-  locations.className = promoted ? "overlay-count" : "category-count";
+  locations.className = "category-count";
   locations.textContent = formatNumber(category.locations.length);
   row.append(checkbox, icon, name, locations);
   return row;
 }
 
-function textCategories(group) {
-  return group.categories.filter((category) => category.displayType === "text");
-}
-
-function markerCategories(group) {
-  return group.categories.filter((category) => category.displayType !== "text");
+function syncSectionCollapse() {
+  for (const button of elements.layers.querySelectorAll("[data-section]")) {
+    const collapsed = state.collapsedSections.has(button.dataset.section);
+    button.setAttribute("aria-expanded", String(!collapsed));
+    button.closest(".layer-section").classList.toggle("is-collapsed", collapsed);
+  }
 }
 
 function buildPins() {
@@ -844,10 +924,7 @@ function renderZones() {
   state.focusedZoneID = null;
   state.zoneTitleCount = 0;
   setZonesVisible(true);
-  elements.zoneControl.hidden = zones.length === 0;
   elements.zoneIndex.hidden = zones.length === 0;
-  elements.overlayControls.hidden = !zones.length &&
-    !state.map.groups.some((group) => textCategories(group).length);
   elements.zoneCount.textContent = formatNumber(zones.length);
 
   for (const zone of zones) {
@@ -1140,7 +1217,7 @@ function setAllCategories(visible) {
   syncLegendCheckboxes();
   applyPinFilters();
   renderSearchResults();
-  updateGroupHeadings();
+  syncGroupSwitches();
 }
 
 function syncLegendCheckboxes() {
@@ -1149,13 +1226,26 @@ function syncLegendCheckboxes() {
   }
 }
 
-function updateGroupHeadings() {
+function toggleGroup(groupID) {
+  const group = state.map.groups.find((item) => item.id === groupID);
+  if (!group) return;
+  const hasVisible = group.categories.some((category) => !state.hiddenCategories.has(category.id));
+  for (const category of group.categories) {
+    if (hasVisible) state.hiddenCategories.add(category.id);
+    else state.hiddenCategories.delete(category.id);
+  }
+  syncLegendCheckboxes();
+  applyPinFilters();
+  syncGroupSwitches();
+}
+
+function syncGroupSwitches() {
   if (!state.map) return;
   for (const group of state.map.groups) {
-    const categories = markerCategories(group);
-    const visible = categories.filter((category) => !state.hiddenCategories.has(category.id)).length;
-    const count = elements.legend.querySelector(`[data-group-count="${group.id}"]`);
-    if (count) count.textContent = `${visible}/${categories.length}`;
+    const input = elements.legend.querySelector(`input[data-group="${group.id}"]`);
+    if (input) {
+      input.checked = group.categories.some((category) => !state.hiddenCategories.has(category.id));
+    }
   }
 }
 
@@ -1166,7 +1256,7 @@ function revealPin(pin) {
   elements.searchResults.hidden = true;
   syncLegendCheckboxes();
   applyPinFilters();
-  updateGroupHeadings();
+  syncGroupSwitches();
   showPin(pin, true);
 }
 
@@ -1185,6 +1275,7 @@ function showPin(pin, focus = false) {
   elements.detailID.textContent = String(pin.location.id);
   elements.detailCoordinates.textContent =
     `${pin.location.lat.toFixed(6)}, ${pin.location.lng.toFixed(6)}`;
+  renderDetailLinks(pin);
   applyCategoryVisual(elements.detailDot, pin.category);
   applyCategoryGlyph(elements.detailDot, pin.category, initials(pin.category.title));
   elements.detail.hidden = false;
@@ -1196,6 +1287,28 @@ function showPin(pin, focus = false) {
       duration: 220,
     });
   }
+}
+
+// The source wrote these as mapgenie URLs. They are rebuilt as in-app jumps so
+// they still work with no network, and dropped when the target is not on this
+// map.
+function renderDetailLinks(pin) {
+  const links = (pin.location.links || []).filter((link) => state.pinByID.has(link.locationId));
+  elements.detailLinks.hidden = links.length === 0;
+  if (!links.length) {
+    elements.detailLinks.replaceChildren();
+    return;
+  }
+  const fragment = document.createDocumentFragment();
+  for (const link of links) {
+    const button = document.createElement("button");
+    button.type = "button";
+    button.className = "detail-link";
+    button.dataset.location = String(link.locationId);
+    button.textContent = link.title;
+    fragment.append(button);
+  }
+  elements.detailLinks.replaceChildren(fragment);
 }
 
 function closeDetail() {

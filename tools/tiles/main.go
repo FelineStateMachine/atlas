@@ -5,11 +5,13 @@
 package main
 
 import (
+	"encoding/base64"
 	"encoding/json"
 	"errors"
 	"flag"
 	"fmt"
 	"image"
+	"image/color"
 	"image/draw"
 	"image/jpeg"
 	"image/png"
@@ -94,11 +96,15 @@ type tileFile struct {
 }
 
 type tilePlan struct {
-	AssetPath       string
-	Bounds          *contentBounds
-	Complete        map[int][]tileFile
+	AssetPath string
+	Bounds    *contentBounds
+	// Levels holds every usable source level. Levels at or below MaxFullZoom
+	// cover the map completely; deeper ones may be partially captured and are
+	// carried as extra detail on top of the complete pyramid.
+	Levels          map[int][]tileFile
 	Interpolate     bool
 	MapDir          string
+	MaxFullZoom     int
 	MaxSourceZoom   int
 	SourcePath      string
 	PreferredFormat string
@@ -111,14 +117,71 @@ type manifest struct {
 }
 
 type variantManifest struct {
-	SourcePath  string         `json:"sourcePath"`
-	AssetPath   string         `json:"assetPath"`
-	MinZoom     int            `json:"minZoom"`
-	MaxZoom     int            `json:"maxZoom"`
-	SourceZoom  int            `json:"sourceZoom"`
-	Formats     []string       `json:"formats"`
-	Bounds      *contentBounds `json:"bounds,omitempty"`
-	Interpolate bool           `json:"interpolate"`
+	SourcePath string `json:"sourcePath"`
+	AssetPath  string `json:"assetPath"`
+	MinZoom    int    `json:"minZoom"`
+	MaxZoom    int    `json:"maxZoom"`
+	// FullZoom is the deepest level with complete coverage. Levels beyond it
+	// exist only where Coverage says so; the viewer falls back to the parent
+	// tile elsewhere.
+	FullZoom    int                       `json:"fullZoom"`
+	SourceZoom  int                       `json:"sourceZoom"`
+	Formats     []string                  `json:"formats"`
+	Bounds      *contentBounds            `json:"bounds,omitempty"`
+	Interpolate bool                      `json:"interpolate"`
+	Background  string                    `json:"background,omitempty"`
+	Coverage    map[string]*levelCoverage `json:"coverage,omitempty"`
+}
+
+// levelCoverage is a row-major bitset over the [X,Y,W,H] tile window of one
+// level. A set bit means the tile was written.
+type levelCoverage struct {
+	X    int    `json:"x"`
+	Y    int    `json:"y"`
+	W    int    `json:"w"`
+	H    int    `json:"h"`
+	Bits string `json:"bits"`
+}
+
+// coverageBuilder accumulates the tiles actually written for one level and
+// encodes them as a bitset once the level is finished.
+type coverageBuilder struct {
+	present map[[2]int]bool
+	total   int
+}
+
+func (b *coverageBuilder) mark(x, y int) {
+	if b.present == nil {
+		b.present = make(map[[2]int]bool)
+	}
+	b.present[[2]int{x, y}] = true
+}
+
+// build returns nil when the level is fully covered, so complete levels cost
+// nothing in the manifest.
+func (b *coverageBuilder) build() *levelCoverage {
+	if len(b.present) == 0 || len(b.present) == b.total {
+		return nil
+	}
+	minX, minY := int(^uint(0)>>1), int(^uint(0)>>1)
+	maxX, maxY := -1, -1
+	for key := range b.present {
+		minX, minY = min(minX, key[0]), min(minY, key[1])
+		maxX, maxY = max(maxX, key[0]), max(maxY, key[1])
+	}
+	width, height := maxX-minX+1, maxY-minY+1
+	bits := make([]byte, (width*height+7)/8)
+	for key := range b.present {
+		index := (key[1]-minY)*width + (key[0] - minX)
+		bits[index/8] |= 1 << (index % 8)
+	}
+	return &levelCoverage{
+		X:    minX,
+		Y:    minY,
+		W:    width,
+		H:    height,
+		Bits: base64.StdEncoding.EncodeToString(bits),
+	}
 }
 
 type contentBounds struct {
@@ -250,24 +313,35 @@ func inspectMap(mapDir string) ([]tilePlan, string, string, error) {
 
 	plans := make([]tilePlan, 0, len(raw.Config.TileSets))
 	for _, set := range raw.Config.TileSets {
-		complete := make(map[int][]tileFile)
-		maxSourceZoom := -1
+		levels := make(map[int][]tileFile)
+		maxFullZoom, maxSourceZoom := -1, -1
 		for zoom, level := range byPath[set.Path] {
 			if zoom < baseSourceZoom || zoom > set.MaxZoom {
 				continue
 			}
-			files, ok, err := completeLevel(mapDir, set, zoom, level)
+			files, full, err := readLevel(mapDir, set, zoom, level)
 			if err != nil {
 				return nil, "", "", err
 			}
-			if !ok {
+			if len(files) == 0 {
 				continue
 			}
-			complete[zoom] = files
+			levels[zoom] = files
 			maxSourceZoom = max(maxSourceZoom, zoom)
+			if full {
+				maxFullZoom = max(maxFullZoom, zoom)
+			}
 		}
-		if maxSourceZoom < baseSourceZoom {
+		if maxFullZoom < baseSourceZoom {
 			return nil, raw.Title, fmt.Sprintf("layer %q has no complete source level", set.Name), nil
+		}
+		// A partial level is only usable if every level beneath it exists;
+		// otherwise the viewer would jump across a missing resolution.
+		for zoom := maxFullZoom + 1; zoom <= maxSourceZoom; zoom++ {
+			if len(levels[zoom]) == 0 {
+				maxSourceZoom = zoom - 1
+				break
+			}
 		}
 		assetPath := raw.Game.Slug + "__" + raw.Slug
 		if len(raw.Config.TileSets) > 1 {
@@ -275,10 +349,11 @@ func inspectMap(mapDir string) ([]tilePlan, string, string, error) {
 		}
 		plans = append(plans, tilePlan{
 			AssetPath:       assetPath,
-			Bounds:          contentBoundsFor(complete[maxSourceZoom], maxSourceZoom),
-			Complete:        complete,
+			Bounds:          contentBoundsFor(levels[maxFullZoom], maxFullZoom),
+			Levels:          levels,
 			Interpolate:     !isPixelArt(raw.Game.Slug),
 			MapDir:          mapDir,
+			MaxFullZoom:     maxFullZoom,
 			MaxSourceZoom:   maxSourceZoom,
 			PreferredFormat: normalizeFormat(set.Extension),
 			SourcePath:      set.Path,
@@ -287,12 +362,12 @@ func inspectMap(mapDir string) ([]tilePlan, string, string, error) {
 	return plans, raw.Title, "", nil
 }
 
-func completeLevel(mapDir string, set rawTileSet, zoom int, records []tileRecord) ([]tileFile, bool, error) {
+// readLevel collects every cached tile of one source level. It reports whether
+// the level covers its expected window completely; partial levels are still
+// returned so they can be carried as extra detail above the complete pyramid.
+func readLevel(mapDir string, set rawTileSet, zoom int, records []tileRecord) ([]tileFile, bool, error) {
 	bounds := expectedBounds(set, zoom)
 	expected := (bounds.X.Max - bounds.X.Min + 1) * (bounds.Y.Max - bounds.Y.Min + 1)
-	if expected <= 0 || len(records) != expected {
-		return nil, false, nil
-	}
 
 	seen := make(map[[2]int]bool, len(records))
 	files := make([]tileFile, 0, len(records))
@@ -300,16 +375,16 @@ func completeLevel(mapDir string, set rawTileSet, zoom int, records []tileRecord
 		key := [2]int{record.X, record.Y}
 		if seen[key] || record.X < bounds.X.Min || record.X > bounds.X.Max ||
 			record.Y < bounds.Y.Min || record.Y > bounds.Y.Max {
-			return nil, false, nil
+			continue
 		}
-		seen[key] = true
 		path, err := sourceTilePath(mapDir, record)
 		if errors.Is(err, os.ErrNotExist) {
-			return nil, false, nil
+			continue
 		}
 		if err != nil {
 			return nil, false, err
 		}
+		seen[key] = true
 		files = append(files, tileFile{
 			Record: record,
 			Path:   path,
@@ -322,7 +397,7 @@ func completeLevel(mapDir string, set rawTileSet, zoom int, records []tileRecord
 		}
 		return files[i].Record.X < files[j].Record.X
 	})
-	return files, true, nil
+	return files, expected > 0 && len(files) == expected, nil
 }
 
 func expectedBounds(set rawTileSet, zoom int) rawTileSetBound {
@@ -348,84 +423,231 @@ func worldTileRange(zoom int) (int, int) {
 
 func buildPyramid(root string, plan tilePlan) (variantManifest, error) {
 	maxZoom := plan.MaxSourceZoom - baseSourceZoom
+	fullZoom := plan.MaxFullZoom - baseSourceZoom
 	formats := make([]string, maxZoom+1)
-	for localZoom := maxZoom; localZoom >= 0; localZoom-- {
-		sourceZoom := localZoom + baseSourceZoom
-		files := plan.Complete[sourceZoom]
-		if len(files) > 0 {
-			outputFormat := ""
-			if !plan.Interpolate {
-				outputFormat = "png"
-			}
-			format, err := copyLevel(root, plan.AssetPath, sourceZoom, localZoom, files, outputFormat)
-			if err != nil {
-				return variantManifest{}, err
-			}
-			formats[localZoom] = format
-			continue
+	coverage := make(map[string]*levelCoverage)
+
+	// Resolve the background tile once, from the level we trust. Reusing one
+	// hash across every level keeps a sparse deep level from having its handful
+	// of real tiles voted "background" by its own majority, and skipping the
+	// omission entirely when no flat colour could be sampled means we never
+	// leave a hole we cannot paint over.
+	full := plan.Levels[plan.MaxFullZoom]
+	placeholder := placeholderHash(full)
+	backgroundHex, err := placeholderColor(full, placeholder)
+	if err != nil {
+		return variantManifest{}, err
+	}
+	if backgroundHex == "" {
+		placeholder = ""
+	}
+	background := parseHexColor(backgroundHex)
+
+	// The deepest complete level is the one we trust. Everything below it is
+	// folded down from it rather than taken from whatever intermediate levels
+	// the capture happens to hold: those are separately-encoded JPEGs of
+	// varying completeness, and a box filter over the level we already have is
+	// both more consistent and never leaves a level empty.
+	format, mask, err := copyLevel(root, plan, plan.MaxFullZoom, fullZoom, full, placeholder)
+	if err != nil {
+		return variantManifest{}, err
+	}
+	formats[fullZoom] = format
+	if mask != nil {
+		coverage[strconv.Itoa(fullZoom)] = mask
+	}
+	for localZoom := fullZoom - 1; localZoom >= 0; localZoom-- {
+		derivedFormat := plan.PreferredFormat
+		if !plan.Interpolate || derivedFormat == "png" {
+			derivedFormat = "png"
 		}
-		format := plan.PreferredFormat
-		if !plan.Interpolate || format == "png" {
-			format = "png"
-		}
-		if err := deriveLevel(root, plan.AssetPath, localZoom, formats[localZoom+1], format, !plan.Interpolate); err != nil {
+		mask, err := deriveLevel(root, plan.AssetPath, localZoom, formats[localZoom+1], derivedFormat, !plan.Interpolate, background)
+		if err != nil {
 			return variantManifest{}, err
 		}
+		formats[localZoom] = derivedFormat
+		if mask != nil {
+			coverage[strconv.Itoa(localZoom)] = mask
+		}
+	}
+
+	// Partially captured levels above it. These have gaps by definition, so the
+	// viewer falls back to the parent tile wherever coverage says nothing. A
+	// level that survives with nothing in it ends the pyramid: advertising a
+	// zoom with no tiles would only produce misses.
+	for localZoom := fullZoom + 1; localZoom <= maxZoom; localZoom++ {
+		sourceZoom := localZoom + baseSourceZoom
+		format, mask, err := copyLevel(root, plan, sourceZoom, localZoom, plan.Levels[sourceZoom], placeholder)
+		if err != nil {
+			return variantManifest{}, err
+		}
+		if mask == nil {
+			maxZoom = localZoom - 1
+			formats = formats[:localZoom]
+			break
+		}
 		formats[localZoom] = format
+		coverage[strconv.Itoa(localZoom)] = mask
+	}
+
+	if len(coverage) == 0 {
+		coverage = nil
 	}
 	return variantManifest{
 		SourcePath:  plan.SourcePath,
 		AssetPath:   plan.AssetPath,
 		MinZoom:     0,
 		MaxZoom:     maxZoom,
+		FullZoom:    fullZoom,
 		SourceZoom:  plan.MaxSourceZoom,
 		Formats:     formats,
 		Bounds:      plan.Bounds,
 		Interpolate: plan.Interpolate,
+		Background:  backgroundHex,
+		Coverage:    coverage,
 	}, nil
 }
 
+// parseHexColor turns "#rrggbb" into a colour, defaulting to opaque black when
+// the level had no flat background to sample.
+func parseHexColor(value string) color.Color {
+	if len(value) != 7 || value[0] != '#' {
+		return color.NRGBA{A: 0xff}
+	}
+	component, err := strconv.ParseUint(value[1:], 16, 32)
+	if err != nil {
+		return color.NRGBA{A: 0xff}
+	}
+	return color.NRGBA{
+		R: uint8(component >> 16),
+		G: uint8(component >> 8),
+		B: uint8(component),
+		A: 0xff,
+	}
+}
+
+// copyLevel writes one source level, omitting tiles that are byte-identical
+// copies of the level's background placeholder. Source bytes are passed through
+// untouched: re-encoding cannot add detail the capture never had, and for the
+// JPEG-sourced pixel-art maps it only stores compression noise at a larger size.
 func copyLevel(
 	root string,
-	assetPath string,
+	plan tilePlan,
 	sourceZoom int,
 	localZoom int,
 	files []tileFile,
-	outputFormat string,
-) (string, error) {
-	sourceFormat := files[0].Format
-	if outputFormat == "" {
-		outputFormat = sourceFormat
+	placeholder string,
+) (string, *levelCoverage, error) {
+	if len(files) == 0 {
+		return "", nil, fmt.Errorf("source level %d has no tiles", sourceZoom)
 	}
+	outputFormat := files[0].Format
 	origin, _ := worldTileRange(sourceZoom)
+	span := 1 << localZoom
+	builder := &coverageBuilder{total: span * span}
+
 	for _, file := range files {
-		if file.Format != sourceFormat {
-			return "", fmt.Errorf("source level %d mixes %s and %s", sourceZoom, sourceFormat, file.Format)
+		if file.Format != outputFormat {
+			return "", nil, fmt.Errorf("source level %d mixes %s and %s", sourceZoom, outputFormat, file.Format)
+		}
+		if placeholder != "" && file.Record.ContentHash == placeholder {
+			continue
 		}
 		x := file.Record.X - origin
 		y := file.Record.Y - origin
-		destination := tilePath(root, assetPath, localZoom, x, y, outputFormat)
-		if outputFormat == sourceFormat {
-			if err := copyFile(file.Path, destination); err != nil {
-				return "", err
-			}
-			continue
+		if err := copyFile(file.Path, tilePath(root, plan.AssetPath, localZoom, x, y, outputFormat)); err != nil {
+			return "", nil, err
 		}
-		source, err := decodeImage(file.Path)
-		if err != nil {
-			return "", err
-		}
-		if err := encodeImage(destination, source, outputFormat); err != nil {
-			return "", err
-		}
+		builder.mark(x, y)
 	}
-	return outputFormat, nil
+	return outputFormat, builder.build(), nil
 }
 
-func deriveLevel(root, assetPath string, zoom int, childFormat, outputFormat string, nearest bool) error {
+// placeholderHash returns the content hash of the level's background tile, or
+// "" when no single tile holds a majority. The majority rule matches
+// contentBoundsFor: only an unambiguous filler tile is treated as empty space,
+// so a map whose real content happens to repeat is never punched full of holes.
+func placeholderHash(files []tileFile) string {
+	counts := make(map[string]int, len(files))
+	var dominant string
+	for _, file := range files {
+		hash := file.Record.ContentHash
+		counts[hash]++
+		if counts[hash] > counts[dominant] {
+			dominant = hash
+		}
+	}
+	if dominant == "" || counts[dominant] <= len(files)/2 {
+		return ""
+	}
+	return dominant
+}
+
+// placeholderColor reports the flat colour of the level's background tile so
+// the viewer can paint it behind the raster layer. Tiles we omit then look
+// exactly as they did when they were shipped as files. It returns "" when the
+// tile is not flat enough for a single colour to stand in for it.
+func placeholderColor(files []tileFile, hash string) (string, error) {
+	if hash == "" {
+		return "", nil
+	}
+	var sample string
+	for _, file := range files {
+		if file.Record.ContentHash == hash {
+			sample = file.Path
+			break
+		}
+	}
+	if sample == "" {
+		return "", nil
+	}
+	value, err := decodeImage(sample)
+	if err != nil {
+		return "", err
+	}
+	bounds := value.Bounds()
+	var sums [3]int64
+	var count int64
+	minimum := [3]uint32{^uint32(0), ^uint32(0), ^uint32(0)}
+	maximum := [3]uint32{}
+	for y := bounds.Min.Y; y < bounds.Max.Y; y += 4 {
+		for x := bounds.Min.X; x < bounds.Max.X; x += 4 {
+			r, g, b, _ := value.At(x, y).RGBA()
+			for channel, component := range [3]uint32{r >> 8, g >> 8, b >> 8} {
+				sums[channel] += int64(component)
+				minimum[channel] = min(minimum[channel], component)
+				maximum[channel] = max(maximum[channel], component)
+			}
+			count++
+		}
+	}
+	if count == 0 {
+		return "", nil
+	}
+	for channel := range minimum {
+		if maximum[channel]-minimum[channel] > 12 {
+			return "", nil
+		}
+	}
+	return fmt.Sprintf("#%02x%02x%02x",
+		sums[0]/count, sums[1]/count, sums[2]/count), nil
+}
+
+// deriveLevel folds the level above down by two. Parents with no surviving
+// children are skipped, so omitted background propagates down the pyramid.
+func deriveLevel(
+	root, assetPath string,
+	zoom int,
+	childFormat, outputFormat string,
+	nearest bool,
+	background color.Color,
+) (*levelCoverage, error) {
 	childRoot := filepath.Join(root, assetPath, strconv.Itoa(zoom+1))
 	parents := make(map[[2]int]bool)
 	err := filepath.WalkDir(childRoot, func(path string, entry os.DirEntry, walkErr error) error {
+		if errors.Is(walkErr, os.ErrNotExist) {
+			return nil
+		}
 		if walkErr != nil {
 			return walkErr
 		}
@@ -444,7 +666,7 @@ func deriveLevel(root, assetPath string, zoom int, childFormat, outputFormat str
 		return nil
 	})
 	if err != nil {
-		return err
+		return nil, err
 	}
 
 	keys := make([][2]int, 0, len(parents))
@@ -457,8 +679,13 @@ func deriveLevel(root, assetPath string, zoom int, childFormat, outputFormat str
 		}
 		return keys[i][0] < keys[j][0]
 	})
+	span := 1 << zoom
+	builder := &coverageBuilder{total: span * span}
 	for _, parent := range keys {
 		composite := image.NewNRGBA(image.Rect(0, 0, tileSize*2, tileSize*2))
+		// Quadrants whose child was omitted as background must still carry the
+		// background colour: a derived JPEG has no alpha to fall back on.
+		draw.Draw(composite, composite.Bounds(), &image.Uniform{background}, image.Point{}, draw.Src)
 		for offsetY := 0; offsetY < 2; offsetY++ {
 			for offsetX := 0; offsetX < 2; offsetX++ {
 				childX := parent[0]*2 + offsetX
@@ -469,7 +696,7 @@ func deriveLevel(root, assetPath string, zoom int, childFormat, outputFormat str
 					continue
 				}
 				if err != nil {
-					return err
+					return nil, err
 				}
 				target := image.Rect(offsetX*tileSize, offsetY*tileSize, (offsetX+1)*tileSize, (offsetY+1)*tileSize)
 				draw.Draw(composite, target, child, child.Bounds().Min, draw.Src)
@@ -478,10 +705,11 @@ func deriveLevel(root, assetPath string, zoom int, childFormat, outputFormat str
 		parentImage := downsample(composite, nearest)
 		destination := tilePath(root, assetPath, zoom, parent[0], parent[1], outputFormat)
 		if err := encodeImage(destination, parentImage, outputFormat); err != nil {
-			return err
+			return nil, err
 		}
+		builder.mark(parent[0], parent[1])
 	}
-	return nil
+	return builder.build(), nil
 }
 
 func downsample(source *image.NRGBA, nearest bool) *image.NRGBA {
