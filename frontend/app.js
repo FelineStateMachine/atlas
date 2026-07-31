@@ -107,6 +107,8 @@ const state = {
   overviewRun: 0,
   overviewKey: "",
   renderedShard: 0,
+  mapRun: 0,
+  textByMap: new Map(),
   restore: null,
   settling: false,
   styleCache: new Map(),
@@ -129,7 +131,7 @@ async function start() {
     const resuming = session &&
       (!route.game || (route.game === session.game && route.map === session.map));
     state.restore = resuming ? session : null;
-    selectGame(
+    await selectGame(
       route.game || session?.game || state.catalog.games[0].slug,
       route.map || session?.map,
     );
@@ -367,8 +369,8 @@ function createView(maxZoom) {
 }
 
 function bindUIEvents() {
-  elements.game.addEventListener("change", () => selectGame(elements.game.value));
-  elements.map.addEventListener("change", () => selectMap(Number(elements.map.value)));
+  elements.game.addEventListener("change", () => { void selectGame(elements.game.value); });
+  elements.map.addEventListener("change", () => { void selectMap(Number(elements.map.value)); });
   elements.variant.addEventListener("change", () => selectVariant(Number(elements.variant.value)));
 
   elements.legend.addEventListener("change", (event) => {
@@ -532,7 +534,10 @@ function bindUIEvents() {
   window.addEventListener("hashchange", () => {
     const route = readRoute();
     if (route.game === state.game?.slug && route.map === state.map?.slug) return;
-    selectGame(route.game || state.catalog.games[0].slug, route.map);
+    // An address typed by hand names where to go, so it overrides what the
+    // game remembers.
+    state.restore = null;
+    void selectGame(route.game || state.catalog.games[0].slug, route.map);
   });
   window.addEventListener("resize", () => {
     state.engine?.updateSize();
@@ -548,14 +553,76 @@ function bindUIEvents() {
   });
 }
 
-function selectGame(slug, mapSlug) {
+// A map arrives in two pieces: its layers, categories and regions as JSON, and
+// its locations packed as parallel arrays. Nothing here is fetched until the
+// map is opened, so the catalog can grow without the wait growing with it.
+async function loadMap(entry) {
+  const [detail, packed] = await Promise.all([
+    fetch(`/static/catalog/${entry.id}.json`).then((r) => r.json()),
+    fetch(`/static/catalog/${entry.id}.bin`).then((r) => r.arrayBuffer()),
+  ]);
+  const categories = detail.groups.flatMap((group) => group.categories);
+  unpackLocations(packed, categories);
+  return { ...entry, variants: detail.variants, groups: detail.groups, zones: detail.zones || [] };
+}
+
+// The reader of packLocations. Each field is a view straight onto the buffer,
+// laid out so no copying or realignment is needed to get at it.
+function unpackLocations(buffer, categories) {
+  const view = new DataView(buffer);
+  const magic = String.fromCharCode(...new Uint8Array(buffer, 0, 8));
+  if (magic !== "ATLASLOC") throw new Error("location payload is not in the expected form");
+  const count = view.getUint32(10, true);
+
+  let at = 16;
+  const ids = new Int32Array(buffer, at, count);
+  const latitudes = new Float32Array(buffer, (at += count * 4), count);
+  const longitudes = new Float32Array(buffer, (at += count * 4), count);
+  const regions = new Int32Array(buffer, (at += count * 4), count);
+  const offsets = new Uint32Array(buffer, (at += count * 4), count + 1);
+  const owners = new Uint16Array(buffer, (at += (count + 1) * 4), count);
+  const titles = new Uint8Array(buffer, at + count * 2);
+
+  const decoder = new TextDecoder();
+  for (const category of categories) category.locations = [];
+  for (let index = 0; index < count; index++) {
+    categories[owners[index]].locations.push({
+      id: ids[index],
+      title: decoder.decode(titles.subarray(offsets[index], offsets[index + 1])),
+      lat: latitudes[index],
+      lng: longitudes[index],
+      regionId: regions[index] || undefined,
+    });
+  }
+}
+
+// Descriptions and cross-references are half the catalog by weight and are read
+// one pin at a time, so a map's are fetched the first time one of its pins is
+// opened, and not at all if none ever is.
+async function mapText(mapID) {
+  if (!state.textByMap.has(mapID)) {
+    state.textByMap.set(
+      mapID,
+      fetch(`/static/catalog/${mapID}.text`).then((r) => r.json()).catch(() => ({})),
+    );
+  }
+  return state.textByMap.get(mapID);
+}
+
+async function selectGame(slug, mapSlug) {
   state.game = state.catalog.games.find((game) => game.slug === slug) || state.catalog.games[0];
+  // Only an explicitly named map overrides what this game remembers.
+  if (!mapSlug && !state.restore) state.restore = readSession(state.game.slug);
   elements.game.value = state.game.slug;
   populateSelect(elements.map, state.game.maps, "title", "id");
   elements.map.disabled = state.game.maps.length === 1;
   elements.map.title = elements.map.disabled ? "This game has one map" : "Choose a map";
-  const wanted = mapSlug && state.game.maps.find((item) => item.slug === mapSlug);
-  selectMap((wanted || state.game.maps[0]).id);
+  // Returning to a game returns to where it was left, so wandering off to
+  // another game and back does not cost the reader their place.
+  const remembered = state.restore?.game === state.game.slug ? state.restore : null;
+  const wanted = (mapSlug && state.game.maps.find((item) => item.slug === mapSlug)) ||
+    (remembered && state.game.maps.find((item) => item.slug === remembered.map));
+  await selectMap((wanted || state.game.maps[0]).id);
 }
 
 // The address carries where the reader is, and nothing about what they have
@@ -572,13 +639,17 @@ function selectGame(slug, mapSlug) {
 // is filtered out and which groups are folded.
 const sessionKey = "atlas.session";
 
+// Kept per game rather than as a single place, so wandering off to another
+// game and coming back does not cost the reader where they were in this one.
 function saveSession() {
   // Nothing is written while a map is being swapped in: the arrangement is
   // half the old one and half the new until it settles.
   if (!state.map || !state.variant || state.settling) return;
   const view = state.engine?.getView();
   try {
-    localStorage.setItem(sessionKey, JSON.stringify({
+    const stored = allSessions();
+    stored.last = state.game.slug;
+    stored.games[state.game.slug] = {
       game: state.game.slug,
       map: state.map.slug,
       variant: state.map.variants.indexOf(state.variant),
@@ -586,19 +657,28 @@ function saveSession() {
       zoom: view?.getZoom(),
       hidden: [...state.hiddenCategories],
       collapsed: [...state.collapsedSections],
-    }));
+    };
+    localStorage.setItem(sessionKey, JSON.stringify(stored));
   } catch {
     // A browsing session that cannot be written is not worth failing over.
   }
 }
 
-function readSession() {
+function allSessions() {
   try {
     const stored = JSON.parse(localStorage.getItem(sessionKey) || "null");
-    return stored && stored.game && stored.map ? stored : null;
+    if (stored && stored.games) return stored;
   } catch {
-    return null;
+    // Falls through to a fresh record.
   }
+  return { last: "", games: {} };
+}
+
+function readSession(gameSlug) {
+  const stored = allSessions();
+  const wanted = gameSlug || stored.last;
+  const entry = wanted && stored.games[wanted];
+  return entry && entry.game && entry.map ? entry : null;
 }
 
 function readRoute() {
@@ -616,9 +696,16 @@ function writeRoute() {
   history.replaceState(null, "", route);
 }
 
-function selectMap(id) {
+async function selectMap(id) {
+  const entry = state.game.maps.find((map) => map.id === id) || state.game.maps[0];
+  // A map opened while another is still arriving must not be overtaken by it.
+  const run = ++state.mapRun;
+  elements.loading.hidden = false;
+  const loaded = await loadMap(entry);
+  if (state.mapRun !== run) return;
+
   state.settling = true;
-  state.map = state.game.maps.find((map) => map.id === id) || state.game.maps[0];
+  state.map = loaded;
   document.documentElement.style.setProperty("--icon-outset-color", iconOutsetColor());
   elements.map.value = String(state.map.id);
   populateSelect(elements.variant, state.map.variants, "name");
@@ -1702,12 +1789,12 @@ function showPin(pin, focus = false) {
   state.layers.priority.changed();
   elements.detailTitle.textContent = pin.location.title;
   elements.detailCategory.textContent = `${pin.group.title} / ${pin.category.title}`;
-  elements.detailDescription.textContent =
-    cleanDescription(pin.location.description) || "No description is included in the archive.";
+  elements.detailDescription.textContent = "";
+  elements.detailLinks.hidden = true;
+  fillPinText(pin);
   elements.detailID.textContent = String(pin.location.id);
   elements.detailCoordinates.textContent =
     `${pin.location.lat.toFixed(6)}, ${pin.location.lng.toFixed(6)}`;
-  renderDetailLinks(pin);
   applyCategoryVisual(elements.detailDot, pin.category);
   applyCategoryGlyph(elements.detailDot, pin.category, initials(pin.category.title));
   elements.detail.hidden = false;
@@ -1719,6 +1806,21 @@ function showPin(pin, focus = false) {
       duration: 220,
     });
   }
+}
+
+// The words belonging to a pin are fetched the first time one is opened, so a
+// map that is only ever looked at never pays for them. The panel opens on what
+// is already known and fills in when they arrive; a pin closed or changed in
+// the meantime is left alone.
+async function fillPinText(pin) {
+  const text = await mapText(state.map.id);
+  if (state.selectedPin !== pin) return;
+  const entry = text[String(pin.location.id)] || {};
+  pin.location.description = entry.d || "";
+  pin.location.links = entry.l || [];
+  elements.detailDescription.textContent =
+    cleanDescription(entry.d) || "No description is included in the archive.";
+  renderDetailLinks(pin);
 }
 
 // The source wrote these as mapgenie URLs. They are rebuilt as in-app jumps so

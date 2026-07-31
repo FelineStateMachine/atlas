@@ -333,17 +333,7 @@ func run(source, tileManifestPath, output string) error {
 	}
 
 	sort.Slice(out.Games, func(i, j int) bool { return out.Games[i].Title < out.Games[j].Title })
-	data, err := json.Marshal(out)
-	if err != nil {
-		return fmt.Errorf("marshal catalog: %w", err)
-	}
-	if err := os.MkdirAll(filepath.Dir(output), 0o755); err != nil {
-		return err
-	}
-	if err := os.WriteFile(output, append(data, '\n'), 0o644); err != nil {
-		return fmt.Errorf("write %s: %w", output, err)
-	}
-	return nil
+	return writeCatalog(out, output)
 }
 
 func buildGame(

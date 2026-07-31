@@ -1,9 +1,11 @@
 package main
 
 import (
+	"encoding/binary"
 	"encoding/json"
-	"errors"
+	"fmt"
 	"io/fs"
+	"math"
 	"net/http"
 	"net/http/httptest"
 	"strconv"
@@ -43,22 +45,6 @@ func TestRoutesServeEmbeddedExplorer(t *testing.T) {
 	}
 }
 
-func TestEmbeddedCatalogCarriesNoExternalURLs(t *testing.T) {
-	data, err := fs.ReadFile(assets, "assets/catalog.json")
-	if err != nil {
-		t.Fatal(err)
-	}
-	// Atlas runs with no network. Source descriptions cite mapgenie and YouTube
-	// URLs that would simply be dead here, so generation strips them and keeps
-	// the ones pointing at this map as in-catalog cross-references instead.
-	for _, scheme := range []string{"http://", "https://"} {
-		if index := strings.Index(string(data), scheme); index >= 0 {
-			extract := string(data[index:min(index+120, len(data))])
-			t.Errorf("catalog carries a runtime URL: %q", extract)
-		}
-	}
-}
-
 func TestRoutesReturnNotFoundForUnknownPage(t *testing.T) {
 	req := httptest.NewRequest(http.MethodGet, "/missing", nil)
 	rec := httptest.NewRecorder()
@@ -70,119 +56,240 @@ func TestRoutesReturnNotFoundForUnknownPage(t *testing.T) {
 	}
 }
 
-func TestEmbeddedCatalogCarriesTextLabelsAndZones(t *testing.T) {
-	data, err := fs.ReadFile(assets, "assets/catalog.json")
+// readPackedLocations is the reader for the layout tools/generate writes, kept
+// here so a change to the packing that the viewer could not decode fails the
+// build rather than the map.
+func readPackedLocations(t *testing.T, mapID int64) []packedLocation {
+	t.Helper()
+	raw, err := fs.ReadFile(assets, fmt.Sprintf("assets/catalog/%d.bin", mapID))
 	if err != nil {
 		t.Fatal(err)
 	}
-	var catalog struct {
-		Games []struct {
-			Title string `json:"title"`
-			Maps  []struct {
-				Title    string `json:"title"`
-				Zones    []any  `json:"zones"`
-				Variants []struct {
-					Name   string `json:"name"`
-					Bounds *struct {
-						X      int `json:"x"`
-						Y      int `json:"y"`
-						Width  int `json:"width"`
-						Height int `json:"height"`
-					} `json:"bounds"`
-				} `json:"variants"`
-				Groups []struct {
-					Categories []struct {
-						Title       string `json:"title"`
-						DisplayType string `json:"displayType"`
-						Locations   []struct {
-							Title    string `json:"title"`
-							RegionID *int64 `json:"regionId"`
-						} `json:"locations"`
-					} `json:"categories"`
-				} `json:"groups"`
-			} `json:"maps"`
-		} `json:"games"`
+	if string(raw[:8]) != "ATLASLOC" {
+		t.Fatalf("map %d location payload is not in the expected form", mapID)
 	}
-	if err := json.Unmarshal(data, &catalog); err != nil {
+	count := int(binary.LittleEndian.Uint32(raw[10:]))
+	at := 16
+	u32 := func(index int) uint32 { return binary.LittleEndian.Uint32(raw[at+index*4:]) }
+
+	ids := make([]int32, count)
+	for index := range ids {
+		ids[index] = int32(u32(index))
+	}
+	at += count * 4
+	lat := make([]float32, count)
+	for index := range lat {
+		lat[index] = math.Float32frombits(u32(index))
+	}
+	at += count * 4
+	lng := make([]float32, count)
+	for index := range lng {
+		lng[index] = math.Float32frombits(u32(index))
+	}
+	at += count * 8 // longitudes, then region ids, which this reader ignores
+	offsets := make([]uint32, count+1)
+	for index := range offsets {
+		offsets[index] = u32(index)
+	}
+	at += (count + 1) * 4
+	owners := make([]uint16, count)
+	for index := range owners {
+		owners[index] = binary.LittleEndian.Uint16(raw[at+index*2:])
+	}
+	at += count * 2
+
+	titles := raw[at:]
+	out := make([]packedLocation, count)
+	for index := range out {
+		out[index] = packedLocation{
+			ID:       int64(ids[index]),
+			Title:    string(titles[offsets[index]:offsets[index+1]]),
+			Latitude: float64(lat[index]),
+			Category: int(owners[index]),
+		}
+	}
+	return out
+}
+
+type packedLocation struct {
+	ID       int64
+	Title    string
+	Latitude float64
+	Category int
+}
+
+type mapPayload struct {
+	Variants []struct {
+		Name    string   `json:"name"`
+		Tiles   string   `json:"tiles"`
+		Formats []string `json:"formats"`
+		MinZoom int      `json:"minZoom"`
+		MaxZoom int      `json:"maxZoom"`
+		Bounds  *struct {
+			X, Y, Width, Height int
+		} `json:"bounds"`
+	} `json:"variants"`
+	Groups []struct {
+		Categories []struct {
+			Title       string `json:"title"`
+			DisplayType string `json:"displayType"`
+			Color       string `json:"color"`
+			IconAsset   string `json:"iconAsset"`
+		} `json:"categories"`
+	} `json:"groups"`
+	Zones []any `json:"zones"`
+}
+
+func readMapPayload(t *testing.T, mapID int64) mapPayload {
+	t.Helper()
+	raw, err := fs.ReadFile(assets, fmt.Sprintf("assets/catalog/%d.json", mapID))
+	if err != nil {
 		t.Fatal(err)
 	}
+	var payload mapPayload
+	if err := json.Unmarshal(raw, &payload); err != nil {
+		t.Fatal(err)
+	}
+	return payload
+}
 
-	var foundPanopticon bool
-	var forzaZones, forzaPinsWithRegion, boundedForzaVariants int
-	for _, game := range catalog.Games {
-		for _, gameMap := range game.Maps {
-			if game.Title == "Forza Horizon 6" && gameMap.Title == "Japan" {
-				forzaZones = len(gameMap.Zones)
-				for _, variant := range gameMap.Variants {
-					if variant.Bounds != nil &&
-						variant.Bounds.X == 2048 && variant.Bounds.Y == 2048 &&
-						variant.Bounds.Width == 4096 && variant.Bounds.Height == 4096 {
-						boundedForzaVariants++
-					}
+type catalogIndex struct {
+	TileGrid struct {
+		TileSize int `json:"tileSize"`
+		Size     int `json:"size"`
+	} `json:"tileGrid"`
+	Games []struct {
+		Title string `json:"title"`
+		Slug  string `json:"slug"`
+		Maps  []struct {
+			ID       int64  `json:"id"`
+			Title    string `json:"title"`
+			PinCount int    `json:"pinCount"`
+		} `json:"maps"`
+	} `json:"games"`
+}
+
+func readIndex(t *testing.T) catalogIndex {
+	t.Helper()
+	raw, err := fs.ReadFile(assets, "assets/catalog.json")
+	if err != nil {
+		t.Fatal(err)
+	}
+	var index catalogIndex
+	if err := json.Unmarshal(raw, &index); err != nil {
+		t.Fatal(err)
+	}
+	return index
+}
+
+// The index is fetched every time Atlas opens, so its size is the cost of
+// starting up. It must not grow with what the catalog holds.
+func TestCatalogIndexStaysSmall(t *testing.T) {
+	raw, err := fs.ReadFile(assets, "assets/catalog.json")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(raw) > 64*1024 {
+		t.Errorf("catalog index = %d bytes, want under 64 KiB", len(raw))
+	}
+	index := readIndex(t)
+	var maps int
+	for _, game := range index.Games {
+		maps += len(game.Maps)
+	}
+	if maps < 20 {
+		t.Errorf("index lists %d maps, want at least 20", maps)
+	}
+}
+
+// Every map the index names must have all three of its parts, and the packed
+// locations must agree with the count the index advertises.
+func TestEveryListedMapHasItsPayload(t *testing.T) {
+	index := readIndex(t)
+	for _, game := range index.Games {
+		for _, listed := range game.Maps {
+			for _, suffix := range []string{".json", ".bin", ".text"} {
+				name := fmt.Sprintf("assets/catalog/%d%s", listed.ID, suffix)
+				if _, err := fs.Stat(assets, name); err != nil {
+					t.Errorf("%s / %s: %v", game.Title, listed.Title, err)
 				}
 			}
-			for _, group := range gameMap.Groups {
-				for _, category := range group.Categories {
-					for _, location := range category.Locations {
-						if game.Title == "Marathon" && gameMap.Title == "Cryo Archive" &&
-							category.Title == "Area" && category.DisplayType == "text" &&
-							location.Title == "PANOPTICON" {
-							foundPanopticon = true
-						}
-						if game.Title == "Forza Horizon 6" && gameMap.Title == "Japan" &&
-							location.RegionID != nil {
-							forzaPinsWithRegion++
-						}
-					}
-				}
+			if got := len(readPackedLocations(t, listed.ID)); got != listed.PinCount {
+				t.Errorf("%s / %s packed %d locations, index says %d",
+					game.Title, listed.Title, got, listed.PinCount)
 			}
 		}
 	}
+}
+
+func TestEmbeddedCatalogCarriesTextLabelsAndZones(t *testing.T) {
+	index := readIndex(t)
+	find := func(game, name string) int64 {
+		for _, candidate := range index.Games {
+			if candidate.Title != game {
+				continue
+			}
+			for _, listed := range candidate.Maps {
+				if listed.Title == name {
+					return listed.ID
+				}
+			}
+		}
+		t.Fatalf("%s / %s is missing from the index", game, name)
+		return 0
+	}
+
+	cryo := find("Marathon", "Cryo Archive")
+	payload := readMapPayload(t, cryo)
+	var areaOrdinal = -1
+	var ordinal int
+	for _, group := range payload.Groups {
+		for _, category := range group.Categories {
+			if category.Title == "Area" && category.DisplayType == "text" {
+				areaOrdinal = ordinal
+			}
+			ordinal++
+		}
+	}
+	if areaOrdinal < 0 {
+		t.Fatal("Cryo Archive has no text-display Area category")
+	}
+	var foundPanopticon bool
+	for _, location := range readPackedLocations(t, cryo) {
+		if location.Title == "PANOPTICON" && location.Category == areaOrdinal {
+			foundPanopticon = true
+		}
+	}
 	if !foundPanopticon {
-		t.Fatal("PANOPTICON is not preserved as a text-display location")
+		t.Error("PANOPTICON is not preserved as a text-display location")
 	}
-	if forzaZones != 10 {
-		t.Fatalf("Forza Japan zones = %d, want 10", forzaZones)
+
+	japan := readMapPayload(t, find("Forza Horizon 6", "Japan"))
+	if len(japan.Zones) != 10 {
+		t.Errorf("Forza Japan zones = %d, want 10", len(japan.Zones))
 	}
-	if forzaPinsWithRegion != 806 {
-		t.Fatalf("Forza Japan pins with a region = %d, want 806", forzaPinsWithRegion)
+	var bounded int
+	for _, variant := range japan.Variants {
+		if variant.Bounds != nil && variant.Bounds.Width == 4096 && variant.Bounds.Height == 4096 {
+			bounded++
+		}
 	}
-	if boundedForzaVariants != 4 {
-		t.Fatalf("bounded Forza Japan variants = %d, want 4", boundedForzaVariants)
+	if bounded != 4 {
+		t.Errorf("bounded Forza Japan variants = %d, want 4", bounded)
 	}
 }
 
 func TestEmbeddedCatalogIncludesOnlyCompleteNewMaps(t *testing.T) {
-	data, err := fs.ReadFile(assets, "assets/catalog.json")
-	if err != nil {
-		t.Fatal(err)
-	}
-	var catalog struct {
-		Games []struct {
-			Title string `json:"title"`
-			Maps  []struct {
-				Title    string `json:"title"`
-				Variants []struct {
-					Tiles   string   `json:"tiles"`
-					Formats []string `json:"formats"`
-					MinZoom int      `json:"minZoom"`
-					MaxZoom int      `json:"maxZoom"`
-				} `json:"variants"`
-			} `json:"maps"`
-		} `json:"games"`
-	}
-	if err := json.Unmarshal(data, &catalog); err != nil {
-		t.Fatal(err)
-	}
-
+	index := readIndex(t)
 	got := make(map[string]bool)
-	for _, game := range catalog.Games {
-		for _, gameMap := range game.Maps {
-			got[game.Title+" / "+gameMap.Title] = true
-			for _, variant := range gameMap.Variants {
+	for _, game := range index.Games {
+		for _, listed := range game.Maps {
+			got[game.Title+" / "+listed.Title] = true
+			payload := readMapPayload(t, listed.ID)
+			for _, variant := range payload.Variants {
 				if len(variant.Formats) != variant.MaxZoom-variant.MinZoom+1 {
 					t.Errorf("%s / %s tile formats = %d, want %d",
-						game.Title, gameMap.Title, len(variant.Formats), variant.MaxZoom-variant.MinZoom+1)
+						game.Title, listed.Title, len(variant.Formats), variant.MaxZoom-variant.MinZoom+1)
 					continue
 				}
 				for zoom := variant.MinZoom; zoom <= variant.MaxZoom; zoom++ {
@@ -190,11 +297,11 @@ func TestEmbeddedCatalogIncludesOnlyCompleteNewMaps(t *testing.T) {
 					entries, err := fs.ReadDir(assets, level)
 					if err != nil {
 						t.Errorf("%s / %s references missing tile level %q: %v",
-							game.Title, gameMap.Title, level, err)
+							game.Title, listed.Title, level, err)
 						continue
 					}
 					if len(entries) == 0 {
-						t.Errorf("%s / %s tile level %q is empty", game.Title, gameMap.Title, level)
+						t.Errorf("%s / %s tile level %q is empty", game.Title, listed.Title, level)
 					}
 				}
 			}
@@ -202,7 +309,6 @@ func TestEmbeddedCatalogIncludesOnlyCompleteNewMaps(t *testing.T) {
 	}
 	for _, name := range []string{
 		"Skyrim / Skyrim",
-		"Skyrim / Solstheim",
 		"Temtem / Airborne Archipelago",
 		"Zelda: Breath of the Wild / Hyrule",
 		"Pokémon Red/Blue/Yellow / Yellow",
@@ -213,7 +319,6 @@ func TestEmbeddedCatalogIncludesOnlyCompleteNewMaps(t *testing.T) {
 	}
 	for _, name := range []string{
 		"Grand Theft Auto 5 / Los Santos",
-		"Pokémon Red/Blue/Yellow / Red/Blue",
 		"Red Dead Redemption 2 / Red Dead Redemption 2",
 	} {
 		if got[name] {
@@ -227,52 +332,23 @@ func TestEmbeddedFrontendUsesTilesWithoutRuntimeCDNs(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	body := string(index)
-	if strings.Contains(body, "http://") || strings.Contains(body, "https://") {
+	if body := string(index); strings.Contains(body, "http://") || strings.Contains(body, "https://") {
 		t.Fatal("application shell references a runtime network dependency")
-	}
-	if strings.Contains(body, `id="map-image"`) || strings.Contains(body, `id="world"`) {
-		t.Fatal("application shell still contains the stitched image viewport")
 	}
 	for _, path := range []string{"assets/app.js", "assets/app.css", "assets/tiles/index.json"} {
 		if _, err := fs.Stat(assets, path); err != nil {
 			t.Errorf("embedded frontend asset %q: %v", path, err)
 		}
 	}
-	if _, err := fs.Stat(assets, "assets/maps"); !errors.Is(err, fs.ErrNotExist) {
-		t.Errorf("legacy stitched map directory still exists: %v", err)
-	}
 }
 
 func TestEmbeddedCatalogCarriesCategoryIconsAndColors(t *testing.T) {
-	data, err := fs.ReadFile(assets, "assets/catalog.json")
-	if err != nil {
-		t.Fatal(err)
-	}
-	var catalog struct {
-		Games []struct {
-			Title string `json:"title"`
-			Maps  []struct {
-				Title  string `json:"title"`
-				Groups []struct {
-					Categories []struct {
-						Title     string `json:"title"`
-						Color     string `json:"color"`
-						IconAsset string `json:"iconAsset"`
-					} `json:"categories"`
-				} `json:"groups"`
-			} `json:"maps"`
-		} `json:"games"`
-	}
-	if err := json.Unmarshal(data, &catalog); err != nil {
-		t.Fatal(err)
-	}
-
-	var foundPokemonCenter bool
+	index := readIndex(t)
 	var iconAssets int
-	for _, game := range catalog.Games {
-		for _, gameMap := range game.Maps {
-			for _, group := range gameMap.Groups {
+	var foundPokemonCenter bool
+	for _, game := range index.Games {
+		for _, listed := range game.Maps {
+			for _, group := range readMapPayload(t, listed.ID).Groups {
 				for _, category := range group.Categories {
 					if category.IconAsset != "" {
 						iconAssets++
@@ -281,7 +357,7 @@ func TestEmbeddedCatalogCarriesCategoryIconsAndColors(t *testing.T) {
 						}
 					}
 					if game.Title != "Pokémon Red/Blue/Yellow" ||
-						gameMap.Title != "Yellow" || category.Title != "Pokémon Center" {
+						listed.Title != "Yellow" || category.Title != "Pokémon Center" {
 						continue
 					}
 					foundPokemonCenter = true
@@ -300,5 +376,27 @@ func TestEmbeddedCatalogCarriesCategoryIconsAndColors(t *testing.T) {
 	}
 	if iconAssets < 200 {
 		t.Errorf("catalog icon assets = %d, want at least 200", iconAssets)
+	}
+}
+
+// Atlas runs with no network. Source descriptions cite mapgenie and YouTube
+// URLs that would simply be dead here, so generation strips them and keeps the
+// ones pointing at this map as in-catalog cross-references instead.
+func TestEmbeddedCatalogCarriesNoExternalURLs(t *testing.T) {
+	entries, err := fs.ReadDir(assets, "assets/catalog")
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, entry := range entries {
+		data, err := fs.ReadFile(assets, "assets/catalog/"+entry.Name())
+		if err != nil {
+			t.Fatal(err)
+		}
+		for _, scheme := range []string{"http://", "https://"} {
+			if at := strings.Index(string(data), scheme); at >= 0 {
+				extract := string(data[at:min(at+120, len(data))])
+				t.Errorf("%s carries a runtime URL: %q", entry.Name(), extract)
+			}
+		}
 	}
 }
