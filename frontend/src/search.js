@@ -77,7 +77,7 @@ export function setDockFolded(folded, remember = true) {
   state.dockFolded = folded;
   elements.dock.classList.toggle("is-folded", folded);
   elements.dockFold.setAttribute("aria-expanded", String(!folded));
-  const label = folded ? "Bring the panel back" : "Put the panel away";
+  const label = folded ? "Bring the panel back (⌘⌥B)" : "Put the panel away (⌘⌥B)";
   elements.dockFold.setAttribute("aria-label", label);
   elements.dockFold.setAttribute("title", label);
   if (remember) saveSession();

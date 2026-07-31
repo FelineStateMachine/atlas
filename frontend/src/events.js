@@ -206,6 +206,15 @@ export function bindUIEvents() {
       elements.search.select();
       return;
     }
+    // ⌘⌥B before ⌘B, and by physical key: Option rewrites event.key on a Mac
+    // (⌥B types "∫"), and on Windows Ctrl+Alt+B leaves the key readable, so
+    // the code is the one name the chord keeps everywhere. The right panel
+    // answers the same shortcut editors give their secondary sidebar.
+    if ((event.metaKey || event.ctrlKey) && event.altKey && event.code === "KeyB") {
+      event.preventDefault();
+      if (!elements.dock.hidden) setDockFolded(!state.dockFolded);
+      return;
+    }
     // ⌘B on a Mac, Ctrl+B elsewhere: the usual shortcut for putting a sidebar
     // away, and the map is the reason the window is open.
     if ((event.metaKey || event.ctrlKey) && event.key.toLocaleLowerCase() === "b") {
