@@ -604,6 +604,8 @@ function unpackLocations(buffer, categories) {
   const view = new DataView(buffer);
   const magic = String.fromCharCode(...new Uint8Array(buffer, 0, 8));
   if (magic !== "ATLASLOC") throw new Error("location payload is not in the expected form");
+  const version = view.getUint16(8, true);
+  if (version !== 2) throw new Error(`location payload is version ${version}, and this reads 2`);
   const count = view.getUint32(10, true);
 
   let at = 16;
@@ -611,6 +613,7 @@ function unpackLocations(buffer, categories) {
   const latitudes = new Float32Array(buffer, (at += count * 4), count);
   const longitudes = new Float32Array(buffer, (at += count * 4), count);
   const regions = new Int32Array(buffer, (at += count * 4), count);
+  const shards = new Int32Array(buffer, (at += count * 4), count);
   const offsets = new Uint32Array(buffer, (at += count * 4), count + 1);
   const owners = new Uint16Array(buffer, (at += (count + 1) * 4), count);
   const titles = new Uint8Array(buffer, at + count * 2);
@@ -624,6 +627,7 @@ function unpackLocations(buffer, categories) {
       lat: latitudes[index],
       lng: longitudes[index],
       regionId: regions[index] || undefined,
+      shard: shards[index] || undefined,
     });
   }
 }

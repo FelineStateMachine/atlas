@@ -1,6 +1,7 @@
 package main
 
 import (
+	"encoding/binary"
 	"os"
 	"path/filepath"
 	"testing"
@@ -125,5 +126,53 @@ func TestSortGameMapsPrefersPrimaryMap(t *testing.T) {
 		if maps[index].Slug != slug {
 			t.Fatalf("map %d = %q, want %q", index, maps[index].Slug, slug)
 		}
+	}
+}
+
+// The packed payload is the only thing the frontend reads a location from, so
+// a field left out of it is a field the map does not have. Shard went missing
+// this way once, and every layer's pins drew over every other.
+func TestPackLocationsCarriesEveryColumn(t *testing.T) {
+	region := int64(77)
+	locations := []catalogLocation{
+		{ID: 11, Title: "Sky Mine", Latitude: 1.5, Longitude: -2.5, Shard: 1783},
+		{ID: 12, Title: "Deep Well", Latitude: -3, Longitude: 4, RegionID: &region, Shard: 1785},
+	}
+
+	packed := packLocations(locations, []uint16{0, 1})
+
+	if magic := string(packed[:8]); magic != locationMagic {
+		t.Fatalf("magic = %q, want %q", magic, locationMagic)
+	}
+	if version := binary.LittleEndian.Uint16(packed[8:]); version != locationVersion {
+		t.Fatalf("version = %d, want %d", version, locationVersion)
+	}
+	count := int(binary.LittleEndian.Uint32(packed[10:]))
+	if count != len(locations) {
+		t.Fatalf("count = %d, want %d", count, len(locations))
+	}
+
+	column := func(index int) []int32 {
+		at := 16 + index*count*4
+		values := make([]int32, count)
+		for i := range values {
+			values[i] = int32(binary.LittleEndian.Uint32(packed[at+i*4:]))
+		}
+		return values
+	}
+
+	if ids := column(0); ids[0] != 11 || ids[1] != 12 {
+		t.Fatalf("ids = %v, want [11 12]", ids)
+	}
+	if regions := column(3); regions[0] != 0 || regions[1] != 77 {
+		t.Fatalf("regions = %v, want [0 77]", regions)
+	}
+	if shards := column(4); shards[0] != 1783 || shards[1] != 1785 {
+		t.Fatalf("shards = %v, want [1783 1785]", shards)
+	}
+
+	titles := string(packed[len(packed)-len("Sky MineDeep Well"):])
+	if titles != "Sky MineDeep Well" {
+		t.Fatalf("titles = %q, want %q", titles, "Sky MineDeep Well")
 	}
 }

@@ -68,6 +68,9 @@ func readPackedLocations(t *testing.T, mapID int64) []packedLocation {
 	if string(raw[:8]) != "ATLASLOC" {
 		t.Fatalf("map %d location payload is not in the expected form", mapID)
 	}
+	if version := binary.LittleEndian.Uint16(raw[8:]); version != 2 {
+		t.Fatalf("map %d location payload is version %d, and this reads 2", mapID, version)
+	}
 	count := int(binary.LittleEndian.Uint32(raw[10:]))
 	at := 16
 	u32 := func(index int) uint32 { return binary.LittleEndian.Uint32(raw[at+index*4:]) }
@@ -87,6 +90,11 @@ func readPackedLocations(t *testing.T, mapID int64) []packedLocation {
 		lng[index] = math.Float32frombits(u32(index))
 	}
 	at += count * 8 // longitudes, then region ids, which this reader ignores
+	shards := make([]int32, count)
+	for index := range shards {
+		shards[index] = int32(u32(index))
+	}
+	at += count * 4
 	offsets := make([]uint32, count+1)
 	for index := range offsets {
 		offsets[index] = u32(index)
@@ -106,6 +114,7 @@ func readPackedLocations(t *testing.T, mapID int64) []packedLocation {
 			Title:    string(titles[offsets[index]:offsets[index+1]]),
 			Latitude: float64(lat[index]),
 			Category: int(owners[index]),
+			Shard:    int64(shards[index]),
 		}
 	}
 	return out
@@ -116,6 +125,7 @@ type packedLocation struct {
 	Title    string
 	Latitude float64
 	Category int
+	Shard    int64
 }
 
 type mapPayload struct {
@@ -123,11 +133,15 @@ type mapPayload struct {
 		Name    string   `json:"name"`
 		Tiles   string   `json:"tiles"`
 		Formats []string `json:"formats"`
+		Shard   int64    `json:"shard"`
 		MinZoom int      `json:"minZoom"`
 		MaxZoom int      `json:"maxZoom"`
 		Bounds  *struct {
 			X, Y, Width, Height int
 		} `json:"bounds"`
+		Surface *struct {
+			X, Y, Width, Height int
+		} `json:"surface"`
 	} `json:"variants"`
 	Groups []struct {
 		Categories []struct {
@@ -218,6 +232,38 @@ func TestEveryListedMapHasItsPayload(t *testing.T) {
 				t.Errorf("%s / %s packed %d locations, index says %d",
 					game.Title, listed.Title, got, listed.PinCount)
 			}
+		}
+	}
+}
+
+// A map split into layers offers one at a time, and a location that does not
+// name its layer is drawn on all of them -- over the empty space beside a
+// layer it does not belong to. The packed shard is what prevents that, so
+// every location of a layered map must carry one its variants know.
+func TestLayeredMapLocationsNameTheirLayer(t *testing.T) {
+	const hyrule = 536
+	payload := readMapPayload(t, hyrule)
+	layers := make(map[int64]string, len(payload.Variants))
+	for _, variant := range payload.Variants {
+		if variant.Shard == 0 {
+			t.Fatalf("Tears of the Kingdom layer %q names no shard", variant.Name)
+		}
+		layers[variant.Shard] = variant.Name
+	}
+	if len(layers) < 2 {
+		t.Fatalf("Tears of the Kingdom has %d layers, want the Sky, Surface and Depths", len(layers))
+	}
+
+	counts := make(map[int64]int, len(layers))
+	for _, location := range readPackedLocations(t, hyrule) {
+		if _, ok := layers[location.Shard]; !ok {
+			t.Fatalf("%q is on shard %d, which is no layer of this map", location.Title, location.Shard)
+		}
+		counts[location.Shard]++
+	}
+	for shard, name := range layers {
+		if counts[shard] == 0 {
+			t.Errorf("the %s layer holds no locations", name)
 		}
 	}
 }

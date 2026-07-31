@@ -26,8 +26,10 @@ import (
 // numbers, and numbers written as text cost several times what they measure.
 
 const (
-	locationMagic   = "ATLASLOC"
-	locationVersion = 1
+	locationMagic = "ATLASLOC"
+	// 2 added the shard column. A map split into layers offers one at a time,
+	// and without it every layer's locations were drawn over every other.
+	locationVersion = 2
 )
 
 // mapIndex is a map as the index knows it: enough to list it and to open it,
@@ -174,7 +176,7 @@ func packLocations(locations []catalogLocation, owners []uint16) []byte {
 	}
 	offsets[count] = uint32(len(titles))
 
-	size := 16 + count*16 + (count+1)*4 + count*2 + len(titles)
+	size := 16 + count*20 + (count+1)*4 + count*2 + len(titles)
 	out := make([]byte, size)
 	copy(out, locationMagic)
 	binary.LittleEndian.PutUint16(out[8:], locationVersion)
@@ -201,6 +203,9 @@ func packLocations(locations []catalogLocation, owners []uint16) []byte {
 			region = int32(*location.RegionID)
 		}
 		put32(uint32(region))
+	}
+	for _, location := range locations {
+		put32(uint32(int32(location.Shard)))
 	}
 	for _, offset := range offsets {
 		put32(offset)
