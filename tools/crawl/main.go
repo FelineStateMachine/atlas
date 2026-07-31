@@ -209,11 +209,24 @@ func captureTiles(
 		for zoom := set.MinZoom; zoom <= deepest; zoom++ {
 			window, ok := set.window(zoom)
 			if !ok {
-				fmt.Printf("     z%-2d skipped: no bounds published\n", zoom)
-				live = nil
-				continue
+				var err error
+				window, ok, err = unpublishedWindow(
+					ctx, fetcher, strings.TrimSuffix(base, "/"), set, full, zoom, live,
+					&transposed, &probed,
+				)
+				if err != nil {
+					return stats, err
+				}
+				if !ok {
+					fmt.Printf("     z%-2d skipped: no window published, and none found\n", zoom)
+					live = nil
+					continue
+				}
 			}
-			if !probed {
+			// A window one tile across settles nothing about which way round the
+			// axes are read, so the question waits for a level wide enough to
+			// answer it rather than being marked answered by default.
+			if !probed && window.maxX > window.minX && window.maxY > window.minY {
 				extension := tileExtension(set)
 				order, err := probeAxisOrder(ctx, fetcher, strings.TrimSuffix(base, "/"), set, zoom, window, extension)
 				if err != nil {
@@ -260,6 +273,43 @@ func captureTiles(
 		}
 	}
 	return stats, nil
+}
+
+// unpublishedWindow stands in for the window a layer never published. Below the
+// first level captured there is nothing to search for: the tiles that held
+// content name where their children can be. The first level is searched for
+// outward from the point the map opens on, and finding it there also settles
+// which way round the axes are read, which no single tile could have said.
+func unpublishedWindow(
+	ctx context.Context,
+	fetcher *fetcher,
+	base string,
+	set apiTileSet,
+	full *apiMapFull,
+	zoom int,
+	live map[[2]int]bool,
+	transposed, probed *bool,
+) (tileWindow, bool, error) {
+	if len(live) > 0 {
+		window, ok := childWindow(live)
+		return window, ok, nil
+	}
+	centre, ok := startTile(full, zoom)
+	if !ok {
+		return tileWindow{}, false, nil
+	}
+	found, err := searchWindow(ctx, fetcher, base, set, zoom, centre, tileExtension(set))
+	if err != nil || !found.found {
+		return tileWindow{}, false, err
+	}
+	fmt.Printf("     z%-2d no window published; found x %d-%d y %d-%d from %d/%d\n",
+		zoom, found.window.minX, found.window.maxX, found.window.minY, found.window.maxY,
+		centre[0], centre[1])
+	if found.transposed {
+		fmt.Printf("     axes are published transposed; reading /{zoom}/{y}/{x}\n")
+		*transposed, *probed = true, true
+	}
+	return found.window, true, nil
 }
 
 func fetchLevel(

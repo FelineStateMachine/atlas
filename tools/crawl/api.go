@@ -194,7 +194,11 @@ type apiMapFull struct {
 	Title  string `json:"title"`
 	Slug   string `json:"slug"`
 	URL    string `json:"url"`
-	Config struct {
+	// Where the map opens, which is the one point known to be on it. A layer
+	// published without a window is searched outward from here.
+	InitialLatitude  json.RawMessage `json:"initial_latitude"`
+	InitialLongitude json.RawMessage `json:"initial_longitude"`
+	Config           struct {
 		TileSets []apiTileSet `json:"tile_sets"`
 	} `json:"config"`
 	Groups []struct {

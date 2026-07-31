@@ -1,6 +1,9 @@
 package main
 
-import "testing"
+import (
+	"encoding/json"
+	"testing"
+)
 
 func TestDominantHashIgnoresTinySamples(t *testing.T) {
 	// The top of a pyramid is a handful of tiles showing the whole map. Calling
@@ -187,5 +190,72 @@ func TestUpsertByIDReplacesInPlace(t *testing.T) {
 	appended := upsertByID(existing, map[string]any{"id": float64(3)}, 3)
 	if len(appended) != 3 {
 		t.Fatalf("upsertByID did not append an unknown id")
+	}
+}
+
+func TestChildWindowCoversEveryChild(t *testing.T) {
+	live := map[[2]int]bool{{2, 3}: true, {5, 4}: true}
+	window, ok := childWindow(live)
+	if !ok {
+		t.Fatal("two live tiles yielded no window")
+	}
+	want := tileWindow{minX: 4, minY: 6, maxX: 11, maxY: 9}
+	if window != want {
+		t.Fatalf("childWindow() = %+v, want %+v", window, want)
+	}
+	for parent := range live {
+		for _, child := range [][2]int{
+			{parent[0] * 2, parent[1] * 2},
+			{parent[0]*2 + 1, parent[1]*2 + 1},
+		} {
+			if !window.holds(child) {
+				t.Errorf("window drops child %v of %v", child, parent)
+			}
+		}
+	}
+	if _, ok := childWindow(nil); ok {
+		t.Error("an empty level yielded a window")
+	}
+}
+
+// The search for an unpublished window starts at the tile the map opens on, so
+// that tile has to be the one the map is actually drawn in. Appalachia opens on
+// the single tile its shallowest level holds.
+func TestStartTileFindsTheOpeningTile(t *testing.T) {
+	full := &apiMapFull{
+		InitialLatitude:  json.RawMessage("0.50662148513874"),
+		InitialLongitude: json.RawMessage("-0.62060295831731"),
+	}
+	at, ok := startTile(full, 8)
+	if !ok {
+		t.Fatal("a map with a start coordinate gave no tile")
+	}
+	if at != [2]int{127, 127} {
+		t.Fatalf("startTile(8) = %v, want [127 127]", at)
+	}
+	if at, ok := startTile(full, 9); !ok || at != [2]int{255, 255} {
+		t.Fatalf("startTile(9) = %v %v, want [255 255] true", at, ok)
+	}
+	if _, ok := startTile(&apiMapFull{}, 8); ok {
+		t.Error("a map with no start coordinate gave a tile")
+	}
+}
+
+func TestNumberValueReadsQuotedAndPlain(t *testing.T) {
+	for _, tt := range []struct {
+		raw  string
+		want float64
+		ok   bool
+	}{
+		{raw: "1.5", want: 1.5, ok: true},
+		{raw: `"-0.25"`, want: -0.25, ok: true},
+		{raw: "null"},
+		{raw: `""`},
+		{raw: `"east"`},
+	} {
+		got, ok := numberValue(json.RawMessage(tt.raw))
+		if ok != tt.ok || (ok && got != tt.want) {
+			t.Errorf("numberValue(%s) = %v %v, want %v %v", tt.raw, got, ok, tt.want, tt.ok)
+		}
 	}
 }
