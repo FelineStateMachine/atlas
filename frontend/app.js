@@ -388,8 +388,8 @@ function bindUIEvents() {
 
   elements.legend.addEventListener("change", (event) => {
     const input = event.target;
-    if (input.dataset.group) {
-      toggleGroup(Number(input.dataset.group));
+    if (input.dataset.sectionToggle) {
+      toggleSection(input.dataset.sectionToggle);
       return;
     }
     if (!input.dataset.category) return;
@@ -397,7 +397,7 @@ function bindUIEvents() {
     if (input.checked) state.hiddenCategories.delete(categoryID);
     else state.hiddenCategories.add(categoryID);
     applyPinFilters();
-    syncGroupSwitches();
+    syncSectionSwitches();
   });
 
   // Which row the pointer is over is worked out from where the pointer is,
@@ -427,7 +427,7 @@ function bindUIEvents() {
   elements.layers.addEventListener("scroll", markHoveredRow, { passive: true });
 
   elements.layers.addEventListener("click", (event) => {
-    const only = event.target.closest("[data-only-category], [data-only-group]");
+    const only = event.target.closest("[data-only-category], [data-only-section]");
     if (only) {
       // The button sits inside the row's label, whose default action would
       // otherwise toggle the very checkbox this is meant to override.
@@ -435,7 +435,7 @@ function bindUIEvents() {
       event.stopPropagation();
       showOnly(only.dataset.onlyCategory
         ? { category: Number(only.dataset.onlyCategory) }
-        : { group: Number(only.dataset.onlyGroup) });
+        : { section: only.dataset.onlySection });
       return;
     }
     const button = event.target.closest("[data-section]");
@@ -595,7 +595,13 @@ async function loadMap(entry) {
   ]);
   const categories = detail.groups.flatMap((group) => group.categories);
   unpackLocations(packed, categories);
-  return { ...entry, variants: detail.variants, groups: detail.groups, zones: detail.zones || [] };
+  return {
+    ...entry,
+    variants: detail.variants,
+    groups: detail.groups,
+    zones: detail.zones || [],
+    sections: legendSections(detail.groups),
+  };
 }
 
 // The reader of packLocations. Each field is a view straight onto the buffer,
@@ -1246,29 +1252,50 @@ function populateSelect(select, items, labelKey, valueKey) {
   });
 }
 
+// Categories drawn as text are labels for the ground itself -- Area, Region,
+// Province -- and are read and edited as one set. Gathered here rather than
+// left in place, where "Area" sits between Altar and Bank and reads like
+// another kind of marker.
+function legendSections(groups) {
+  const sections = [];
+  const text = [];
+  for (const group of groups) {
+    const drawn = [];
+    for (const category of group.categories) {
+      (category.displayType === "text" ? text : drawn).push(category);
+    }
+    if (drawn.length) {
+      sections.push({ key: `group-${group.id}`, title: group.title, categories: drawn });
+    }
+  }
+  // Above the pin groups, under the zones: labels and boundaries both say where
+  // you are, rather than what is worth going to.
+  if (text.length) sections.unshift({ key: "text", title: "Text", categories: text });
+  return sections;
+}
+
 function renderLegend() {
   const fragment = document.createDocumentFragment();
-  for (const group of state.map.groups) {
-    if (!group.categories.length) continue;
-    const section = document.createElement("section");
-    section.className = "layer-section";
-    section.dataset.groupSection = String(group.id);
-    const locations = group.categories.reduce((total, category) => total + category.locations.length, 0);
-    section.append(layerHeader(`group-${group.id}`, group.title, locations, group.id));
+  for (const section of state.map.sections) {
+    const element = document.createElement("section");
+    element.className = "layer-section";
+    element.dataset.layerSection = section.key;
+    const locations = section.categories.reduce((total, category) => total + category.locations.length, 0);
+    element.append(layerHeader(section.key, section.title, locations));
     const toggles = document.createElement("div");
     toggles.className = "category-toggles";
-    for (const category of group.categories) toggles.append(categoryToggle(category));
-    section.append(toggles);
-    fragment.append(section);
+    for (const category of section.categories) toggles.append(categoryToggle(category));
+    element.append(toggles);
+    fragment.append(element);
   }
   elements.legend.replaceChildren(fragment);
   syncSectionCollapse();
-  syncGroupSwitches();
+  syncSectionSwitches();
 }
 
 // Mirrors the markup of the static zones header so every layer section reads the
 // same: disclosure on the left, one switch on the right.
-function layerHeader(key, title, count, groupID) {
+function layerHeader(key, title, count) {
   const header = document.createElement("div");
   header.className = "layer-header";
 
@@ -1288,13 +1315,13 @@ function layerHeader(key, title, count, groupID) {
   disclosure.append(chevron, name, total);
 
   const only = onlyButton(`Show only ${title}`);
-  only.dataset.onlyGroup = String(groupID);
+  only.dataset.onlySection = key;
 
   const toggle = document.createElement("label");
   toggle.className = "layer-switch";
   const checkbox = document.createElement("input");
   checkbox.type = "checkbox";
-  checkbox.dataset.group = String(groupID);
+  checkbox.dataset.sectionToggle = key;
   checkbox.setAttribute("aria-label", `Show ${title}`);
   const knob = document.createElement("span");
   knob.setAttribute("aria-hidden", "true");
@@ -1712,7 +1739,7 @@ function setAllCategories(visible) {
   syncLegendCheckboxes();
   applyPinFilters();
   renderSearchResults();
-  syncGroupSwitches();
+  syncSectionSwitches();
 }
 
 function syncLegendCheckboxes() {
@@ -1721,17 +1748,17 @@ function syncLegendCheckboxes() {
   }
 }
 
-function toggleGroup(groupID) {
-  const group = state.map.groups.find((item) => item.id === groupID);
-  if (!group) return;
-  const hasVisible = group.categories.some((category) => !state.hiddenCategories.has(category.id));
-  for (const category of group.categories) {
+function toggleSection(key) {
+  const section = state.map.sections.find((item) => item.key === key);
+  if (!section) return;
+  const hasVisible = section.categories.some((category) => !state.hiddenCategories.has(category.id));
+  for (const category of section.categories) {
     if (hasVisible) state.hiddenCategories.add(category.id);
     else state.hiddenCategories.delete(category.id);
   }
   syncLegendCheckboxes();
   applyPinFilters();
-  syncGroupSwitches();
+  syncSectionSwitches();
 }
 
 // Isolating is the common request of a long legend: "just the Korok Seeds",
@@ -1746,9 +1773,9 @@ function showOnly(target) {
     return;
   }
   state.hiddenCategories.clear();
-  for (const group of state.map.groups) {
-    const wanted = target.group === group.id;
-    for (const category of group.categories) {
+  for (const section of state.map.sections) {
+    const wanted = target.section === section.key;
+    for (const category of section.categories) {
       if (!wanted && target.category !== category.id) {
         state.hiddenCategories.add(category.id);
       }
@@ -1757,14 +1784,14 @@ function showOnly(target) {
   syncLegendCheckboxes();
   applyPinFilters();
   renderSearchResults();
-  syncGroupSwitches();
+  syncSectionSwitches();
 }
 
 // True when what is on screen is already exactly what this target would isolate.
 function isOnly(target) {
-  for (const group of state.map.groups) {
-    for (const category of group.categories) {
-      const wanted = target.group === group.id || target.category === category.id;
+  for (const section of state.map.sections) {
+    for (const category of section.categories) {
+      const wanted = target.section === section.key || target.category === category.id;
       if (wanted === state.hiddenCategories.has(category.id)) return false;
     }
   }
@@ -1781,35 +1808,35 @@ function updateSoloChip() {
   }
   let onlyVisible = null;
   let visibleCount = 0;
-  let soleGroup = null;
-  let groupsShowing = 0;
-  for (const group of state.map.groups) {
+  let soleSection = null;
+  let sectionsShowing = 0;
+  for (const section of state.map.sections) {
     let shown = 0;
-    for (const category of group.categories) {
+    for (const category of section.categories) {
       if (state.hiddenCategories.has(category.id)) continue;
       shown++;
       visibleCount++;
       onlyVisible = category;
     }
     if (shown > 0) {
-      groupsShowing++;
-      soleGroup = shown === group.categories.length ? group : null;
+      sectionsShowing++;
+      soleSection = shown === section.categories.length ? section : null;
     }
   }
   let label = "";
   if (visibleCount === 1 && onlyVisible) label = onlyVisible.title;
-  else if (groupsShowing === 1 && soleGroup) label = soleGroup.title;
+  else if (sectionsShowing === 1 && soleSection) label = soleSection.title;
   chip.hidden = !label;
   chip.textContent = label ? `only: ${label}` : "";
   chip.title = label ? `Showing only ${label} — click to show everything` : "";
 }
 
-function syncGroupSwitches() {
+function syncSectionSwitches() {
   if (!state.map) return;
-  for (const group of state.map.groups) {
-    const input = elements.legend.querySelector(`input[data-group="${group.id}"]`);
+  for (const section of state.map.sections) {
+    const input = elements.legend.querySelector(`input[data-section-toggle="${section.key}"]`);
     if (input) {
-      input.checked = group.categories.some((category) => !state.hiddenCategories.has(category.id));
+      input.checked = section.categories.some((category) => !state.hiddenCategories.has(category.id));
     }
   }
   updateSoloChip();
@@ -1823,7 +1850,7 @@ function revealPin(pin) {
   elements.searchResults.hidden = true;
   syncLegendCheckboxes();
   applyPinFilters();
-  syncGroupSwitches();
+  syncSectionSwitches();
   showPin(pin, true);
 }
 
