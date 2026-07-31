@@ -372,16 +372,31 @@ function bindUIEvents() {
     syncGroupSwitches();
   });
 
-  // Hover reveals an action on the row under the pointer, and the pointer can
-  // stop being over that row without the browser saying so: scrolling moves the
-  // list instead of the cursor. The reveal is marked stale until the pointer
-  // actually moves again.
-  const goStale = () => elements.layers.classList.add("hover-stale");
-  elements.layers.addEventListener("scroll", goStale, { passive: true });
-  elements.layers.addEventListener("pointerleave", goStale);
-  elements.layers.addEventListener("pointermove", () => {
-    elements.layers.classList.remove("hover-stale");
+  // Which row the pointer is over is worked out from where the pointer is,
+  // rather than read from :hover. Scrolling moves the list under a still
+  // cursor, and the browser does not always revise :hover when it does -- so a
+  // row kept offering an action to a pointer that had long since left it.
+  // Recomputing on scroll settles it, because the answer comes from the
+  // pointer's actual position either way.
+  let pointerAt = null;
+  const markHoveredRow = () => {
+    for (const marked of elements.layers.querySelectorAll(".is-hovered")) {
+      marked.classList.remove("is-hovered");
+    }
+    if (!pointerAt) return;
+    const under = document.elementFromPoint(pointerAt.x, pointerAt.y);
+    const row = under?.closest(".category-row, .layer-header");
+    if (row && elements.layers.contains(row)) row.classList.add("is-hovered");
+  };
+  elements.layers.addEventListener("pointermove", (event) => {
+    pointerAt = { x: event.clientX, y: event.clientY };
+    markHoveredRow();
   }, { passive: true });
+  elements.layers.addEventListener("pointerleave", () => {
+    pointerAt = null;
+    markHoveredRow();
+  });
+  elements.layers.addEventListener("scroll", markHoveredRow, { passive: true });
 
   elements.layers.addEventListener("click", (event) => {
     const only = event.target.closest("[data-only-category], [data-only-group]");

@@ -529,12 +529,10 @@ input {
   transition: opacity 110ms ease;
 }
 
-/* Scoped to a list that is not stale. Hover is not recomputed while the list
-   scrolls under a stationary pointer, nor always when the pointer leaves it, so
-   the row it was last over would otherwise keep showing an action for a cursor
-   that is no longer there. Keyboard focus is unconditional. */
-.layers:not(.hover-stale) .category-row:hover .only-button,
-.layers:not(.hover-stale) .layer-header:hover .only-button,
+/* Driven by the pointer's position rather than by :hover -- see markHoveredRow.
+   Keyboard focus is unconditional. */
+.category-row.is-hovered .only-button,
+.layer-header.is-hovered .only-button,
 .only-button:focus-visible {
   opacity: 1;
 }
@@ -714,7 +712,7 @@ input {
   user-select: none;
 }
 
-.category-row:hover {
+.category-row.is-hovered {
   background: rgba(255, 255, 255, 0.04);
   color: var(--text);
 }
