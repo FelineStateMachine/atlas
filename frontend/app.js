@@ -165,6 +165,7 @@ function initializeMap() {
   state.sources = {
     grid: new VectorSource({ wrapX: false }),
     gridContext: new VectorSource({ wrapX: false }),
+    zoneScrim: new VectorSource({ wrapX: false }),
     zones: new VectorSource({ wrapX: false }),
     zoneTitles: new VectorSource({ wrapX: false }),
     text: new VectorSource({ wrapX: false }),
@@ -183,6 +184,13 @@ function initializeMap() {
       renderOrder: featureOrder,
       renderBuffer: 40,
       zIndex: 5,
+    }),
+    // Under the zones and over the map: the dimming is something the map is
+    // seen through, not something drawn on top of the zone that was asked for.
+    zoneScrim: eagerVector({
+      source: state.sources.zoneScrim,
+      style: zoneScrimStyle,
+      zIndex: 6,
     }),
     zones: eagerVector({
       source: state.sources.zones,
@@ -338,21 +346,8 @@ function initializeMap() {
     }
     const hit = state.engine.forEachFeatureAtPixel(
       event.pixel,
-      (feature, layer) => {
-        if (layer !== state.layers.pins && layer !== state.layers.pinLabels &&
-            layer !== state.layers.text && layer !== state.layers.textDetail &&
-            layer !== state.layers.priority) {
-          return null;
-        }
-        return feature.get("pin") || null;
-      },
-      {
-        hitTolerance: 4,
-        layerFilter: (layer) =>
-          layer === state.layers.pins || layer === state.layers.pinLabels ||
-          layer === state.layers.text || layer === state.layers.textDetail ||
-          layer === state.layers.priority,
-      },
+      (feature, layer) => (isAnnotationLayer(layer) && feature.get("pin")) || null,
+      { hitTolerance: 4, layerFilter: isAnnotationLayer },
     );
     const hovered = hit?.category.displayType === "text" ? null : hit;
     setHoveredPin(hovered || null);
@@ -363,6 +358,16 @@ function initializeMap() {
     state.engine.getTargetElement().style.cursor = hit || gridHit ? "pointer" : "";
   });
   state.engine.getViewport().addEventListener("pointerleave", () => setHoveredPin(null));
+}
+
+// Every layer a pin can be drawn in, including the two it moves to while a zone
+// is highlighted. Leaving those out left the pins of the highlighted zone --
+// the only ones still on screen -- answering neither the pointer nor a click.
+function isAnnotationLayer(layer) {
+  return layer === state.layers.pins || layer === state.layers.zonePins ||
+    layer === state.layers.pinLabels || layer === state.layers.priority ||
+    layer === state.layers.text || layer === state.layers.textDetail ||
+    layer === state.layers.zoneText;
 }
 
 function createView(maxZoom) {
@@ -1486,7 +1491,46 @@ function renderZones() {
     });
   }
   state.zoneTitleCount = state.sources.zoneTitles.getFeatures().length;
+  renderZoneScrim();
   renderZoneIndex();
+}
+
+// Highlighting a zone is a request to look at one place, so everything else
+// recedes: the whole map is covered and the zone is cut back out of it.
+// Shading only the neighbouring zones demoted them rather than raising the
+// zone asked for, and left the unclaimed space between them at full strength.
+function renderZoneScrim() {
+  state.sources.zoneScrim.clear();
+  if (!state.highlightedZones.size) return;
+  const [left, bottom, right, top] = state.projection.getExtent();
+  // Rings alternate direction with their depth so the fill counts its way in
+  // and out: the map, then the zone as a hole, then any hole of the zone's own
+  // back to solid.
+  const rings = [orientRing([
+    [left, bottom], [right, bottom], [right, top], [left, top], [left, bottom],
+  ], true)];
+  for (const zoneID of state.highlightedZones) {
+    for (const geometry of state.zoneRecords.get(zoneID)?.geometries || []) {
+      const polygons = geometry.getType() === "MultiPolygon"
+        ? geometry.getPolygons()
+        : [geometry];
+      for (const polygon of polygons) {
+        polygon.getLinearRings().forEach((ring, index) => {
+          rings.push(orientRing(ring.getCoordinates(), index > 0));
+        });
+      }
+    }
+  }
+  state.sources.zoneScrim.addFeature(new Feature({ geometry: new Polygon(rings) }));
+}
+
+// Twice the signed area of a ring: negative when its points run clockwise.
+function orientRing(ring, clockwise) {
+  let area = 0;
+  for (let index = 0, prior = ring.length - 1; index < ring.length; prior = index++) {
+    area += ring[prior][0] * ring[index][1] - ring[index][0] * ring[prior][1];
+  }
+  return (area < 0) === clockwise ? ring : ring.slice().reverse();
 }
 
 function renderZoneIndex() {
@@ -1547,6 +1591,7 @@ function orderedZones() {
 function setZonesVisible(visible) {
   state.zonesVisible = visible;
   elements.zoneToggle.checked = visible;
+  state.layers.zoneScrim.setVisible(visible);
   state.layers.zones.setVisible(visible);
   state.layers.zoneTitles.setVisible(visible);
   state.layers.zoneTitleDetail.setVisible(visible);
@@ -1579,6 +1624,7 @@ function toggleZoneHighlight(zoneID) {
   updateZonePinFocus();
   refreshPinRendering();
   updateZoneIndexState();
+  renderZoneScrim();
   state.layers.zones.changed();
   state.layers.zoneTitles.changed();
   state.layers.zoneTitleDetail.changed();
@@ -2278,12 +2324,11 @@ function zoneStyle(feature) {
   if (state.styleCache.has(key)) return state.styleCache.get(key);
   const color = feature.get("color");
   if (dimmed) {
+    // No fill of its own: the scrim below has already taken this zone down
+    // with the rest of the map, and a second wash would single it out again.
     const dimmedStyle = new Style({
-      fill: new Fill({
-        color: `rgba(3, 5, 3, ${child ? 0.38 : 0.32})`,
-      }),
       stroke: new Stroke({
-        color: hexToRGBA(color, child ? 0.24 : 0.32),
+        color: hexToRGBA(color, child ? 0.34 : 0.44),
         width: child ? 1 : 1.3,
         lineDash: child ? [3, 4] : [7, 5],
       }),
