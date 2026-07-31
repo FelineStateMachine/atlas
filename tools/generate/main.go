@@ -265,6 +265,7 @@ var preferredMapOrder = map[string][]string{
 var iconOutsetByGame = map[string]string{
 	"clair-obscur-expedition-33": "dark",
 	"fallout-new-vegas":          "dark", // pale Pip-Boy rasters throughout
+	"fallout76":                  "dark", // a parchment survey map, pale throughout
 	"la-noire":                   "dark",
 	"sonic-frontiers":            "dark",
 }
