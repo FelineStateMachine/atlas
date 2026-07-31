@@ -200,10 +200,14 @@ type catalogGroup struct {
 }
 
 type catalogCategory struct {
-	ID          int64             `json:"id"`
-	Title       string            `json:"title"`
-	Icon        string            `json:"icon,omitempty"`
-	IconAsset   string            `json:"iconAsset,omitempty"`
+	ID        int64  `json:"id"`
+	Title     string `json:"title"`
+	Icon      string `json:"icon,omitempty"`
+	IconAsset string `json:"iconAsset,omitempty"`
+	// IconPicture marks an icon that already carries its own colours, as
+	// against a monochrome glyph whose silhouette is tinted with the category
+	// colour. Sliced marker sprites are pictures; icon-font glyphs are not.
+	IconPicture bool              `json:"iconPicture,omitempty"`
 	Color       string            `json:"color,omitempty"`
 	IconColor   string            `json:"iconColor,omitempty"`
 	DisplayType string            `json:"displayType"`
@@ -574,6 +578,7 @@ func attachGameIcons(gamePath, iconRoot string, game *catalogGame) error {
 					copied[category.Icon] = asset
 				}
 				category.IconAsset = asset
+				category.IconPicture = strings.HasSuffix(asset, ".png")
 			}
 		}
 	}

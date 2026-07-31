@@ -126,29 +126,38 @@ const readFontURL = (css) => {
   return new URL(match[1].replace(/#.*$/, ""), `${CDN}/css/themes/icons/`).href;
 };
 
-// Some games publish one marker strip that CSS windows into, rather than a
-// font: `[class^="icon-"] { background: url(sprite.png); background-size: 15px }`
-// with `.icon-<key> { background-position: 0 -Npx }` naming each row.
+// Some games publish one marker sprite that CSS windows into, rather than a
+// font: `[class^="icon-"] { background: url(sprite.png); background-size: 27px;
+// width: 27px; height: 33px }` with `.icon-<key> { background-position: -Xpx -Ypx }`
+// placing each cell. Both offsets are read: a sprite may be a single column or
+// a grid, and the pitch is not always a whole number of pixels.
 const readSprite = (css) => {
   const source = /\[class\^?[*]?="icon-"\][^{]*\{([^}]*)\}/i.exec(css)?.[1];
   if (!source) return null;
   const url = /url\(['"]?([^'")]+\.png[^'")]*)['"]?\)/i.exec(source)?.[1];
   if (!url) return null;
   const size = Number(/background-size:\s*([0-9.]+)px/i.exec(source)?.[1] ?? 0);
-  const cell = Number(/width:\s*([0-9.]+)px/i.exec(source)?.[1] ?? size);
-  if (!cell) return null;
+  const cellWidth = Number(/[^-]width:\s*([0-9.]+)px/i.exec(source)?.[1] ?? size);
+  const cellHeight = Number(/height:\s*([0-9.]+)px/i.exec(source)?.[1] ?? cellWidth);
+  if (!cellWidth || !cellHeight) return null;
 
   const offsets = new Map();
-  const rule = /\.icon-([a-z0-9_-]+)\s*\{[^}]*background-position:\s*[^;]*?(-?[0-9.]+)px\s*;?[^}]*\}/gi;
+  const length = "(-?[0-9.]+)(?:px)?";
+  const rule = new RegExp(
+    `\\.icon-([a-z0-9_-]+)\\s*\\{[^}]*?background-position:\\s*${length}\\s+${length}`,
+    "gi"
+  );
   for (const match of css.matchAll(rule)) {
-    // A key repeated in the strip keeps its first row; later ones are spares.
-    if (!offsets.has(match[1])) offsets.set(match[1], Math.abs(Number(match[2])));
+    // A key repeated in the sprite keeps its first cell; later ones are spares.
+    if (offsets.has(match[1])) continue;
+    offsets.set(match[1], { x: Math.abs(Number(match[2])), y: Math.abs(Number(match[3])) });
   }
   if (offsets.size === 0) return null;
   return {
     url: new URL(url, `${CDN}/css/themes/icons/`).href,
-    cell,
-    displayWidth: size || cell,
+    cellWidth,
+    cellHeight,
+    displayWidth: size || cellWidth,
     offsets,
   };
 };
@@ -251,20 +260,22 @@ const renderGame = async (archiveRoot, game, directory) => {
 
     if (strip) {
       const offset = sprite.offsets.get(key);
-      if (offset === undefined) {
+      if (!offset) {
         missing += 1;
         continue;
       }
-      // Offsets are in displayed pixels; the strip may be published at a
-      // multiple of that, so they are scaled to source pixels before cutting.
+      // Offsets are in displayed pixels; the sprite is published at a multiple
+      // of that, so they scale to source pixels before cutting.
       const scale = strip.width / sprite.displayWidth;
-      const cell = Math.round(sprite.cell * scale);
-      const top = Math.round(offset * scale);
-      if (top + cell > strip.height) {
+      const w = Math.min(Math.round(sprite.cellWidth * scale), strip.width);
+      const h = Math.round(sprite.cellHeight * scale);
+      const left = Math.min(Math.round(offset.x * scale), strip.width - w);
+      const top = Math.round(offset.y * scale);
+      if (top + h > strip.height || left < 0) {
         missing += 1;
         continue;
       }
-      const slice = cropPNG(strip, 0, top, Math.min(cell, strip.width), cell);
+      const slice = cropPNG(strip, left, top, w, h);
       if (isBlank(slice)) {
         missing += 1;
         continue;
@@ -277,6 +288,7 @@ const renderGame = async (archiveRoot, game, directory) => {
         file: `${key}.png`,
         key,
         spriteOffset: offset,
+        spriteCell: { w: sprite.cellWidth, h: sprite.cellHeight },
         sourceCssUrl: `${CDN}/css/themes/icons/${game.slug}-icons.css`,
         sourceSpriteUrl: sprite.url,
         usages: uses,

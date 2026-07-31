@@ -1491,14 +1491,20 @@ function prepareMarkerIcon(category) {
     const context = canvas.getContext("2d");
     const color = category.color || colorFor(category.id);
 
+    // A glyph is a silhouette, so it takes the category colour. A picture
+    // already carries its own, and flattening it to one colour would leave
+    // nothing but its outline filled in.
     const tinted = document.createElement("canvas");
     tinted.width = 64;
     tinted.height = 64;
     const tintedContext = tinted.getContext("2d");
+    tintedContext.imageSmoothingEnabled = !category.iconPicture;
     tintedContext.drawImage(source, 6, 6, 52, 52);
-    tintedContext.globalCompositeOperation = "source-in";
-    tintedContext.fillStyle = color;
-    tintedContext.fillRect(0, 0, 64, 64);
+    if (!category.iconPicture) {
+      tintedContext.globalCompositeOperation = "source-in";
+      tintedContext.fillStyle = color;
+      tintedContext.fillRect(0, 0, 64, 64);
+    }
 
     const outline = document.createElement("canvas");
     outline.width = 64;

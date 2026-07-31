@@ -944,7 +944,7 @@ func isPixelArt(gameSlug string) bool {
 		return true
 	}
 	switch gameSlug {
-	case "old-school-runescape":
+	case "old-school-runescape-DISABLED":
 		return true
 	}
 	return false
