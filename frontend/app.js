@@ -106,6 +106,7 @@ const state = {
   tileStats: { requested: 0, loaded: 0, errors: 0, peakPending: 0 },
   overviewRun: 0,
   overviewKey: "",
+  overviewPointer: null,
   renderedShard: 0,
   mapRun: 0,
   textByMap: new Map(),
@@ -145,6 +146,14 @@ async function start() {
   }
 }
 
+// A vector layer left to itself stretches the last frame it drew through an
+// animation, which leaves markers the wrong size mid-zoom and blank ground
+// wherever a pan lands. These are all drawn afresh each frame instead, so a
+// view that is being steered shows what it is passing over.
+function eagerVector(options) {
+  return new VectorLayer({ updateWhileAnimating: true, ...options });
+}
+
 function initializeMap() {
   const size = state.catalog.tileGrid.size;
   const worldExtent = [0, -size, size, 0];
@@ -168,48 +177,48 @@ function initializeMap() {
     // top of the base layer so the fully-covered pyramid still shows through
     // wherever the deep capture has a gap.
     rasterDetail: new TileLayer({ zIndex: 1 }),
-    grid: new VectorLayer({
+    grid: eagerVector({
       source: state.sources.grid,
       style: gridStyle,
       renderOrder: featureOrder,
       renderBuffer: 40,
       zIndex: 5,
     }),
-    zones: new VectorLayer({
+    zones: eagerVector({
       source: state.sources.zones,
       style: zoneStyle,
       renderBuffer: 32,
       zIndex: 10,
     }),
-    zoneTitles: new VectorLayer({
+    zoneTitles: eagerVector({
       source: state.sources.zoneTitles,
       style: zoneTitleStyle,
       renderOrder: featureOrder,
       renderBuffer: 160,
       zIndex: 20,
     }),
-    zoneTitleDetail: new VectorLayer({
+    zoneTitleDetail: eagerVector({
       source: state.sources.zoneTitles,
       style: zoneTitleDetailStyle,
       renderOrder: featureOrder,
       renderBuffer: 160,
       zIndex: 44,
     }),
-    text: new VectorLayer({
+    text: eagerVector({
       source: state.sources.text,
       style: textFeatureStyle,
       renderOrder: featureOrder,
       renderBuffer: 220,
       zIndex: 30,
     }),
-    textDetail: new VectorLayer({
+    textDetail: eagerVector({
       source: state.sources.text,
       style: textDetailFeatureStyle,
       renderOrder: featureOrder,
       renderBuffer: 220,
       zIndex: 45,
     }),
-    zoneText: new VectorLayer({
+    zoneText: eagerVector({
       source: state.sources.text,
       style: zoneTextFeatureStyle,
       renderOrder: featureOrder,
@@ -219,35 +228,35 @@ function initializeMap() {
     // Nothing is decluttered. Dropping whatever overlaps makes a crowded area
     // quietly show less than it holds, for text labels as much as for markers;
     // zooming in to separate them is the reader's job.
-    pins: new VectorLayer({
+    pins: eagerVector({
       source: state.sources.pins,
       style: pinFeatureStyle,
       renderOrder: featureOrder,
       renderBuffer: 48,
       zIndex: 40,
     }),
-    zonePins: new VectorLayer({
+    zonePins: eagerVector({
       source: state.sources.pins,
       style: zonePinFeatureStyle,
       renderOrder: featureOrder,
       renderBuffer: 48,
       zIndex: 42,
     }),
-    pinLabels: new VectorLayer({
+    pinLabels: eagerVector({
       source: state.sources.pins,
       style: pinLabelFeatureStyle,
       renderOrder: featureOrder,
       renderBuffer: 180,
       zIndex: 45,
     }),
-    gridContext: new VectorLayer({
+    gridContext: eagerVector({
       source: state.sources.gridContext,
       style: gridStyle,
       renderOrder: featureOrder,
       renderBuffer: 40,
       zIndex: 48,
     }),
-    priority: new VectorLayer({
+    priority: eagerVector({
       source: state.sources.priority,
       style: priorityFeatureStyle,
       renderOrder: featureOrder,
@@ -274,8 +283,12 @@ function initializeMap() {
   });
   state.engine.on("moveend", () => {
     state.engine.getViewport().classList.remove("is-dragging");
-    updateVisibleCount();
-    saveSession();
+    // A view set straight to a new centre has arrived by the next frame, so a
+    // sweep across the overview finishes its journey many times over. Counting
+    // the pins in view and writing the session down are worth doing once the
+    // hand steering it comes to rest, which is what settleView is for.
+    if (state.overviewPointer !== null) return;
+    settleView();
   });
   // The locator follows the view as it moves rather than only once it settles.
   // Repeated calls that would draw the same rectangle cost nothing.
@@ -543,10 +556,29 @@ function bindUIEvents() {
     state.engine?.updateSize();
     updateOverviewViewport();
   });
+  // Holding the pointer down steers the map: a reader crossing the world drags
+  // the locator there in one sweep instead of clicking their way across it.
+  // Capturing the pointer keeps the sweep alive past the edge of the overview,
+  // where the destination is simply the nearest point still on the map.
   elements.overview.addEventListener("pointerdown", (event) => {
+    if (event.pointerType === "mouse" && event.button !== 0) return;
     event.preventDefault();
-    overviewJump(event);
+    elements.overview.setPointerCapture(event.pointerId);
+    state.overviewPointer = event.pointerId;
+    overviewNavigate(event, true);
   });
+  elements.overview.addEventListener("pointermove", (event) => {
+    if (state.overviewPointer !== event.pointerId) return;
+    event.preventDefault();
+    overviewNavigate(event, false);
+  });
+  const releaseOverview = (event) => {
+    if (state.overviewPointer !== event.pointerId) return;
+    state.overviewPointer = null;
+    settleView();
+  };
+  elements.overview.addEventListener("pointerup", releaseOverview);
+  elements.overview.addEventListener("pointercancel", releaseOverview);
   elements.mobileLegend.addEventListener("click", () => {
     const open = elements.sidebar.classList.toggle("is-open");
     elements.mobileLegend.setAttribute("aria-expanded", String(open));
@@ -986,19 +1018,31 @@ function updateOverviewViewport() {
   box.height = `${Math.max(8, (lower - upper) * canvas.height)}px`;
 }
 
-function overviewJump(event) {
+// The press that opens a gesture eases across, so a plain click reads as a
+// move rather than a cut. Everything after it lands at once: a view that eased
+// its way to each new position would trail behind the hand steering it.
+function overviewNavigate(event, ease) {
   const view = state.engine?.getView();
   if (!view || !state.variant) return;
   const rect = elements.overviewCanvas.getBoundingClientRect();
   const extent = activeExtent();
   const fraction = (value, low, high) => clamp((value - low) / (high - low), 0, 1);
-  view.animate({
-    center: [
-      extent[0] + fraction(event.clientX, rect.left, rect.right) * (extent[2] - extent[0]),
-      extent[3] - fraction(event.clientY, rect.top, rect.bottom) * (extent[3] - extent[1]),
-    ],
-    duration: 180,
-  });
+  const center = [
+    extent[0] + fraction(event.clientX, rect.left, rect.right) * (extent[2] - extent[0]),
+    extent[3] - fraction(event.clientY, rect.top, rect.bottom) * (extent[3] - extent[1]),
+  ];
+  if (ease) {
+    view.animate({ center, duration: 180 });
+    return;
+  }
+  view.cancelAnimations();
+  view.setCenter(center);
+}
+
+// What a view owes the rest of the page once it has come to rest.
+function settleView() {
+  updateVisibleCount();
+  saveSession();
 }
 
 // The layers of a split map are the same ground at different heights, stacked

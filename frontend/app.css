@@ -1006,6 +1006,9 @@ input {
   box-shadow: 0 6px 25px rgba(0, 0, 0, 0.28);
   cursor: crosshair;
   line-height: 0;
+  /* The overview is dragged, so a touch on it steers the map rather than
+     scrolling whatever is behind it. */
+  touch-action: none;
 }
 
 .overview[hidden] {
