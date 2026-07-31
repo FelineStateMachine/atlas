@@ -163,7 +163,6 @@ function initializeMap() {
       source: state.sources.zoneTitles,
       style: zoneTitleStyle,
       renderOrder: featureOrder,
-      declutter: "atlas-annotations",
       renderBuffer: 160,
       zIndex: 20,
     }),
@@ -178,7 +177,6 @@ function initializeMap() {
       source: state.sources.text,
       style: textFeatureStyle,
       renderOrder: featureOrder,
-      declutter: "atlas-annotations",
       renderBuffer: 220,
       zIndex: 30,
     }),
@@ -193,13 +191,12 @@ function initializeMap() {
       source: state.sources.text,
       style: zoneTextFeatureStyle,
       renderOrder: featureOrder,
-      declutter: "atlas-zone-focus",
       renderBuffer: 220,
       zIndex: 41,
     }),
-    // Every pin is drawn. Decluttering would hide the ones that overlap, so a
-    // crowded area would quietly show less than it holds; zooming in is the
-    // reader's job.
+    // Nothing is decluttered. Dropping whatever overlaps makes a crowded area
+    // quietly show less than it holds, for text labels as much as for markers;
+    // zooming in to separate them is the reader's job.
     pins: new VectorLayer({
       source: state.sources.pins,
       style: pinFeatureStyle,
