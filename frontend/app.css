@@ -933,13 +933,29 @@ input {
   to { transform: rotate(360deg); }
 }
 
-/* Only worth the space once the whole map no longer fits on screen, which is
-   why it is hidden until then rather than always present. */
-.overview {
+/* The overview and the key share one corner, stacked, so neither has to guess
+   how tall the other is. The column is only as wide as its widest child and
+   passes clicks through, so the map stays draggable around them. */
+.map-corner {
   position: absolute;
   z-index: 7;
   right: 17px;
   bottom: 17px;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 10px;
+  pointer-events: none;
+}
+
+.map-corner > * {
+  pointer-events: auto;
+}
+
+/* Only worth the space once the whole map no longer fits on screen, which is
+   why it is hidden until then rather than always present. */
+.overview {
+  position: relative;
   overflow: hidden;
   border: 1px solid var(--line-strong);
   border-radius: 8px;
@@ -1070,10 +1086,7 @@ input {
 }
 
 .map-hint {
-  position: absolute;
-  z-index: 5;
-  bottom: 17px;
-  left: 50%;
+  position: relative;
   display: flex;
   align-items: center;
   gap: 8px;
@@ -1085,7 +1098,6 @@ input {
   font-size: 9px;
   letter-spacing: 0.08em;
   text-transform: uppercase;
-  transform: translateX(-50%);
   backdrop-filter: blur(8px);
 }
 

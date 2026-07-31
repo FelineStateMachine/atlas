@@ -760,9 +760,13 @@ function updateOverviewViewport() {
   const visible = view.calculateExtent(state.engine.getSize());
   const width = extent[2] - extent[0];
   const height = extent[3] - extent[1];
+  // Fitting the map lands on its extent to within a fraction of a pixel, so an
+  // exact comparison reports the whole map as not quite visible and leaves a
+  // locator on screen that marks the entire map.
+  const slack = (view.getResolution() || 0) * 4;
   const covered =
-    visible[0] <= extent[0] && visible[1] <= extent[1] &&
-    visible[2] >= extent[2] && visible[3] >= extent[3];
+    visible[0] <= extent[0] + slack && visible[1] <= extent[1] + slack &&
+    visible[2] >= extent[2] - slack && visible[3] >= extent[3] - slack;
   const key = covered ? "hidden" : visible.map(Math.round).join(",");
   if (key === state.overviewKey) return;
   state.overviewKey = key;
