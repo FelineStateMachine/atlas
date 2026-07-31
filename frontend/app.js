@@ -46,6 +46,9 @@ const elements = {
   loading: $("#map-loading"),
   labelsHint: $("#labels-hint"),
   gridHint: $("#grid-hint"),
+  overview: $("#overview"),
+  overviewCanvas: $("#overview-canvas"),
+  overviewViewport: $("#overview-viewport"),
   gridNavigator: $("#grid-navigator"),
   gridInput: $("#grid-input"),
   gridBack: $("#grid-back"),
@@ -100,6 +103,8 @@ const state = {
   eligibleLocations: 0,
   tileRun: 0,
   tileStats: { requested: 0, loaded: 0, errors: 0, peakPending: 0 },
+  overviewRun: 0,
+  overviewKey: "",
   styleCache: new Map(),
   markerIcons: new Map(),
 };
@@ -254,6 +259,9 @@ function initializeMap() {
     state.engine.getViewport().classList.remove("is-dragging");
     updateVisibleCount();
   });
+  // The locator follows the view as it moves rather than only once it settles.
+  // Repeated calls that would draw the same rectangle cost nothing.
+  state.engine.on("postrender", updateOverviewViewport);
   // OpenLayers can condition wheel handling on focus when its target is
   // keyboard-focusable. Refocus during the wheel's capture phase so returning
   // from any sidebar control never costs a discarded scroll gesture.
@@ -443,7 +451,14 @@ function bindUIEvents() {
       state.layers.pinLabels.changed();
     }
   });
-  window.addEventListener("resize", () => state.engine?.updateSize());
+  window.addEventListener("resize", () => {
+    state.engine?.updateSize();
+    updateOverviewViewport();
+  });
+  elements.overview.addEventListener("pointerdown", (event) => {
+    event.preventDefault();
+    overviewJump(event);
+  });
   elements.mobileLegend.addEventListener("click", () => {
     const open = elements.sidebar.classList.toggle("is-open");
     elements.mobileLegend.setAttribute("aria-expanded", String(open));
@@ -578,6 +593,8 @@ function selectVariant(index, resetView = false) {
     state.layers.text.changed();
     state.layers.priority.changed();
   }
+  state.overviewKey = "";
+  renderOverview();
   if (resetView) requestAnimationFrame(fitMap);
   else updateVisibleCount();
 }
@@ -614,6 +631,107 @@ function resolutions(maxZoom) {
 
 function viewMaxZoom(variant) {
   return variant.maxZoom + overzoomLevels;
+}
+
+// The overview is drawn once per variant from the shallowest pyramid level big
+// enough to read, then only the viewport rectangle moves.
+const overviewTargetSize = 168;
+
+function renderOverview() {
+  const variant = state.variant;
+  const canvas = elements.overviewCanvas;
+  const context = canvas.getContext("2d");
+  const extent = activeExtent();
+  const world = state.catalog.tileGrid.size;
+  const tileSize = state.catalog.tileGrid.tileSize;
+  const width = extent[2] - extent[0];
+  const height = extent[3] - extent[1];
+
+  let level = 0;
+  while (level < variant.fullZoom &&
+    (Math.max(width, height) / world) * tileSize * (2 ** level) < overviewTargetSize) {
+    level++;
+  }
+  const scale = (tileSize * (2 ** level)) / world;
+  canvas.width = Math.max(1, Math.round(width * scale));
+  canvas.height = Math.max(1, Math.round(height * scale));
+  context.clearRect(0, 0, canvas.width, canvas.height);
+  if (variant.background) {
+    context.fillStyle = variant.background;
+    context.fillRect(0, 0, canvas.width, canvas.height);
+  }
+
+  const run = ++state.overviewRun;
+  const format = variant.formats[level];
+  const first = Math.floor((extent[0] / world) * (2 ** level));
+  const last = Math.ceil((extent[2] / world) * (2 ** level));
+  const top = Math.floor((-extent[3] / world) * (2 ** level));
+  const bottom = Math.ceil((-extent[1] / world) * (2 ** level));
+  for (let y = top; y < bottom; y++) {
+    for (let x = first; x < last; x++) {
+      if (!format || !tileExists(variant, level, x, y)) continue;
+      const image = new Image();
+      image.onload = () => {
+        if (state.overviewRun !== run) return;
+        context.drawImage(
+          image,
+          x * tileSize - extent[0] * scale,
+          y * tileSize + extent[3] * scale,
+          tileSize,
+          tileSize,
+        );
+      };
+      image.src = `/static/tiles/${encodeURIComponent(variant.tiles)}/${level}/${x}/${y}.${format}`;
+    }
+  }
+  updateOverviewViewport();
+}
+
+// Hidden while the whole map is on screen: a locator that says "all of it"
+// tells the reader nothing they cannot already see.
+function updateOverviewViewport() {
+  const view = state.engine?.getView();
+  if (!view || !state.variant) return;
+  const extent = activeExtent();
+  const visible = view.calculateExtent(state.engine.getSize());
+  const width = extent[2] - extent[0];
+  const height = extent[3] - extent[1];
+  const covered =
+    visible[0] <= extent[0] && visible[1] <= extent[1] &&
+    visible[2] >= extent[2] && visible[3] >= extent[3];
+  const key = covered ? "hidden" : visible.map(Math.round).join(",");
+  if (key === state.overviewKey) return;
+  state.overviewKey = key;
+  elements.overview.hidden = covered;
+  if (covered) return;
+
+  const canvas = elements.overviewCanvas;
+  const left = clamp((visible[0] - extent[0]) / width, 0, 1);
+  const right = clamp((visible[2] - extent[0]) / width, 0, 1);
+  const upper = clamp((extent[3] - visible[3]) / height, 0, 1);
+  const lower = clamp((extent[3] - visible[1]) / height, 0, 1);
+  const box = elements.overviewViewport.style;
+  box.left = `${left * canvas.width}px`;
+  box.top = `${upper * canvas.height}px`;
+  // A floor keeps the rectangle findable when the view is deep enough that a
+  // true-to-scale box would be a couple of pixels.
+  box.width = `${Math.max(8, (right - left) * canvas.width)}px`;
+  box.height = `${Math.max(8, (lower - upper) * canvas.height)}px`;
+}
+
+function overviewJump(event) {
+  const view = state.engine?.getView();
+  if (!view || !state.variant) return;
+  const rect = elements.overviewCanvas.getBoundingClientRect();
+  const extent = activeExtent();
+  const fraction = (value, low, high) => clamp((value - low) / (high - low), 0, 1);
+  view.animate({
+    center: [
+      extent[0] + fraction(event.clientX, rect.left, rect.right) * (extent[2] - extent[0]),
+      extent[3] - fraction(event.clientY, rect.top, rect.bottom) * (extent[3] - extent[1]),
+    ],
+    duration: 180,
+  });
 }
 
 function activeExtent() {

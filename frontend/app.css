@@ -845,6 +845,39 @@ input {
   to { transform: rotate(360deg); }
 }
 
+/* Only worth the space once the whole map no longer fits on screen, which is
+   why it is hidden until then rather than always present. */
+.overview {
+  position: absolute;
+  z-index: 7;
+  right: 17px;
+  bottom: 17px;
+  overflow: hidden;
+  border: 1px solid var(--line-strong);
+  border-radius: 8px;
+  background: rgba(22, 25, 21, 0.9);
+  box-shadow: 0 6px 25px rgba(0, 0, 0, 0.28);
+  cursor: crosshair;
+  line-height: 0;
+}
+
+.overview[hidden] {
+  display: none;
+}
+
+.overview canvas {
+  display: block;
+  opacity: 0.85;
+}
+
+.overview-viewport {
+  position: absolute;
+  border: 1px solid var(--accent);
+  border-radius: 2px;
+  background: rgba(214, 243, 107, 0.14);
+  pointer-events: none;
+}
+
 .zoom-controls {
   position: absolute;
   z-index: 7;
