@@ -43,11 +43,16 @@ func main() {
 			},
 		},
 		&options.App{
-			Title:     "Atlas — Game Map Explorer",
-			Width:     1440,
-			Height:    920,
-			MinWidth:  900,
-			MinHeight: 600,
+			Title: "Atlas — Game Map Explorer",
+			// A map wants every pixel it can have, so the window opens filling
+			// the screen it lands on rather than at a size chosen here. Not
+			// fullscreen: the menu bar and dock stay, and the window is still a
+			// window. Width and Height are what it returns to when unzoomed.
+			WindowStartState: options.Maximised,
+			Width:            1440,
+			Height:           920,
+			MinWidth:         900,
+			MinHeight:        600,
 		},
 	)
 	if err != nil {
