@@ -519,7 +519,9 @@ input {
   border: 1px solid rgba(214, 243, 107, 0.5);
   border-radius: 999px;
   opacity: 0;
-  background: #1d211a;
+  /* Opaque, and the pill's own colour: whatever is under the button must not
+     show through it, in either state. */
+  background: var(--pill-bg, #1d211a);
   color: var(--accent);
   font-size: 8px;
   font-weight: 800;
@@ -541,21 +543,22 @@ input {
 }
 
 /* A long title runs the full width of its pill, so the button lands on top of
-   the last word rather than on the count it replaces. The title fades into the
-   button instead of colliding with it. */
+   the last word rather than on the count it replaces. Just enough fade to stop
+   the title ending in a hard vertical cut against the button; any wider and it
+   dims a title that was never in the way. */
 .category-toggle .only-button::before {
   position: absolute;
   top: -9px;
   right: 100%;
   bottom: -9px;
-  width: 24px;
-  background: linear-gradient(90deg, transparent, var(--pill-bg) 85%);
+  width: 12px;
+  background: linear-gradient(90deg, transparent, var(--pill-bg));
   content: "";
   pointer-events: none;
 }
 
 .only-button:hover {
-  background: rgba(214, 243, 107, 0.16);
+  background: color-mix(in srgb, var(--accent) 18%, var(--pill-bg, #1d211a));
 }
 
 .only-group {
