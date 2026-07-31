@@ -1,0 +1,15 @@
+{
+  "name": "atlas-frontend",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "scripts": {
+    "build": "node build.mjs"
+  },
+  "dependencies": {
+    "ol": "10.10.0"
+  },
+  "devDependencies": {
+    "esbuild": "0.28.1"
+  }
+}

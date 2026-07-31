@@ -2,9 +2,11 @@ package main
 
 import (
 	"encoding/json"
+	"errors"
 	"io/fs"
 	"net/http"
 	"net/http/httptest"
+	"strconv"
 	"strings"
 	"testing"
 )
@@ -136,7 +138,10 @@ func TestEmbeddedCatalogIncludesOnlyCompleteNewMaps(t *testing.T) {
 			Maps  []struct {
 				Title    string `json:"title"`
 				Variants []struct {
-					Image string `json:"image"`
+					Tiles   string   `json:"tiles"`
+					Formats []string `json:"formats"`
+					MinZoom int      `json:"minZoom"`
+					MaxZoom int      `json:"maxZoom"`
 				} `json:"variants"`
 			} `json:"maps"`
 		} `json:"games"`
@@ -150,8 +155,22 @@ func TestEmbeddedCatalogIncludesOnlyCompleteNewMaps(t *testing.T) {
 		for _, gameMap := range game.Maps {
 			got[game.Title+" / "+gameMap.Title] = true
 			for _, variant := range gameMap.Variants {
-				if _, err := fs.Stat(assets, "assets/maps/"+variant.Image); err != nil {
-					t.Errorf("%s / %s references missing image %q: %v", game.Title, gameMap.Title, variant.Image, err)
+				if len(variant.Formats) != variant.MaxZoom-variant.MinZoom+1 {
+					t.Errorf("%s / %s tile formats = %d, want %d",
+						game.Title, gameMap.Title, len(variant.Formats), variant.MaxZoom-variant.MinZoom+1)
+					continue
+				}
+				for zoom := variant.MinZoom; zoom <= variant.MaxZoom; zoom++ {
+					level := "assets/tiles/" + variant.Tiles + "/" + strconv.Itoa(zoom)
+					entries, err := fs.ReadDir(assets, level)
+					if err != nil {
+						t.Errorf("%s / %s references missing tile level %q: %v",
+							game.Title, gameMap.Title, level, err)
+						continue
+					}
+					if len(entries) == 0 {
+						t.Errorf("%s / %s tile level %q is empty", game.Title, gameMap.Title, level)
+					}
 				}
 			}
 		}
@@ -175,6 +194,28 @@ func TestEmbeddedCatalogIncludesOnlyCompleteNewMaps(t *testing.T) {
 		if got[name] {
 			t.Errorf("incomplete map %q was included", name)
 		}
+	}
+}
+
+func TestEmbeddedFrontendUsesTilesWithoutRuntimeCDNs(t *testing.T) {
+	index, err := fs.ReadFile(assets, "assets/index.html")
+	if err != nil {
+		t.Fatal(err)
+	}
+	body := string(index)
+	if strings.Contains(body, "http://") || strings.Contains(body, "https://") {
+		t.Fatal("application shell references a runtime network dependency")
+	}
+	if strings.Contains(body, `id="map-image"`) || strings.Contains(body, `id="world"`) {
+		t.Fatal("application shell still contains the stitched image viewport")
+	}
+	for _, path := range []string{"assets/app.js", "assets/app.css", "assets/tiles/index.json"} {
+		if _, err := fs.Stat(assets, path); err != nil {
+			t.Errorf("embedded frontend asset %q: %v", path, err)
+		}
+	}
+	if _, err := fs.Stat(assets, "assets/maps"); !errors.Is(err, fs.ErrNotExist) {
+		t.Errorf("legacy stitched map directory still exists: %v", err)
 	}
 }
 

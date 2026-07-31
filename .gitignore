@@ -1,2 +1,5 @@
 .DS_Store
 /atlas
+/frontend/node_modules/
+/.playwright-cli/
+/output/

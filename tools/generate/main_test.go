@@ -94,7 +94,7 @@ func TestBuildGameSkipsMapWithoutSnapshotIndex(t *testing.T) {
 	game, err := buildGame(
 		archiveRoot,
 		t.TempDir(),
-		t.TempDir(),
+		nil,
 		archiveGame{
 			Directory: "games/pokemon-red-blue-yellow-246",
 			ID:        246,
@@ -106,5 +106,23 @@ func TestBuildGameSkipsMapWithoutSnapshotIndex(t *testing.T) {
 	}
 	if len(game.Maps) != 0 {
 		t.Fatalf("maps = %d, want 0", len(game.Maps))
+	}
+}
+
+func TestSortGameMapsPrefersPrimaryMap(t *testing.T) {
+	maps := []catalogMap{
+		{Title: "Big MT", Slug: "big-mt"},
+		{Title: "Zion Canyon", Slug: "zion-canyon"},
+		{Title: "Mojave Wasteland", Slug: "mojave-wasteland"},
+		{Title: "Sierra Madre", Slug: "sierra-madre"},
+	}
+
+	sortGameMaps("fallout-new-vegas", maps)
+
+	want := []string{"mojave-wasteland", "big-mt", "sierra-madre", "zion-canyon"}
+	for index, slug := range want {
+		if maps[index].Slug != slug {
+			t.Fatalf("map %d = %q, want %q", index, maps[index].Slug, slug)
+		}
 	}
 }

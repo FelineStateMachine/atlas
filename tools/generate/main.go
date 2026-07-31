@@ -1,6 +1,6 @@
-// Command generate turns an FMG archive into the compact catalog consumed by
-// the demo. It intentionally keeps the source archive outside the Go module;
-// only the browser-ready catalog and stitched maps are embedded in the app.
+// Command generate turns an FMG archive and the generated raster manifest into
+// the compact catalog consumed by Atlas. The source archive stays outside the
+// Go module; only browser-ready data is embedded in the application.
 package main
 
 import (
@@ -112,10 +112,10 @@ type catalog struct {
 }
 
 type tileGrid struct {
-	Zoom      int `json:"zoom"`
-	FirstTile int `json:"firstTile"`
-	TileSize  int `json:"tileSize"`
-	Size      int `json:"size"`
+	SourceZoom int `json:"sourceZoom"`
+	FirstTile  int `json:"firstTile"`
+	TileSize   int `json:"tileSize"`
+	Size       int `json:"size"`
 }
 
 type catalogGame struct {
@@ -126,15 +126,16 @@ type catalogGame struct {
 }
 
 type catalogMap struct {
-	ID        int64          `json:"id"`
-	Title     string         `json:"title"`
-	Slug      string         `json:"slug"`
-	Center    coordinate     `json:"center"`
-	Variants  []variant      `json:"variants"`
-	Groups    []catalogGroup `json:"groups"`
-	Zones     []zone         `json:"zones,omitempty"`
-	PinCount  int            `json:"pinCount"`
-	UpdatedAt string         `json:"updatedAt"`
+	ID         int64          `json:"id"`
+	Title      string         `json:"title"`
+	Slug       string         `json:"slug"`
+	IconOutset string         `json:"iconOutset,omitempty"`
+	Center     coordinate     `json:"center"`
+	Variants   []variant      `json:"variants"`
+	Groups     []catalogGroup `json:"groups"`
+	Zones      []zone         `json:"zones,omitempty"`
+	PinCount   int            `json:"pinCount"`
+	UpdatedAt  string         `json:"updatedAt"`
 }
 
 type coordinate struct {
@@ -143,9 +144,14 @@ type coordinate struct {
 }
 
 type variant struct {
-	Name   string         `json:"name"`
-	Image  string         `json:"image"`
-	Bounds *contentBounds `json:"bounds,omitempty"`
+	Name        string         `json:"name"`
+	Tiles       string         `json:"tiles"`
+	MinZoom     int            `json:"minZoom"`
+	MaxZoom     int            `json:"maxZoom"`
+	SourceZoom  int            `json:"sourceZoom"`
+	Formats     []string       `json:"formats"`
+	Bounds      *contentBounds `json:"bounds,omitempty"`
+	Interpolate bool           `json:"interpolate"`
 }
 
 type contentBounds struct {
@@ -155,12 +161,21 @@ type contentBounds struct {
 	Height int `json:"height"`
 }
 
-type tileRecord struct {
-	ContentHash string `json:"contentHash"`
-	URL         string `json:"url"`
-	X           int    `json:"x"`
-	Y           int    `json:"y"`
-	Zoom        int    `json:"zoom"`
+type tileManifest struct {
+	TileSize int                   `json:"tileSize"`
+	Size     int                   `json:"size"`
+	Variants []tileVariantManifest `json:"variants"`
+}
+
+type tileVariantManifest struct {
+	SourcePath  string         `json:"sourcePath"`
+	AssetPath   string         `json:"assetPath"`
+	MinZoom     int            `json:"minZoom"`
+	MaxZoom     int            `json:"maxZoom"`
+	SourceZoom  int            `json:"sourceZoom"`
+	Formats     []string       `json:"formats"`
+	Bounds      *contentBounds `json:"bounds"`
+	Interpolate bool           `json:"interpolate"`
 }
 
 type catalogGroup struct {
@@ -201,36 +216,64 @@ type zone struct {
 
 var errMapNotReady = errors.New("map is not ready for embedding")
 
+// preferredMapOrder keeps a game's primary map ahead of secondary areas.
+// Unlisted maps follow in title order, so adding one entry is enough to curate
+// a game without restating its complete archive.
+var preferredMapOrder = map[string][]string{
+	"fallout-new-vegas": {"mojave-wasteland"},
+}
+
+// iconOutsetByMap is deliberately map-specific because the raster beneath an
+// icon determines which outline is legible. Unlisted maps retain the default
+// light outset.
+var iconOutsetByMap = map[int64]string{
+	3:  "dark", // Skyrim
+	18: "dark", // Solstheim
+}
+
 func main() {
-	source := flag.String("source", "", "path containing fmg-archive and z13-stitched-maps")
+	source := flag.String("source", "", "path containing fmg-archive")
+	tiles := flag.String("tiles", "", "generated tile manifest")
 	output := flag.String("output", "", "catalog JSON destination")
 	flag.Parse()
 
-	if *source == "" || *output == "" {
-		fmt.Fprintln(os.Stderr, "generate: -source and -output are required")
+	if *source == "" || *tiles == "" || *output == "" {
+		fmt.Fprintln(os.Stderr, "generate: -source, -tiles, and -output are required")
 		os.Exit(2)
 	}
-	if err := run(*source, *output); err != nil {
+	if err := run(*source, *tiles, *output); err != nil {
 		fmt.Fprintln(os.Stderr, "generate:", err)
 		os.Exit(1)
 	}
 }
 
-func run(source, output string) error {
+func run(source, tileManifestPath, output string) error {
 	archiveRoot := filepath.Join(source, "fmg-archive")
 	var index archive
 	if err := readJSON(filepath.Join(archiveRoot, "archive.json"), &index); err != nil {
 		return err
 	}
+	var tiles tileManifest
+	if err := readJSON(tileManifestPath, &tiles); err != nil {
+		return err
+	}
+	tilesByPath := make(map[string]tileVariantManifest, len(tiles.Variants))
+	for _, variant := range tiles.Variants {
+		tilesByPath[variant.SourcePath] = variant
+	}
 
 	out := catalog{
-		Source:   "FMG archive",
-		TileGrid: tileGrid{Zoom: 13, FirstTile: 4064, TileSize: 256, Size: 8192},
+		Source: "FMG archive",
+		TileGrid: tileGrid{
+			SourceZoom: 13,
+			FirstTile:  4064,
+			TileSize:   tiles.TileSize,
+			Size:       tiles.Size,
+		},
 	}
-	imageRoot := filepath.Join(filepath.Dir(output), "maps")
 	iconRoot := filepath.Join(filepath.Dir(output), "icons")
 	for _, gameRef := range index.Games {
-		game, err := buildGame(archiveRoot, imageRoot, iconRoot, gameRef)
+		game, err := buildGame(archiveRoot, iconRoot, tilesByPath, gameRef)
 		if err != nil {
 			return fmt.Errorf("%s: %w", gameRef.Title, err)
 		}
@@ -253,7 +296,12 @@ func run(source, output string) error {
 	return nil
 }
 
-func buildGame(archiveRoot, imageRoot, iconRoot string, ref archiveGame) (catalogGame, error) {
+func buildGame(
+	archiveRoot string,
+	iconRoot string,
+	tilesByPath map[string]tileVariantManifest,
+	ref archiveGame,
+) (catalogGame, error) {
 	gamePath := filepath.Join(archiveRoot, ref.Directory)
 	mapDirs, err := filepath.Glob(filepath.Join(gamePath, "maps", "*"))
 	if err != nil {
@@ -265,7 +313,7 @@ func buildGame(archiveRoot, imageRoot, iconRoot string, ref archiveGame) (catalo
 		if err != nil || !info.IsDir() {
 			continue
 		}
-		m, gameSlug, err := buildMap(mapDir, imageRoot)
+		m, gameSlug, err := buildMap(mapDir, tilesByPath)
 		if err != nil {
 			if errors.Is(err, errMapNotReady) {
 				continue
@@ -277,14 +325,35 @@ func buildGame(archiveRoot, imageRoot, iconRoot string, ref archiveGame) (catalo
 		}
 		game.Maps = append(game.Maps, m)
 	}
-	sort.Slice(game.Maps, func(i, j int) bool { return game.Maps[i].Title < game.Maps[j].Title })
+	sortGameMaps(game.Slug, game.Maps)
 	if err := attachGameIcons(gamePath, iconRoot, &game); err != nil {
 		return catalogGame{}, err
 	}
 	return game, nil
 }
 
-func buildMap(mapDir, imageRoot string) (catalogMap, string, error) {
+func sortGameMaps(gameSlug string, maps []catalogMap) {
+	order := make(map[string]int)
+	for index, slug := range preferredMapOrder[gameSlug] {
+		order[slug] = index
+	}
+	sort.SliceStable(maps, func(i, j int) bool {
+		left, leftPreferred := order[maps[i].Slug]
+		right, rightPreferred := order[maps[j].Slug]
+		if leftPreferred != rightPreferred {
+			return leftPreferred
+		}
+		if leftPreferred && left != right {
+			return left < right
+		}
+		return maps[i].Title < maps[j].Title
+	})
+}
+
+func buildMap(
+	mapDir string,
+	tilesByPath map[string]tileVariantManifest,
+) (catalogMap, string, error) {
 	var snapshots []snapshotIndex
 	indexPath := filepath.Join(mapDir, "snapshots", "index.json")
 	if err := readJSON(indexPath, &snapshots); err != nil {
@@ -306,45 +375,31 @@ func buildMap(mapDir, imageRoot string) (catalogMap, string, error) {
 	}
 
 	m := catalogMap{
-		ID:        raw.ID,
-		Title:     raw.Title,
-		Slug:      raw.Slug,
-		Center:    coordinate{Latitude: raw.InitialLatitude, Longitude: raw.InitialLongitude},
-		UpdatedAt: latest.CapturedAt,
-	}
-	boundsByPath, err := tileContentBounds(mapDir)
-	if err != nil {
-		return catalogMap{}, "", err
+		ID:         raw.ID,
+		Title:      raw.Title,
+		Slug:       raw.Slug,
+		IconOutset: iconOutsetByMap[raw.ID],
+		Center:     coordinate{Latitude: raw.InitialLatitude, Longitude: raw.InitialLongitude},
+		UpdatedAt:  latest.CapturedAt,
 	}
 	if len(raw.Config.TileSets) == 0 {
-		m.Variants = []variant{{
-			Name:  "Default",
-			Image: imageName(raw.Game.Slug, raw.Slug, ""),
-		}}
-	} else {
-		for _, set := range raw.Config.TileSets {
-			suffix := ""
-			if len(raw.Config.TileSets) > 1 {
-				suffix = slugify(set.Name)
-			}
-			m.Variants = append(m.Variants, variant{
-				Name:   set.Name,
-				Image:  imageName(raw.Game.Slug, raw.Slug, suffix),
-				Bounds: boundsByPath[set.Path],
-			})
-		}
+		return catalogMap{}, "", fmt.Errorf("%w: no tile sets", errMapNotReady)
 	}
-	for _, variant := range m.Variants {
-		info, err := os.Stat(filepath.Join(imageRoot, variant.Image))
-		if errors.Is(err, os.ErrNotExist) {
-			return catalogMap{}, "", fmt.Errorf("%w: image %s is missing", errMapNotReady, variant.Image)
+	for _, set := range raw.Config.TileSets {
+		tiles, ok := tilesByPath[set.Path]
+		if !ok {
+			return catalogMap{}, "", fmt.Errorf("%w: tile layer %s is missing", errMapNotReady, set.Path)
 		}
-		if err != nil {
-			return catalogMap{}, "", err
-		}
-		if !info.Mode().IsRegular() {
-			return catalogMap{}, "", fmt.Errorf("%w: image %s is not a file", errMapNotReady, variant.Image)
-		}
+		m.Variants = append(m.Variants, variant{
+			Name:        set.Name,
+			Tiles:       tiles.AssetPath,
+			MinZoom:     tiles.MinZoom,
+			MaxZoom:     tiles.MaxZoom,
+			SourceZoom:  tiles.SourceZoom,
+			Formats:     tiles.Formats,
+			Bounds:      tiles.Bounds,
+			Interpolate: tiles.Interpolate,
+		})
 	}
 	for _, rawGroup := range raw.Groups {
 		group := catalogGroup{ID: rawGroup.ID, Title: rawGroup.Title}
@@ -502,116 +557,6 @@ func normalizeHexColor(value string) string {
 		return ""
 	}
 	return "#" + strings.ToUpper(value)
-}
-
-func tileContentBounds(mapDir string) (map[string]*contentBounds, error) {
-	const (
-		zoom      = 13
-		firstTile = 4064
-		tileSize  = 256
-		gridSize  = 8192
-	)
-
-	indexPath := filepath.Join(mapDir, "tiles", "index.json")
-	var records []tileRecord
-	if err := readJSON(indexPath, &records); err != nil {
-		if errors.Is(err, os.ErrNotExist) {
-			return nil, nil
-		}
-		return nil, err
-	}
-
-	byPath := make(map[string][]tileRecord)
-	for _, record := range records {
-		if record.Zoom != zoom || record.ContentHash == "" {
-			continue
-		}
-		path := tileSetPath(record.URL, zoom)
-		if path != "" {
-			byPath[path] = append(byPath[path], record)
-		}
-	}
-
-	result := make(map[string]*contentBounds)
-	for path, tiles := range byPath {
-		counts := make(map[string]int)
-		var placeholder string
-		minX, minY := int(^uint(0)>>1), int(^uint(0)>>1)
-		maxX, maxY := -1, -1
-		for _, tile := range tiles {
-			counts[tile.ContentHash]++
-			if counts[tile.ContentHash] > counts[placeholder] {
-				placeholder = tile.ContentHash
-			}
-			minX = min(minX, tile.X)
-			minY = min(minY, tile.Y)
-			maxX = max(maxX, tile.X)
-			maxY = max(maxY, tile.Y)
-		}
-		if counts[placeholder] > len(tiles)/2 {
-			minX, minY = int(^uint(0)>>1), int(^uint(0)>>1)
-			maxX, maxY = -1, -1
-			for _, tile := range tiles {
-				if tile.ContentHash == placeholder {
-					continue
-				}
-				minX = min(minX, tile.X)
-				minY = min(minY, tile.Y)
-				maxX = max(maxX, tile.X)
-				maxY = max(maxY, tile.Y)
-			}
-		}
-		if maxX < minX || maxY < minY {
-			continue
-		}
-		if minX == firstTile && minY == firstTile &&
-			(maxX-minX+1)*tileSize == gridSize &&
-			(maxY-minY+1)*tileSize == gridSize {
-			continue
-		}
-		result[path] = &contentBounds{
-			X:      (minX - firstTile) * tileSize,
-			Y:      (minY - firstTile) * tileSize,
-			Width:  (maxX - minX + 1) * tileSize,
-			Height: (maxY - minY + 1) * tileSize,
-		}
-	}
-	return result, nil
-}
-
-func tileSetPath(rawURL string, zoom int) string {
-	const marker = "/games/"
-	start := strings.Index(rawURL, marker)
-	if start < 0 {
-		return ""
-	}
-	path := rawURL[start+len(marker):]
-	end := strings.Index(path, "/"+strconv.Itoa(zoom)+"/")
-	if end < 0 {
-		return ""
-	}
-	return path[:end]
-}
-
-func imageName(game, mapSlug, suffix string) string {
-	name := game + "__" + mapSlug
-	if suffix != "" {
-		name += "__" + suffix
-	}
-	return name + "__z13.png"
-}
-
-func slugify(value string) string {
-	return strings.Trim(strings.Map(func(r rune) rune {
-		switch {
-		case r >= 'a' && r <= 'z', r >= '0' && r <= '9':
-			return r
-		case r >= 'A' && r <= 'Z':
-			return r + ('a' - 'A')
-		default:
-			return '-'
-		}
-	}, value), "-")
 }
 
 func number(raw json.RawMessage) (float64, error) {

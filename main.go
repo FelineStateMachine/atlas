@@ -1,6 +1,7 @@
 // Command atlas is a self-contained interactive map explorer built with
-// Allons. Its FMG catalog and full-resolution z13 maps are embedded in the
-// executable, so the application needs no network connection or sidecar data.
+// Allons. Its FMG catalog, raster tile pyramids, category icons, and frontend
+// are embedded in the executable, so the application needs no network
+// connection or sidecar data.
 package main
 
 import (
@@ -14,8 +15,10 @@ import (
 	"github.com/wailsapp/wails/v2/pkg/options"
 )
 
-//go:generate go run ./tools/stitch -source ../gamemap/fmg-archive -output assets/maps
-//go:generate go run ./tools/generate -source ../gamemap -output assets/catalog.json
+//go:generate go run ./tools/tiles -source ../gamemap/fmg-archive -output assets/tiles
+//go:generate go run ./tools/generate -source ../gamemap -tiles assets/tiles/index.json -output assets/catalog.json
+//go:generate npm --prefix frontend ci
+//go:generate npm --prefix frontend run build
 
 //go:embed all:assets
 var assets embed.FS
