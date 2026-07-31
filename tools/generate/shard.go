@@ -425,7 +425,7 @@ func asMaps(m catalogMap, pieces []shard) []catalogMap {
 	for index, piece := range pieces {
 		copied := m
 		copied.Groups = keepLocations(m.Groups, piece.Locations)
-		copied.Zones = keepZones(m.Zones, piece.Regions)
+		copied.Zones = keepZones(m.Zones, piece.Regions, piece.Region.ID)
 		copied.PinCount = countLocations(copied.Groups)
 		copied.Center = piece.Center
 		copied.Variants = boundVariants(m.Variants, piece.Bounds, 0)
@@ -445,6 +445,7 @@ func asMaps(m catalogMap, pieces []shard) []catalogMap {
 // and the view survives switching because the map itself never changes.
 func asVariants(m catalogMap, pieces []shard) catalogMap {
 	var variants []variant
+	var dropped []int64
 	for _, piece := range pieces {
 		bound := boundVariants(m.Variants, piece.Bounds, piece.Region.ID)
 		for index := range bound {
@@ -467,8 +468,10 @@ func asVariants(m catalogMap, pieces []shard) catalogMap {
 				m.Zones[zoneIndex].Shard = piece.Region.ID
 			}
 		}
+		dropped = append(dropped, piece.Region.ID)
 	}
 	m.Variants = variants
+	m.Zones = keepZones(m.Zones, nil, dropped...)
 	if len(pieces) > 0 {
 		m.Center = pieces[0].Center
 	}
@@ -516,12 +519,20 @@ func keepLocations(groups []catalogGroup, wanted map[int64]bool) []catalogGroup 
 	return out
 }
 
-func keepZones(zones []zone, wanted map[int64]bool) []zone {
+// keepZones drops the piece's own outline. Once a region has been used to cut
+// a map or a layer out of a sheet, drawing it again just traces the edge of
+// what the reader is already looking at.
+func keepZones(zones []zone, wanted map[int64]bool, drop ...int64) []zone {
+	discard := make(map[int64]bool, len(drop))
+	for _, id := range drop {
+		discard[id] = true
+	}
 	out := make([]zone, 0, len(zones))
 	for _, z := range zones {
-		if wanted[z.ID] {
-			out = append(out, z)
+		if discard[z.ID] || (wanted != nil && !wanted[z.ID]) {
+			continue
 		}
+		out = append(out, z)
 	}
 	return out
 }

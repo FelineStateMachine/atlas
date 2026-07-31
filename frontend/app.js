@@ -372,6 +372,17 @@ function bindUIEvents() {
     syncGroupSwitches();
   });
 
+  // Hover reveals an action on the row under the pointer, and the pointer can
+  // stop being over that row without the browser saying so: scrolling moves the
+  // list instead of the cursor. The reveal is marked stale until the pointer
+  // actually moves again.
+  const goStale = () => elements.layers.classList.add("hover-stale");
+  elements.layers.addEventListener("scroll", goStale, { passive: true });
+  elements.layers.addEventListener("pointerleave", goStale);
+  elements.layers.addEventListener("pointermove", () => {
+    elements.layers.classList.remove("hover-stale");
+  }, { passive: true });
+
   elements.layers.addEventListener("click", (event) => {
     const only = event.target.closest("[data-only-category], [data-only-group]");
     if (only) {
