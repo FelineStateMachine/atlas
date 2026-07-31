@@ -53,6 +53,7 @@ const elements = {
   gridNavigator: $("#grid-navigator"),
   gridInput: $("#grid-input"),
   gridBack: $("#grid-back"),
+  subgridToggle: $("#subgrid-toggle"),
   detail: $("#pin-detail"),
   detailTitle: $("#detail-title"),
   detailCategory: $("#detail-category"),
@@ -93,6 +94,9 @@ const state = {
   hoveredPin: null,
   pinLabelsVisible: false,
   gridEnabled: false,
+  // Whether the cells are drawn, which is a separate question from whether one
+  // of them is holding the map to a place.
+  subgridVisible: true,
   gridPrefix: "",
   zonesVisible: true,
   zoneRecords: new Map(),
@@ -313,29 +317,27 @@ function initializeMap() {
     if (state.gridEnabled) {
       const cell = state.engine.forEachFeatureAtPixel(
         event.pixel,
-        (feature) => feature.get("gridCell") || null,
+        // The cell the reader is already in lies over its own children, and
+        // answering for them would mean the grid could not be descended.
+        (feature) => {
+          const under = feature.get("gridCell");
+          return under && under.role !== "leaf" && under.role !== "scope" ? under : null;
+        },
         {
           hitTolerance: 1,
           layerFilter: (layer) =>
             layer === state.layers.grid || layer === state.layers.gridContext,
         },
       );
-      if (cell && cell.role !== "leaf") {
+      if (cell) {
         selectGridPrefix(cell.hash);
         return;
       }
     }
     const pin = state.engine.forEachFeatureAtPixel(
       event.pixel,
-      (feature, layer) => {
-        if (layer !== state.layers.pins && layer !== state.layers.pinLabels &&
-            layer !== state.layers.text && layer !== state.layers.textDetail &&
-            layer !== state.layers.priority) {
-          return null;
-        }
-        return feature.get("pin") || null;
-      },
-      { hitTolerance: 5 },
+      (feature, layer) => (isAnnotationLayer(layer) && feature.get("pin")) || null,
+      { hitTolerance: 5, layerFilter: isAnnotationLayer },
     );
     if (pin) showPin(pin);
   });
@@ -501,6 +503,25 @@ function bindUIEvents() {
       .join("");
     elements.gridInput.value = value;
     selectGridPrefix(value);
+  });
+  elements.subgridToggle.addEventListener("click", () => {
+    setSubgridVisible(!state.subgridVisible);
+    elements.viewport.focus({ preventScroll: true });
+  });
+  // Escape leaves the field before it leaves the level: the first press hands
+  // the keyboard back to the map, and the next one telescopes out as ever.
+  // Space reaches the subgrid from inside the field too, since a hash has no
+  // spaces in it and clearing the mesh is what is most wanted while typing one.
+  elements.gridInput.addEventListener("keydown", (event) => {
+    if (event.key === " ") {
+      event.preventDefault();
+      setSubgridVisible(!state.subgridVisible);
+      return;
+    }
+    if (event.key !== "Escape") return;
+    event.preventDefault();
+    event.stopPropagation();
+    elements.viewport.focus({ preventScroll: true });
   });
 
   elements.viewport.addEventListener("keydown", (event) => {
@@ -1092,10 +1113,44 @@ function activeExtent() {
   return [bounds.x, -(bounds.y + bounds.height), bounds.x + bounds.width, -bounds.y];
 }
 
+// What the grid divides is the ground the map covers, which is not the window
+// its raster is cut from: a piece of a sheet keeps a margin so the title drawn
+// beside it survives the crop. On a big map that margin is nothing; on a small
+// one it is a fifth of the width, and the cells over it are cells the map never
+// gets -- b naming blank sheet while m carries what b should have held.
+function gridExtent() {
+  const surface = state.variant?.surface;
+  if (!surface) return activeExtent();
+  return [
+    surface.x,
+    -(surface.y + surface.height),
+    surface.x + surface.width,
+    -surface.y,
+  ];
+}
+
 function handleGridKey(event) {
   if (event.key.toLocaleLowerCase() === "g") {
     event.preventDefault();
     toggleGrid();
+    // The grid is opened to go somewhere, so the field that takes a hash is
+    // ready for the rest of what is being typed: "gm6" arrives at m6. Closing
+    // hands the keyboard back to the map, where the shortcuts live.
+    if (state.gridEnabled) {
+      elements.gridInput.focus();
+      elements.gridInput.select();
+    } else {
+      elements.viewport.focus({ preventScroll: true });
+    }
+    return true;
+  }
+  // Space is about what the chosen cell is divided into, not where the reader
+  // is: the cell stays chosen and the pins outside it stay put away, while the
+  // subdivision inside it gets out of the way of the map underneath.
+  // The button answers its own space bar, and would otherwise be pressed twice.
+  if (event.key === " " && state.gridEnabled && event.target !== elements.subgridToggle) {
+    event.preventDefault();
+    setSubgridVisible(!state.subgridVisible);
     return true;
   }
   if (event.key === "Escape" && state.gridEnabled) {
@@ -1108,11 +1163,40 @@ function handleGridKey(event) {
 
 function toggleGrid(enabled = !state.gridEnabled) {
   state.gridEnabled = enabled;
+  // Opening the grid divides the cell again. A reader who put the subgrid away
+  // and then closed the grid altogether is starting over, not resuming.
+  if (enabled) setSubgridVisible(true);
   renderGrid();
   refreshPrioritySource();
   state.layers.pins.changed();
   state.layers.text.changed();
   state.layers.priority.changed();
+}
+
+// Dividing the chosen cell and being held to it are two questions. The
+// subdivision is how a reader picks the next place; once picked, the mesh over
+// the map is often the last thing they want to look at, and until now the only
+// way to be rid of it was to give up the scope it was holding. Nothing is
+// really hidden: the cell keeps its boundary and the ancestors keep theirs.
+function setSubgridVisible(visible) {
+  state.subgridVisible = visible;
+  state.layers.grid.changed();
+  state.layers.gridContext.changed();
+  elements.subgridToggle.setAttribute("aria-pressed", String(visible));
+  elements.subgridToggle.setAttribute("aria-label",
+    visible ? "Hide the subgrid" : "Show the subgrid");
+  updateGridHint();
+}
+
+function updateGridHint() {
+  if (!state.gridEnabled) {
+    elements.gridHint.textContent = "G · grid off";
+    return;
+  }
+  // Compact while it is carrying a hash: the mode, the place and the state of
+  // the subdivision are one reading, not three separate ones.
+  elements.gridHint.textContent = `G-${state.gridPrefix || "root"}` +
+    (state.subgridVisible ? "" : " no subgrid");
 }
 
 function selectGridPrefix(prefix) {
@@ -1153,9 +1237,7 @@ function renderGrid() {
   state.sources.grid.clear();
   state.sources.gridContext.clear();
   elements.gridNavigator.hidden = !state.gridEnabled;
-  elements.gridHint.textContent = state.gridEnabled
-    ? `G · ${state.gridPrefix || "root"}`
-    : "G · grid off";
+  updateGridHint();
   if (!state.gridEnabled || !state.variant) return;
 
   const maximum = gridMaxDepth();
@@ -1167,6 +1249,12 @@ function renderGrid() {
   if (state.gridPrefix.length >= maximum) {
     addGridFeature(state.gridPrefix, currentGridExtent(), "leaf");
     return;
+  }
+  // The cell the reader is inside, outlined rather than tiled. It is the one
+  // part of the grid that survives putting the grid away: what is on screen is
+  // still a chosen place, and a boundary says so where a bare map does not.
+  if (state.gridPrefix) {
+    addGridFeature(state.gridPrefix, currentGridExtent(), "scope");
   }
   for (const character of geohashAlphabet) {
     const hash = state.gridPrefix + character;
@@ -1215,7 +1303,7 @@ function currentGridExtent() {
 }
 
 function geohashExtent(hash) {
-  const extent = [...activeExtent()];
+  const extent = [...gridExtent()];
   let splitX = true;
   for (const character of hash) {
     const value = geohashAlphabet.indexOf(character);
@@ -2278,40 +2366,102 @@ function textStyles(pin, selected) {
   return styles;
 }
 
-function gridStyle(feature) {
+function gridStyle(feature, resolution) {
   const cell = feature.get("gridCell");
   if (!cell) return null;
-  const key = `grid:${cell.hash}:${cell.role}:${cell.contextDistance}`;
+  const leaf = cell.role === "leaf";
+  const scope = cell.role === "scope";
+  const neighbor = cell.role === "neighbor";
+  // Monospace, as the field these are typed into already is: a hash is a code,
+  // and in a proportional face m6w is half again the width of m6j, so a level
+  // lost its labels a few cells at a time as the map shrank. Every hash at a
+  // level is the same length, so in a fixed pitch they are the same width, and
+  // the level keeps or drops its labels as one.
+  const size = leaf || scope ? 15 : neighbor ? 10 : 11;
+  const weight = leaf || scope ? 900 : neighbor ? 750 : 800;
+  const font = `${weight} ${size}px ui-monospace, SFMono-Regular, Menlo, monospace`;
+  const padding = neighbor ? [2, 4, 2, 4] : [3, 5, 3, 5];
+  const labelled = labelFitsCell(cell, font, size, padding, resolution);
+  // A subdivision is offered so it can be named and descended into, and one too
+  // small to carry its names is a mesh laid over the map. It waits for the zoom
+  // that has room for them, so the cells and their labels arrive together --
+  // and putting the grid away by hand leaves exactly that state, the one the
+  // map arrives at on its own. What stays either way is the boundary of the
+  // chosen cell and the shaded ancestors around it, which say where the reader
+  // is and dim what is outside.
+  if (cell.role === "child" && (!labelled || !state.subgridVisible)) return null;
+  // The scope is drawn two ways: with the subgrid inside it, where a bare
+  // outline would be lost among its own children, and without, where the
+  // boundary is what is left of the cell and carries its name.
+  const bare = scope && state.subgridVisible;
+  const key = `grid:${cell.hash}:${cell.role}:${cell.contextDistance}:` +
+    `${labelled ? 1 : 0}:${bare ? 1 : 0}`;
   if (state.styleCache.has(key)) return state.styleCache.get(key);
   const color = palette[Math.max(0, geohashAlphabet.indexOf(cell.hash[cell.hash.length - 1])) %
     palette.length];
-  const leaf = cell.role === "leaf";
-  const neighbor = cell.role === "neighbor";
   const style = new Style({
-    fill: new Fill({
-      color: neighbor
-        ? `rgba(3, 5, 3, ${Math.min(0.52, 0.30 + cell.contextDistance * 0.06)})`
-        : hexToRGBA(color, leaf ? 0.14 : 0.055),
-    }),
-    stroke: new Stroke({
-      color: leaf ? "#ffffff" : hexToRGBA(color, neighbor ? 0.44 : 0.82),
-      width: leaf ? 2.5 : neighbor ? 1 : 1.4,
-    }),
-    text: new Text({
-      text: cell.hash,
-      font: `${leaf ? "900 17px" : neighbor ? "750 11px" : "800 13px"} "Arial Narrow", "Roboto Condensed", sans-serif`,
-      fill: new Fill({ color: leaf ? "#ffffff" : neighbor ? hexToRGBA(color, 0.72) : color }),
-      stroke: new Stroke({ color: "rgba(0,0,0,0.96)", width: 4 }),
-      backgroundFill: new Fill({
-        color: neighbor ? "rgba(4,6,4,0.88)" : "rgba(9,12,8,0.76)",
+    fill: scope
+      ? undefined
+      : new Fill({
+        color: neighbor
+          ? `rgba(3, 5, 3, ${Math.min(0.52, 0.30 + cell.contextDistance * 0.06)})`
+          : hexToRGBA(color, leaf ? 0.14 : 0.055),
       }),
-      padding: neighbor ? [2, 4, 2, 4] : [3, 5, 3, 5],
-      overflow: true,
+    stroke: new Stroke({
+      color: leaf || scope ? "#ffffff" : hexToRGBA(color, neighbor ? 0.44 : 0.82),
+      width: leaf ? 2.5 : scope ? (bare ? 1.8 : 2.5) : neighbor ? 1 : 1.4,
     }),
-    zIndex: leaf ? 100 : feature.get("priority"),
+    text: labelled && !bare
+      ? new Text({
+        text: cell.hash,
+        font,
+        fill: new Fill({
+          color: leaf || scope ? "#ffffff" : neighbor ? hexToRGBA(color, 0.72) : color,
+        }),
+        stroke: new Stroke({ color: "rgba(0,0,0,0.96)", width: 4 }),
+        backgroundFill: new Fill({
+          color: neighbor ? "rgba(4,6,4,0.88)" : "rgba(9,12,8,0.76)",
+        }),
+        padding,
+        overflow: true,
+      })
+      : undefined,
+    zIndex: leaf || scope ? 100 : feature.get("priority"),
   });
   state.styleCache.set(key, style);
   return style;
+}
+
+// A hash names the cell it sits in, so a label wider than its cell names the
+// neighbours instead -- and at the depth where cells are smallest, that is
+// every label at once. The cell keeps its outline and colour; only the word
+// waits for a zoom that has room for it.
+function labelFitsCell(cell, font, size, padding, resolution) {
+  if (!resolution) return true;
+  const width = measureLabel(cell.hash, font) + padding[1] + padding[3];
+  const height = size + padding[0] + padding[2];
+  return width <= (cell.extent[2] - cell.extent[0]) / resolution &&
+    height <= (cell.extent[3] - cell.extent[1]) / resolution;
+}
+
+const labelRuler = document.createElement("canvas").getContext("2d");
+const labelWidths = new Map();
+
+function measureLabel(text, font) {
+  const key = `${font}|${text}`;
+  let width = labelWidths.get(key);
+  if (width === undefined) {
+    labelRuler.font = font;
+    width = labelRuler.measureText(text).width;
+    labelWidths.set(key, width);
+  }
+  return width;
+}
+
+const zoneScrimFill = new Style({ fill: new Fill({ color: "rgba(3, 5, 3, 0.62)" }) });
+
+function zoneScrimStyle() {
+  return state.zonesVisible ? zoneScrimFill : null;
 }
 
 function zoneStyle(feature) {
@@ -2453,7 +2603,8 @@ function isPriorityPin(pin) {
 }
 
 function pinIsHidden(pin) {
-  return pin.filteredHidden || pinIsZoneCulled(pin) || !onActiveShard(pin.location);
+  return pin.filteredHidden || pinIsZoneCulled(pin) || pinIsGridCulled(pin) ||
+    !onActiveShard(pin.location);
 }
 
 // A map split into layers offers one at a time. Anything belonging to another
@@ -2465,6 +2616,16 @@ function onActiveShard(item) {
 
 function pinIsZoneCulled(pin) {
   if (!state.highlightedZones.size || pin.insideHighlightedZone) return false;
+  if (pin === state.selectedPin) return false;
+  return !(Boolean(state.search) &&
+    pin.location.title.toLocaleLowerCase().includes(state.search));
+}
+
+// Descending into a cell narrows the question to what is inside it, the same
+// way highlighting a zone does. What lies outside was still being drawn, so the
+// answer stayed as crowded as it was before the cell was chosen.
+function pinIsGridCulled(pin) {
+  if (!state.gridEnabled || !state.gridPrefix || pinInGridCell(pin)) return false;
   if (pin === state.selectedPin) return false;
   return !(Boolean(state.search) &&
     pin.location.title.toLocaleLowerCase().includes(state.search));
