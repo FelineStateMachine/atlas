@@ -3,3 +3,4 @@
 /frontend/node_modules/
 /.playwright-cli/
 /output/
+/crawl

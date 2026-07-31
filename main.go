@@ -15,6 +15,13 @@ import (
 	"github.com/wailsapp/wails/v2/pkg/options"
 )
 
+// Archive capture is deliberately not a generate step: it reaches out to
+// MapGenie and takes as long as the chosen depth demands. Run it by hand for
+// the game or map you want, then regenerate.
+//
+//	go run ./tools/crawl -game skyrim -map solstheim -max-zoom 15
+//	node tools/icons/render-icons.mjs --game skyrim
+
 //go:generate go run ./tools/tiles -source ../gamemap/fmg-archive -output assets/tiles
 //go:generate go run ./tools/generate -source ../gamemap -tiles assets/tiles/index.json -output assets/catalog.json
 //go:generate npm --prefix frontend ci

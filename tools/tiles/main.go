@@ -765,16 +765,21 @@ func contentBoundsFor(files []tileFile, zoom int) *contentBounds {
 	if maxX < minX || maxY < minY {
 		return nil
 	}
+	// Bounds are reported in the shared world space, which is sized at the
+	// reference zoom. A shallower level covers more world per tile and a deeper
+	// one covers less, so the tile pitch is scaled both ways.
 	origin, _ := worldTileRange(zoom)
-	scale := 1
+	pitch, divisor := tileSize, 1
 	if zoom < referenceZoom {
-		scale = 1 << (referenceZoom - zoom)
+		pitch = tileSize << (referenceZoom - zoom)
+	} else if zoom > referenceZoom {
+		divisor = 1 << (zoom - referenceZoom)
 	}
 	bounds := &contentBounds{
-		X:      (minX - origin) * tileSize * scale,
-		Y:      (minY - origin) * tileSize * scale,
-		Width:  (maxX - minX + 1) * tileSize * scale,
-		Height: (maxY - minY + 1) * tileSize * scale,
+		X:      (minX - origin) * pitch / divisor,
+		Y:      (minY - origin) * pitch / divisor,
+		Width:  (maxX - minX + 1) * pitch / divisor,
+		Height: (maxY - minY + 1) * pitch / divisor,
 	}
 	if bounds.X == 0 && bounds.Y == 0 && bounds.Width == worldSize && bounds.Height == worldSize {
 		return nil
