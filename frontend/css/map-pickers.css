@@ -1,46 +1,69 @@
+/* Game, map, and layer form a path, and the topbar sets them the way an IDE
+   sets its breadcrumb or a design tool its team-project-file trail: plain
+   crumbs separated by slashes, each one secretly a select. The captions stay
+   for screen readers; sighted readers get the trail itself. */
 .map-pickers {
   display: flex;
   align-items: center;
-  gap: 7px;
   min-width: 0;
-  padding: 0 18px;
+  padding: 0 12px;
 }
 
 .map-pickers label {
   display: flex;
   min-width: 0;
   align-items: center;
-  gap: 7px;
+}
+
+.map-pickers label > span {
+  position: absolute;
+  overflow: hidden;
+  width: 1px;
+  height: 1px;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
+.map-pickers label + label::before {
+  padding: 0 10px;
   color: var(--muted);
-  font-size: 10px;
-  font-weight: 700;
-  letter-spacing: 0.1em;
-  text-transform: uppercase;
+  content: "/";
+  font-size: 12px;
 }
 
 .map-pickers select {
-  max-width: 230px;
-  height: 37px;
-  padding: 0 32px 0 12px;
-  border: 1px solid var(--line);
-  border-radius: 8px;
+  max-width: 300px;
+  height: 34px;
+  padding: 0 21px 0 8px;
+  border: 0;
+  border-radius: 7px;
   outline: none;
-  background: var(--panel-raised);
-  color: var(--text);
+  appearance: none;
+  background: transparent no-repeat right 7px center;
+  background-image:
+    linear-gradient(45deg, transparent 50%, var(--muted) 50%),
+    linear-gradient(135deg, var(--muted) 50%, transparent 50%);
+  background-position: right 12px center, right 7px center;
+  background-size: 5px 5px;
+  color: var(--text-strong);
   font-size: 13px;
   font-weight: 600;
-  letter-spacing: normal;
-  text-transform: none;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
-.map-pickers select:focus {
-  border-color: rgba(58, 165, 201, 0.6);
+.map-pickers select:hover {
+  background-color: rgba(255, 255, 255, 0.05);
+}
+
+.map-pickers select:focus-visible {
+  box-shadow: 0 0 0 2px rgba(58, 165, 201, 0.6);
 }
 
 .map-pickers select:disabled {
-  border-color: transparent;
-  background: rgba(255, 255, 255, 0.025);
-  color: #9c968a;
+  padding-right: 8px;
+  background-image: none;
+  color: var(--muted);
   cursor: default;
   opacity: 1;
 }
@@ -48,4 +71,3 @@
 #variant-field[hidden] {
   display: none;
 }
-
