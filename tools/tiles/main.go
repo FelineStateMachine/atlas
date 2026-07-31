@@ -131,6 +131,10 @@ type variantManifest struct {
 	Interpolate bool                      `json:"interpolate"`
 	Background  string                    `json:"background,omitempty"`
 	Coverage    map[string]*levelCoverage `json:"coverage,omitempty"`
+	// Stamp names everything this pyramid was derived from -- the captured
+	// tiles and the tool that reduced them -- so a later run can tell that
+	// nothing has moved and keep what it already built.
+	Stamp string `json:"stamp,omitempty"`
 }
 
 // levelCoverage is a row-major bitset over the [X,Y,W,H] tile window of one
@@ -194,19 +198,20 @@ type contentBounds struct {
 func main() {
 	source := flag.String("source", "", "FMG archive root")
 	output := flag.String("output", "", "embedded tile destination")
+	force := flag.Bool("force", false, "derive every pyramid again, even one nothing has changed under")
 	flag.Parse()
 
 	if *source == "" || *output == "" {
 		fmt.Fprintln(os.Stderr, "tiles: -source and -output are required")
 		os.Exit(2)
 	}
-	if err := run(*source, *output); err != nil {
+	if err := run(*source, *output, *force); err != nil {
 		fmt.Fprintln(os.Stderr, "tiles:", err)
 		os.Exit(1)
 	}
 }
 
-func run(source, output string) error {
+func run(source, output string, force bool) error {
 	var index archive
 	if err := readJSON(filepath.Join(source, "archive.json"), &index); err != nil {
 		return err
@@ -221,6 +226,12 @@ func run(source, output string) error {
 		return fmt.Errorf("create temporary output: %w", err)
 	}
 	defer os.RemoveAll(temp)
+
+	// What the last run left, so a layer nothing has changed under can be kept
+	// where it is rather than derived again.
+	built := manifestBySource(readManifest(output))
+	var carried int
+	derived := make(map[string]bool)
 
 	out := manifest{TileSize: tileSize, Size: worldSize}
 	for _, game := range index.Games {
@@ -246,25 +257,99 @@ func run(source, output string) error {
 				continue
 			}
 			for _, plan := range plans {
+				stamp := planStamp(plan)
+				if kept, ok := carry(built, plan, stamp, output, force); ok {
+					out.Variants = append(out.Variants, kept)
+					carried++
+					continue
+				}
 				fmt.Printf("tile %s / %s / %s\n", game.Title, title, plan.SourcePath)
 				entry, err := buildPyramid(temp, plan)
 				if err != nil {
 					return fmt.Errorf("%s / %s: %w", title, plan.SourcePath, err)
 				}
+				entry.Stamp = stamp
 				out.Variants = append(out.Variants, entry)
+				derived[plan.AssetPath] = true
 			}
 		}
 	}
 	sort.Slice(out.Variants, func(i, j int) bool {
 		return out.Variants[i].SourcePath < out.Variants[j].SourcePath
 	})
-	if err := writeJSON(filepath.Join(temp, "index.json"), out); err != nil {
+	if err := installPyramids(temp, output, out, derived); err != nil {
 		return err
 	}
-	if err := replaceDirectory(temp, output); err != nil {
-		return err
-	}
+	fmt.Printf("%d layers derived · %d carried over\n", len(derived), carried)
 	return nil
+}
+
+// carry keeps a pyramid the last run left, when nothing it was derived from has
+// moved. Keeping one is doing nothing at all: it stays where it is, and only
+// the layers that were derived again are installed over the top.
+func carry(
+	built map[string]variantManifest,
+	plan tilePlan,
+	stamp, output string,
+	force bool,
+) (variantManifest, bool) {
+	if force {
+		return variantManifest{}, false
+	}
+	entry, ok := built[plan.SourcePath]
+	if !ok || entry.Stamp == "" || entry.Stamp != stamp || entry.AssetPath != plan.AssetPath {
+		return variantManifest{}, false
+	}
+	if _, err := os.Stat(filepath.Join(output, plan.AssetPath)); err != nil {
+		// Whatever the last run left is not there to be kept, so derive it.
+		return variantManifest{}, false
+	}
+	return entry, true
+}
+
+// installPyramids moves the layers that were derived into the output, takes out
+// any layer the archive no longer offers, and writes the index last.
+//
+// A layer arrives by one rename, so a reader of the output never sees a
+// half-written pyramid. The index naming the old stamps until the end is what
+// makes a run that dies partway safe: the next run finds a stamp that does not
+// match what is on disk and derives that layer again.
+func installPyramids(temp, output string, out manifest, derived map[string]bool) error {
+	if err := os.MkdirAll(output, 0o755); err != nil {
+		return fmt.Errorf("create tile output: %w", err)
+	}
+	for asset := range derived {
+		destination := filepath.Join(output, asset)
+		if err := os.RemoveAll(destination); err != nil {
+			return fmt.Errorf("replace %s: %w", asset, err)
+		}
+		if err := os.Rename(filepath.Join(temp, asset), destination); err != nil {
+			return fmt.Errorf("install %s: %w", asset, err)
+		}
+	}
+
+	wanted := make(map[string]bool, len(out.Variants))
+	for _, variant := range out.Variants {
+		wanted[variant.AssetPath] = true
+	}
+	entries, err := os.ReadDir(output)
+	if err != nil {
+		return err
+	}
+	for _, entry := range entries {
+		if !entry.IsDir() || wanted[entry.Name()] {
+			continue
+		}
+		if err := os.RemoveAll(filepath.Join(output, entry.Name())); err != nil {
+			return fmt.Errorf("remove %s: %w", entry.Name(), err)
+		}
+	}
+
+	staged := filepath.Join(temp, "index.json")
+	if err := writeJSON(staged, out); err != nil {
+		return err
+	}
+	return os.Rename(staged, filepath.Join(output, "index.json"))
 }
 
 func inspectMap(mapDir string) ([]tilePlan, string, string, error) {
@@ -879,28 +964,6 @@ func encodeImage(path string, value image.Image, format string) error {
 		return fmt.Errorf("encode %s: %w", path, encodeErr)
 	}
 	return file.Close()
-}
-
-func replaceDirectory(temp, output string) error {
-	backup := output + ".previous"
-	if err := os.RemoveAll(backup); err != nil {
-		return err
-	}
-	if _, err := os.Stat(output); err == nil {
-		if err := os.Rename(output, backup); err != nil {
-			return fmt.Errorf("backup old tile output: %w", err)
-		}
-	} else if !errors.Is(err, os.ErrNotExist) {
-		return err
-	}
-	if err := os.Rename(temp, output); err != nil {
-		_ = os.Rename(backup, output)
-		return fmt.Errorf("install tile output: %w", err)
-	}
-	if err := os.RemoveAll(backup); err != nil {
-		return fmt.Errorf("remove old tile output: %w", err)
-	}
-	return nil
 }
 
 func writeJSON(path string, value any) error {

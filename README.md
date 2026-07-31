@@ -63,6 +63,11 @@ go generate .
    normalized to lossless PNG and use nearest-neighbor reduction. Photo
    pyramids use smooth box reduction. Repeated placeholder borders are
    excluded from fit bounds.
+
+   Each pyramid records a stamp over the tiles it was derived from and the
+   tool that derived them, so a layer nothing has changed under is left where
+   it is: a run that captures one new game costs seconds rather than the half
+   minute of re-deriving the rest. `-force` derives everything again.
 2. `tools/generate` builds `assets/catalog.json` and copies referenced archive
    SVGs into `assets/icons`. Maps with missing snapshots or incomplete
    configured layers are omitted.
