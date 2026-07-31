@@ -60,10 +60,20 @@
       <div class="legend-toolbar">
         <span>Layers</span>
         <button id="solo-chip" class="solo-chip" type="button" hidden></button>
-        <div>
-          <button id="show-all" type="button">Show all</button>
-          <span aria-hidden="true">·</span>
-          <button id="hide-all" type="button">Hide all</button>
+        <div class="legend-actions">
+          <button id="expand-all" class="legend-action" type="button" data-label="Unfold every group" aria-label="Unfold every group">
+            <svg viewBox="0 0 16 16" aria-hidden="true"><path d="M5 6.5 8 3.5l3 3M5 9.5l3 3 3-3"/></svg>
+          </button>
+          <button id="collapse-all" class="legend-action" type="button" data-label="Fold every group" aria-label="Fold every group">
+            <svg viewBox="0 0 16 16" aria-hidden="true"><path d="M5 3.5 8 6.5l3-3M5 12.5l3-3 3 3"/></svg>
+          </button>
+          <span class="legend-actions-break" aria-hidden="true"></span>
+          <button id="show-all" class="legend-action" type="button" data-label="Show every category" aria-label="Show every category">
+            <svg viewBox="0 0 16 16" aria-hidden="true"><path d="M1.5 8S4 4 8 4s6.5 4 6.5 4-2.5 4-6.5 4-6.5-4-6.5-4Z"/><circle cx="8" cy="8" r="1.9"/></svg>
+          </button>
+          <button id="hide-all" class="legend-action" type="button" data-label="Hide every category" aria-label="Hide every category">
+            <svg viewBox="0 0 16 16" aria-hidden="true"><path d="M1.5 8S4 4 8 4s6.5 4 6.5 4-2.5 4-6.5 4-6.5-4-6.5-4Z"/><path d="m3 13 10-10"/></svg>
+          </button>
         </div>
       </div>
 

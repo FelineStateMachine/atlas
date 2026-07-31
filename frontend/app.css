@@ -404,20 +404,82 @@ input {
   align-items: center;
 }
 
-.legend-toolbar button {
+.legend-actions {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+}
+
+.legend-actions-break {
+  width: 1px;
+  height: 12px;
+  margin: 0 5px;
+  background: var(--line);
+}
+
+.legend-action {
+  display: grid;
+  width: 22px;
+  height: 22px;
   padding: 0;
+  place-items: center;
   border: 0;
+  border-radius: 3px;
   background: none;
   color: var(--muted);
-  font-size: 9px;
-  font-weight: 700;
-  letter-spacing: 0.04em;
-  text-transform: uppercase;
   cursor: pointer;
 }
 
-.legend-toolbar button:hover {
+.legend-action svg,
+.only-button svg {
+  width: 14px;
+  fill: none;
+  stroke: currentColor;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-width: 1.4;
+}
+
+.legend-action:hover {
+  background: rgba(255, 255, 255, 0.06);
   color: var(--accent);
+}
+
+/* The name of a control arrives only once the pointer has settled on it, so a
+   legend of icons stays learnable without the words being present all the time.
+   It opens to the left because the list beside it scrolls and would clip
+   anything that reached past its edge. */
+[data-label] {
+  position: relative;
+}
+
+[data-label]::after {
+  position: absolute;
+  z-index: 12;
+  top: 50%;
+  right: calc(100% + 6px);
+  padding: 4px 7px;
+  border: 1px solid var(--line-strong);
+  border-radius: 4px;
+  opacity: 0;
+  background: rgba(12, 14, 11, 0.97);
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.4);
+  color: var(--text);
+  content: attr(data-label);
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0;
+  text-transform: none;
+  transform: translateY(-50%);
+  transition: opacity 90ms ease;
+  pointer-events: none;
+  white-space: nowrap;
+}
+
+[data-label]:hover::after,
+[data-label]:focus-visible::after {
+  opacity: 1;
+  transition-delay: 520ms;
 }
 
 .layers {
@@ -442,11 +504,15 @@ input {
   border-bottom: 0;
 }
 
+/* The trailing columns match a row's, so a group's isolate button sits directly
+   above the ones belonging to its categories and its mark lines up with their
+   counts. Rows are inset 14 by their container and 4 by themselves. */
 .layer-header {
-  display: flex;
+  display: grid;
   align-items: center;
-  gap: 10px;
-  padding: 8px 16px 8px 12px;
+  grid-template-columns: minmax(0, 1fr) 22px 46px;
+  gap: 8px;
+  padding: 8px 18px 8px 12px;
 }
 
 .layer-title {
@@ -515,16 +581,17 @@ input {
    column is reserved whether or not it is showing, so a row never changes
    shape under the cursor. */
 .only-button {
+  display: grid;
+  justify-self: end;
+  width: 20px;
+  height: 20px;
   padding: 0;
+  place-items: center;
   border: 0;
+  border-radius: 3px;
   opacity: 0;
   background: none;
   color: var(--accent);
-  font-size: 9px;
-  font-weight: 700;
-  letter-spacing: 0.1em;
-  text-align: right;
-  text-transform: uppercase;
   cursor: pointer;
   transition: opacity 110ms ease;
 }
@@ -538,8 +605,7 @@ input {
 }
 
 .only-button:hover {
-  text-decoration: underline;
-  text-underline-offset: 2px;
+  background: rgba(214, 243, 107, 0.14);
 }
 
 .solo-chip {
@@ -578,6 +644,7 @@ input {
 .layer-switch {
   position: relative;
   display: grid;
+  justify-self: end;
   width: 15px;
   height: 15px;
   flex: none;
@@ -702,7 +769,7 @@ input {
   display: grid;
   width: 100%;
   align-items: center;
-  grid-template-columns: 22px minmax(0, 1fr) 34px 46px;
+  grid-template-columns: 22px minmax(0, 1fr) 22px 46px;
   gap: 8px;
   min-height: 26px;
   padding: 0 4px;

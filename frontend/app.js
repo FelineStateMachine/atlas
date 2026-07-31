@@ -419,6 +419,8 @@ function bindUIEvents() {
   });
 
   elements.soloChip.addEventListener("click", () => setAllCategories(true));
+  $("#expand-all").addEventListener("click", () => setAllSectionsCollapsed(false));
+  $("#collapse-all").addEventListener("click", () => setAllSectionsCollapsed(true));
   $("#show-all").addEventListener("click", () => setAllCategories(true));
   $("#hide-all").addEventListener("click", () => setAllCategories(false));
   elements.zoneToggle.addEventListener("change", () => {
@@ -1066,12 +1068,8 @@ function layerHeader(key, title, count, groupID) {
   total.textContent = formatNumber(count);
   disclosure.append(chevron, name, total);
 
-  const only = document.createElement("button");
-  only.type = "button";
-  only.className = "only-button only-group";
+  const only = onlyButton(`Show only ${title}`);
   only.dataset.onlyGroup = String(groupID);
-  only.textContent = "only";
-  only.title = `Show only ${title}`;
 
   const toggle = document.createElement("label");
   toggle.className = "layer-switch";
@@ -1085,6 +1083,22 @@ function layerHeader(key, title, count, groupID) {
 
   header.append(disclosure, only, toggle);
   return header;
+}
+
+// A target rather than the word "only": the legend's remaining words are then
+// all things the map is actually about. The label arrives on rest, for anyone
+// meeting the icon for the first time.
+function onlyButton(label) {
+  const button = document.createElement("button");
+  button.type = "button";
+  button.className = "only-button";
+  button.dataset.label = label;
+  button.setAttribute("aria-label", label);
+  button.innerHTML =
+    '<svg viewBox="0 0 16 16" aria-hidden="true">' +
+    '<circle cx="8" cy="8" r="4.6"/><circle cx="8" cy="8" r="1.3" fill="currentColor" stroke="none"/>' +
+    '<path d="M8 1v2M8 13v2M1 8h2M13 8h2"/></svg>';
+  return button;
 }
 
 function categoryToggle(category) {
@@ -1114,14 +1128,23 @@ function categoryToggle(category) {
   locations.textContent = formatNumber(category.locations.length);
   // Overlaid on the count rather than appended: these pills wrap, and a row
   // that grows on hover would shove the one under the cursor somewhere else.
-  const only = document.createElement("button");
-  only.type = "button";
-  only.className = "only-button";
+  const only = onlyButton(`Show only ${category.title}`);
   only.dataset.onlyCategory = String(category.id);
-  only.textContent = "only";
-  only.title = `Show only ${category.title}`;
   row.append(checkbox, icon, name, only, locations);
   return row;
+}
+
+// There is one level of nesting here -- sections hold rows, not more sections --
+// so folding by a depth and folding entirely are the same move, and only the
+// one exists.
+function setAllSectionsCollapsed(collapsed) {
+  state.collapsedSections.clear();
+  if (collapsed) {
+    for (const button of elements.layers.querySelectorAll("[data-section]")) {
+      state.collapsedSections.add(button.dataset.section);
+    }
+  }
+  syncSectionCollapse();
 }
 
 function syncSectionCollapse() {
