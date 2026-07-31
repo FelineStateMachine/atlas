@@ -2770,6 +2770,24 @@ function exposeDiagnostics() {
     rasterCacheSize: 64,
     pinLabelsVisible: state.pinLabelsVisible,
     hoveredPin: state.hoveredPin?.location.title || null,
+    selectedPin: state.selectedPin?.location.title || null,
+    fitZoom: state.fitZoom,
+    filters: {
+      hiddenCategories: [...state.hiddenCategories].sort(),
+      collapsedSections: [...state.collapsedSections].sort(),
+    },
+    ui: {
+      sidebarCollapsed: document.querySelector(".app-shell")
+        ?.classList.contains("sidebar-collapsed") ?? false,
+      detailOpen: !elements.detail.hidden,
+      detailTitle: elements.detailTitle.textContent || null,
+      searchQuery: state.search,
+      searchResultsVisible: !elements.searchResults.hidden,
+      soloChip: elements.soloChip.hidden ? null : elements.soloChip.textContent,
+      visibleCountText: elements.visibleCount.textContent,
+      overviewDocked: state.overviewDocked,
+      subgridVisible: state.subgridVisible,
+    },
     zones: {
       visible: state.zonesVisible,
       count: state.zoneRecords.size,
