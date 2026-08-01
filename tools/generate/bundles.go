@@ -27,7 +27,8 @@ import (
 //	5  standard icons resolved for categories that declare one
 //	6  geometry declared: spheres say so, pins carry true coordinates
 //	7  attribute-level merge resolution; ledgers name canonical source slugs
-const policyRevision = 7
+//	8  zone prose defers to the text payload; zones mark hasText
+const policyRevision = 8
 
 // writeBundles packs each game into its own .atlas file, named by game,
 // capture day, and stamp. The directory is a registry, not a mirror: a new

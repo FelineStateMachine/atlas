@@ -7,7 +7,7 @@ import { viewMaxZoom } from "./navigation.js";
 import { applyPinFilters, refreshPrioritySource } from "./pins.js";
 import { renderSearchResults, revealDock } from "./search.js";
 import { state } from "./state.js";
-import { applyCategoryVisual, applyCategoryGlyph, initials } from "./theme.js";
+import { applyCategoryVisual, applyCategoryGlyph, colorFor, initials } from "./theme.js";
 import { cleanDescription } from "./util.js";
 
 export function revealPin(pin) {
@@ -20,6 +20,8 @@ export function revealPin(pin) {
 
 export function showPin(pin, focus = false) {
   state.selectedPin = pin;
+  state.selectedZone = null;
+  elements.detailCoordinatesField.hidden = false;
   // Anything else drawing the selection -- the globe -- hears about it the
   // same moment the chart's layers do.
   document.dispatchEvent(new Event("atlas:selection"));
@@ -83,6 +85,52 @@ export function showPin(pin, focus = false) {
       duration: 220,
     });
   }
+}
+
+// showZone opens the panel on a zone: its title and kind, its prose when the
+// archive carries any -- fetched the same lazy way a pin's is -- and the
+// volume's own provenance. Ground has no single coordinate or cell, so those
+// rows step aside.
+export function showZone(zone) {
+  state.selectedPin = null;
+  state.selectedZone = zone;
+  document.dispatchEvent(new Event("atlas:selection"));
+  refreshPrioritySource();
+  state.layers.pins.changed();
+  state.layers.priority.changed();
+  elements.detailTitle.textContent = zone.title;
+  elements.detailCategory.textContent = zone.subtitle || "Zone";
+  elements.detailDescription.textContent = "";
+  elements.detailLinks.hidden = true;
+  elements.detailLinks.replaceChildren();
+  elements.detailID.textContent = String(zone.id);
+  elements.detailCoordinatesField.hidden = true;
+  elements.detailCellField.hidden = true;
+  for (const stray of elements.detail.querySelectorAll("[data-cell-system-row]")) {
+    stray.remove();
+  }
+  const origin = state.world?.merged?.find((account) => account.origin)?.source || "";
+  elements.detailSource.textContent = origin;
+  elements.detailSourceField.hidden = !origin;
+  elements.detailDot.textContent = "";
+  elements.detailDot.removeAttribute("style");
+  elements.detailDot.style.setProperty("background", colorFor(zone.id));
+  if (zone.hasText) void fillZoneText(zone);
+  else elements.detailDescription.textContent = "No description is included in the archive.";
+  elements.detail.hidden = false;
+  revealDock();
+  renderSearchResults();
+}
+
+// The words belonging to a zone arrive with the same text payload a pin's
+// do, and the same rule holds: a zone closed or changed while they were on
+// the way is left alone.
+async function fillZoneText(zone) {
+  const text = await worldText();
+  if (state.selectedZone !== zone) return;
+  const entry = text[String(zone.id)] || {};
+  elements.detailDescription.textContent =
+    cleanDescription(entry.d) || "No description is included in the archive.";
 }
 
 // pinSource reads a pin's provenance out of the map's merge account: a pin in
@@ -151,8 +199,9 @@ export function renderDetailLinks(pin) {
 }
 
 export function closeDetail() {
-  const hadSelection = state.selectedPin !== null;
+  const hadSelection = state.selectedPin !== null || state.selectedZone !== null;
   state.selectedPin = null;
+  state.selectedZone = null;
   document.dispatchEvent(new Event("atlas:selection"));
   if (state.sources) {
     refreshPrioritySource();

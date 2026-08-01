@@ -107,6 +107,7 @@ type rawRegion struct {
 	ID             int64             `json:"id"`
 	Title          string            `json:"title"`
 	Subtitle       string            `json:"subtitle"`
+	Description    string            `json:"description"`
 	ParentRegionID *int64            `json:"parent_region_id"`
 	CenterX        json.RawMessage   `json:"center_x"`
 	CenterY        json.RawMessage   `json:"center_y"`
@@ -302,9 +303,14 @@ type catalogLink struct {
 }
 
 type zone struct {
-	ID             int64             `json:"id"`
-	Title          string            `json:"title"`
-	Subtitle       string            `json:"subtitle,omitempty"`
+	ID       int64  `json:"id"`
+	Title    string `json:"title"`
+	Subtitle string `json:"subtitle,omitempty"`
+	// Description never rides the detail payload: buildPayload defers it
+	// into the text file and leaves HasText as the marker, so a reader
+	// fetches a zone's prose only when its card opens.
+	Description    string            `json:"-"`
+	HasText        bool              `json:"hasText,omitempty"`
 	ParentRegionID *int64            `json:"parentRegionId,omitempty"`
 	Center         *coordinate       `json:"center,omitempty"`
 	Shard          int64             `json:"shard,omitempty"`
@@ -802,6 +808,7 @@ func buildWorld(
 			ID:             rawRegion.ID,
 			Title:          rawRegion.Title,
 			Subtitle:       rawRegion.Subtitle,
+			Description:    rawRegion.Description,
 			ParentRegionID: rawRegion.ParentRegionID,
 			Attrs:          rawRegion.Attrs,
 		}

@@ -52,13 +52,22 @@ type locationText struct {
 
 // buildPayload splits one map three ways: its layers, categories and regions
 // as a detail structure, its locations packed, and its descriptions keyed by
-// location.
+// location -- and by zone, since a zone's prose defers the same way a pin's
+// does. Zone and pin identifiers share one claimed space, so one map never
+// keys two things alike.
 func buildPayload(m catalogWorld) (worldDetail, []byte, map[string]locationText) {
 	// Categories keep their identity; their locations travel packed, each
 	// carrying the position of its category in this same flattened order.
-	detail := worldDetail{Grid: m.Grid, Lenses: m.Lenses, Zones: m.Zones, Attrs: m.Attrs, Merged: m.Merged}
+	detail := worldDetail{Grid: m.Grid, Lenses: m.Lenses, Attrs: m.Attrs, Merged: m.Merged}
 	var locations []bundle.Location
 	text := make(map[string]locationText)
+	for _, z := range m.Zones {
+		if z.Description != "" {
+			text[strconv.FormatInt(z.ID, 10)] = locationText{Description: z.Description}
+			z.HasText = true
+		}
+		detail.Zones = append(detail.Zones, z)
+	}
 	var ordinal uint16
 	for _, group := range m.Groups {
 		listed := catalogGroup{ID: group.ID, Title: group.Title}

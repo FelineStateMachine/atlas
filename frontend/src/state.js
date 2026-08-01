@@ -12,6 +12,7 @@ export const state = {
   pins: [],
   pinByID: new Map(),
   selectedPin: null,
+  selectedZone: null,
   hoveredPin: null,
   labelsHeld: false,
   gridEnabled: false,

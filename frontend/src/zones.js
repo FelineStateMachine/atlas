@@ -7,7 +7,7 @@ import Polygon from "ol/geom/Polygon.js";
 
 import { elements } from "./dom.js";
 import { state } from "./state.js";
-import { closeDetail } from "./detail.js";
+import { showZone } from "./detail.js";
 import { viewMaxZoom } from "./navigation.js";
 import { onActiveShard, refreshPinRendering, updateZonePinFocus } from "./pins.js";
 import { colorFor } from "./theme.js";
@@ -177,7 +177,7 @@ export function jumpToZone(zoneID) {
   if (!record) return;
   state.focusedZoneID = zoneID;
   updateZoneIndexState();
-  closeDetail();
+  showZone(record.zone);
   state.engine.getView().fit(record.extent, {
     size: state.engine.getSize(),
     padding: [54, 54, 54, 54],

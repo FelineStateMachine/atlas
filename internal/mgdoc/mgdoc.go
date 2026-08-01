@@ -50,14 +50,19 @@ type Map struct {
 // to name leave the slice empty rather than absent, which is the shape a real
 // MapGenie capture spells.
 type Region struct {
-	ID             int64             `json:"id"`
-	Title          string            `json:"title"`
-	Subtitle       string            `json:"subtitle,omitempty"`
-	ParentRegionID *int64            `json:"parent_region_id,omitempty"`
-	CenterX        *float64          `json:"center_x,omitempty"`
-	CenterY        *float64          `json:"center_y,omitempty"`
-	Features       []RegionFeature   `json:"features,omitempty"`
-	Attrs          map[string]string `json:"atlas_attrs,omitempty"`
+	ID             int64  `json:"id"`
+	Title          string `json:"title"`
+	Subtitle       string `json:"subtitle,omitempty"`
+	ParentRegionID *int64 `json:"parent_region_id,omitempty"`
+	// Description is the region's prose -- what a zoning district permits,
+	// what a place is -- deferred by the generator into the text payload
+	// the way a pin's description is, so naming ground stays cheap and
+	// explaining it costs only the reader who asks.
+	Description string            `json:"description,omitempty"`
+	CenterX     *float64          `json:"center_x,omitempty"`
+	CenterY     *float64          `json:"center_y,omitempty"`
+	Features    []RegionFeature   `json:"features,omitempty"`
+	Attrs       map[string]string `json:"atlas_attrs,omitempty"`
 }
 
 type RegionFeature struct {
