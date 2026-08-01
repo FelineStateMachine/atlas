@@ -277,11 +277,11 @@ export function gridStyle(feature, resolution) {
   })];
   if (visual.label) {
     // The prefix is context and the final character is the address's
-    // principal digit, so the prefix takes a lighter, smaller cut of the
-    // same fixed pitch -- one fill serves both chunks, and the weight
-    // carries the faintness.
+    // principal digit, so the prefix takes a lighter cut of the same fixed
+    // pitch at the same size -- weight alone carries the faintness, because
+    // mixing sizes on one line moves the baselines and the address wobbles.
     const chunks = visual.label.prefix
-      ? [visual.label.prefix, gridLabelFont(500, size - 2), visual.label.final, gridLabelFont(900, size)]
+      ? [visual.label.prefix, gridLabelFont(500, size), visual.label.final, gridLabelFont(900, size)]
       : visual.label.final;
     const inset = gridTheme.labelInsetPx * resolution;
     styles.push(new Style({

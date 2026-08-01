@@ -566,7 +566,9 @@ function cellBoundary(corners, line) {
 function cellChip(label, corners) {
   const scaleUp = 2;
   const size = label.sizePx * scaleUp;
-  const prefixFont = `500 ${size - 2 * scaleUp}px ${gridTheme.labelFont}`;
+  // One size for both cuts: weight and alpha carry the faintness, and the
+  // baseline holds, because mixed sizes on one line wobble the address.
+  const prefixFont = `500 ${size}px ${gridTheme.labelFont}`;
   const finalFont = `900 ${size}px ${gridTheme.labelFont}`;
   const canvas = document.createElement("canvas");
   const context = canvas.getContext("2d");
