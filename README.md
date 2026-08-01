@@ -20,14 +20,18 @@ Keep the three repositories beside one another:
 Run Atlas from this repository:
 
 ```sh
-go generate .   # once, to build the bundles
-ATLAS_BUNDLES_DIR=$PWD/dist/bundles go run -tags dev .
+go generate .   # once, to build the bundles into the library
+go run -tags dev .
 ```
 
-Without `ATLAS_BUNDLES_DIR` the application reads `.atlas` files from
-`bundles/` under its own data directory (on macOS,
-`~/Library/Application Support/dev.felinestatemachine.atlas/bundles`), which
-is where an installed copy finds the games its user has added.
+Generation installs bundles straight into the central library -- `bundles/`
+under the application's data directory (on macOS,
+`~/Library/Application Support/dev.felinestatemachine.atlas/bundles`) -- and
+the application reads the same place, so a dev run serves whatever has been
+built with no pointing at anything. `ATLAS_BUNDLES_DIR` overrides the library
+for either side when isolation is wanted, and `tools/generate -bundles`
+writes a registry elsewhere (for an export, say) without touching the
+library.
 
 Wails requires a desktop build tag even when it is invoked through `go run`.
 Atlas supplies the additional macOS `UniformTypeIdentifiers` linker flag
@@ -80,15 +84,16 @@ go generate .
    tool that derived them, so a layer nothing has changed under is left where
    it is: a run that captures one new game costs seconds rather than the half
    minute of re-deriving the rest. `-force` derives everything again.
-2. `tools/generate` writes one `.atlas` bundle per game into `dist/bundles`:
-   the game's manifest, one payload per map, its tile pyramids, and its
-   archive SVG icons, validated as each bundle is written. Maps with missing
-   snapshots or incomplete configured layers are omitted. Bundles are named
-   `<game>-<capture-day>-<stamp>.atlas`, versioned by the newest snapshot
-   capture across the game's maps -- building the same archive anywhere
-   yields the same file -- and a build already present is left untouched.
-   Older versions are never pruned: the directory is a registry, and
-   `index.json` beside the bundles lists every game's builds, newest first.
+2. `tools/generate` writes one `.atlas` bundle per game into the central
+   library: the game's manifest, one payload per map, its tile pyramids, and
+   its archive SVG icons, validated as each bundle is written. Maps with
+   missing snapshots or incomplete configured layers are omitted. Bundles are
+   named `<game>-<capture-day>-<stamp>.atlas`, versioned by the newest
+   snapshot capture across the game's maps -- building the same archive
+   anywhere yields the same file -- and a build already present is left
+   untouched. Older versions are never pruned: the library is a registry,
+   and `index.json` beside the bundles lists every game's builds, newest
+   first.
 3. `npm ci` and the local esbuild/OpenLayers installation produce the
    self-contained `assets/app.js` and `assets/app.css` bundles.
 
@@ -160,6 +165,6 @@ go vet ./...
 go build -tags dev .
 ```
 
-The corpus-dependent tests read `dist/bundles` and skip themselves when no
-bundles have been built, so `go test ./...` passes on a checkout without
+The corpus-dependent tests read the central library and skip themselves when
+no bundles have been built, so `go test ./...` passes on a checkout without
 `../gamemap`.

@@ -32,7 +32,7 @@ const catalogChangedTopic = "atlas:catalog-changed"
 //	node tools/icons/render-icons.mjs --game skyrim
 
 //go:generate go run ./tools/tiles -source ../gamemap/fmg-archive -output build/tiles
-//go:generate go run ./tools/generate -source ../gamemap -tiles build/tiles/index.json -bundles dist/bundles
+//go:generate go run ./tools/generate -source ../gamemap -tiles build/tiles/index.json
 //go:generate npm --prefix frontend ci
 //go:generate npm --prefix frontend run build
 

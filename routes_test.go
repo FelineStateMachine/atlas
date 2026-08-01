@@ -253,19 +253,29 @@ func gameBase(t *testing.T, handler http.Handler, slug string) string {
 }
 
 // ---------------------------------------------------------------------------
-// Everything below runs against the real bundles when they have been built,
-// and is skipped when they have not: the corpus lives outside the repository,
-// so a checkout without ../gamemap still tests everything above.
+// Everything below runs against the real bundles when they have been built
+// into the central library, and is skipped when they have not: the corpus
+// lives outside the repository, so a checkout without ../gamemap still tests
+// everything above.
 
-func builtBundles(t *testing.T) map[string]*bundle.Bundle {
+func builtRegistry(t *testing.T) *bundle.Registry {
 	t.Helper()
-	registry := bundle.NewRegistry("dist/bundles")
+	library, err := bundle.DefaultDir()
+	if err != nil {
+		t.Fatal(err)
+	}
+	registry := bundle.NewRegistry(library)
 	if err := registry.Rescan(); err != nil {
 		t.Fatal(err)
 	}
-	games := registry.Snapshot().Games
+	return registry
+}
+
+func builtBundles(t *testing.T) map[string]*bundle.Bundle {
+	t.Helper()
+	games := builtRegistry(t).Snapshot().Games
 	if len(games) == 0 {
-		t.Skip("no built bundles under dist/bundles; run go generate first")
+		t.Skip("no built bundles in the library; run go generate first")
 	}
 	return games
 }
@@ -374,12 +384,9 @@ func TestBuiltBundlesKeepTheirPromises(t *testing.T) {
 // The catalog is fetched every time Atlas opens, so its size is the cost of
 // starting up. It must not grow with what the bundles hold.
 func TestComposedCatalogStaysSmall(t *testing.T) {
-	registry := bundle.NewRegistry("dist/bundles")
-	if err := registry.Rescan(); err != nil {
-		t.Fatal(err)
-	}
+	registry := builtRegistry(t)
 	if len(registry.Snapshot().Games) == 0 {
-		t.Skip("no built bundles under dist/bundles; run go generate first")
+		t.Skip("no built bundles in the library; run go generate first")
 	}
 	if size := len(registry.Snapshot().Catalog); size > 64*1024 {
 		t.Errorf("composed catalog = %d bytes, want under 64 KiB", size)

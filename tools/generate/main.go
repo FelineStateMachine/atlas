@@ -14,6 +14,8 @@ import (
 	"sort"
 	"strconv"
 	"strings"
+
+	"github.com/FelineStateMachine/atlas/internal/bundle"
 )
 
 type archive struct {
@@ -309,12 +311,24 @@ func iconOutsetFor(raw rawMap) string {
 func main() {
 	source := flag.String("source", "", "path containing fmg-archive")
 	tiles := flag.String("tiles", "", "generated tile manifest")
-	bundles := flag.String("bundles", "", "directory receiving one .atlas bundle per game")
+	bundles := flag.String("bundles", "",
+		"registry directory receiving .atlas bundles (default: the application's own library)")
 	flag.Parse()
 
-	if *source == "" || *tiles == "" || *bundles == "" {
-		fmt.Fprintln(os.Stderr, "generate: -source, -tiles, and -bundles are required")
+	if *source == "" || *tiles == "" {
+		fmt.Fprintln(os.Stderr, "generate: -source and -tiles are required")
 		os.Exit(2)
+	}
+	if *bundles == "" {
+		// Installing straight into the application's library is the default:
+		// a dev run then serves the freshest builds with no pointing, and a
+		// running application watching the directory picks them up live.
+		library, err := bundle.DefaultDir()
+		if err != nil {
+			fmt.Fprintln(os.Stderr, "generate: resolving the bundle library:", err)
+			os.Exit(1)
+		}
+		*bundles = library
 	}
 	if err := run(*source, *tiles, *bundles); err != nil {
 		fmt.Fprintln(os.Stderr, "generate:", err)
