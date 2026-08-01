@@ -16,6 +16,7 @@ import (
 	"strings"
 
 	"github.com/FelineStateMachine/atlas/internal/bundle"
+	"github.com/FelineStateMachine/atlas/internal/ignmap"
 )
 
 type archive struct {
@@ -31,6 +32,7 @@ type archiveGame struct {
 type snapshotIndex struct {
 	CapturedAt  string `json:"capturedAt"`
 	ContentHash string `json:"contentHash"`
+	Kind        string `json:"kind"`
 }
 
 type rawMap struct {
@@ -468,9 +470,17 @@ func buildMap(
 	sort.Slice(snapshots, func(i, j int) bool { return snapshots[i].CapturedAt < snapshots[j].CapturedAt })
 	latest := snapshots[len(snapshots)-1]
 
+	// A capture from another source is translated into the MapGenie shape on
+	// the way in; a MapGenie snapshot passes through untouched.
+	doc, err := os.ReadFile(filepath.Join(mapDir, "snapshots", "map", latest.ContentHash+".json"))
+	if err != nil {
+		return nil, "", err
+	}
+	if doc, err = ignmap.MaybeTranslate(latest.Kind, doc); err != nil {
+		return nil, "", err
+	}
 	var raw rawMap
-	snapshotPath := filepath.Join(mapDir, "snapshots", "map", latest.ContentHash+".json")
-	if err := readJSON(snapshotPath, &raw); err != nil {
+	if err := json.Unmarshal(doc, &raw); err != nil {
 		return nil, "", err
 	}
 

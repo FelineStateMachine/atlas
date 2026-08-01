@@ -21,6 +21,8 @@ import (
 	"sort"
 	"strconv"
 	"strings"
+
+	"github.com/FelineStateMachine/atlas/internal/ignmap"
 )
 
 const (
@@ -100,6 +102,7 @@ type archiveGame struct {
 type snapshotIndex struct {
 	CapturedAt  string `json:"capturedAt"`
 	ContentHash string `json:"contentHash"`
+	Kind        string `json:"kind"`
 }
 
 type rawMap struct {
@@ -436,9 +439,18 @@ func inspectMap(mapDir string) ([]tilePlan, string, string, error) {
 	}
 	sort.Slice(snapshots, func(i, j int) bool { return snapshots[i].CapturedAt < snapshots[j].CapturedAt })
 
-	var raw rawMap
+	// A capture from another source is translated into the MapGenie shape on
+	// the way in; a MapGenie snapshot passes through untouched.
 	latest := snapshots[len(snapshots)-1]
-	if err := readJSON(filepath.Join(mapDir, "snapshots", "map", latest.ContentHash+".json"), &raw); err != nil {
+	doc, err := os.ReadFile(filepath.Join(mapDir, "snapshots", "map", latest.ContentHash+".json"))
+	if err != nil {
+		return nil, "", "", err
+	}
+	if doc, err = ignmap.MaybeTranslate(latest.Kind, doc); err != nil {
+		return nil, "", "", err
+	}
+	var raw rawMap
+	if err := json.Unmarshal(doc, &raw); err != nil {
 		return nil, "", "", err
 	}
 	if len(raw.Config.TileSets) == 0 {
@@ -971,18 +983,22 @@ func sourceTilePath(mapDir string, record tileRecord) (string, error) {
 	return matches[0], nil
 }
 
+// tileSetPath recovers the layer path a record belongs to: everything between
+// the source's marker segment and "/<zoom>/". MapGenie serves tiles under
+// /games/, IGN under /wikimaps/.
 func tileSetPath(rawURL string, zoom int) string {
-	const marker = "/games/"
-	start := strings.Index(rawURL, marker)
-	if start < 0 {
-		return ""
+	for _, marker := range []string{"/games/", "/wikimaps/"} {
+		_, rest, found := strings.Cut(rawURL, marker)
+		if !found {
+			continue
+		}
+		path, _, found := strings.Cut(rest, "/"+strconv.Itoa(zoom)+"/")
+		if !found {
+			continue
+		}
+		return path
 	}
-	path := rawURL[start+len(marker):]
-	end := strings.Index(path, "/"+strconv.Itoa(zoom)+"/")
-	if end < 0 {
-		return ""
-	}
-	return path[:end]
+	return ""
 }
 
 func tilePath(root, assetPath string, zoom, x, y int, format string) string {
