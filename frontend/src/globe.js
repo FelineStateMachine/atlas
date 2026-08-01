@@ -29,6 +29,12 @@ const textureZoom = 4;
 
 let globe = null;
 let texturedFor = "";
+// The pins the standing sprites were built from. The renderer creates
+// sprites lazily on its own tick, so nothing here may assume they exist
+// the moment the data is handed over -- each sprite is born already
+// dressed for the current filters and selection, and the sweeps below only
+// re-dress the ones that are standing.
+let pinsBuilt = null;
 // The sprites standing on the sphere right now, by pin, so a selection or
 // filter change restyles them in place instead of rebuilding two thousand.
 const sprites = new Map();
@@ -160,19 +166,22 @@ async function enterGlobe() {
       globe.globeImageUrl(texture);
     }
   }
-  sprites.clear();
-  placed.clear();
-  globe.objectsData(spherePins(mapping));
+  if (pinsBuilt !== state.pins) {
+    pinsBuilt = state.pins;
+    sprites.clear();
+    placed.clear();
+    globe.objectsData(spherePins(mapping));
+  }
   syncFilters();
+  restyleSelection();
   document.dispatchEvent(new Event("atlas:globe-camera"));
 }
 
-// syncSelection restyles the sprites a selection change touched: the chosen
-// pin grows, takes its ring, lifts a little higher off the ground -- and
-// the globe turns to face it, because a ring on the far side of a planet
-// selects nothing anyone can see.
-function syncSelection() {
-  if (!globe || !state.globeActive) return;
+// restyleSelection dresses the standing sprites for the current selection:
+// the chosen pin grows, takes its ring, lifts a little higher off the
+// ground; the one it replaced settles back among the rest.
+function restyleSelection() {
+  if (!globe) return;
   for (const [pin, sprite] of sprites) {
     const selected = pin === state.selectedPin;
     sprite.material = material(pin.category, selected);
@@ -182,6 +191,15 @@ function syncSelection() {
   // Altitude rides the accessor, so re-declaring it reseats the two that
   // moved along with everyone else -- cheap at this scale.
   globe.objectAltitude((point) => (point.pin === state.selectedPin ? 0.03 : 0.014));
+}
+
+// syncSelection answers a selection made while the globe is up: restyle,
+// and turn to face the chosen pin, because a ring on the far side of a
+// planet selects nothing anyone can see. Entering the globe restyles
+// without turning -- the camera there belongs to the chart's view.
+function syncSelection() {
+  if (!globe || !state.globeActive) return;
+  restyleSelection();
   const stood = placed.get(state.selectedPin);
   if (stood) {
     const altitude = globe.pointOfView().altitude;
@@ -205,6 +223,9 @@ function spriteFor(pin) {
   const sprite = new Sprite(material(pin.category, pin === state.selectedPin));
   const size = pin === state.selectedPin ? 9 : 5;
   sprite.scale.set(size, size, 1);
+  // Born dressed: the renderer creates sprites on its own tick, after any
+  // sweep that ran at hand-over, so the filters must already be worn.
+  sprite.visible = !pin.filteredHidden && !state.hiddenCategories.has(pin.category.id);
   sprites.set(pin, sprite);
   return sprite;
 }
