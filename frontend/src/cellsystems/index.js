@@ -5,7 +5,8 @@
 //
 // The contract every system keeps:
 //
-//   slug, name              identity, and how the navigator names it
+//   slug, name, short       identity, how the navigator names it, and the
+//                           mark its cycle button wears
 //   appliesTo(map)          whether this system can divide this map
 //   maxLevel(map)           how deep the telescope goes
 //   inputLength(map)        how many characters the navigator accepts
@@ -37,6 +38,7 @@
 import { state } from "../state.js";
 
 import { geohashSystem } from "./geohash.js";
+import { s2System } from "./s2.js";
 
 // surfaceExtent is the ground a cell system divides: the variant's surface
 // where one is declared, its raster window otherwise, the whole world
@@ -59,7 +61,7 @@ export function surfaceExtent() {
 }
 
 // The registry, in the order the navigator offers them.
-export const cellSystems = [geohashSystem];
+export const cellSystems = [geohashSystem, s2System];
 
 export function applicableSystems(map) {
   return cellSystems.filter((system) => system.appliesTo(map));
@@ -70,6 +72,39 @@ export function applicableSystems(map) {
 // must still divide sensibly.
 export function activeSystem() {
   return cellSystems.find((system) => system.slug === state.gridSystem) || geohashSystem;
+}
+
+// equivalentCell carries a place across systems: the cell in the new
+// hierarchy holding the old cell's center, taken to the depth whose cells
+// cover closest to the same ground. The two hierarchies share no
+// boundaries, so what survives the translation is the point and the
+// precision -- area compared on a log scale, since levels grow
+// geometrically and "closest" should mean closest in kind, not in pixels.
+export function equivalentCell(from, to, id, map) {
+  if (!id) return "";
+  const center = from.center(id);
+  const area = extentArea(from.bbox(id));
+  let held = "";
+  let best = "";
+  let bestFit = Infinity;
+  while (to.level(held) < to.maxLevel(map)) {
+    const next = to.descendTarget(held, center);
+    if (!next) break;
+    const nextArea = extentArea(to.bbox(next));
+    const fit = Math.abs(Math.log(nextArea / area));
+    if (fit < bestFit) {
+      best = next;
+      bestFit = fit;
+    }
+    // Areas only shrink on the way down: past the target, deeper is worse.
+    if (nextArea <= area) break;
+    held = next;
+  }
+  return best;
+}
+
+function extentArea([minimumX, minimumY, maximumX, maximumY]) {
+  return (maximumX - minimumX) * (maximumY - minimumY);
 }
 
 // clipRingX cuts a closed ring against two vertical edges -- the standard

@@ -6,8 +6,9 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import { state } from "../src/state.js";
-import { clipRingX, surfaceExtent } from "../src/cellsystems/index.js";
+import { clipRingX, equivalentCell, surfaceExtent } from "../src/cellsystems/index.js";
 import { geohashSystem, geohashCellAt } from "../src/cellsystems/geohash.js";
+import { s2System } from "../src/cellsystems/s2.js";
 
 function onSquareSurface() {
   state.game = { tileGrid: { size: 1024 } };
@@ -97,4 +98,112 @@ test("plan primitives stay stable", () => {
   assert.deepEqual(ring[0], ring[4], "the ring closes");
   assert.deepEqual(geohashSystem.locate([688, -688]), { label: "Geohash", value: "m6s" });
   assert.equal(geohashSystem.locate([-1, -1]), null);
+});
+
+// --- S2 over the declared sphere -------------------------------------
+
+// A Mars-shaped map: the top half of an 8192 world square declared as the
+// whole equirectangular ground.
+function onSphereMap() {
+  state.game = { tileGrid: { size: 8192 } };
+  state.variant = { surface: { x: 0, y: 0, width: 8192, height: 4096 } };
+  state.map = {
+    attrs: {
+      "atlas.geometry.surface": "sphere",
+      "atlas.geometry.projection": "equirect",
+      "atlas.geometry.equirect.px": "0,0,8192,4096",
+      "atlas.geometry.equirect.deg": "-180,90,180,-90",
+    },
+  };
+}
+
+test("s2 applies only where a sphere is declared", () => {
+  onSphereMap();
+  assert.equal(s2System.appliesTo(state.map), true);
+  assert.equal(s2System.appliesTo({ attrs: {} }), false);
+  assert.equal(geohashSystem.appliesTo(state.map), true, "geohash applies everywhere");
+});
+
+test("s2 tokens carry the Go library's vectors", () => {
+  onSphereMap();
+  // (49.703498679, 11.770681595) is leaf 0x47a1cbd595522b39; its level-10
+  // parent is token 47a1cb. The point in world pixels comes through the
+  // declared mapping.
+  const world = [((11.770681595 + 180) / 360) * 8192, -(((90 - 49.703498679) / 180) * 4096)];
+  const row = s2System.locate(world, state.map);
+  assert.deepEqual(row, { label: "S2", value: "47a1cb" });
+  assert.equal(s2System.level("47a1cb"), 11, "port level = s2 level + 1");
+  assert.equal(s2System.parent("1"), "", "a face's parent is the root");
+});
+
+test("s2 children nest exactly and stay four wide", () => {
+  onSphereMap();
+  const faces = s2System.children("");
+  assert.deepEqual(faces, ["1", "3", "5", "7", "9", "b"]);
+  const children = s2System.children("47a1cb");
+  assert.equal(children.length, 4);
+  for (const child of children) {
+    assert.equal(s2System.parent(child), "47a1cb", `${child} nests`);
+  }
+  assert.deepEqual(
+    children.map((child) => s2System.childIndex(child)),
+    [0, 1, 2, 3],
+    "sibling ordinals are stable",
+  );
+});
+
+test("s2 containment agrees with descent", () => {
+  onSphereMap();
+  const world = [((11.770681595 + 180) / 360) * 8192, -(((90 - 49.703498679) / 180) * 4096)];
+  let id = "";
+  for (let hop = 0; hop < 11; hop++) {
+    id = s2System.descendTarget(id, world);
+    assert.ok(id, `descent step ${hop} names a cell`);
+    assert.equal(s2System.contains(id, world), true, `${id} holds its own point`);
+  }
+  assert.equal(id, "47a1cb", "eleven hops land on the level-10 cell");
+  assert.equal(s2System.descendTarget(id, world), "", "the telescope has a floor");
+});
+
+test("s2 input parses whole or not at all", () => {
+  onSphereMap();
+  assert.equal(s2System.parseInput(""), "");
+  assert.equal(s2System.parseInput("47a1cb"), "47a1cb");
+  assert.equal(s2System.parseInput("47a1cbd595522b39".slice(0, 6)), "47a1cb");
+  assert.equal(s2System.parseInput("xyz"), null, "not hex, not a place");
+  assert.equal(s2System.normalizeInput("47A1 CB!"), "47a1cb");
+});
+
+test("a place carries across systems at like precision", () => {
+  onSphereMap();
+  assert.equal(equivalentCell(geohashSystem, s2System, "", state.map), "", "root maps to root");
+  // A level-2 geohash cell is 256x128 of the 8192x4096 world; the S2 cell
+  // holding its center at the nearest area sits within a level either way.
+  const token = s2System.parseInput(equivalentCell(geohashSystem, s2System, "m6", state.map));
+  assert.ok(token, "the translation names a real cell");
+  assert.equal(s2System.contains(token, geohashSystem.center("m6")), true,
+    "the new cell holds the old center");
+  assert.ok(Math.abs(s2System.level(token) - 4) <= 1,
+    `precision carries: level ${s2System.level(token)} ~ 4`);
+  // And back: the round trip stays on the same ground at the same depth.
+  const home = equivalentCell(s2System, geohashSystem, token, state.map);
+  assert.equal(geohashSystem.contains(home, s2System.center(token)), true);
+  assert.ok(Math.abs(home.length - 2) <= 1, `round trip keeps depth: "${home}"`);
+});
+
+test("s2 rings close, stay continuous, and know the poles", () => {
+  onSphereMap();
+  const ring = s2System.ring("47a1cb");
+  assert.ok(ring.length > 8, "edges arrive tessellated");
+  assert.deepEqual(ring[0], ring[ring.length - 1], "the ring closes");
+  for (let at = 1; at < ring.length; at++) {
+    assert.ok(
+      Math.abs(ring[at][0] - ring[at - 1][0]) < 4096,
+      "no seam-sized jumps: the loop is continuous",
+    );
+  }
+  // Face 2 (token 5) holds the north pole; face 5 (token b) the south.
+  assert.equal(s2System.poleContained("5"), "north");
+  assert.equal(s2System.poleContained("b"), "south");
+  assert.equal(s2System.poleContained("47a1cb"), null);
 });

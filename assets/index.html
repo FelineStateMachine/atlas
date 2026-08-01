@@ -119,11 +119,12 @@
       </div>
 
       <div id="grid-navigator" class="grid-navigator" hidden>
+        <button id="grid-system" class="grid-system" type="button" aria-label="Cell system" hidden></button>
         <button id="grid-back" type="button" aria-label="Back one geohash level">←</button>
         <label>
-          <span>Geohash</span>
+          <span id="grid-system-name">Geohash</span>
           <input id="grid-input" type="text" inputmode="text" autocomplete="off"
-            autocapitalize="none" spellcheck="false" aria-label="Geohash">
+            autocapitalize="none" spellcheck="false" aria-label="Grid cell">
         </label>
         <button id="subgrid-toggle" class="subgrid-toggle" type="button" aria-pressed="true"
           aria-label="Hide the subgrid" title="Space · show or hide the subgrid">

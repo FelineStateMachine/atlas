@@ -31,6 +31,8 @@ export const elements = {
   overviewCanvas: $("#overview-canvas"),
   overviewViewport: $("#overview-viewport"),
   gridNavigator: $("#grid-navigator"),
+  gridSystem: $("#grid-system"),
+  gridSystemName: $("#grid-system-name"),
   gridInput: $("#grid-input"),
   gridBack: $("#grid-back"),
   subgridToggle: $("#subgrid-toggle"),

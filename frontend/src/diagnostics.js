@@ -57,6 +57,7 @@ export function exposeDiagnostics() {
     },
     grid: {
       enabled: state.gridEnabled,
+      system: state.gridSystem,
       prefix: state.gridCell,
       maximumDepth: gridMaxLevel(),
       extent: state.gridEnabled ? currentGridExtent() : null,
