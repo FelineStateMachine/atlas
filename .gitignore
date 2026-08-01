@@ -1,5 +1,8 @@
 .DS_Store
 /atlas
+# A privately curated ArcGIS city, registered from an init function; the
+# public table in arcgismap.go carries only the proof city.
+/internal/arcgismap/cities_local.go
 /frontend/node_modules/
 /.playwright-cli/
 /output/

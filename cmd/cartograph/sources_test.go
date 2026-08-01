@@ -6,21 +6,21 @@ import (
 )
 
 func TestRegistry(t *testing.T) {
-	if len(sources) != 4 {
-		t.Fatalf("registry holds %d sources, want 4", len(sources))
+	if len(sources) != 5 {
+		t.Fatalf("registry holds %d sources, want 5", len(sources))
 	}
-	for _, slug := range []string{"mapgenie", "ign-wiki", "piggyback", "nasa-trek"} {
+	for _, slug := range []string{"mapgenie", "ign-wiki", "piggyback", "nasa-trek", "arcgis-hub"} {
 		src, ok := sourceBySlug(slug)
 		if !ok {
 			t.Fatalf("registry misses %s", slug)
 		}
 		// Every source publishes a complete map save for icons, which Trek
-		// alone leaves to the viewer's fallback glyphs; the game sources
-		// differ in quality per component, never in kind.
+		// and the civic importer leave to the standard library's glyphs; the
+		// game sources differ in quality per component, never in kind.
 		wanted := []Component{
 			ComponentRaster, ComponentIcons, ComponentLocations, ComponentMetadata,
 		}
-		if slug == "nasa-trek" {
+		if slug == "nasa-trek" || slug == "arcgis-hub" {
 			wanted = []Component{ComponentRaster, ComponentLocations, ComponentMetadata}
 			if src.Components().Has(ComponentIcons) {
 				t.Errorf("%s claims icons it does not fetch", slug)
@@ -50,6 +50,7 @@ func TestFetchArgs(t *testing.T) {
 		{"ign-wiki", "cyberpunk-2077/night-city", []string{"-ign", "cyberpunk-2077/night-city"}},
 		{"piggyback", "cyberpunk-2077/night-city", []string{"-piggyback", "cyberpunk-2077/night-city"}},
 		{"nasa-trek", "mars", []string{"-trek", "mars"}},
+		{"arcgis-hub", "bend-or", []string{"-arcgis", "bend-or"}},
 	}
 	for _, at := range good {
 		src, _ := sourceBySlug(at.source)
@@ -77,6 +78,7 @@ func TestFetchArgs(t *testing.T) {
 		{"piggyback", "night-city/"},
 		{"piggyback", "Night-City/x"}, // slugs are lowercase
 		{"nasa-trek", "mars/global"},  // a body is one slug
+		{"arcgis-hub", "bend/or"},     // a city is one slug
 	}
 	for _, at := range bad {
 		src, _ := sourceBySlug(at.source)

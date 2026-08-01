@@ -139,6 +139,8 @@ func sourceDisplayLabel(source string) string {
 		return "Piggyback"
 	case "nasa-trek":
 		return "NASA Trek"
+	case "arcgis-hub":
+		return "ArcGIS Open Data"
 	}
 	return source
 }

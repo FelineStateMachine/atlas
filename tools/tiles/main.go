@@ -26,6 +26,7 @@ import (
 	// none, so levels derived from them are written as JPEG or PNG.
 	_ "golang.org/x/image/webp"
 
+	"github.com/FelineStateMachine/atlas/internal/arcgismap"
 	"github.com/FelineStateMachine/atlas/internal/blend"
 	"github.com/FelineStateMachine/atlas/internal/ignmap"
 	"github.com/FelineStateMachine/atlas/internal/mgdoc"
@@ -545,6 +546,9 @@ func inspectMap(mapDir string) ([]tilePlan, string, string, error) {
 		return nil, "", "", err
 	}
 	if doc, err = trekmap.MaybeTranslate(latest.Kind, doc); err != nil {
+		return nil, "", "", err
+	}
+	if doc, err = arcgismap.MaybeTranslate(latest.Kind, doc); err != nil {
 		return nil, "", "", err
 	}
 	var raw rawMap

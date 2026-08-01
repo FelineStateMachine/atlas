@@ -21,6 +21,11 @@ import (
 // thing here. An absent tile is a normal result, not a failure.
 var errAbsent = errors.New("not published")
 
+// errAccepted marks a download the server is still staging: ArcGIS Hub's
+// download API answers 202 while it composes a file, and the polite response
+// is to come back shortly, not to fail.
+var errAccepted = errors.New("accepted, still staging")
+
 // fetcher spaces every request out by a fixed interval and caps how many are
 // in flight, so a crawl of tens of thousands of tiles stays a light load
 // rather than a burst. It backs off when the server asks it to.
@@ -149,6 +154,8 @@ func (f *fetcher) do(
 		case response.StatusCode == http.StatusNotFound,
 			response.StatusCode == http.StatusForbidden:
 			return nil, "", fmt.Errorf("%w: %s", errAbsent, url)
+		case response.StatusCode == http.StatusAccepted:
+			return nil, "", fmt.Errorf("%w: %s", errAccepted, url)
 		case response.StatusCode == http.StatusTooManyRequests ||
 			response.StatusCode >= 500:
 			f.penalise(retryAfter(response, time.Duration(attempt+1)*2*time.Second))

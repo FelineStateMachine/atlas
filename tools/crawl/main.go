@@ -65,6 +65,8 @@ type options struct {
 	ign         string
 	piggyback   string
 	trek        string
+	arcgis      string
+	captureDate string
 	maxZoom     int
 	list        bool
 	dryRun      bool
@@ -80,6 +82,8 @@ func parseOptions() options {
 	flag.StringVar(&o.ign, "ign", "", "IGN wikimap as objectSlug/mapSlug, e.g. cyberpunk-2077/night-city")
 	flag.StringVar(&o.piggyback, "piggyback", "", "Piggyback map as gameSlug/mapSlug, e.g. cyberpunk-2077/night-city")
 	flag.StringVar(&o.trek, "trek", "", "planetary body from NASA Trek and the IAU Gazetteer, e.g. mars")
+	flag.StringVar(&o.arcgis, "arcgis", "", "city from an ArcGIS Hub open-data site, e.g. bend-or")
+	flag.StringVar(&o.captureDate, "capture-date", "", "the day an -arcgis capture answers to, YYYY-MM-DD (default: today)")
 	flag.IntVar(&o.maxZoom, "max-zoom", 0, "deepest zoom to capture (default: the layer's own maximum)")
 	flag.BoolVar(&o.list, "list", false, "list games, or the maps of -game, and exit")
 	flag.BoolVar(&o.dryRun, "dry-run", false, "report what would be fetched without writing anything")
@@ -104,6 +108,9 @@ func run(o options) error {
 	}
 	if o.trek != "" {
 		return runTrek(ctx, fetcher, o)
+	}
+	if o.arcgis != "" {
+		return runArcgis(ctx, fetcher, o)
 	}
 
 	games, err := listGames(ctx, fetcher)

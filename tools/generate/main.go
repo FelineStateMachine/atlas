@@ -16,6 +16,7 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/FelineStateMachine/atlas/internal/arcgismap"
 	"github.com/FelineStateMachine/atlas/internal/bundle"
 	"github.com/FelineStateMachine/atlas/internal/icons"
 	"github.com/FelineStateMachine/atlas/internal/ignmap"
@@ -318,6 +319,14 @@ var preferredMapOrder = map[string][]string{
 	"fallout-new-vegas": {"mojave-wasteland"},
 }
 
+// newestFirstMaps marks the games whose maps are dated captures of one
+// ground: a version history. The picker's first entry is the map the viewer
+// opens, and a version history should open on the present, so these games
+// sort their date-titled maps newest first.
+var newestFirstMaps = map[string]bool{
+	"bend-or": true,
+}
+
 // The raster beneath an icon decides which outline is legible, so this is
 // declared rather than derived. A game whose maps are all drawn the same way
 // says so once; a single map that differs from its game overrides it.
@@ -583,6 +592,12 @@ func sortGameMaps(gameSlug string, maps []catalogMap) {
 	for index, slug := range preferredMapOrder[gameSlug] {
 		order[slug] = index
 	}
+	// A version-history game reads its date titles backward: the newest
+	// capture opens first, and the past waits one click below it.
+	after := func(a, b string) bool { return a < b }
+	if newestFirstMaps[gameSlug] {
+		after = func(a, b string) bool { return a > b }
+	}
 	titles := make(map[string]string, len(maps))
 	for _, m := range maps {
 		titles[m.Slug] = m.Title
@@ -607,12 +622,12 @@ func sortGameMaps(gameSlug string, maps []catalogMap) {
 			return left < right
 		}
 		if leftTitle != rightTitle {
-			return leftTitle < rightTitle
+			return after(leftTitle, rightTitle)
 		}
 		if (maps[i].Parent == "") != (maps[j].Parent == "") {
 			return maps[i].Parent == ""
 		}
-		return maps[i].Title < maps[j].Title
+		return after(maps[i].Title, maps[j].Title)
 	})
 }
 
@@ -651,6 +666,9 @@ func buildMap(
 		return nil, "", err
 	}
 	if doc, err = trekmap.MaybeTranslate(latest.Kind, doc); err != nil {
+		return nil, "", err
+	}
+	if doc, err = arcgismap.MaybeTranslate(latest.Kind, doc); err != nil {
 		return nil, "", err
 	}
 	var raw rawMap
