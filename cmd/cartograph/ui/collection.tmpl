@@ -1,0 +1,35 @@
+{{define "title"}}Cartograph · collection{{end}}
+{{define "content"}}
+<section class="page-head">
+  <h1>Collection</h1>
+  <p class="dim">{{.Dir}}</p>
+</section>
+{{range .Skipped}}<p class="warn">{{.}}</p>{{end}}
+{{if .Games}}
+<p class="dim note">Figures are the serving build's — the one the reader picks.</p>
+<table>
+  <thead><tr>
+    <th>game</th><th class="num">builds</th><th class="num">pins</th>
+    <th class="num">described</th><th class="num">raster</th><th class="num">depth</th>
+    <th class="num">layers</th><th class="num">icons</th><th>merged sources</th>
+  </tr></thead>
+  <tbody>
+  {{range .Games}}{{$serving := .Serving}}
+    <tr>
+      <td><a href="/game/{{.Slug}}">{{.Title}}</a> <span class="dim">{{.Slug}}</span></td>
+      <td class="num">{{len .Builds}}</td>
+      <td class="num">{{$serving.Pins}}</td>
+      <td class="num">{{$serving.DescribedPct}}</td>
+      <td class="num">{{$serving.RasterMB}} MB</td>
+      <td class="num">z{{$serving.Depth}}</td>
+      <td class="num">{{$serving.Variants}}</td>
+      <td class="num">{{$serving.IconPct}}</td>
+      <td>{{range $serving.SourcesSeen}}<span class="badge">{{.}}</span>{{else}}<span class="dim">—</span>{{end}}</td>
+    </tr>
+  {{end}}
+  </tbody>
+</table>
+{{else}}
+<p class="empty">No bundles in this directory yet.</p>
+{{end}}
+{{end}}

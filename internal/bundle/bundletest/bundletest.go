@@ -27,18 +27,25 @@ type Spec struct {
 }
 
 // MapSpec describes one map of a fixture game: a single layer two zoom
-// levels deep, one category, and the given pins.
+// levels deep, one category, and the given pins. Merged, when set, rides
+// into the payload's merged block verbatim, so a test can hand a map the
+// provenance ledger a real composition would have written.
 type MapSpec struct {
-	Slug  string
-	Title string
-	Pins  []Pin
+	Slug   string
+	Title  string
+	Pins   []Pin
+	Merged any
 }
 
-// Pin is one fixture location.
+// Pin is one fixture location. Description, when set, replaces the
+// placeholder note; Silent leaves the pin with no note at all, which is how
+// a test states that a pin is undescribed.
 type Pin struct {
-	Title string
-	Lat   float64
-	Lng   float64
+	Title       string
+	Lat         float64
+	Lng         float64
+	Description string
+	Silent      bool
 }
 
 // Build writes <spec.Slug>.atlas under dir and returns its path.
@@ -107,6 +114,9 @@ func Build(t testing.TB, dir string, spec Spec) string {
 				}},
 			}},
 		}
+		if m.Merged != nil {
+			detail["merged"] = m.Merged
+		}
 		payload, err := json.Marshal(detail)
 		if err != nil {
 			t.Fatal(err)
@@ -122,7 +132,14 @@ func Build(t testing.TB, dir string, spec Spec) string {
 				Lat:   pin.Lat,
 				Lng:   pin.Lng,
 			}
-			text[strconv.Itoa(index+1)] = map[string]string{"d": "About " + pin.Title}
+			if pin.Silent {
+				continue
+			}
+			description := pin.Description
+			if description == "" {
+				description = "About " + pin.Title
+			}
+			text[strconv.Itoa(index+1)] = map[string]string{"d": description}
 		}
 		packed := bundle.PackLocations(locations)
 		add(t, writer.AddStored("maps/"+m.Slug+".bin", bytes.NewReader(packed)))
