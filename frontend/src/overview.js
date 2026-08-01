@@ -1,6 +1,8 @@
 import { overviewTargetSize } from "./constants.js";
 import { elements } from "./dom.js";
+import { aimGlobe, globeCamera } from "./globe.js";
 import { activeExtent, settleView, tileExists } from "./navigation.js";
+import { equirectMapping } from "./semconv.js";
 import { saveSession } from "./session.js";
 import { state } from "./state.js";
 import { clamp } from "./util.js";
@@ -58,6 +60,28 @@ export function renderOverview() {
 // Hidden while the whole map is on screen: a locator that says "all of it"
 // tells the reader nothing they cannot already see.
 export function updateOverviewViewport() {
+  // On the globe half the planet is always out of sight, so the locator is
+  // always worth having: a reticle at the point the camera faces, on the
+  // same flat chart the corner has always drawn.
+  const camera = globeCamera();
+  if (camera) {
+    const mapping = equirectMapping(state.map);
+    if (!mapping || !state.variant) return;
+    const extent = activeExtent();
+    const [worldX, worldY] = mapping.toWorld(camera.lat, camera.lng);
+    const canvas = elements.overviewCanvas;
+    const across = clamp((worldX - extent[0]) / (extent[2] - extent[0]), 0, 1);
+    const down = clamp((worldY + extent[3]) / (extent[3] - extent[1]), 0, 1);
+    state.overviewKey = "";
+    elements.overviewShelf.hidden = false;
+    const box = elements.overviewViewport.style;
+    const size = 22;
+    box.left = `${across * canvas.width - size / 2}px`;
+    box.top = `${down * canvas.height - size / 2}px`;
+    box.width = `${size}px`;
+    box.height = `${size}px`;
+    return;
+  }
   const view = state.engine?.getView();
   if (!view || !state.variant) return;
   const extent = activeExtent();
@@ -116,11 +140,22 @@ export function setOverviewDocked(docked, remember = true) {
 // move rather than a cut. Everything after it lands at once: a view that eased
 // its way to each new position would trail behind the hand steering it.
 export function overviewNavigate(event, ease) {
-  const view = state.engine?.getView();
-  if (!view || !state.variant) return;
   const rect = elements.overviewCanvas.getBoundingClientRect();
   const extent = activeExtent();
   const fraction = (value, low, high) => clamp((value - low) / (high - low), 0, 1);
+  // The same press steers whichever pane is showing: the chart's window, or
+  // the globe turned to face the point under the finger.
+  if (state.globeActive) {
+    const mapping = equirectMapping(state.map);
+    if (!mapping) return;
+    const worldX = extent[0] + fraction(event.clientX, rect.left, rect.right) * (extent[2] - extent[0]);
+    const worldY = -extent[3] + fraction(event.clientY, rect.top, rect.bottom) * (extent[3] - extent[1]);
+    const [lat, lng] = mapping.toLatLng(worldX, worldY);
+    aimGlobe(lat, lng, ease);
+    return;
+  }
+  const view = state.engine?.getView();
+  if (!view || !state.variant) return;
   const center = [
     extent[0] + fraction(event.clientX, rect.left, rect.right) * (extent[2] - extent[0]),
     extent[3] - fraction(event.clientY, rect.top, rect.bottom) * (extent[3] - extent[1]),

@@ -59,6 +59,25 @@ function leaveGlobe() {
   elements.globe.hidden = true;
   elements.globeToggle.setAttribute("aria-pressed", "false");
   elements.viewport.hidden = false;
+  // The overview goes back to marking the chart's window; the memo that
+  // spares it redundant work must not spare it this change.
+  state.overviewKey = "";
+  document.dispatchEvent(new Event("atlas:globe-camera"));
+}
+
+// globeCamera says where the globe is looking, for the overview's reticle;
+// nowhere, when the reader is on the chart.
+export function globeCamera() {
+  if (!globe || !state.globeActive) return null;
+  const pov = globe.pointOfView();
+  return { lat: pov.lat, lng: pov.lng };
+}
+
+// aimGlobe turns the globe to face a place, keeping the reader's distance.
+export function aimGlobe(lat, lng, ease) {
+  if (!globe) return;
+  const altitude = globe.pointOfView().altitude;
+  globe.pointOfView({ lat, lng, altitude }, ease ? 180 : 0);
 }
 
 async function enterGlobe() {
@@ -68,6 +87,7 @@ async function enterGlobe() {
   elements.viewport.hidden = true;
   elements.globe.hidden = false;
   elements.globeToggle.setAttribute("aria-pressed", "true");
+  state.overviewKey = "";
 
   if (!globe) {
     globe = Globe({ animateIn: false })(elements.globe)
@@ -83,7 +103,8 @@ async function enterGlobe() {
       .onObjectClick((point) => showPin(point.pin))
       .onObjectHover((point) => {
         elements.globe.style.cursor = point ? "pointer" : "";
-      });
+      })
+      .onZoom(() => document.dispatchEvent(new Event("atlas:globe-camera")));
     globe.pointOfView({ lat: 10, lng: 0, altitude: 2.2 });
     document.addEventListener("atlas:selection", syncSelection);
     document.addEventListener("atlas:filters", syncFilters);
@@ -103,6 +124,7 @@ async function enterGlobe() {
   placed.clear();
   globe.objectsData(spherePins(mapping));
   syncFilters();
+  document.dispatchEvent(new Event("atlas:globe-camera"));
 }
 
 // syncSelection restyles the sprites a selection change touched: the chosen

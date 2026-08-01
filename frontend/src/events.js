@@ -211,6 +211,16 @@ export function bindUIEvents() {
       return;
     }
     if (isEditableTarget(event.target)) return;
+    // The backquote flips between chart and globe and touches nothing else:
+    // selection, filters, and each pane's own camera all stay where they
+    // were. Only a map that declared itself a sphere answers it.
+    if (event.key === "`" && !event.metaKey && !event.ctrlKey && !event.altKey) {
+      if (!elements.globeToggle.hidden) {
+        event.preventDefault();
+        toggleGlobe();
+      }
+      return;
+    }
     if ((event.metaKey || event.ctrlKey) && event.key.toLocaleLowerCase() === "k") {
       event.preventDefault();
       elements.search.focus();
@@ -261,6 +271,9 @@ export function bindUIEvents() {
     updateOverviewViewport();
     resizeGlobe();
   });
+  // The globe reporting where it looks is the overview's cue to move its
+  // reticle, the same way the chart's view changes are.
+  document.addEventListener("atlas:globe-camera", () => updateOverviewViewport());
   // Holding the pointer down steers the map: a reader crossing the world drags
   // the locator there in one sweep instead of clicking their way across it.
   // Capturing the pointer keeps the sweep alive past the edge of the overview,

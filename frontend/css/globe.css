@@ -12,7 +12,49 @@
   display: none;
 }
 
-.globe-toggle[aria-pressed="true"] {
-  color: var(--accent, #d98a4b);
-  border-color: currentColor;
+/* The toggle keeps to the far end of the row with the add button, and
+   speaks in its same quiet register: ghost until hovered, colored only
+   while the planet is turned. */
+.map-pickers .globe-toggle {
+  display: grid;
+  width: 30px;
+  height: 30px;
+  margin-left: auto;
+  padding: 0;
+  place-items: center;
+  border: 0;
+  border-radius: 7px;
+  background: transparent;
+  color: var(--muted);
+  cursor: pointer;
+}
+
+.map-pickers .globe-toggle svg {
+  width: 15px;
+  height: 15px;
+  fill: none;
+  stroke: currentColor;
+  stroke-linecap: round;
+  stroke-width: 1.8;
+}
+
+.map-pickers .globe-toggle:hover {
+  background: rgba(255, 255, 255, 0.05);
+  color: var(--text-strong);
+}
+
+.map-pickers .globe-toggle:focus-visible {
+  box-shadow: 0 0 0 2px rgba(58, 165, 201, 0.6);
+  outline: none;
+}
+
+.map-pickers .globe-toggle[aria-pressed="true"] {
+  background: var(--accent-wash);
+  color: var(--accent);
+}
+
+/* When the toggle is present it carries the push to the right, and the add
+   button follows one step behind it instead of bringing its own. */
+.map-pickers .globe-toggle:not([hidden]) ~ .add-bundles {
+  margin-left: 6px;
 }

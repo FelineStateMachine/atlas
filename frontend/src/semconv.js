@@ -42,5 +42,11 @@ export function equirectMapping(map) {
         west + ((worldX - x) / w) * (east - west),
       ];
     },
+    toWorld(lat, lng) {
+      return [
+        x + ((lng - west) / (east - west)) * w,
+        y + ((north - lat) / (north - south)) * h,
+      ];
+    },
   };
 }
