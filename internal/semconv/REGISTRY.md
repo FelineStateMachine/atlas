@@ -23,6 +23,8 @@ breaks; new keys arrive as `experimental` and earn `stable`.
 | `atlas.geometry.projection` | map | `equirect` | stable | How a sphere was flattened. Required when surface is `sphere`. |
 | `atlas.geometry.equirect.px` | map | `x,y,w,h` (world px) | stable | The raster window the projection fills. |
 | `atlas.geometry.equirect.deg` | map | `west,north,east,south` (degrees) | stable | The ground that window pictures. |
+| `atlas.geometry.mercator.px` | map | `x,y,w,h` (world px) | experimental | The raster window a Web-Mercator cut fills. Where `equirect` declares y linear in degrees, `mercator` declares y linear in projected latitude — `asinh(tan lat)` — the flattening a real-world tile window actually is. |
+| `atlas.geometry.mercator.deg` | map | `west,north,east,south` (degrees) | experimental | The ground the Mercator window pictures, in degrees at its edges. |
 | `atlas.geometry.body` | map | slug, e.g. `mars` | experimental | The body pictured. |
 | `atlas.geometry.radius_km` | map | decimal string | experimental | The body's mean radius. |
 | `atlas.geo.lat` | location | decimal degrees | experimental | True planetary latitude as published (planetocentric). Provenance and card material; rendering derives from the map-level mapping. |

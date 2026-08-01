@@ -90,6 +90,17 @@ const (
 	// as "west,north,east,south".
 	KeyGeometryEquirectDeg = "atlas.geometry.equirect.deg"
 
+	// GeometryMercatorPx is the raster window a Web-Mercator cut fills, in
+	// world pixels, as "x,y,w,h". Where equirect declares y linear in
+	// degrees, mercator declares y linear in the projected latitude --
+	// asinh(tan latitude) -- which is the flattening a real-world tile
+	// window actually is.
+	KeyGeometryMercatorPx = "atlas.geometry.mercator.px"
+
+	// GeometryMercatorDeg is the ground that window pictures, in degrees at
+	// the window's edges, as "west,north,east,south".
+	KeyGeometryMercatorDeg = "atlas.geometry.mercator.deg"
+
 	// GeometryBody names the body pictured, e.g. "mars".
 	KeyGeometryBody = "atlas.geometry.body"
 
@@ -207,6 +218,8 @@ var registry = map[string]definition{
 	KeyGeometryProjection:  {EntityMap, Stable, enum(ProjectionEquirect)},
 	KeyGeometryEquirectPx:  {EntityMap, Stable, numbers(4)},
 	KeyGeometryEquirectDeg: {EntityMap, Stable, numbers(4)},
+	KeyGeometryMercatorPx:  {EntityMap, Experimental, numbers(4)},
+	KeyGeometryMercatorDeg: {EntityMap, Experimental, numbers(4)},
 	KeyGeometryBody:        {EntityMap, Experimental, slug},
 	KeyGeometryRadiusKM:    {EntityMap, Experimental, decimal},
 	KeyGeoLat:              {EntityLocation, Experimental, decimal},
