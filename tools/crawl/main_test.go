@@ -144,6 +144,25 @@ func TestTileSetPathOf(t *testing.T) {
 	if got := tileSetPathOf(url, 13); got != "" {
 		t.Fatalf("tileSetPathOf with the wrong zoom = %q, want empty", got)
 	}
+	// IGN serves its pyramids under /wikimaps/, and a re-crawl has to recover
+	// the same layer path from those URLs or it orphans every captured tile.
+	ign := "https://oyster.ignimgs.com/ignmedia/wikimaps/cyberpunk-2077/night-city/5/12-3.jpg"
+	if got := tileSetPathOf(ign, 5); got != "cyberpunk-2077/night-city" {
+		t.Fatalf("tileSetPathOf(ign) = %q", got)
+	}
+}
+
+func TestIGNArchiveIDStaysApartFromMapGenie(t *testing.T) {
+	id := ignArchiveID("ign:cyberpunk-2077")
+	if id <= 1<<32 {
+		t.Fatalf("id %d could collide with a MapGenie id", id)
+	}
+	if id >= 1<<53 {
+		t.Fatalf("id %d would lose integers read back through a float64", id)
+	}
+	if again := ignArchiveID("ign:cyberpunk-2077"); again != id {
+		t.Fatalf("id is unstable: %d then %d", id, again)
+	}
 }
 
 func TestTileIndexReusesExistingTileSetDirectory(t *testing.T) {

@@ -1,6 +1,7 @@
 package main
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"errors"
@@ -81,6 +82,30 @@ func (f *fetcher) penalise(d time.Duration) {
 const maxAttempts = 4
 
 func (f *fetcher) get(ctx context.Context, url string) ([]byte, string, error) {
+	return f.do(ctx, url, func() (*http.Request, error) {
+		return http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
+	})
+}
+
+// post carries the same manners as get -- spacing, backoff, penalties shared
+// with every other request -- because an API asked with POST is no less a
+// guest's request than a tile asked with GET.
+func (f *fetcher) post(ctx context.Context, url, contentType string, body []byte) ([]byte, string, error) {
+	return f.do(ctx, url, func() (*http.Request, error) {
+		request, err := http.NewRequestWithContext(ctx, http.MethodPost, url, bytes.NewReader(body))
+		if err != nil {
+			return nil, err
+		}
+		request.Header.Set("Content-Type", contentType)
+		return request, nil
+	})
+}
+
+func (f *fetcher) do(
+	ctx context.Context,
+	url string,
+	build func() (*http.Request, error),
+) ([]byte, string, error) {
 	var lastErr error
 	for attempt := range maxAttempts {
 		if attempt > 0 {
@@ -91,7 +116,7 @@ func (f *fetcher) get(ctx context.Context, url string) ([]byte, string, error) {
 			return nil, "", err
 		}
 
-		request, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
+		request, err := build()
 		if err != nil {
 			return nil, "", err
 		}

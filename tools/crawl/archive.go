@@ -115,19 +115,21 @@ func readTileIndex(mapDir string) (*tileIndex, error) {
 }
 
 // tileSetPathOf recovers the layer path from a tile URL, matching how
-// tools/tiles groups levels: everything between "/games/" and "/<zoom>/".
+// tools/tiles groups levels: everything between the source's marker segment
+// and "/<zoom>/". MapGenie serves tiles under /games/, IGN under /wikimaps/.
 func tileSetPathOf(url string, zoom int) string {
-	const marker = "/games/"
-	start := strings.Index(url, marker)
-	if start < 0 {
-		return ""
+	for _, marker := range []string{"/games/", "/wikimaps/"} {
+		_, rest, found := strings.Cut(url, marker)
+		if !found {
+			continue
+		}
+		path, _, found := strings.Cut(rest, "/"+strconv.Itoa(zoom)+"/")
+		if !found {
+			continue
+		}
+		return path
 	}
-	rest := url[start+len(marker):]
-	end := strings.Index(rest, "/"+strconv.Itoa(zoom)+"/")
-	if end < 0 {
-		return ""
-	}
-	return rest[:end]
+	return ""
 }
 
 func writeTileIndex(mapDir string, index *tileIndex) error {
@@ -139,6 +141,14 @@ func writeTileIndex(mapDir string, index *tileIndex) error {
 // writeSnapshot stores the response exactly as received, addressed by its hash,
 // and records it only if that content is new.
 func writeSnapshot(mapDir string, full *apiMapFull, raw []byte) error {
+	return writeSnapshotRecord(mapDir, raw, "map", full.ID,
+		fmt.Sprintf("/api/v1/maps/%d/full", full.ID))
+}
+
+// writeSnapshotRecord is the shape every source's capture takes: the document
+// addressed by its hash, and one index record per distinct content. A capture
+// whose bytes are already archived leaves no trace of having been retaken.
+func writeSnapshotRecord(mapDir string, raw []byte, kind string, sourceID int64, sourceURL string) error {
 	sum := sha256.Sum256(raw)
 	hash := hex.EncodeToString(sum[:])
 
@@ -160,9 +170,9 @@ func writeSnapshot(mapDir string, full *apiMapFull, raw []byte) error {
 	snapshots = append(snapshots, snapshotRecord{
 		CapturedAt:  time.Now().UTC().Format(time.RFC3339Nano),
 		ContentHash: hash,
-		Kind:        "map",
-		SourceID:    full.ID,
-		SourceURL:   fmt.Sprintf("/api/v1/maps/%d/full", full.ID),
+		Kind:        kind,
+		SourceID:    sourceID,
+		SourceURL:   sourceURL,
 	})
 	sort.Slice(snapshots, func(a, b int) bool {
 		return snapshots[a].CapturedAt < snapshots[b].CapturedAt
@@ -175,6 +185,7 @@ func writeMapMetadata(
 	game *apiGameFull,
 	full *apiMapFull,
 	index *tileIndex,
+	pinCount int,
 ) error {
 	cachedByZoom := map[string]int{}
 	totalsByZoom := map[string]int{}
@@ -202,7 +213,7 @@ func writeMapMetadata(
 		"mapSlug":           full.Slug,
 		"mapTitle":          full.Title,
 		"phase":             "complete",
-		"pinCount":          full.pinCount(),
+		"pinCount":          pinCount,
 		"snapshotCount":     1,
 		"tileBytes":         bytes,
 		"tileCount":         count,
@@ -211,11 +222,13 @@ func writeMapMetadata(
 
 // registerMap makes the map discoverable to tools/tiles and tools/generate by
 // listing it in game.json and archive.json, leaving any existing entries alone.
+// A source name, when there is one, rides along so a reader of the archive can
+// tell which crawler a game came from; the tools never look at it.
 func registerMap(
 	archiveRoot string,
 	game *apiGameFull,
 	full *apiMapFull,
-	gameDirectory, mapDirectory string,
+	gameDirectory, mapDirectory, source string,
 ) error {
 	gamePath := filepath.Join(archiveRoot, gameDirectory, "game.json")
 	entry := map[string]any{
@@ -235,6 +248,9 @@ func registerMap(
 	gameFile["title"] = game.Title
 	gameFile["url"] = game.Config.URL
 	gameFile["icons"] = filepath.ToSlash(filepath.Join(gameDirectory, "icons", "index.json"))
+	if source != "" {
+		gameFile["source"] = source
+	}
 	gameFile["maps"] = upsertByID(gameFile["maps"], entry, full.ID)
 	if err := writeJSON(gamePath, gameFile); err != nil {
 		return err
@@ -248,12 +264,16 @@ func registerMap(
 		}
 		archiveFile = map[string]any{"format": "fmg-git-working-tree"}
 	}
-	archiveFile["games"] = upsertByID(archiveFile["games"], map[string]any{
+	gameEntry := map[string]any{
 		"directory": gameDirectory,
 		"id":        game.ID,
 		"title":     game.Title,
 		"url":       game.Config.URL,
-	}, game.ID)
+	}
+	if source != "" {
+		gameEntry["source"] = source
+	}
+	archiveFile["games"] = upsertByID(archiveFile["games"], gameEntry, game.ID)
 	return writeJSON(archivePath, archiveFile)
 }
 

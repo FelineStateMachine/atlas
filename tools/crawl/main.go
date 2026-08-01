@@ -61,6 +61,7 @@ type options struct {
 	archive     string
 	game        string
 	mapTarget   string
+	ign         string
 	maxZoom     int
 	list        bool
 	dryRun      bool
@@ -73,6 +74,7 @@ func parseOptions() options {
 	flag.StringVar(&o.archive, "archive", "../gamemap/fmg-archive", "FMG archive root")
 	flag.StringVar(&o.game, "game", "", "game slug or id")
 	flag.StringVar(&o.mapTarget, "map", "", "map slug or id (default: every map of the game)")
+	flag.StringVar(&o.ign, "ign", "", "IGN wikimap as objectSlug/mapSlug, e.g. cyberpunk-2077/night-city")
 	flag.IntVar(&o.maxZoom, "max-zoom", 0, "deepest zoom to capture (default: the layer's own maximum)")
 	flag.BoolVar(&o.list, "list", false, "list games, or the maps of -game, and exit")
 	flag.BoolVar(&o.dryRun, "dry-run", false, "report what would be fetched without writing anything")
@@ -88,6 +90,10 @@ func run(o options) error {
 	}
 	fetcher := newFetcher(o.concurrency, o.interval)
 	ctx := context.Background()
+
+	if o.ign != "" {
+		return runIGN(ctx, fetcher, o)
+	}
 
 	games, err := listGames(ctx, fetcher)
 	if err != nil {
@@ -166,10 +172,10 @@ func crawlMap(
 	if err := writeTileIndex(mapDir, index); err != nil {
 		return err
 	}
-	if err := writeMapMetadata(mapDir, game, full, index); err != nil {
+	if err := writeMapMetadata(mapDir, game, full, index, full.pinCount()); err != nil {
 		return err
 	}
-	if err := registerMap(o.archive, game, full, gameDirectory, mapDirectory); err != nil {
+	if err := registerMap(o.archive, game, full, gameDirectory, mapDirectory, ""); err != nil {
 		return err
 	}
 	fmt.Printf("   %d fetched · %d held · %d not published · %d failed · %.1f MB new\n",
