@@ -12,12 +12,14 @@
 import Globe from "globe.gl";
 import { Sprite, SpriteMaterial, TextureLoader } from "three";
 
+import { overzoomLevels } from "./constants.js";
 import { showPin } from "./detail.js";
 import { elements } from "./dom.js";
 import { equirectMapping, mapSurface } from "./semconv.js";
 import { state } from "./state.js";
 import { markerIconKey } from "./styles.js";
 import { categoryColor, iconOutsetColor, initials } from "./theme.js";
+import { clamp } from "./util.js";
 import { project } from "./zones.js";
 
 // textureZoom picks the pyramid level the sphere wears: deep enough to read,
@@ -54,7 +56,37 @@ export function toggleGlobe() {
   else void enterGlobe();
 }
 
+// The two cameras answer to one another through the declared mapping, so
+// flipping panes keeps the reader's place: the point faced and roughly how
+// close. The scale pairing is a rule of thumb -- the whole disc at altitude
+// 2.5 reads like the whole chart at zoom 2, and each halving of altitude
+// reads like one more zoom -- which is all "the same spot" needs.
+const wholeDiscAltitude = 2.5;
+const wholeChartZoom = 2;
+
+function altitudeForZoom(zoom) {
+  return clamp(wholeDiscAltitude / 2 ** (zoom - wholeChartZoom), 0.08, 4);
+}
+
+function zoomForAltitude(altitude) {
+  const ceiling = (state.variant?.maxZoom ?? wholeChartZoom) + overzoomLevels;
+  return clamp(wholeChartZoom + Math.log2(wholeDiscAltitude / altitude), 0, ceiling);
+}
+
 function leaveGlobe() {
+  // Whatever the globe was facing, the chart opens on: the same place at a
+  // comparable closeness, so the flip reads as turning a page, not losing
+  // one. A map change lands here too, but its mapping no longer answers
+  // and the new map's view is left alone.
+  const mapping = equirectMapping(state.map);
+  const view = state.engine?.getView();
+  if (globe && state.globeActive && mapping && view) {
+    const pov = globe.pointOfView();
+    const [worldX, worldY] = mapping.toWorld(pov.lat, pov.lng);
+    view.cancelAnimations();
+    view.setCenter([worldX, -worldY]);
+    view.setZoom(zoomForAltitude(pov.altitude));
+  }
   state.globeActive = false;
   elements.globe.hidden = true;
   elements.globeToggle.setAttribute("aria-pressed", "false");
@@ -105,11 +137,19 @@ async function enterGlobe() {
         elements.globe.style.cursor = point ? "pointer" : "";
       })
       .onZoom(() => document.dispatchEvent(new Event("atlas:globe-camera")));
-    globe.pointOfView({ lat: 10, lng: 0, altitude: 2.2 });
     document.addEventListener("atlas:selection", syncSelection);
     document.addEventListener("atlas:filters", syncFilters);
   }
   resizeGlobe();
+
+  // The globe opens facing what the chart was showing, as close as the
+  // chart was: the flip keeps the reader's place in both directions.
+  const view = state.engine?.getView();
+  const center = view?.getCenter();
+  if (center) {
+    const [lat, lng] = mapping.toLatLng(center[0], -center[1]);
+    globe.pointOfView({ lat, lng, altitude: altitudeForZoom(view.getZoom() ?? wholeChartZoom) });
+  }
 
   const variant = state.variant || state.map.variants[0];
   const key = `${state.game.stamp}:${state.map.slug}:${variant.tiles}`;
