@@ -457,16 +457,18 @@ func fetchTemplateLevel(
 				failure = err
 				return
 			}
+			hash := hashBytes(body)
 			index.put(tileRecord{
 				URL: url, Status: "cached", TileSetID: setID,
 				Zoom: zoom, X: coordinate[0], Y: coordinate[1],
-				ContentHash: hashBytes(body), ContentType: contentType,
+				ContentHash: hash, ContentType: contentType,
 				ByteLength: len(body),
 				CoverageKey: fmt.Sprintf("%d:%d:%d:%d:%d",
 					index.mapID, setID, zoom, coordinate[0], coordinate[1]),
 			})
 			result.fetched++
 			result.bytes += int64(len(body))
+			result.hashes[coordinate] = hash
 		}(coordinate, url, path)
 	}
 	group.Wait()
