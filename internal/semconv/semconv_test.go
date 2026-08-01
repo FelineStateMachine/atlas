@@ -16,7 +16,7 @@ func TestValidateHoldsTheVocabulary(t *testing.T) {
 		{EntityCategory, map[string]string{KeyRenderAs: "pin"}},
 		{EntityCategory, map[string]string{KeyRenderAs: "text", KeyIconStd: "maki/mountain"}},
 		{EntityCategory, map[string]string{KeyIconKind: "glyph", KeyCategoryKey: "ripperdoc"}},
-		{EntityMap, map[string]string{
+		{EntityWorld, map[string]string{
 			KeyGeometrySurface:     "sphere",
 			KeyGeometryProjection:  "equirect",
 			KeyGeometryEquirectPx:  "0,0,8192,4096",
@@ -24,7 +24,7 @@ func TestValidateHoldsTheVocabulary(t *testing.T) {
 			KeyGeometryBody:        "mars",
 			KeyGeometryRadiusKM:    "3389.5",
 		}},
-		{EntityMap, map[string]string{KeyIconOutset: "dark"}},
+		{EntityWorld, map[string]string{KeyIconOutset: "dark"}},
 		{EntityLocation, map[string]string{KeyGeoLat: "-42.4301", KeyGeoLon: "70.5025"}},
 		// Empty is always fine: conventions are declared, never demanded.
 		{EntityCategory, nil},
@@ -42,11 +42,11 @@ func TestValidateHoldsTheVocabulary(t *testing.T) {
 	}{
 		{EntityCategory, map[string]string{"atlas.render.like": "pin"}, "not registered"},
 		{EntityCategory, map[string]string{KeyRenderAs: "zone"}, "not one of"},
-		{EntityMap, map[string]string{KeyRenderAs: "pin"}, "attaches to"},
+		{EntityWorld, map[string]string{KeyRenderAs: "pin"}, "attaches to"},
 		{EntityCategory, map[string]string{KeyIconStd: "mountain"}, "set/name"},
 		{EntityCategory, map[string]string{KeyIconStd: "Maki/Mountain"}, "slug"},
-		{EntityMap, map[string]string{KeyGeometryEquirectPx: "0,0,8192"}, "4"},
-		{EntityMap, map[string]string{KeyGeometryRadiusKM: "big"}, "number"},
+		{EntityWorld, map[string]string{KeyGeometryEquirectPx: "0,0,8192"}, "4"},
+		{EntityWorld, map[string]string{KeyGeometryRadiusKM: "big"}, "number"},
 		{EntityLocation, map[string]string{KeyGeoLat: "north"}, "number"},
 		// The policy name never rides a payload.
 		{EntityLocation, map[string]string{KeyNoteText: "words"}, "not registered"},
@@ -131,7 +131,7 @@ func TestRegistryAgreesWithItsDocument(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	row := regexp.MustCompile("(?m)^\\| `(atlas\\.[a-z_.]+)` \\| (bundle|map|category|location) \\|.*\\| (stable|experimental) \\|")
+	row := regexp.MustCompile("(?m)^\\| `(atlas\\.[a-z_.]+)` \\| (bundle|world|category|location) \\|.*\\| (stable|experimental) \\|")
 	documented := make(map[string][2]string)
 	for _, match := range row.FindAllStringSubmatch(string(doc), -1) {
 		documented[match[1]] = [2]string{match[2], match[3]}

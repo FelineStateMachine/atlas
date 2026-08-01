@@ -110,7 +110,7 @@ export function foldDockByHand(folded) {
 }
 
 // Put away rather than closed: the rail keeps the count's place and the way
-// back. Like the overview, the choice is remembered with the game.
+// back. Like the overview, the choice is remembered with the volume.
 export function setDockFolded(folded, remember = true) {
   state.dockFolded = folded;
   elements.dock.classList.toggle("is-folded", folded);

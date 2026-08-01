@@ -38,13 +38,13 @@ import { state } from "../state.js";
 
 import { geohashSystem } from "./geohash.js";
 
-// surfaceExtent is the ground a cell system divides: the variant's surface
+// surfaceExtent is the ground a cell system divides: the lens's surface
 // where one is declared, its raster window otherwise, the whole world
 // square when nothing narrower is known. The same numbers activeExtent
 // produces, computed here without OpenLayers so the systems stay pure and
 // node-testable.
 export function surfaceExtent() {
-  const surface = state.variant?.surface;
+  const surface = state.lens?.surface;
   if (surface) {
     return [
       surface.x,
@@ -53,8 +53,8 @@ export function surfaceExtent() {
       -surface.y,
     ];
   }
-  const size = state.game?.tileGrid.size ?? 0;
-  const bounds = state.variant?.bounds || { x: 0, y: 0, width: size, height: size };
+  const size = state.volume?.tileGrid.size ?? 0;
+  const bounds = state.lens?.bounds || { x: 0, y: 0, width: size, height: size };
   return [bounds.x, -(bounds.y + bounds.height), bounds.x + bounds.width, -bounds.y];
 }
 

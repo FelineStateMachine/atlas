@@ -1,6 +1,6 @@
 import { elements, populateSelect } from "./dom.js";
 import { state } from "./state.js";
-import { selectGame } from "./navigation.js";
+import { selectVolume } from "./navigation.js";
 import { readRoute, readSession } from "./session.js";
 
 // The library is the set of installed bundles, and it can change under a
@@ -22,26 +22,26 @@ export function refreshCatalog() {
 async function reconcile() {
   const response = await fetch("/data/catalog.json");
   if (!response.ok) return;
-  const previous = state.game;
+  const previous = state.volume;
   state.catalog = await response.json();
-  populateSelect(elements.game, state.catalog.games, "title");
+  populateSelect(elements.volume, state.catalog.volumes, "title");
   syncEmptyState();
 
-  if (!state.catalog.games.length) return;
-  const current = previous && state.catalog.games.find((game) => game.slug === previous.slug);
+  if (!state.catalog.volumes.length) return;
+  const current = previous && state.catalog.volumes.find((volume) => volume.slug === previous.slug);
   if (!current) {
-    // Nothing was open, or the open game's bundle left: land somewhere that
+    // Nothing was open, or the open volume's bundle left: land somewhere that
     // still exists, preferring wherever the address bar or the last session
     // points.
     const route = readRoute();
-    await selectGame(
-      route.game || readSession()?.game || state.catalog.games[0].slug,
-      route.game ? route.map : undefined,
+    await selectVolume(
+      route.volume || readSession()?.volume || state.catalog.volumes[0].slug,
+      route.volume ? route.world : undefined,
     );
     return;
   }
   if (current.stamp !== previous.stamp) {
-    // The open game was replaced by a newer build. Reload the map that is on
+    // The open volume was replaced by a newer build. Reload the world that is on
     // screen through the new stamped base, carrying the exact arrangement --
     // camera, filters, panels -- across so the swap reads as the map
     // sharpening rather than the application starting over.
@@ -50,9 +50,9 @@ async function reconcile() {
     }
     const view = state.engine?.getView();
     state.restore = {
-      game: current.slug,
-      map: state.map?.slug,
-      variant: state.map ? state.map.variants.indexOf(state.variant) : 0,
+      volume: current.slug,
+      world: state.world?.slug,
+      lens: state.world ? state.world.lenses.indexOf(state.lens) : 0,
       center: view?.getCenter(),
       zoom: view?.getZoom(),
       hidden: [...state.hiddenCategories],
@@ -61,24 +61,24 @@ async function reconcile() {
       dockFolded: state.dockFolded,
       dockDismissed: state.dockDismissed,
     };
-    await selectGame(current.slug, state.map?.slug);
+    await selectVolume(current.slug, state.world?.slug);
     return;
   }
-  // Same game, same build: only the select needed repainting, but the old
+  // Same volume, same build: only the select needed repainting, but the old
   // catalog objects are gone, so the state points at their replacements.
-  state.game = current;
-  elements.game.value = current.slug;
+  state.volume = current;
+  elements.volume.value = current.slug;
 }
 
 export function syncEmptyState() {
-  const empty = !state.catalog?.games?.length;
+  const empty = !state.catalog?.volumes?.length;
   elements.emptyState.hidden = !empty;
   if (state.catalog?.bundlesDir) elements.emptyPath.textContent = state.catalog.bundlesDir;
 }
 
 // importBundles asks the backend to raise the native picker and copy the
 // chosen files in. The watcher would notice on its own; refreshing here just
-// spares the reader the debounce wait, and the first imported game is opened
+// spares the reader the debounce wait, and the first imported volume is opened
 // so the action lands somewhere visible.
 export async function importBundles() {
   for (const button of [elements.emptyOpen, elements.addBundles]) button.disabled = true;
@@ -87,8 +87,8 @@ export async function importBundles() {
     const outcome = await response.json().catch(() => ({}));
     await refreshCatalog();
     const first = outcome.imported?.[0];
-    if (first && state.catalog.games.some((game) => game.slug === first)) {
-      await selectGame(first);
+    if (first && state.catalog.volumes.some((volume) => volume.slug === first)) {
+      await selectVolume(first);
     }
   } finally {
     for (const button of [elements.emptyOpen, elements.addBundles]) button.disabled = false;

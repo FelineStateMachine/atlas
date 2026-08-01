@@ -183,13 +183,13 @@ var sources = []Source{
 	crawlSource{
 		name: "ArcGIS Open Data",
 		slug: "arcgis-hub",
-		description: "A city's ArcGIS Hub open-data site, bending the bundle's words to civic " +
-			"ground: the city is the \"game\", each crawl day registers a dated map, and the " +
-			"picker reads as the city's version history. Zoning, annexations and wetlands ride " +
-			"the zones, named places ride the pins, and the one raster layer is a basemap " +
-			"rendered offline from the city's own streets and trails. A curated importer: each " +
-			"city names verified datasets and a verified window, and only Bend, Oregon is " +
-			"curated so far. Standard-library icons; no source artwork.",
+		description: "A city's ArcGIS Hub open-data site, read in the format's own words: the " +
+			"city is the volume, each crawl day registers a dated world, and the picker reads " +
+			"as the city's version history. Zoning, annexations and wetlands ride the zones, " +
+			"named places ride the pins, and the one lens is a basemap rendered offline from " +
+			"the city's own streets and trails. A curated importer: each city names verified " +
+			"datasets and a verified window, and only Bend, Oregon is curated so far. " +
+			"Standard-library icons; no source artwork.",
 		flag: "-arcgis",
 		hint: "city, e.g. bend-or (the one curated city)",
 		components: ComponentSet{

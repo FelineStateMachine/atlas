@@ -32,17 +32,17 @@ type cachedBuild struct {
 // game is every build of one slug, newest first: the same order the reader's
 // registry folds by, so the first build of every game is the one the reader
 // serves.
-type game struct {
+type volume struct {
 	Slug   string
 	Title  string
 	Builds []*build
 }
 
 // Serving is the build the reader would pick.
-func (g *game) Serving() *build { return g.Builds[0] }
+func (g *volume) Serving() *build { return g.Builds[0] }
 
 // Build finds one build by file name, which is how diff URLs name them.
-func (g *game) Build(file string) *build {
+func (g *volume) Build(file string) *build {
 	for _, b := range g.Builds {
 		if b.File == file {
 			return b
@@ -54,47 +54,47 @@ func (g *game) Build(file string) *build {
 // games measures every bundle in the directory and groups the builds by
 // game. A bundle that fails to measure is reported in skipped rather than
 // failing the scan: one bad download should not take the dashboard down.
-func (l *library) games() (games []*game, skipped []string, err error) {
+func (l *library) volumes() (volumes []*volume, skipped []string, err error) {
 	paths, err := filepath.Glob(filepath.Join(l.dir, "*.atlas"))
 	if err != nil {
 		return nil, nil, err
 	}
 	sort.Strings(paths)
 
-	byGame := make(map[string]*game)
+	byVolume := make(map[string]*volume)
 	for _, path := range paths {
 		measured, err := l.measure(path)
 		if err != nil {
 			skipped = append(skipped, filepath.Base(path)+": "+err.Error())
 			continue
 		}
-		held, ok := byGame[measured.GameSlug]
+		held, ok := byVolume[measured.VolumeSlug]
 		if !ok {
-			held = &game{Slug: measured.GameSlug}
-			byGame[measured.GameSlug] = held
-			games = append(games, held)
+			held = &volume{Slug: measured.VolumeSlug}
+			byVolume[measured.VolumeSlug] = held
+			volumes = append(volumes, held)
 		}
 		held.Builds = append(held.Builds, measured)
 	}
 
-	for _, held := range byGame {
+	for _, held := range byVolume {
 		// The registry's own order, spelled once in internal/measure.
 		sort.Slice(held.Builds, func(a, b int) bool {
 			return measure.Newer(held.Builds[a], held.Builds[b])
 		})
-		held.Title = held.Serving().GameTitle
+		held.Title = held.Serving().VolumeTitle
 	}
-	sort.Slice(games, func(a, b int) bool { return games[a].Title < games[b].Title })
-	return games, skipped, nil
+	sort.Slice(volumes, func(a, b int) bool { return volumes[a].Title < volumes[b].Title })
+	return volumes, skipped, nil
 }
 
-// gameBySlug scans and returns one game, or nil if the slug has no builds.
-func (l *library) gameBySlug(slug string) (*game, error) {
-	games, _, err := l.games()
+// volumeBySlug scans and returns one game, or nil if the slug has no builds.
+func (l *library) volumeBySlug(slug string) (*volume, error) {
+	volumes, _, err := l.volumes()
 	if err != nil {
 		return nil, err
 	}
-	for _, held := range games {
+	for _, held := range volumes {
 		if held.Slug == slug {
 			return held, nil
 		}

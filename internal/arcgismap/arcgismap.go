@@ -8,9 +8,9 @@
 // what the city published, and every keep-or-leave decision lives here,
 // where changing it re-applies to captures already on disk.
 //
-// The semantics are the point being proven. A city is a "game" to the
-// pipeline; each crawl day registers its own map, so a bundle's map picker
-// becomes the city's version history -- four captured days are four maps,
+// The semantics are the point being proven. A city is a volume to the
+// pipeline; each crawl day registers its own world, so a bundle's picker
+// becomes the city's version history -- four captured days are four worlds,
 // and the differences between them are differences in the city. Polygon
 // datasets ride the bundle's zones, point datasets its pins, and the one
 // raster layer is a basemap rendered from the city's own vector data,
@@ -480,7 +480,8 @@ func Translate(doc []byte) ([]byte, error) {
 		},
 		Game: mgdoc.Game{
 			ID: gameID,
-			// A city is a "game" to the pipeline, which is the point being
+			// A city is a volume to the bundle, spelled in the archive's
+			// upstream game shape here, which is the point being
 			// proven.
 			Title: title(capture.Title, city.Title),
 			Slug:  capture.City,

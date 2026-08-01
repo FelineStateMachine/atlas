@@ -36,7 +36,7 @@ type Entity string
 
 const (
 	EntityBundle   Entity = "bundle"
-	EntityMap      Entity = "map"
+	EntityWorld    Entity = "world"
 	EntityCategory Entity = "category"
 	EntityLocation Entity = "location"
 )
@@ -213,15 +213,15 @@ var registry = map[string]definition{
 	KeyRenderAs:            {EntityCategory, Stable, enum(RenderAsPin, RenderAsText)},
 	KeyIconStd:             {EntityCategory, Stable, setName},
 	KeyIconKind:            {EntityCategory, Stable, enum(IconKindGlyph, IconKindPicture)},
-	KeyIconOutset:          {EntityMap, Stable, enum(OutsetLight, OutsetDark)},
-	KeyGeometrySurface:     {EntityMap, Stable, enum(SurfacePlane, SurfaceSphere)},
-	KeyGeometryProjection:  {EntityMap, Stable, enum(ProjectionEquirect)},
-	KeyGeometryEquirectPx:  {EntityMap, Stable, numbers(4)},
-	KeyGeometryEquirectDeg: {EntityMap, Stable, numbers(4)},
-	KeyGeometryMercatorPx:  {EntityMap, Experimental, numbers(4)},
-	KeyGeometryMercatorDeg: {EntityMap, Experimental, numbers(4)},
-	KeyGeometryBody:        {EntityMap, Experimental, slug},
-	KeyGeometryRadiusKM:    {EntityMap, Experimental, decimal},
+	KeyIconOutset:          {EntityWorld, Stable, enum(OutsetLight, OutsetDark)},
+	KeyGeometrySurface:     {EntityWorld, Stable, enum(SurfacePlane, SurfaceSphere)},
+	KeyGeometryProjection:  {EntityWorld, Stable, enum(ProjectionEquirect)},
+	KeyGeometryEquirectPx:  {EntityWorld, Stable, numbers(4)},
+	KeyGeometryEquirectDeg: {EntityWorld, Stable, numbers(4)},
+	KeyGeometryMercatorPx:  {EntityWorld, Experimental, numbers(4)},
+	KeyGeometryMercatorDeg: {EntityWorld, Experimental, numbers(4)},
+	KeyGeometryBody:        {EntityWorld, Experimental, slug},
+	KeyGeometryRadiusKM:    {EntityWorld, Experimental, decimal},
 	KeyGeoLat:              {EntityLocation, Experimental, decimal},
 	KeyGeoLon:              {EntityLocation, Experimental, decimal},
 	KeyCategoryKey:         {EntityCategory, Experimental, slug},

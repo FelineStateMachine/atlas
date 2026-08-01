@@ -137,9 +137,9 @@ func readManifest(output string) manifest {
 	return previous
 }
 
-func manifestBySource(previous manifest) map[string]variantManifest {
-	bySource := make(map[string]variantManifest, len(previous.Variants))
-	for _, variant := range previous.Variants {
+func manifestBySource(previous manifest) map[string]lensManifest {
+	bySource := make(map[string]lensManifest, len(previous.Lenses))
+	for _, variant := range previous.Lenses {
 		bySource[variant.SourcePath] = variant
 	}
 	return bySource

@@ -35,18 +35,18 @@ func routes(files fs.FS, registry *bundle.Registry) http.Handler {
 		_, _ = w.Write(registry.Snapshot().Catalog)
 	})
 
-	// Game content lives under a stamp taken from the bundle's own version,
-	// so every URL names exactly one build of one game: cacheable forever,
+	// Volume content lives under a stamp taken from the bundle's own version,
+	// so every URL names exactly one build of one volume: cacheable forever,
 	// and gone -- 404, and the frontend refetches the catalog -- the moment
 	// a newer bundle takes the slug over.
-	mux.HandleFunc("GET /data/g/{slug}/{stamp}/{rest...}", func(w http.ResponseWriter, r *http.Request) {
-		held, ok := registry.Snapshot().Games[r.PathValue("slug")]
+	mux.HandleFunc("GET /data/v/{slug}/{stamp}/{rest...}", func(w http.ResponseWriter, r *http.Request) {
+		held, ok := registry.Snapshot().Volumes[r.PathValue("slug")]
 		if !ok || r.PathValue("stamp") != bundle.ShortStamp(held.Manifest.Version.Stamp) {
 			http.NotFound(w, r)
 			return
 		}
 		rest := r.PathValue("rest")
-		if !strings.HasPrefix(rest, "maps/") && !strings.HasPrefix(rest, "tiles/") &&
+		if !strings.HasPrefix(rest, "worlds/") && !strings.HasPrefix(rest, "tiles/") &&
 			!strings.HasPrefix(rest, "icons/") {
 			http.NotFound(w, r)
 			return
@@ -73,7 +73,7 @@ func routes(files fs.FS, registry *bundle.Registry) http.Handler {
 		_, _ = io.Copy(w, entry)
 	})
 
-	// Adding a game from inside the application: a native picker, then the
+	// Adding a volume from inside the application: a native picker, then the
 	// chosen files are validated and copied into the bundles directory, which
 	// is the same road a hand-dropped file takes.
 	mux.HandleFunc("POST /data/bundles/import", func(w http.ResponseWriter, r *http.Request) {

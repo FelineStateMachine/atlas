@@ -21,16 +21,16 @@ import (
 // so they are the part most worth not loading. Locations are overwhelmingly
 // numbers, and numbers written as text cost several times what they measure.
 
-// mapDetail is everything needed to draw a map except its locations, which
+// worldDetail is everything needed to draw a map except its locations, which
 // travel packed alongside.
-type mapDetail struct {
+type worldDetail struct {
 	// Grid travels with the layers it describes: a map cut from a window of its
 	// own is the only one that carries it, and it is needed exactly when the
 	// map is opened.
-	Grid     *mapGrid       `json:"grid,omitempty"`
-	Variants []variant      `json:"variants"`
-	Groups   []catalogGroup `json:"groups"`
-	Zones    []zone         `json:"zones,omitempty"`
+	Grid   *worldGrid     `json:"grid,omitempty"`
+	Lenses []lens         `json:"lenses"`
+	Groups []catalogGroup `json:"groups"`
+	Zones  []zone         `json:"zones,omitempty"`
 	// Attrs is the map speaking the shared conventions -- its geometry, its
 	// marker outset -- for any reader that knows the vocabulary.
 	Attrs map[string]string `json:"attrs,omitempty"`
@@ -53,10 +53,10 @@ type locationText struct {
 // buildPayload splits one map three ways: its layers, categories and regions
 // as a detail structure, its locations packed, and its descriptions keyed by
 // location.
-func buildPayload(m catalogMap) (mapDetail, []byte, map[string]locationText) {
+func buildPayload(m catalogWorld) (worldDetail, []byte, map[string]locationText) {
 	// Categories keep their identity; their locations travel packed, each
 	// carrying the position of its category in this same flattened order.
-	detail := mapDetail{Grid: m.Grid, Variants: m.Variants, Zones: m.Zones, Attrs: m.Attrs, Merged: m.Merged}
+	detail := worldDetail{Grid: m.Grid, Lenses: m.Lenses, Zones: m.Zones, Attrs: m.Attrs, Merged: m.Merged}
 	var locations []bundle.Location
 	text := make(map[string]locationText)
 	var ordinal uint16

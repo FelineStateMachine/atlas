@@ -18,15 +18,15 @@ breaks; new keys arrive as `experimental` and earn `stable`.
 | `atlas.render.as` | category | `pin` \| `text` | stable | How the category's locations draw: markers, or floating text labels. Absent, legacy `displayType` decides; absent both, `pin`. |
 | `atlas.icon.std` | category | `set/name`, e.g. `maki/mountain` | stable | Standard-library icon for a category without artwork. Resolved to embedded bytes at build time; the app only sees the resolved asset. |
 | `atlas.icon.kind` | category | `glyph` \| `picture` | stable | Whether the icon asset is a monochrome glyph the viewer tints, or a picture drawn as-is. Names what the `.png` suffix used to imply. |
-| `atlas.icon.outset` | map | `light` \| `dark` | stable | The rim a map's markers wear to stay legible against its art. |
-| `atlas.geometry.surface` | map | `plane` \| `sphere` | stable | What the raster pictures. Absent means `plane` — every map before the planets. |
-| `atlas.geometry.projection` | map | `equirect` | stable | How a sphere was flattened. Required when surface is `sphere`. |
-| `atlas.geometry.equirect.px` | map | `x,y,w,h` (world px) | stable | The raster window the projection fills. |
-| `atlas.geometry.equirect.deg` | map | `west,north,east,south` (degrees) | stable | The ground that window pictures. |
-| `atlas.geometry.mercator.px` | map | `x,y,w,h` (world px) | experimental | The raster window a Web-Mercator cut fills. Where `equirect` declares y linear in degrees, `mercator` declares y linear in projected latitude — `asinh(tan lat)` — the flattening a real-world tile window actually is. |
-| `atlas.geometry.mercator.deg` | map | `west,north,east,south` (degrees) | experimental | The ground the Mercator window pictures, in degrees at its edges. |
-| `atlas.geometry.body` | map | slug, e.g. `mars` | experimental | The body pictured. |
-| `atlas.geometry.radius_km` | map | decimal string | experimental | The body's mean radius. |
+| `atlas.icon.outset` | world | `light` \| `dark` | stable | The rim a map's markers wear to stay legible against its art. |
+| `atlas.geometry.surface` | world | `plane` \| `sphere` | stable | What the raster pictures. Absent means `plane` — every map before the planets. |
+| `atlas.geometry.projection` | world | `equirect` | stable | How a sphere was flattened. Required when surface is `sphere`. |
+| `atlas.geometry.equirect.px` | world | `x,y,w,h` (world px) | stable | The raster window the projection fills. |
+| `atlas.geometry.equirect.deg` | world | `west,north,east,south` (degrees) | stable | The ground that window pictures. |
+| `atlas.geometry.mercator.px` | world | `x,y,w,h` (world px) | experimental | The raster window a Web-Mercator cut fills. Where `equirect` declares y linear in degrees, `mercator` declares y linear in projected latitude — `asinh(tan lat)` — the flattening a real-world tile window actually is. |
+| `atlas.geometry.mercator.deg` | world | `west,north,east,south` (degrees) | experimental | The ground the Mercator window pictures, in degrees at its edges. |
+| `atlas.geometry.body` | world | slug, e.g. `mars` | experimental | The body pictured. |
+| `atlas.geometry.radius_km` | world | decimal string | experimental | The body's mean radius. |
 | `atlas.geo.lat` | location | decimal degrees | experimental | True planetary latitude as published (planetocentric). Provenance and card material; rendering derives from the map-level mapping. |
 | `atlas.geo.lon` | location | decimal degrees | experimental | True planetary longitude as published (east-positive). |
 | `atlas.category.key` | category | slug | experimental | A category's merge identity across sources. Absent, the icon key stands in. |

@@ -18,7 +18,7 @@ export function buildPins() {
   state.sources.priority.clear();
   state.pins = [];
   state.pinByID.clear();
-  for (const group of state.map.groups) {
+  for (const group of state.world.groups) {
     for (const category of group.categories) {
       if (renderAs(category) !== "text") prepareMarkerIcon(category);
       for (const location of category.locations) {
@@ -147,7 +147,7 @@ export function pinIsHidden(pin) {
 // A map split into layers offers one at a time. Anything belonging to another
 // layer is elsewhere in the world, not merely filtered out.
 export function onActiveShard(item) {
-  const shard = state.variant?.shard;
+  const shard = state.lens?.shard;
   return !shard || !item.shard || item.shard === shard;
 }
 
@@ -181,5 +181,5 @@ export function textDetailRatio(category) {
 
 export function atMaximumNativeZoom() {
   const zoom = state.engine?.getView().getZoom() || 0;
-  return zoom >= (state.variant?.maxZoom || 0) - 0.05;
+  return zoom >= (state.lens?.maxZoom || 0) - 0.05;
 }

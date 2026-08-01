@@ -1,5 +1,5 @@
 // Command maturity reads the library and reports how mature each build of
-// each game is, along the axes internal/measure defines -- the same
+// each volume is, along the axes internal/measure defines -- the same
 // yardstick the cartograph workbench judges by, aligned with the semantic
 // conventions the payloads speak: how thoroughly locations are explained in
 // writing, how much visual map information the rasters hold, how much
@@ -58,7 +58,7 @@ func run(dir string) error {
 		if err != nil {
 			return fmt.Errorf("%s: %w", filepath.Base(path), err)
 		}
-		byGame[build.GameSlug] = append(byGame[build.GameSlug], build)
+		byGame[build.VolumeSlug] = append(byGame[build.VolumeSlug], build)
 	}
 
 	slugs := make([]string, 0, len(byGame))
@@ -69,9 +69,9 @@ func run(dir string) error {
 	for _, slug := range slugs {
 		builds := byGame[slug]
 		// The registry's own order, spelled once in internal/measure, so the
-		// first line of every game is the build the reader sees.
+		// first line of every volume is the build the reader sees.
 		sort.Slice(builds, func(a, b int) bool { return measure.Newer(builds[a], builds[b]) })
-		fmt.Printf("%s (%s)\n", builds[0].GameTitle, slug)
+		fmt.Printf("%s (%s)\n", builds[0].VolumeTitle, slug)
 		for at, b := range builds {
 			marker := "        "
 			if at == 0 {
@@ -83,7 +83,7 @@ func run(dir string) error {
 			fmt.Printf("    cartography  %5d tiles · %s MB unique raster · depth z%d holds %d tiles\n",
 				b.TileCount, b.RasterMB(), b.Depth, b.DepthTiles)
 			fmt.Printf("    structure    %5d categories in %d groups · %d text label sets · %d zones (%d vertices) · %d layers\n",
-				b.Categories, b.Groups, b.TextSets, b.Zones, b.Vertices, b.Variants)
+				b.Categories, b.Groups, b.TextSets, b.Zones, b.Vertices, b.Lenses)
 			fmt.Printf("    icons        %5d of %d marker categories carry one (%s)\n",
 				b.IconsCarried, b.IconsWanted, b.IconPct())
 			fmt.Printf("    conventions  %s\n", conventionsLine(b))

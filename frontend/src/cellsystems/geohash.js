@@ -34,7 +34,7 @@ function bbox(hash) {
 
 // cellAt is the reverse of bbox: the same halvings, choosing at each one
 // the side the point is on. Computed when asked rather than stored,
-// because the grid divides the ground a variant covers and a split map
+// because the grid divides the ground a lens covers and a split world
 // gives each layer its own -- a hash stored beside a location could only
 // be right for one.
 function cellAt(coordinate, depth) {
@@ -114,7 +114,7 @@ export const geohashSystem = {
   contains(id, coordinate) {
     // Callers sweep thousands of pins against one cell at a time, so the
     // last cell's box is remembered rather than re-halved per pin. The
-    // memo keys on the surface too: a variant switch moves every box.
+    // memo keys on the surface too: a lens switch moves every box.
     const extent = containsBox(id);
     const [x, y] = coordinate;
     return x >= extent[0] && x <= extent[2] && y >= extent[1] && y <= extent[3];

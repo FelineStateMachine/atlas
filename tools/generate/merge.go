@@ -181,7 +181,7 @@ type heldPin struct {
 // bundle written per slug is the game as every source together knows it.
 // The captures stay untouched in the archive, so recomposing under a better
 // policy never needs anything recrawled.
-func mergeAcrossSources(games []catalogGame, shared tileGrid) ([]catalogGame, error) {
+func mergeAcrossSources(games []catalogVolume, shared tileGrid) ([]catalogVolume, error) {
 	bySlug := make(map[string][]int)
 	var order []string
 	for index, game := range games {
@@ -208,15 +208,15 @@ func mergeAcrossSources(games []catalogGame, shared tileGrid) ([]catalogGame, er
 			if donor == winner {
 				continue
 			}
-			if err := mergeGame(&games[winner], &games[donor], shared); err != nil {
+			if err := mergeVolume(&games[winner], &games[donor], shared); err != nil {
 				return nil, fmt.Errorf("merge %s: %w", slug, err)
 			}
 			absorbed[donor] = true
 		}
-		sortGameMaps(games[winner].Slug, games[winner].Maps)
+		sortVolumeWorlds(games[winner].Slug, games[winner].Worlds)
 	}
 
-	composed := make([]catalogGame, 0, len(games))
+	composed := make([]catalogVolume, 0, len(games))
 	for index, game := range games {
 		if !absorbed[index] {
 			composed = append(composed, game)
@@ -225,9 +225,9 @@ func mergeAcrossSources(games []catalogGame, shared tileGrid) ([]catalogGame, er
 	return composed, nil
 }
 
-func newestCapture(game catalogGame) string {
+func newestCapture(game catalogVolume) string {
 	newest := ""
-	for _, m := range game.Maps {
+	for _, m := range game.Worlds {
 		if m.UpdatedAt > newest {
 			newest = m.UpdatedAt
 		}
@@ -235,13 +235,13 @@ func newestCapture(game catalogGame) string {
 	return newest
 }
 
-func mergeGame(winner, donor *catalogGame, shared tileGrid) error {
-	winnerMaps := make(map[string]*catalogMap, len(winner.Maps))
-	for index := range winner.Maps {
-		winnerMaps[winner.Maps[index].Slug] = &winner.Maps[index]
+func mergeVolume(winner, donor *catalogVolume, shared tileGrid) error {
+	winnerMaps := make(map[string]*catalogWorld, len(winner.Worlds))
+	for index := range winner.Worlds {
+		winnerMaps[winner.Worlds[index].Slug] = &winner.Worlds[index]
 	}
-	for index := range donor.Maps {
-		donorMap := &donor.Maps[index]
+	for index := range donor.Worlds {
+		donorMap := &donor.Worlds[index]
 		target := winnerMaps[donorMap.Slug]
 		if target == nil {
 			// Sources do not divide the world the same way: one source's
@@ -251,12 +251,12 @@ func mergeGame(winner, donor *catalogGame, shared tileGrid) error {
 			// whether the places both name determine a transformation, so
 			// before a map is taken as new, it is tried against every map
 			// the game already draws.
-			target = overlappingMap(winner, donorMap, shared)
+			target = overlappingWorld(winner, donorMap, shared)
 		}
 		if target == nil {
 			// Nothing the game draws pictures this ground: the map joins
 			// whole, as this source captured it, icons and all.
-			if err := contributeMap(winner, donor, donorMap); err != nil {
+			if err := contributeWorld(winner, donor, donorMap); err != nil {
 				return err
 			}
 			fmt.Printf("merge %s: %s joins whole from %s\n",
@@ -268,28 +268,28 @@ func mergeGame(winner, donor *catalogGame, shared tileGrid) error {
 				winner.Slug, donorMap.Slug)
 			continue
 		}
-		if err := mergeMap(winner, target, donor, donorMap, shared); err != nil {
+		if err := mergeWorld(winner, target, donor, donorMap, shared); err != nil {
 			return err
 		}
 	}
 	return nil
 }
 
-// overlappingMap finds the winner map that pictures the same ground as a
+// overlappingWorld finds the winner map that pictures the same ground as a
 // donor map under another slug, if any does: the one whose named places fit
 // the donor's through an affine that closes. The fit is the compatibility
 // test the differing projections make necessary -- coordinates cannot be
 // compared, but the places can.
-func overlappingMap(winner *catalogGame, donorMap *catalogMap, shared tileGrid) *catalogMap {
-	donorAnchors := anchorsOfMap(donorMap, gridOf(donorMap, shared))
-	var best *catalogMap
+func overlappingWorld(winner *catalogVolume, donorMap *catalogWorld, shared tileGrid) *catalogWorld {
+	donorAnchors := anchorsOfWorld(donorMap, gridOf(donorMap, shared))
+	var best *catalogWorld
 	bestAnchors := 0
-	for index := range winner.Maps {
-		candidate := &winner.Maps[index]
+	for index := range winner.Worlds {
+		candidate := &winner.Worlds[index]
 		if candidate.Parent != "" {
 			continue
 		}
-		_, report, err := blend.Fit(donorAnchors, anchorsOfMap(candidate, gridOf(candidate, shared)))
+		_, report, err := blend.Fit(donorAnchors, anchorsOfWorld(candidate, gridOf(candidate, shared)))
 		if err != nil {
 			continue
 		}
@@ -304,12 +304,12 @@ func overlappingMap(winner *catalogGame, donorMap *catalogMap, shared tileGrid) 
 	return best
 }
 
-// contributeMap carries one source's map into the composed game untouched:
+// contributeWorld carries one source's map into the composed game untouched:
 // its layers, pins, and zones as captured, and its icons brought across --
 // under their own names where those are free or already hold the same bytes,
 // under source-prefixed names where the composed game spells something else
 // with them.
-func contributeMap(winner, donor *catalogGame, donorMap *catalogMap) error {
+func contributeWorld(winner, donor *catalogVolume, donorMap *catalogWorld) error {
 	contributed := *donorMap
 	sourceTag := slugifyLabel(sourceLabelOf(donorMap, donor))
 	renamed := make(map[string]string)
@@ -342,21 +342,21 @@ func contributeMap(winner, donor *catalogGame, donorMap *catalogMap) error {
 			category.IconAsset = name
 		}
 	}
-	winner.Maps = append(winner.Maps, contributed)
+	winner.Worlds = append(winner.Worlds, contributed)
 	return nil
 }
 
-func mergeMap(
-	winnerGame *catalogGame,
-	winner *catalogMap,
-	donorGame *catalogGame,
-	donor *catalogMap,
+func mergeWorld(
+	winnerGame *catalogVolume,
+	winner *catalogWorld,
+	donorGame *catalogVolume,
+	donor *catalogWorld,
 	shared tileGrid,
 ) error {
 	winnerGrid := gridOf(winner, shared)
 	donorGrid := gridOf(donor, shared)
 
-	affine, report, err := blend.Fit(anchorsOfMap(donor, donorGrid), anchorsOfMap(winner, winnerGrid))
+	affine, report, err := blend.Fit(anchorsOfWorld(donor, donorGrid), anchorsOfWorld(winner, winnerGrid))
 	if err != nil {
 		fmt.Printf("merge %s/%s: pins stay apart: %v\n", winnerGame.Slug, winner.Slug, err)
 		return nil
@@ -530,7 +530,7 @@ type placedPin struct {
 	tokens   map[string]bool
 }
 
-func indexWinner(winner *catalogMap, grid tileGrid) *winnerIndex {
+func indexWinner(winner *catalogWorld, grid tileGrid) *winnerIndex {
 	index := &winnerIndex{
 		byName:     make(map[string][]int),
 		categories: make(map[string]*catalogCategory),
@@ -700,7 +700,7 @@ func tokensOf(normalized string) map[string]bool {
 // carryIcon brings a merged category's icon across from the donor's archive
 // under a source-prefixed name, so it cannot displace a serving icon that
 // shares its key.
-func carryIcon(winnerGame, donorGame *catalogGame, category *catalogCategory, sourceLabel string) error {
+func carryIcon(winnerGame, donorGame *catalogVolume, category *catalogCategory, sourceLabel string) error {
 	if category.IconAsset == "" {
 		return nil
 	}
@@ -721,7 +721,7 @@ func carryIcon(winnerGame, donorGame *catalogGame, category *catalogCategory, so
 
 // mergedGroupID numbers the source's group away from every id the map
 // already uses.
-func mergedGroupID(winner *catalogMap) int64 {
+func mergedGroupID(winner *catalogWorld) int64 {
 	used := make(map[int64]bool)
 	for _, group := range winner.Groups {
 		used[group.ID] = true
@@ -733,13 +733,13 @@ func mergedGroupID(winner *catalogMap) int64 {
 	return id
 }
 
-func sourceLabelOf(donor *catalogMap, donorGame *catalogGame) string {
+func sourceLabelOf(donor *catalogWorld, donorGame *catalogVolume) string {
 	for _, account := range donor.Merged {
 		if account.Origin {
 			return account.Source
 		}
 	}
-	for _, v := range donor.Variants {
+	for _, v := range donor.Lenses {
 		if v.Name != "" && v.Name != "Default" {
 			return v.Name
 		}
@@ -750,7 +750,7 @@ func sourceLabelOf(donor *catalogMap, donorGame *catalogGame) string {
 // sourceSlugOf reads the canonical slug off the donor's origin account. A
 // map without one -- there should be none, every map opens its account at
 // composition -- simply contributes no slug rather than a guessed one.
-func sourceSlugOf(donor *catalogMap) string {
+func sourceSlugOf(donor *catalogWorld) string {
 	for _, account := range donor.Merged {
 		if account.Origin {
 			return account.Slug
@@ -779,7 +779,7 @@ func slugifyLabel(label string) string {
 	return string(out)
 }
 
-func gridOf(m *catalogMap, shared tileGrid) tileGrid {
+func gridOf(m *catalogWorld, shared tileGrid) tileGrid {
 	if m.Grid == nil {
 		return shared
 	}
@@ -791,7 +791,7 @@ func gridOf(m *catalogMap, shared tileGrid) tileGrid {
 	}
 }
 
-func anchorsOfMap(m *catalogMap, grid tileGrid) []blend.Anchor {
+func anchorsOfWorld(m *catalogWorld, grid tileGrid) []blend.Anchor {
 	var anchors []blend.Anchor
 	for _, group := range m.Groups {
 		for _, category := range group.Categories {
@@ -821,7 +821,7 @@ func enrichedCount(merge *mergedSource) int {
 // match one-to-one, no identifier doubled, nothing the serving map held made
 // worse. It fails the build rather than writing a bundle that quietly lost
 // something -- or quietly agreed too much.
-func mergeGate(merge *mergedSource, winner *catalogMap) error {
+func mergeGate(merge *mergedSource, winner *catalogWorld) error {
 	accounted := len(merge.Matched) + merge.Added + len(merge.Held) + len(merge.Rejected)
 	if accounted != merge.DonorPins {
 		return fmt.Errorf("merge accounts for %d of %d donor pins", accounted, merge.DonorPins)
@@ -870,7 +870,7 @@ func mergeGate(merge *mergedSource, winner *catalogMap) error {
 		}
 	}
 	if counted != winner.PinCount {
-		return fmt.Errorf("map holds %d pins but claims %d", counted, winner.PinCount)
+		return fmt.Errorf("world holds %d pins but claims %d", counted, winner.PinCount)
 	}
 	return nil
 }

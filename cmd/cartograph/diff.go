@@ -71,7 +71,7 @@ func diffBuilds(a, b *build, pinsA, pinsB map[string]map[int64]string) *buildDif
 			axisCount("text label sets", a.TextSets, b.TextSets),
 			axisCount("zones", a.Zones, b.Zones),
 			axisCount("zone vertices", a.Vertices, b.Vertices),
-			axisCount("layers", a.Variants, b.Variants),
+			axisCount("layers", a.Lenses, b.Lenses),
 			axisCount("icons carried", a.IconsCarried, b.IconsCarried),
 			axisShare("icon coverage", a.IconsCarried, a.IconsWanted, b.IconsCarried, b.IconsWanted),
 			// The conventions axes: what vocabulary each build declares and

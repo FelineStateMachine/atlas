@@ -6,15 +6,15 @@ import { currentGridExtent, gridMaxLevel, pinInGridCell } from "./grid.js";
 
 export function exposeDiagnostics() {
   const snapshot = () => ({
-    game: state.game?.title,
-    map: state.map?.title,
-    variant: state.variant?.name,
+    volume: state.volume?.title,
+    world: state.world?.title,
+    lens: state.lens?.name,
     zoom: state.engine?.getView().getZoom(),
     center: state.engine?.getView().getCenter(),
     resolution: state.engine?.getView().getResolution(),
-    nativeMaxZoom: state.variant?.maxZoom,
-    maxZoom: state.variant ? viewMaxZoom(state.variant) : null,
-    interpolate: state.variant?.interpolate,
+    nativeMaxZoom: state.lens?.maxZoom,
+    maxZoom: state.lens ? viewMaxZoom(state.lens) : null,
+    interpolate: state.lens?.interpolate,
     tileStats: { ...state.tileStats },
     pins: state.pins.length,
     eligibleLocations: state.eligibleLocations,

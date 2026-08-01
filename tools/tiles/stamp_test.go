@@ -128,7 +128,7 @@ func TestInstallPyramidsKeepsCarriedAndPrunesRetired(t *testing.T) {
 	write(output, "retired/3/0/0.jpg", "gone")
 	write(temp, "derived/3/0/0.jpg", "new")
 
-	out := manifest{Variants: []variantManifest{
+	out := manifest{Lenses: []lensManifest{
 		{AssetPath: "carried", SourcePath: "a"},
 		{AssetPath: "derived", SourcePath: "b"},
 	}}

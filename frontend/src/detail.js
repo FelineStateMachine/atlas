@@ -1,4 +1,4 @@
-import { mapText } from "./catalog.js";
+import { worldText } from "./catalog.js";
 import { elements } from "./dom.js";
 import { geohashCellAt } from "./cellsystems/geohash.js";
 import { syncLegendCheckboxes, syncSectionSwitches } from "./legend.js";
@@ -59,7 +59,7 @@ export function showPin(pin, focus = false) {
     const view = state.engine.getView();
     view.animate({
       center: pin.coordinate,
-      zoom: Math.min(viewMaxZoom(state.variant), Math.max(view.getZoom() || 0, 4)),
+      zoom: Math.min(viewMaxZoom(state.lens), Math.max(view.getZoom() || 0, 4)),
       duration: 220,
     });
   }
@@ -71,10 +71,10 @@ export function showPin(pin, focus = false) {
 // every other pin is the origin's alone. The index is built once per map and
 // thrown away with it.
 function pinSource(pin) {
-  const merged = state.map?.merged;
+  const merged = state.world?.merged;
   if (!merged?.length) return "";
   const origin = merged.find((account) => account.origin)?.source || "";
-  if (state.pinSourceIndex?.map !== state.map) {
+  if (state.pinSourceIndex?.world !== state.world) {
     const byID = new Map();
     for (const account of merged) {
       for (const adopted of account.adopted || []) {
@@ -85,7 +85,7 @@ function pinSource(pin) {
         byID.set(pair.w, origin ? `${origin} · ${confirmed}` : confirmed);
       }
     }
-    state.pinSourceIndex = { map: state.map, byID };
+    state.pinSourceIndex = { world: state.world, byID };
   }
   for (const account of merged) {
     if (!account.origin && pin.group.title === account.source) return account.source;
@@ -98,7 +98,7 @@ function pinSource(pin) {
 // is already known and fills in when they arrive; a pin closed or changed in
 // the meantime is left alone.
 export async function fillPinText(pin) {
-  const text = await mapText();
+  const text = await worldText();
   if (state.selectedPin !== pin) return;
   const entry = text[String(pin.location.id)] || {};
   pin.location.description = entry.d || "";

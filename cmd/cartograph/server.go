@@ -23,7 +23,7 @@ type server struct {
 
 func newServer(lib *library, shop *workshop) *server {
 	pages := make(map[string]*template.Template)
-	for _, name := range []string{"collection", "game", "diff", "sources"} {
+	for _, name := range []string{"collection", "volume", "diff", "sources"} {
 		pages[name] = template.Must(template.ParseFS(uiFS, "ui/layout.tmpl", "ui/"+name+".tmpl"))
 	}
 	return &server{library: lib, shop: shop, pages: pages}
@@ -32,8 +32,8 @@ func newServer(lib *library, shop *workshop) *server {
 func (s *server) routes() http.Handler {
 	mux := http.NewServeMux()
 	mux.HandleFunc("GET /{$}", s.handleCollection)
-	mux.HandleFunc("GET /game/{slug}", s.handleGame)
-	mux.HandleFunc("GET /game/{slug}/diff", s.handleDiff)
+	mux.HandleFunc("GET /volume/{slug}", s.handleVolume)
+	mux.HandleFunc("GET /volume/{slug}/diff", s.handleDiff)
 	mux.HandleFunc("GET /sources", s.handleSources)
 	mux.HandleFunc("POST /ops/run", s.handleOps)
 	mux.HandleFunc("GET /static/style.css", staticFile("ui/style.css", "text/css; charset=utf-8"))
@@ -58,20 +58,20 @@ func (s *server) render(w http.ResponseWriter, page string, data any) {
 }
 
 func (s *server) handleCollection(w http.ResponseWriter, r *http.Request) {
-	games, skipped, err := s.library.games()
+	volumes, skipped, err := s.library.volumes()
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
 	s.render(w, "collection", struct {
 		Dir     string
-		Games   []*game
+		Volumes []*volume
 		Skipped []string
-	}{Dir: s.library.dir, Games: games, Skipped: skipped})
+	}{Dir: s.library.dir, Volumes: volumes, Skipped: skipped})
 }
 
-func (s *server) handleGame(w http.ResponseWriter, r *http.Request) {
-	held, err := s.library.gameBySlug(r.PathValue("slug"))
+func (s *server) handleVolume(w http.ResponseWriter, r *http.Request) {
+	held, err := s.library.volumeBySlug(r.PathValue("slug"))
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
@@ -80,13 +80,13 @@ func (s *server) handleGame(w http.ResponseWriter, r *http.Request) {
 		http.NotFound(w, r)
 		return
 	}
-	s.render(w, "game", struct{ Game *game }{Game: held})
+	s.render(w, "volume", struct{ Volume *volume }{Volume: held})
 }
 
 // handleDiff compares two builds of one game, named by file. The packed pins
 // are read here, on demand, because only a comparison ever needs them whole.
 func (s *server) handleDiff(w http.ResponseWriter, r *http.Request) {
-	held, err := s.library.gameBySlug(r.PathValue("slug"))
+	held, err := s.library.volumeBySlug(r.PathValue("slug"))
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
@@ -97,7 +97,7 @@ func (s *server) handleDiff(w http.ResponseWriter, r *http.Request) {
 	}
 	from, to := held.Build(r.FormValue("a")), held.Build(r.FormValue("b"))
 	if from == nil || to == nil {
-		http.Error(w, "pick two builds of this game", http.StatusBadRequest)
+		http.Error(w, "pick two builds of this volume", http.StatusBadRequest)
 		return
 	}
 	pinsA, err := loadPins(from.Path, from.MapSlugs)
@@ -105,9 +105,9 @@ func (s *server) handleDiff(w http.ResponseWriter, r *http.Request) {
 		var pinsB map[string]map[int64]string
 		if pinsB, err = loadPins(to.Path, to.MapSlugs); err == nil {
 			s.render(w, "diff", struct {
-				Game *game
-				Diff *buildDiff
-			}{Game: held, Diff: diffBuilds(from, to, pinsA, pinsB)})
+				Volume *volume
+				Diff   *buildDiff
+			}{Volume: held, Diff: diffBuilds(from, to, pinsA, pinsB)})
 			return
 		}
 	}

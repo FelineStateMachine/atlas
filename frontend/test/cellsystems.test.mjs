@@ -10,16 +10,16 @@ import { clipRingX, surfaceExtent } from "../src/cellsystems/index.js";
 import { geohashSystem, geohashCellAt } from "../src/cellsystems/geohash.js";
 
 function onSquareSurface() {
-  state.game = { tileGrid: { size: 1024 } };
-  state.variant = { surface: { x: 0, y: 0, width: 1024, height: 1024 } };
+  state.volume = { tileGrid: { size: 1024 } };
+  state.lens = { surface: { x: 0, y: 0, width: 1024, height: 1024 } };
 }
 
 test("surfaceExtent prefers the surface and falls back to bounds", () => {
   onSquareSurface();
   assert.deepEqual(surfaceExtent(), [0, -1024, 1024, -0]);
-  state.variant = { bounds: { x: 128, y: 256, width: 512, height: 256 } };
+  state.lens = { bounds: { x: 128, y: 256, width: 512, height: 256 } };
   assert.deepEqual(surfaceExtent(), [128, -512, 640, -256]);
-  state.variant = null;
+  state.lens = null;
   assert.deepEqual(surfaceExtent(), [0, -1024, 1024, -0]);
 });
 

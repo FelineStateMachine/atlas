@@ -143,7 +143,7 @@ func planWarp(base, donor *tilePlan, donorGameTitle string) (pendingPlan, bool) 
 // buildWarpedPyramid renders the donor through the affine into the base
 // frame at the target zoom, then folds the shallower levels down exactly as
 // every other pyramid is folded.
-func buildWarpedPyramid(root string, plan tilePlan) (variantManifest, error) {
+func buildWarpedPyramid(root string, plan tilePlan) (lensManifest, error) {
 	warp := plan.Warp
 	donor := warp.Donor
 	donorFiles := donor.Levels[donor.MaxFullZoom]
@@ -152,13 +152,13 @@ func buildWarpedPyramid(root string, plan tilePlan) (variantManifest, error) {
 	placeholder := placeholderHash(donorFiles)
 	backgroundHex, err := placeholderColor(donorFiles, placeholder)
 	if err != nil {
-		return variantManifest{}, err
+		return lensManifest{}, err
 	}
 	background := parseHexColor(backgroundHex)
 
 	sampler, err := newDonorSampler(donor, background)
 	if err != nil {
-		return variantManifest{}, err
+		return lensManifest{}, err
 	}
 
 	// Where the donor's content lands in the base world.
@@ -171,7 +171,7 @@ func buildWarpedPyramid(root string, plan tilePlan) (variantManifest, error) {
 	builder := &coverageBuilder{total: (1 << targetZoom) * (1 << targetZoom)}
 	inverse, ok := warp.Affine.Invert()
 	if !ok {
-		return variantManifest{}, fmt.Errorf("alignment is singular")
+		return lensManifest{}, fmt.Errorf("alignment is singular")
 	}
 	// Base world pixels per rendered pixel at the target zoom.
 	levelPixels := tileSize * (1 << targetZoom)
@@ -198,7 +198,7 @@ func buildWarpedPyramid(root string, plan tilePlan) (variantManifest, error) {
 			}
 			path := tilePath(root, plan.AssetPath, targetZoom, tileX, tileY, "jpg")
 			if err := encodeImage(path, img, "jpg"); err != nil {
-				return variantManifest{}, err
+				return lensManifest{}, err
 			}
 			builder.mark(tileX, tileY)
 		}
@@ -211,7 +211,7 @@ func buildWarpedPyramid(root string, plan tilePlan) (variantManifest, error) {
 	for localZoom := targetZoom - 1; localZoom >= 0; localZoom-- {
 		mask, err := deriveLevel(root, plan.AssetPath, localZoom, formats[localZoom+1], "jpg", false, background)
 		if err != nil {
-			return variantManifest{}, err
+			return lensManifest{}, err
 		}
 		formats[localZoom] = "jpg"
 		if mask != nil {
@@ -222,7 +222,7 @@ func buildWarpedPyramid(root string, plan tilePlan) (variantManifest, error) {
 		coverage = nil
 	}
 
-	return variantManifest{
+	return lensManifest{
 		SourcePath:  plan.SourcePath,
 		AssetPath:   plan.AssetPath,
 		MinZoom:     0,

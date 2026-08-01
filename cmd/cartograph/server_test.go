@@ -18,7 +18,7 @@ func testServer(t *testing.T) (*server, string) {
 	})
 	install(t, dir, "hollowmere-feb.atlas", bundletest.Spec{
 		Slug: "hollowmere", Title: "Hollowmere", CreatedAt: "2026-02-01T00:00:00Z",
-		Maps: []bundletest.MapSpec{{
+		Worlds: []bundletest.WorldSpec{{
 			Slug:   "overworld",
 			Pins:   []bundletest.Pin{{Title: "Gate"}, {Title: "Well"}},
 			Merged: fixtureMerged(),
@@ -62,16 +62,16 @@ func TestPages(t *testing.T) {
 		}
 	}
 
-	status, body = get(t, ts, "/game/hollowmere")
+	status, body = get(t, ts, "/volume/hollowmere")
 	if status != http.StatusOK {
-		t.Fatalf("game page answered %d", status)
+		t.Fatalf("volume page answered %d", status)
 	}
 	for _, want := range []string{
 		"hollowmere-feb.atlas", "hollowmere-jan.atlas", "serving",
 		"annotation", "cartography", "structure", "Old Well", "name 200px away",
 	} {
 		if !strings.Contains(body, want) {
-			t.Errorf("game page misses %q", want)
+			t.Errorf("volume page misses %q", want)
 		}
 	}
 	// The serving mark belongs to the newer build alone.
@@ -79,7 +79,7 @@ func TestPages(t *testing.T) {
 		t.Error("builds are not newest first")
 	}
 
-	if status, _ := get(t, ts, "/game/nowhere"); status != http.StatusNotFound {
+	if status, _ := get(t, ts, "/volume/nowhere"); status != http.StatusNotFound {
 		t.Errorf("unknown game answered %d", status)
 	}
 	if status, _ := get(t, ts, "/static/style.css"); status != http.StatusOK {

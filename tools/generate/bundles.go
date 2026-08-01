@@ -38,30 +38,30 @@ func writeBundles(out catalog, tiles tileManifest, tilesDir, bundleDir string) e
 	if err := os.MkdirAll(bundleDir, 0o755); err != nil {
 		return fmt.Errorf("create bundle directory: %w", err)
 	}
-	stampByAsset := make(map[string]string, len(tiles.Variants))
-	for _, variant := range tiles.Variants {
+	stampByAsset := make(map[string]string, len(tiles.Lenses))
+	for _, variant := range tiles.Lenses {
 		stampByAsset[variant.AssetPath] = variant.Stamp
 	}
 
-	for _, game := range out.Games {
-		if err := writeGameBundle(game, out.TileGrid, stampByAsset, tilesDir, bundleDir); err != nil {
+	for _, game := range out.Volumes {
+		if err := writeVolumeBundle(game, out.TileGrid, stampByAsset, tilesDir, bundleDir); err != nil {
 			return fmt.Errorf("%s: %w", game.Title, err)
 		}
 	}
 	return writeRegistryIndex(bundleDir)
 }
 
-// gamePayload is one map's three parts, built once and used for both the
+// volumePayload is one map's three parts, built once and used for both the
 // stamp and the archive.
-type gamePayload struct {
+type volumePayload struct {
 	slug   string
 	detail []byte
 	packed []byte
 	text   []byte
 }
 
-func writeGameBundle(
-	game catalogGame,
+func writeVolumeBundle(
+	game catalogVolume,
 	grid tileGrid,
 	stampByAsset map[string]string,
 	tilesDir, bundleDir string,
@@ -70,7 +70,7 @@ func writeGameBundle(
 		Format:        bundle.Format,
 		FormatVersion: bundle.FormatVersion,
 		Conventions:   semconv.Version,
-		Game:          bundle.Game{Slug: game.Slug, Title: game.Title},
+		Volume:        bundle.Volume{Slug: game.Slug, Title: game.Title},
 		Version:       bundle.Version{Revision: policyRevision},
 		TileGrid: bundle.TileGrid{
 			SourceZoom: grid.SourceZoom,
@@ -83,31 +83,31 @@ func writeGameBundle(
 	// Pyramids are shared: several pieces of a split sheet draw from the one
 	// raster, so tile sets are collected across maps and written once.
 	pyramids := make(map[string]string)
-	var payloads []gamePayload
+	var payloads []volumePayload
 	var stamp bundle.Stamp
-	for _, m := range game.Maps {
+	for _, m := range game.Worlds {
 		detail, packed, text := buildPayload(m)
-		detail.Variants = append([]variant(nil), detail.Variants...)
-		for index := range detail.Variants {
-			local := localPyramidName(game.Slug, detail.Variants[index].Tiles)
-			pyramids[local] = detail.Variants[index].Tiles
-			detail.Variants[index].Tiles = local
+		detail.Lenses = append([]lens(nil), detail.Lenses...)
+		for index := range detail.Lenses {
+			local := localPyramidName(game.Slug, detail.Lenses[index].Tiles)
+			pyramids[local] = detail.Lenses[index].Tiles
+			detail.Lenses[index].Tiles = local
 		}
 
 		detailJSON, err := json.Marshal(detail)
 		if err != nil {
-			return fmt.Errorf("map %s: marshal payload: %w", m.Slug, err)
+			return fmt.Errorf("world %s: marshal payload: %w", m.Slug, err)
 		}
 		textJSON, err := json.Marshal(text)
 		if err != nil {
-			return fmt.Errorf("map %s: marshal text: %w", m.Slug, err)
+			return fmt.Errorf("world %s: marshal text: %w", m.Slug, err)
 		}
-		payloads = append(payloads, gamePayload{slug: m.Slug, detail: detailJSON, packed: packed, text: textJSON})
-		stamp.Add("maps/"+m.Slug+".json", bundle.HashBytes(detailJSON))
-		stamp.Add("maps/"+m.Slug+".bin", bundle.HashBytes(packed))
-		stamp.Add("maps/"+m.Slug+".text", bundle.HashBytes(textJSON))
+		payloads = append(payloads, volumePayload{slug: m.Slug, detail: detailJSON, packed: packed, text: textJSON})
+		stamp.Add("worlds/"+m.Slug+".json", bundle.HashBytes(detailJSON))
+		stamp.Add("worlds/"+m.Slug+".bin", bundle.HashBytes(packed))
+		stamp.Add("worlds/"+m.Slug+".text", bundle.HashBytes(textJSON))
 
-		manifest.Maps = append(manifest.Maps, bundle.MapEntry{
+		manifest.Worlds = append(manifest.Worlds, bundle.WorldEntry{
 			Slug:       m.Slug,
 			Title:      m.Title,
 			Parent:     m.Parent,
@@ -141,13 +141,13 @@ func writeGameBundle(
 	// across the game's maps. Building the same archive anywhere, any time,
 	// yields the same version and the same file name, which is what lets a
 	// directory of these files stand as a registry.
-	for _, m := range game.Maps {
+	for _, m := range game.Worlds {
 		if m.UpdatedAt > manifest.Version.CreatedAt {
 			manifest.Version.CreatedAt = m.UpdatedAt
 		}
 	}
 	if manifest.Version.CreatedAt == "" {
-		return fmt.Errorf("no map carries a capture time to version the bundle by")
+		return fmt.Errorf("no world carries a capture time to version the bundle by")
 	}
 
 	// This exact build already in the registry keeps its file untouched.
@@ -168,13 +168,13 @@ func writeGameBundle(
 		return err
 	}
 	for _, payload := range payloads {
-		if err := writer.AddDeflated("maps/"+payload.slug+".json", payload.detail); err != nil {
+		if err := writer.AddDeflated("worlds/"+payload.slug+".json", payload.detail); err != nil {
 			return err
 		}
-		if err := writer.AddStored("maps/"+payload.slug+".bin", bytes.NewReader(payload.packed)); err != nil {
+		if err := writer.AddStored("worlds/"+payload.slug+".bin", bytes.NewReader(payload.packed)); err != nil {
 			return err
 		}
-		if err := writer.AddDeflated("maps/"+payload.slug+".text", payload.text); err != nil {
+		if err := writer.AddDeflated("worlds/"+payload.slug+".text", payload.text); err != nil {
 			return err
 		}
 	}
@@ -217,11 +217,11 @@ func writeGameBundle(
 	if err := written.Validate(); err != nil {
 		return fmt.Errorf("validate %s: %w", filepath.Base(target), err)
 	}
-	fmt.Printf("bundled %s (%d maps)\n", filepath.Base(target), len(game.Maps))
+	fmt.Printf("bundled %s (%d worlds)\n", filepath.Base(target), len(game.Worlds))
 	return nil
 }
 
-// registryVersion is one build of one game as the registry index lists it.
+// registryVersion is one build of one volume as the registry index lists it.
 type registryVersion struct {
 	File      string `json:"file"`
 	Stamp     string `json:"stamp"`
@@ -261,15 +261,15 @@ func writeRegistryIndex(bundleDir string) error {
 		if info, err := os.Stat(path); err == nil {
 			size = info.Size()
 		}
-		entry := entries[manifest.Game.Slug]
+		entry := entries[manifest.Volume.Slug]
 		if entry == nil {
-			entry = &registryEntry{Slug: manifest.Game.Slug}
-			entries[manifest.Game.Slug] = entry
+			entry = &registryEntry{Slug: manifest.Volume.Slug}
+			entries[manifest.Volume.Slug] = entry
 		}
 		// The newest version's title speaks for the game.
-		if manifest.Version.CreatedAt >= newest[manifest.Game.Slug] {
-			newest[manifest.Game.Slug] = manifest.Version.CreatedAt
-			entry.Title = manifest.Game.Title
+		if manifest.Version.CreatedAt >= newest[manifest.Volume.Slug] {
+			newest[manifest.Volume.Slug] = manifest.Version.CreatedAt
+			entry.Title = manifest.Volume.Title
 		}
 		entry.Versions = append(entry.Versions, registryVersion{
 			File:      filepath.Base(path),
@@ -277,7 +277,7 @@ func writeRegistryIndex(bundleDir string) error {
 			CreatedAt: manifest.Version.CreatedAt,
 			Revision:  manifest.Version.Revision,
 			Size:      size,
-			Maps:      len(manifest.Maps),
+			Maps:      len(manifest.Worlds),
 		})
 	}
 

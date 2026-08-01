@@ -11,7 +11,7 @@ import (
 // bundle's bytes: a producer feeds it a hash per part -- payloads it just
 // built, pyramid stamps its tile pipeline already computed -- and the sum is
 // stable however the parts arrived. Equal stamps mean a rebuild would write
-// the same bundle, which is what lets an unchanged game be skipped.
+// the same bundle, which is what lets an unchanged volume be skipped.
 type Stamp struct {
 	parts []string
 }
@@ -36,7 +36,7 @@ func HashBytes(data []byte) string {
 	return hex.EncodeToString(digest[:])
 }
 
-// MoreRecent reports whether a should shadow b when both claim the same game.
+// MoreRecent reports whether a should shadow b when both claim the same volume.
 // Creation time decides; among builds of the same capture the newer policy
 // revision decides; the stamp and then the path break the remaining ties, so
 // the choice is total and two scans of the same directory always agree.
@@ -54,7 +54,7 @@ func MoreRecent(a, b *Bundle) bool {
 }
 
 // ShortStamp is the stamp as URLs and logs carry it: long enough that two
-// builds of a game will not collide, short enough to read past.
+// builds of a volume will not collide, short enough to read past.
 func ShortStamp(stamp string) string {
 	if len(stamp) <= 12 {
 		return stamp
@@ -63,8 +63,8 @@ func ShortStamp(stamp string) string {
 }
 
 // VersionedFileName is the name a bundle carries in a registry directory:
-// the game, the day its data was captured, and enough of the stamp to tell
-// two builds of the same capture apart. Versions of a game sit side by side
+// the volume, the day its data was captured, and enough of the stamp to tell
+// two builds of the same capture apart. Versions of a volume sit side by side
 // under these names, and the newest-wins fold is what serves the right one --
 // the name is for people and for cheap existence checks, never for ordering.
 func VersionedFileName(m Manifest) string {
@@ -77,7 +77,7 @@ func VersionedFileName(m Manifest) string {
 			}
 		}
 	}
-	name := m.Game.Slug
+	name := m.Volume.Slug
 	if day.Len() > 0 {
 		name += "-" + day.String()
 	}

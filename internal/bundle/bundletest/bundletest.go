@@ -14,7 +14,7 @@ import (
 	"github.com/FelineStateMachine/atlas/internal/bundle"
 )
 
-// Spec describes one fixture game. Zero values are filled with something
+// Spec describes one fixture volume. Zero values are filled with something
 // plausible, so a test that only cares about, say, the slug states the slug
 // and nothing else.
 type Spec struct {
@@ -23,14 +23,14 @@ type Spec struct {
 	CreatedAt string
 	Stamp     string
 	Revision  int
-	Maps      []MapSpec
+	Worlds    []WorldSpec
 }
 
-// MapSpec describes one map of a fixture game: a single layer two zoom
+// WorldSpec describes one world of a fixture volume: a single layer two zoom
 // levels deep, one category, and the given pins. Merged, when set, rides
-// into the payload's merged block verbatim, so a test can hand a map the
+// into the payload's merged block verbatim, so a test can hand a world the
 // provenance ledger a real composition would have written.
-type MapSpec struct {
+type WorldSpec struct {
 	Slug   string
 	Title  string
 	Pins   []Pin
@@ -60,22 +60,22 @@ func Build(t testing.TB, dir string, spec Spec) string {
 	if spec.Stamp == "" {
 		spec.Stamp = bundle.HashBytes([]byte(spec.Slug + spec.CreatedAt))
 	}
-	if len(spec.Maps) == 0 {
-		spec.Maps = []MapSpec{{Slug: "overworld", Pins: []Pin{{Title: "Origin"}}}}
+	if len(spec.Worlds) == 0 {
+		spec.Worlds = []WorldSpec{{Slug: "overworld", Pins: []Pin{{Title: "Origin"}}}}
 	}
 
 	manifest := bundle.Manifest{
 		Format:        bundle.Format,
 		FormatVersion: bundle.FormatVersion,
-		Game:          bundle.Game{Slug: spec.Slug, Title: spec.Title},
+		Volume:        bundle.Volume{Slug: spec.Slug, Title: spec.Title},
 		Version:       bundle.Version{Stamp: spec.Stamp, CreatedAt: spec.CreatedAt, Revision: spec.Revision},
 		TileGrid:      bundle.TileGrid{SourceZoom: 13, FirstTile: 4064, TileSize: 256, Size: 8192},
 	}
-	for _, m := range spec.Maps {
+	for _, m := range spec.Worlds {
 		if m.Title == "" {
 			m.Title = m.Slug
 		}
-		manifest.Maps = append(manifest.Maps, bundle.MapEntry{
+		manifest.Worlds = append(manifest.Worlds, bundle.WorldEntry{
 			Slug:      m.Slug,
 			Title:     m.Title,
 			PinCount:  len(m.Pins),
@@ -94,9 +94,9 @@ func Build(t testing.TB, dir string, spec Spec) string {
 		t.Fatal(err)
 	}
 
-	for _, m := range spec.Maps {
+	for _, m := range spec.Worlds {
 		detail := map[string]any{
-			"variants": []map[string]any{{
+			"lenses": []map[string]any{{
 				"name":       "Default",
 				"tiles":      m.Slug,
 				"minZoom":    0,
@@ -121,7 +121,7 @@ func Build(t testing.TB, dir string, spec Spec) string {
 		if err != nil {
 			t.Fatal(err)
 		}
-		add(t, writer.AddDeflated("maps/"+m.Slug+".json", payload))
+		add(t, writer.AddDeflated("worlds/"+m.Slug+".json", payload))
 
 		locations := make([]bundle.Location, len(m.Pins))
 		text := make(map[string]any)
@@ -142,12 +142,12 @@ func Build(t testing.TB, dir string, spec Spec) string {
 			text[strconv.Itoa(index+1)] = map[string]string{"d": description}
 		}
 		packed := bundle.PackLocations(locations)
-		add(t, writer.AddStored("maps/"+m.Slug+".bin", bytes.NewReader(packed)))
+		add(t, writer.AddStored("worlds/"+m.Slug+".bin", bytes.NewReader(packed)))
 		notes, err := json.Marshal(text)
 		if err != nil {
 			t.Fatal(err)
 		}
-		add(t, writer.AddDeflated("maps/"+m.Slug+".text", notes))
+		add(t, writer.AddDeflated("worlds/"+m.Slug+".text", notes))
 
 		for _, tile := range []string{"0/0/0.jpg", "1/0/0.jpg"} {
 			raster := []byte("jpeg bytes of " + m.Slug + "/" + tile)

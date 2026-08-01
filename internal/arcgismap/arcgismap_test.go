@@ -166,7 +166,7 @@ func TestTranslateShapesTheDocument(t *testing.T) {
 		}
 	}
 
-	if err := semconv.Validate(semconv.EntityMap, out.Attrs); err != nil {
+	if err := semconv.Validate(semconv.EntityWorld, out.Attrs); err != nil {
 		t.Fatalf("map attrs: %v", err)
 	}
 	if out.Attrs[semconv.KeyGeometrySurface] != semconv.SurfacePlane {

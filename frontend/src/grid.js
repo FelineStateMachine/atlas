@@ -104,7 +104,7 @@ export function selectGridCell(raw) {
   state.engine.getView().fit(currentGridExtent(), {
     size: state.engine.getSize(),
     padding: [52, 52, 52, 52],
-    maxZoom: viewMaxZoom(state.variant),
+    maxZoom: viewMaxZoom(state.lens),
     duration: 180,
   });
 }
@@ -124,9 +124,9 @@ export function renderGrid() {
   state.sources.gridContext.clear();
   elements.gridNavigator.hidden = !state.gridEnabled;
   updateGridHint();
-  if (state.gridEnabled && state.variant) {
+  if (state.gridEnabled && state.lens) {
     const system = activeSystem();
-    elements.gridInput.maxLength = system.inputLength(state.map);
+    elements.gridInput.maxLength = system.inputLength(state.world);
     elements.gridInput.value = state.gridCell;
     elements.gridBack.title = state.gridCell
       ? `Back one ${system.slug} level`
@@ -214,7 +214,7 @@ export function gridCellPlan() {
       cells.push(planCell(system, id, "neighbor", chain.length - 1 - depth));
     }
   }
-  if (state.gridCell && system.level(state.gridCell) >= system.maxLevel(state.map)) {
+  if (state.gridCell && system.level(state.gridCell) >= system.maxLevel(state.world)) {
     cells.push(planCell(system, state.gridCell, "leaf", 0));
     return cells;
   }
@@ -316,7 +316,7 @@ export function currentGridExtent() {
 }
 
 export function gridMaxLevel() {
-  return activeSystem().maxLevel(state.map);
+  return activeSystem().maxLevel(state.world);
 }
 
 export function pinInGridCell(pin) {

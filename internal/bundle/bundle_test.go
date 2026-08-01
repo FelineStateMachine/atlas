@@ -16,9 +16,9 @@ func validManifest() bundle.Manifest {
 	return bundle.Manifest{
 		Format:        bundle.Format,
 		FormatVersion: bundle.FormatVersion,
-		Game:          bundle.Game{Slug: "fixture", Title: "Fixture"},
+		Volume:        bundle.Volume{Slug: "fixture", Title: "Fixture"},
 		Version:       bundle.Version{Stamp: "abc", CreatedAt: "2026-01-01T00:00:00Z"},
-		Maps:          []bundle.MapEntry{{Slug: "overworld", Title: "Overworld"}},
+		Worlds:        []bundle.WorldEntry{{Slug: "overworld", Title: "Overworld"}},
 	}
 }
 
@@ -29,15 +29,15 @@ func TestManifestValidation(t *testing.T) {
 	cases := map[string]func(*bundle.Manifest){
 		"wrong format":        func(m *bundle.Manifest) { m.Format = "zip-of-things" },
 		"unknown version":     func(m *bundle.Manifest) { m.FormatVersion = 99 },
-		"empty game slug":     func(m *bundle.Manifest) { m.Game.Slug = "" },
-		"unsafe game slug":    func(m *bundle.Manifest) { m.Game.Slug = "../escape" },
-		"uppercase game slug": func(m *bundle.Manifest) { m.Game.Slug = "Fallout76" },
-		"untitled game":       func(m *bundle.Manifest) { m.Game.Title = "" },
+		"empty game slug":     func(m *bundle.Manifest) { m.Volume.Slug = "" },
+		"unsafe game slug":    func(m *bundle.Manifest) { m.Volume.Slug = "../escape" },
+		"uppercase game slug": func(m *bundle.Manifest) { m.Volume.Slug = "Fallout76" },
+		"untitled game":       func(m *bundle.Manifest) { m.Volume.Title = "" },
 		"missing stamp":       func(m *bundle.Manifest) { m.Version.Stamp = "" },
 		"missing created at":  func(m *bundle.Manifest) { m.Version.CreatedAt = "" },
-		"no maps":             func(m *bundle.Manifest) { m.Maps = nil },
-		"unsafe map slug":     func(m *bundle.Manifest) { m.Maps[0].Slug = "a/b" },
-		"duplicate map slugs": func(m *bundle.Manifest) { m.Maps = append(m.Maps, m.Maps[0]) },
+		"no maps":             func(m *bundle.Manifest) { m.Worlds = nil },
+		"unsafe map slug":     func(m *bundle.Manifest) { m.Worlds[0].Slug = "a/b" },
+		"duplicate map slugs": func(m *bundle.Manifest) { m.Worlds = append(m.Worlds, m.Worlds[0]) },
 	}
 	for name, corrupt := range cases {
 		manifest := validManifest()
@@ -53,15 +53,15 @@ func TestWriterRefusesUnsafeAndRepeatedEntries(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	for _, name := range []string{"", "/etc/hosts", "maps/../escape", "tiles/", bundle.ManifestName} {
+	for _, name := range []string{"", "/etc/hosts", "worlds/../escape", "tiles/", bundle.ManifestName} {
 		if err := writer.AddDeflated(name, []byte("x")); err == nil {
 			t.Errorf("entry %q is accepted", name)
 		}
 	}
-	if err := writer.AddDeflated("maps/overworld.json", []byte("{}")); err != nil {
+	if err := writer.AddDeflated("worlds/overworld.json", []byte("{}")); err != nil {
 		t.Fatal(err)
 	}
-	if err := writer.AddDeflated("maps/overworld.json", []byte("{}")); err == nil {
+	if err := writer.AddDeflated("worlds/overworld.json", []byte("{}")); err == nil {
 		t.Error("the same entry is accepted twice")
 	}
 }
@@ -69,7 +69,7 @@ func TestWriterRefusesUnsafeAndRepeatedEntries(t *testing.T) {
 func TestOpenRoundTripsWhatBuildWrites(t *testing.T) {
 	path := bundletest.Build(t, t.TempDir(), bundletest.Spec{
 		Slug: "fixture",
-		Maps: []bundletest.MapSpec{{
+		Worlds: []bundletest.WorldSpec{{
 			Slug: "overworld",
 			Pins: []bundletest.Pin{{Title: "Origin", Lat: 12.5, Lng: -3.25}, {Title: "Peak", Lat: 80, Lng: 170}},
 		}},
@@ -80,17 +80,17 @@ func TestOpenRoundTripsWhatBuildWrites(t *testing.T) {
 	}
 	defer opened.Close()
 
-	if opened.Manifest.Game.Slug != "fixture" {
-		t.Errorf("game slug = %q", opened.Manifest.Game.Slug)
+	if opened.Manifest.Volume.Slug != "fixture" {
+		t.Errorf("game slug = %q", opened.Manifest.Volume.Slug)
 	}
-	if got := opened.Manifest.Maps[0].PinCount; got != 2 {
+	if got := opened.Manifest.Worlds[0].PinCount; got != 2 {
 		t.Errorf("pin count = %d, want 2", got)
 	}
 	if err := opened.Validate(); err != nil {
 		t.Errorf("a fixture bundle fails validation: %v", err)
 	}
 
-	packed, err := opened.ReadEntry("maps/overworld.bin")
+	packed, err := opened.ReadEntry("worlds/overworld.bin")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -141,7 +141,7 @@ func TestValidateCatchesBrokenPromises(t *testing.T) {
 
 	// The manifest promises two maps; only one is written.
 	manifest := validManifest()
-	manifest.Maps = append(manifest.Maps, bundle.MapEntry{Slug: "underworld", Title: "Underworld"})
+	manifest.Worlds = append(manifest.Worlds, bundle.WorldEntry{Slug: "underworld", Title: "Underworld"})
 	path := filepath.Join(dir, "fixture.atlas")
 	file, err := os.Create(path)
 	if err != nil {
@@ -157,10 +157,10 @@ func TestValidateCatchesBrokenPromises(t *testing.T) {
 			t.Fatal(err)
 		}
 	}
-	must(writer.AddDeflated("maps/overworld.json",
-		[]byte(`{"variants":[{"tiles":"overworld","minZoom":0,"maxZoom":0,"formats":["jpg"]}],"groups":[]}`)))
-	must(writer.AddStored("maps/overworld.bin", bytes.NewReader(bundle.PackLocations(nil))))
-	must(writer.AddDeflated("maps/overworld.text", []byte(`{}`)))
+	must(writer.AddDeflated("worlds/overworld.json",
+		[]byte(`{"lenses":[{"tiles":"overworld","minZoom":0,"maxZoom":0,"formats":["jpg"]}],"groups":[]}`)))
+	must(writer.AddStored("worlds/overworld.bin", bytes.NewReader(bundle.PackLocations(nil))))
+	must(writer.AddDeflated("worlds/overworld.text", []byte(`{}`)))
 	must(writer.AddStored("tiles/overworld/0/0/0.jpg", bytes.NewReader([]byte("raster"))))
 	must(writer.Close())
 	file.Close()
@@ -179,7 +179,7 @@ func TestValidateRefusesRuntimeURLsAndWrongCounts(t *testing.T) {
 	build := func(text string, pins int) *bundle.Bundle {
 		t.Helper()
 		manifest := validManifest()
-		manifest.Maps[0].PinCount = pins
+		manifest.Worlds[0].PinCount = pins
 		path := filepath.Join(t.TempDir(), "fixture.atlas")
 		file, err := os.Create(path)
 		if err != nil {
@@ -190,11 +190,11 @@ func TestValidateRefusesRuntimeURLsAndWrongCounts(t *testing.T) {
 			t.Fatal(err)
 		}
 		steps := []error{
-			writer.AddDeflated("maps/overworld.json",
-				[]byte(`{"variants":[{"tiles":"overworld","minZoom":0,"maxZoom":0,"formats":["jpg"]}],"groups":[]}`)),
-			writer.AddStored("maps/overworld.bin",
+			writer.AddDeflated("worlds/overworld.json",
+				[]byte(`{"lenses":[{"tiles":"overworld","minZoom":0,"maxZoom":0,"formats":["jpg"]}],"groups":[]}`)),
+			writer.AddStored("worlds/overworld.bin",
 				bytes.NewReader(bundle.PackLocations([]bundle.Location{{ID: 1, Title: "Origin"}}))),
-			writer.AddDeflated("maps/overworld.text", []byte(text)),
+			writer.AddDeflated("worlds/overworld.text", []byte(text)),
 			writer.AddStored("tiles/overworld/0/0/0.jpg", bytes.NewReader([]byte("raster"))),
 			writer.Close(),
 			file.Close(),

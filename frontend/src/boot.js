@@ -2,7 +2,7 @@ import { elements, populateSelect } from "./dom.js";
 import { state } from "./state.js";
 import { bindUIEvents } from "./events.js";
 import { readRoute, readSession } from "./session.js";
-import { selectGame } from "./navigation.js";
+import { selectVolume } from "./navigation.js";
 import { refreshCatalog, syncEmptyState } from "./library.js";
 import { exposeDiagnostics } from "./diagnostics.js";
 
@@ -12,7 +12,7 @@ export async function start() {
     const response = await fetch("/data/catalog.json");
     if (!response.ok) throw new Error(`catalog request returned ${response.status}`);
     state.catalog = await response.json();
-    populateSelect(elements.game, state.catalog.games, "title");
+    populateSelect(elements.volume, state.catalog.volumes, "title");
     syncEmptyState();
     // The library can change while the application is open -- a bundle
     // dropped in, replaced, or removed -- and the backend says so here.
@@ -21,17 +21,17 @@ export async function start() {
     window.runtime?.EventsOn?.("atlas:catalog-changed", () => {
       void refreshCatalog();
     });
-    if (state.catalog.games.length) {
+    if (state.catalog.volumes.length) {
       const route = readRoute();
       const session = readSession();
       // An address naming somewhere else was typed on purpose, so it wins and
       // arrives clean; anything else resumes where the reader left off.
       const resuming = session &&
-        (!route.game || (route.game === session.game && route.map === session.map));
+        (!route.volume || (route.volume === session.volume && route.world === session.world));
       state.restore = resuming ? session : null;
-      await selectGame(
-        route.game || session?.game || state.catalog.games[0].slug,
-        route.map || session?.map,
+      await selectVolume(
+        route.volume || session?.volume || state.catalog.volumes[0].slug,
+        route.world || session?.world,
       );
       state.restore = null;
     } else {

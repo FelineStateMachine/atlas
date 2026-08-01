@@ -126,7 +126,7 @@ type geometry struct {
 // held only long enough to be written out one bundle per game.
 type catalog struct {
 	TileGrid tileGrid
-	Games    []catalogGame
+	Volumes  []catalogVolume
 }
 
 type tileGrid struct {
@@ -136,27 +136,27 @@ type tileGrid struct {
 	Size       int `json:"size"`
 }
 
-// mapGrid is where one map's world space sits in the source tile grid. Most
+// worldGrid is where one map's world space sits in the source tile grid. Most
 // maps sit in the shared window and say nothing; a map cut from a window of its
 // own carries the two numbers that differ, and the catalog's grid answers for
 // the rest.
-type mapGrid struct {
+type worldGrid struct {
 	SourceZoom int `json:"sourceZoom"`
 	FirstTile  int `json:"firstTile"`
 }
 
-type catalogGame struct {
-	ID    int64        `json:"id"`
-	Title string       `json:"title"`
-	Slug  string       `json:"slug"`
-	Maps  []catalogMap `json:"maps"`
+type catalogVolume struct {
+	ID     int64          `json:"id"`
+	Title  string         `json:"title"`
+	Slug   string         `json:"slug"`
+	Worlds []catalogWorld `json:"worlds"`
 	// Icons carries the game's category icons by bundle-relative name, read
 	// once from the archive so every writer -- the embedded tree today, the
 	// game's bundle -- draws on the same bytes.
 	Icons map[string][]byte `json:"-"`
 }
 
-type catalogMap struct {
+type catalogWorld struct {
 	ID         int64      `json:"id"`
 	Title      string     `json:"title"`
 	Slug       string     `json:"slug"`
@@ -168,10 +168,10 @@ type catalogMap struct {
 	Attrs map[string]string `json:"attrs,omitempty"`
 	// Grid is carried only by a map whose window is not the shared one, so the
 	// catalog reads the same as it did for every map that is.
-	Grid     *mapGrid       `json:"grid,omitempty"`
-	Variants []variant      `json:"variants"`
-	Groups   []catalogGroup `json:"groups"`
-	Zones    []zone         `json:"zones,omitempty"`
+	Grid   *worldGrid     `json:"grid,omitempty"`
+	Lenses []lens         `json:"lenses"`
+	Groups []catalogGroup `json:"groups"`
+	Zones  []zone         `json:"zones,omitempty"`
 	// Parent names the map this one was split out of, so an inset sorts with
 	// the sheet it came from rather than alphabetically among unrelated maps.
 	Parent    string `json:"parent,omitempty"`
@@ -188,7 +188,7 @@ type coordinate struct {
 	Longitude float64 `json:"lng"`
 }
 
-type variant struct {
+type lens struct {
 	Name       string         `json:"name"`
 	Tiles      string         `json:"tiles"`
 	MinZoom    int            `json:"minZoom"`
@@ -224,12 +224,12 @@ type contentBounds struct {
 }
 
 type tileManifest struct {
-	TileSize int                   `json:"tileSize"`
-	Size     int                   `json:"size"`
-	Variants []tileVariantManifest `json:"variants"`
+	TileSize int                `json:"tileSize"`
+	Size     int                `json:"size"`
+	Lenses   []tileLensManifest `json:"lenses"`
 }
 
-type tileVariantManifest struct {
+type tileLensManifest struct {
 	SourcePath  string                    `json:"sourcePath"`
 	AssetPath   string                    `json:"assetPath"`
 	Stamp       string                    `json:"stamp"`
@@ -237,7 +237,7 @@ type tileVariantManifest struct {
 	MaxZoom     int                       `json:"maxZoom"`
 	FullZoom    int                       `json:"fullZoom"`
 	SourceZoom  int                       `json:"sourceZoom"`
-	Grid        mapGrid                   `json:"grid"`
+	Grid        worldGrid                 `json:"grid"`
 	Formats     []string                  `json:"formats"`
 	Bounds      *contentBounds            `json:"bounds"`
 	Interpolate bool                      `json:"interpolate"`
@@ -310,27 +310,27 @@ type zone struct {
 	Features       []geometry  `json:"features"`
 }
 
-var errMapNotReady = errors.New("map is not ready for embedding")
+var errWorldNotReady = errors.New("world is not ready for embedding")
 
-// preferredMapOrder keeps a game's primary map ahead of secondary areas.
+// preferredWorldOrder keeps a game's primary map ahead of secondary areas.
 // Unlisted maps follow in title order, so adding one entry is enough to curate
 // a game without restating its complete archive.
-var preferredMapOrder = map[string][]string{
+var preferredWorldOrder = map[string][]string{
 	"fallout-new-vegas": {"mojave-wasteland"},
 }
 
-// newestFirstMaps marks the games whose maps are dated captures of one
+// newestFirstWorlds marks the games whose maps are dated captures of one
 // ground: a version history. The picker's first entry is the map the viewer
 // opens, and a version history should open on the present, so these games
 // sort their date-titled maps newest first.
-var newestFirstMaps = map[string]bool{
+var newestFirstWorlds = map[string]bool{
 	"bend-or": true,
 }
 
 // The raster beneath an icon decides which outline is legible, so this is
 // declared rather than derived. A game whose maps are all drawn the same way
 // says so once; a single map that differs from its game overrides it.
-var iconOutsetByGame = map[string]string{
+var iconOutsetByVolume = map[string]string{
 	"clair-obscur-expedition-33": "dark",
 	"cyberpunk-2077":             "dark", // Night City's neon-on-black art, either source
 	"fallout-new-vegas":          "dark", // pale Pip-Boy rasters throughout
@@ -339,16 +339,16 @@ var iconOutsetByGame = map[string]string{
 	"sonic-frontiers":            "dark",
 }
 
-var iconOutsetByMap = map[int64]string{
+var iconOutsetByWorld = map[int64]string{
 	3:  "dark", // Skyrim
 	18: "dark", // Solstheim
 }
 
 func iconOutsetFor(raw rawMap) string {
-	if outset, ok := iconOutsetByMap[raw.ID]; ok {
+	if outset, ok := iconOutsetByWorld[raw.ID]; ok {
 		return outset
 	}
-	return iconOutsetByGame[raw.Game.Slug]
+	return iconOutsetByVolume[raw.Game.Slug]
 }
 
 func main() {
@@ -389,9 +389,9 @@ func run(source, tileManifestPath, bundleDir string) error {
 	if err := readJSON(tileManifestPath, &tiles); err != nil {
 		return err
 	}
-	tilesByPath := make(map[string]tileVariantManifest, len(tiles.Variants))
-	alignedWith := make(map[string][]tileVariantManifest)
-	for _, variant := range tiles.Variants {
+	tilesByPath := make(map[string]tileLensManifest, len(tiles.Lenses))
+	alignedWith := make(map[string][]tileLensManifest)
+	for _, variant := range tiles.Lenses {
 		if variant.AlignedWith != "" {
 			alignedWith[variant.AlignedWith] = append(alignedWith[variant.AlignedWith], variant)
 			continue
@@ -408,55 +408,55 @@ func run(source, tileManifestPath, bundleDir string) error {
 		},
 	}
 	for _, gameRef := range index.Games {
-		game, err := buildGame(archiveRoot, tilesByPath, alignedWith, gameRef, out.TileGrid)
+		game, err := buildVolume(archiveRoot, tilesByPath, alignedWith, gameRef, out.TileGrid)
 		if err != nil {
 			return fmt.Errorf("%s: %w", gameRef.Title, err)
 		}
-		if len(game.Maps) > 0 {
-			out.Games = append(out.Games, game)
+		if len(game.Worlds) > 0 {
+			out.Volumes = append(out.Volumes, game)
 		}
 	}
 
-	merged, err := mergeAcrossSources(out.Games, out.TileGrid)
+	merged, err := mergeAcrossSources(out.Volumes, out.TileGrid)
 	if err != nil {
 		return err
 	}
-	out.Games = merged
+	out.Volumes = merged
 
-	for index := range out.Games {
-		if err := resolveStandardIcons(&out.Games[index]); err != nil {
-			return fmt.Errorf("%s: %w", out.Games[index].Slug, err)
+	for index := range out.Volumes {
+		if err := resolveStandardIcons(&out.Volumes[index]); err != nil {
+			return fmt.Errorf("%s: %w", out.Volumes[index].Slug, err)
 		}
 	}
 
-	sort.Slice(out.Games, func(i, j int) bool { return out.Games[i].Title < out.Games[j].Title })
+	sort.Slice(out.Volumes, func(i, j int) bool { return out.Volumes[i].Title < out.Volumes[j].Title })
 	return writeBundles(out, tiles, filepath.Dir(tileManifestPath), bundleDir)
 }
 
-func buildGame(
+func buildVolume(
 	archiveRoot string,
-	tilesByPath map[string]tileVariantManifest,
-	alignedWith map[string][]tileVariantManifest,
+	tilesByPath map[string]tileLensManifest,
+	alignedWith map[string][]tileLensManifest,
 	ref archiveGame,
 	grid tileGrid,
-) (catalogGame, error) {
+) (catalogVolume, error) {
 	gamePath := filepath.Join(archiveRoot, ref.Directory)
 	mapDirs, err := filepath.Glob(filepath.Join(gamePath, "maps", "*"))
 	if err != nil {
-		return catalogGame{}, err
+		return catalogVolume{}, err
 	}
-	game := catalogGame{ID: ref.ID, Title: ref.Title}
+	game := catalogVolume{ID: ref.ID, Title: ref.Title}
 	for _, mapDir := range mapDirs {
 		info, err := os.Stat(mapDir)
 		if err != nil || !info.IsDir() {
 			continue
 		}
-		pieces, gameSlug, err := buildMap(mapDir, tilesByPath, alignedWith, grid)
+		pieces, gameSlug, err := buildWorld(mapDir, tilesByPath, alignedWith, grid)
 		if err != nil {
-			if errors.Is(err, errMapNotReady) {
+			if errors.Is(err, errWorldNotReady) {
 				continue
 			}
-			return catalogGame{}, err
+			return catalogVolume{}, err
 		}
 		if game.Slug == "" {
 			game.Slug = gameSlug
@@ -475,14 +475,14 @@ func buildGame(
 				DonorPins: pieces[index].PinCount,
 			}}
 		}
-		game.Maps = append(game.Maps, pieces...)
+		game.Worlds = append(game.Worlds, pieces...)
 	}
-	sortGameMaps(game.Slug, game.Maps)
-	if err := attachGameIcons(gamePath, &game); err != nil {
-		return catalogGame{}, err
+	sortVolumeWorlds(game.Slug, game.Worlds)
+	if err := attachVolumeIcons(gamePath, &game); err != nil {
+		return catalogVolume{}, err
 	}
 	if err := speakConventions(&game); err != nil {
-		return catalogGame{}, fmt.Errorf("%s: %w", game.Slug, err)
+		return catalogVolume{}, fmt.Errorf("%s: %w", game.Slug, err)
 	}
 	return game, nil
 }
@@ -495,14 +495,14 @@ func buildGame(
 // to, the outset its curation chose. Then the whole game is held to the
 // registry, so an unregistered key or a foreign value fails here, one
 // build old, rather than riding into a bundle.
-func speakConventions(game *catalogGame) error {
-	for mapIndex := range game.Maps {
-		m := &game.Maps[mapIndex]
+func speakConventions(game *catalogVolume) error {
+	for mapIndex := range game.Worlds {
+		m := &game.Worlds[mapIndex]
 		if m.IconOutset != "" {
 			m.Attrs = withAttr(m.Attrs, semconv.KeyIconOutset, m.IconOutset)
 		}
-		if err := semconv.Validate(semconv.EntityMap, m.Attrs); err != nil {
-			return fmt.Errorf("map %s: %w", m.Slug, err)
+		if err := semconv.Validate(semconv.EntityWorld, m.Attrs); err != nil {
+			return fmt.Errorf("world %s: %w", m.Slug, err)
 		}
 		for groupIndex := range m.Groups {
 			categories := m.Groups[groupIndex].Categories
@@ -529,11 +529,11 @@ func speakConventions(game *catalogGame) error {
 					category.Attrs = withAttr(category.Attrs, semconv.KeyIconKind, kind)
 				}
 				if err := semconv.Validate(semconv.EntityCategory, category.Attrs); err != nil {
-					return fmt.Errorf("map %s category %q: %w", m.Slug, category.Title, err)
+					return fmt.Errorf("world %s category %q: %w", m.Slug, category.Title, err)
 				}
 				for _, location := range category.Locations {
 					if err := semconv.Validate(semconv.EntityLocation, location.Attrs); err != nil {
-						return fmt.Errorf("map %s pin %q: %w", m.Slug, location.Title, err)
+						return fmt.Errorf("world %s pin %q: %w", m.Slug, location.Title, err)
 					}
 				}
 			}
@@ -559,9 +559,9 @@ func withAttr(attrs map[string]string, key, value string) map[string]string {
 // resolve too, and only where a source's own icon has not already won the
 // slot. A declaration the library cannot answer fails the build: the
 // promise was made in a translator, and it is kept here or heard about.
-func resolveStandardIcons(game *catalogGame) error {
-	for mapIndex := range game.Maps {
-		m := &game.Maps[mapIndex]
+func resolveStandardIcons(game *catalogVolume) error {
+	for mapIndex := range game.Worlds {
+		m := &game.Worlds[mapIndex]
 		for groupIndex := range m.Groups {
 			categories := m.Groups[groupIndex].Categories
 			for categoryIndex := range categories {
@@ -572,7 +572,7 @@ func resolveStandardIcons(game *catalogGame) error {
 				}
 				data, asset, err := icons.Standard(ref)
 				if err != nil {
-					return fmt.Errorf("map %s category %q: %w", m.Slug, category.Title, err)
+					return fmt.Errorf("world %s category %q: %w", m.Slug, category.Title, err)
 				}
 				if game.Icons == nil {
 					game.Icons = make(map[string][]byte)
@@ -587,15 +587,15 @@ func resolveStandardIcons(game *catalogGame) error {
 	return nil
 }
 
-func sortGameMaps(gameSlug string, maps []catalogMap) {
+func sortVolumeWorlds(gameSlug string, maps []catalogWorld) {
 	order := make(map[string]int)
-	for index, slug := range preferredMapOrder[gameSlug] {
+	for index, slug := range preferredWorldOrder[gameSlug] {
 		order[slug] = index
 	}
 	// A version-history game reads its date titles backward: the newest
 	// capture opens first, and the past waits one click below it.
 	after := func(a, b string) bool { return a < b }
-	if newestFirstMaps[gameSlug] {
+	if newestFirstWorlds[gameSlug] {
 		after = func(a, b string) bool { return a > b }
 	}
 	titles := make(map[string]string, len(maps))
@@ -604,7 +604,7 @@ func sortGameMaps(gameSlug string, maps []catalogMap) {
 	}
 	// Maps sort as families: an inset carries its parent's position and follows
 	// it, so a split sheet stays together in the picker.
-	family := func(m catalogMap) (string, string) {
+	family := func(m catalogWorld) (string, string) {
 		if m.Parent == "" {
 			return m.Slug, m.Title
 		}
@@ -631,24 +631,24 @@ func sortGameMaps(gameSlug string, maps []catalogMap) {
 	})
 }
 
-// buildMap returns one entry per map, or several when a sheet holding separate
+// buildWorld returns one entry per map, or several when a sheet holding separate
 // places is declared for splitting.
-func buildMap(
+func buildWorld(
 	mapDir string,
-	tilesByPath map[string]tileVariantManifest,
-	alignedWith map[string][]tileVariantManifest,
+	tilesByPath map[string]tileLensManifest,
+	alignedWith map[string][]tileLensManifest,
 	grid tileGrid,
-) ([]catalogMap, string, error) {
+) ([]catalogWorld, string, error) {
 	var snapshots []snapshotIndex
 	indexPath := filepath.Join(mapDir, "snapshots", "index.json")
 	if err := readJSON(indexPath, &snapshots); err != nil {
 		if errors.Is(err, os.ErrNotExist) {
-			return nil, "", fmt.Errorf("%w: snapshot index is missing", errMapNotReady)
+			return nil, "", fmt.Errorf("%w: snapshot index is missing", errWorldNotReady)
 		}
 		return nil, "", err
 	}
 	if len(snapshots) == 0 {
-		return nil, "", fmt.Errorf("%w: snapshot index is empty", errMapNotReady)
+		return nil, "", fmt.Errorf("%w: snapshot index is empty", errWorldNotReady)
 	}
 	sort.Slice(snapshots, func(i, j int) bool { return snapshots[i].CapturedAt < snapshots[j].CapturedAt })
 	latest := snapshots[len(snapshots)-1]
@@ -676,7 +676,7 @@ func buildMap(
 		return nil, "", err
 	}
 
-	m := catalogMap{
+	m := catalogWorld{
 		ID:         raw.ID,
 		Title:      raw.Title,
 		Slug:       raw.Slug,
@@ -686,7 +686,7 @@ func buildMap(
 		Attrs:      raw.Attrs,
 	}
 	if len(raw.Config.TileSets) == 0 {
-		return nil, "", fmt.Errorf("%w: no tile sets", errMapNotReady)
+		return nil, "", fmt.Errorf("%w: no tile sets", errWorldNotReady)
 	}
 	// The catalog's grid is the window most maps are cut from; this map's own
 	// takes its place below, and what is left of the shared one -- the size of
@@ -695,27 +695,27 @@ func buildMap(
 	for _, set := range raw.Config.TileSets {
 		tiles, ok := tilesByPath[set.Path]
 		if !ok {
-			return nil, "", fmt.Errorf("%w: tile layer %s is missing", errMapNotReady, set.Path)
+			return nil, "", fmt.Errorf("%w: tile layer %s is missing", errWorldNotReady, set.Path)
 		}
 		// Every layer of a map is a picture of the same ground, so they agree on
 		// the window it is cut from. One that does not would be a map drawn in
 		// two places at once, and no pin could be placed on it.
 		window := tiles.Grid
-		if window == (mapGrid{}) {
+		if window == (worldGrid{}) {
 			// An index written before layers carried their window: the shared
 			// one is what every map in it was cut from.
-			window = mapGrid{SourceZoom: shared.SourceZoom, FirstTile: shared.FirstTile}
+			window = worldGrid{SourceZoom: shared.SourceZoom, FirstTile: shared.FirstTile}
 		}
-		if len(m.Variants) == 0 {
+		if len(m.Lenses) == 0 {
 			grid.SourceZoom, grid.FirstTile = window.SourceZoom, window.FirstTile
-			if window != (mapGrid{SourceZoom: shared.SourceZoom, FirstTile: shared.FirstTile}) {
+			if window != (worldGrid{SourceZoom: shared.SourceZoom, FirstTile: shared.FirstTile}) {
 				m.Grid = &window
 			}
 		} else if window.SourceZoom != grid.SourceZoom || window.FirstTile != grid.FirstTile {
 			return nil, "", fmt.Errorf("%w: tile layer %s sits in a different window from %s",
-				errMapNotReady, set.Path, raw.Config.TileSets[0].Path)
+				errWorldNotReady, set.Path, raw.Config.TileSets[0].Path)
 		}
-		m.Variants = append(m.Variants, variant{
+		m.Lenses = append(m.Lenses, lens{
 			Name:        set.Name,
 			Tiles:       tiles.AssetPath,
 			MinZoom:     tiles.MinZoom,
@@ -737,7 +737,7 @@ func buildMap(
 			if aligned.Grid.SourceZoom != grid.SourceZoom || aligned.Grid.FirstTile != grid.FirstTile {
 				return nil, "", fmt.Errorf("aligned layer %s was rendered in a different window", aligned.SourcePath)
 			}
-			m.Variants = append(m.Variants, variant{
+			m.Lenses = append(m.Lenses, lens{
 				Name:        aligned.Name,
 				Tiles:       aligned.AssetPath,
 				MinZoom:     aligned.MinZoom,
@@ -817,7 +817,7 @@ func buildMap(
 		}
 	}
 	resolveDescriptionLinks(&m)
-	pieces, err := splitMap(m, raw, grid)
+	pieces, err := splitWorld(m, raw, grid)
 	if err != nil {
 		return nil, "", err
 	}
@@ -842,7 +842,7 @@ var bareURL = regexp.MustCompile(`\s*\(?\s*https?://[^\s)]+\)?`)
 // dead weight at best. Where the link pointed at another location in this same
 // map, the target is kept as a structured cross-reference the viewer can
 // navigate to instead.
-func resolveDescriptionLinks(m *catalogMap) {
+func resolveDescriptionLinks(m *catalogWorld) {
 	known := make(map[int64]bool)
 	for _, group := range m.Groups {
 		for _, category := range group.Categories {
@@ -884,15 +884,15 @@ func resolveDescriptionLinks(m *catalogMap) {
 	}
 }
 
-func attachGameIcons(gamePath string, game *catalogGame) error {
+func attachVolumeIcons(gamePath string, game *catalogVolume) error {
 	if game.Slug == "" {
 		return nil
 	}
 	game.Icons = make(map[string][]byte)
 	copied := make(map[string]string)
-	for mapIndex := range game.Maps {
-		for groupIndex := range game.Maps[mapIndex].Groups {
-			categories := game.Maps[mapIndex].Groups[groupIndex].Categories
+	for mapIndex := range game.Worlds {
+		for groupIndex := range game.Worlds[mapIndex].Groups {
+			categories := game.Worlds[mapIndex].Groups[groupIndex].Categories
 			for categoryIndex := range categories {
 				category := &categories[categoryIndex]
 				if !validIconKey(category.Icon) {
@@ -901,7 +901,7 @@ func attachGameIcons(gamePath string, game *catalogGame) error {
 				asset, found := copied[category.Icon]
 				if !found {
 					var err error
-					asset, err = readGameIcon(gamePath, game, category.Icon)
+					asset, err = readVolumeIcon(gamePath, game, category.Icon)
 					if err != nil {
 						return err
 					}
@@ -915,11 +915,11 @@ func attachGameIcons(gamePath string, game *catalogGame) error {
 	return nil
 }
 
-// readGameIcon takes whichever form the archive holds. Most games publish an
+// readVolumeIcon takes whichever form the archive holds. Most games publish an
 // icon font that renders to SVG; some publish a marker strip instead, which
 // slices into PNG. The bytes ride the game into its bundle, named relative
 // to the bundle's own icons tree.
-func readGameIcon(gamePath string, game *catalogGame, icon string) (string, error) {
+func readVolumeIcon(gamePath string, game *catalogVolume, icon string) (string, error) {
 	for _, candidate := range []string{".svg", ".png"} {
 		source := filepath.Join(gamePath, "icons", icon+candidate)
 		contents, err := os.ReadFile(source)

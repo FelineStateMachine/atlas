@@ -1,8 +1,8 @@
-{{define "title"}}Cartograph · {{.Game.Title}} · diff{{end}}
+{{define "title"}}Cartograph · {{.Volume.Title}} · diff{{end}}
 {{define "content"}}
 <section class="page-head">
-  <h1>{{.Game.Title}} <span class="dim">what moved</span></h1>
-  <p class="dim"><a href="/game/{{.Game.Slug}}">{{.Game.Slug}}</a> · {{.Diff.A.File}} → {{.Diff.B.File}}</p>
+  <h1>{{.Volume.Title}} <span class="dim">what moved</span></h1>
+  <p class="dim"><a href="/volume/{{.Volume.Slug}}">{{.Volume.Slug}}</a> · {{.Diff.A.File}} → {{.Diff.B.File}}</p>
 </section>
 
 <section class="card">

@@ -36,7 +36,7 @@ import {
   pinInGridCell,
   selectGridCell,
 } from "./grid.js";
-import { equirectMapping, mapSurface } from "./semconv.js";
+import { equirectMapping, worldSurface } from "./semconv.js";
 import { state } from "./state.js";
 import { markerIconKey, measureLabel } from "./styles.js";
 import { categoryColor, iconOutsetColor, initials } from "./theme.js";
@@ -76,7 +76,7 @@ let globe = null;
 let texturedFor = "";
 // The detail layer: pyramid tiles standing just off the base skin wherever
 // the camera is close enough to want them, keyed by level/column/row.
-const detail = { group: null, tiles: new Map(), key: "", variant: "" };
+const detail = { group: null, tiles: new Map(), key: "", lens: "" };
 // The geohash grid drawn on the sphere: cell boundaries and their letters,
 // rebuilt from the same plan the chart tiles its cells from. fitKey coarsens
 // the camera so the grid rebuilds only when a zoom change could move the
@@ -103,7 +103,7 @@ const materials = new Map();
 // invert, and always returns the reader to the chart, which is where every
 // map opens.
 export function syncGlobe() {
-  const offered = mapSurface(state.map) === "sphere" && equirectMapping(state.map) !== null;
+  const offered = worldSurface(state.world) === "sphere" && equirectMapping(state.world) !== null;
   elements.globeToggle.hidden = !offered;
   leaveGlobe();
   if (!offered && globe) {
@@ -148,7 +148,7 @@ function altitudeForZoom(zoom) {
 
 function zoomForAltitude(altitude) {
   const safe = Number.isFinite(altitude) ? Math.max(altitude, nearestAltitude / 2) : wholeDiscAltitude;
-  const ceiling = (state.variant?.maxZoom ?? wholeChartZoom) + overzoomLevels;
+  const ceiling = (state.lens?.maxZoom ?? wholeChartZoom) + overzoomLevels;
   return clamp(wholeChartZoom + Math.log2(wholeDiscAltitude / safe), 0, ceiling);
 }
 
@@ -171,7 +171,7 @@ function leaveGlobe() {
   // comparable closeness, so the flip reads as turning a page, not losing
   // one. A map change lands here too, but its mapping no longer answers
   // and the new map's view is left alone.
-  const mapping = equirectMapping(state.map);
+  const mapping = equirectMapping(state.world);
   const view = state.engine?.getView();
   if (globe && state.globeActive && mapping && view) {
     const pov = globe.pointOfView();
@@ -213,7 +213,7 @@ export function aimGlobe(lat, lng, ease) {
 }
 
 async function enterGlobe() {
-  const mapping = equirectMapping(state.map);
+  const mapping = equirectMapping(state.world);
   if (!mapping) return;
   state.globeActive = true;
   elements.viewport.hidden = true;
@@ -257,7 +257,7 @@ async function enterGlobe() {
     // reverse-halving the navigator types.
     globe.onGlobeClick(({ lat, lng }) => {
       if (!state.gridEnabled) return;
-      const held = equirectMapping(state.map);
+      const held = equirectMapping(state.world);
       if (!held) return;
       const [worldX, worldY] = held.toWorld(lat, lng);
       const target = activeSystem().descendTarget(state.gridCell, [worldX, -worldY]);
@@ -292,11 +292,11 @@ async function enterGlobe() {
     globe.pointOfView({ lat: 10, lng: 0, altitude: wholeDiscAltitude });
   }
 
-  const variant = state.variant || state.map.variants[0];
-  const key = `${state.game.stamp}:${state.map.slug}:${variant.tiles}`;
+  const lens = state.lens || state.world.lenses[0];
+  const key = `${state.volume.stamp}:${state.world.slug}:${lens.tiles}`;
   if (texturedFor !== key) {
     texturedFor = key;
-    const texture = await composeTexture(variant);
+    const texture = await composeTexture(lens);
     if (texture && texturedFor === key) {
       globe.globeImageUrl(texture);
     }
@@ -328,7 +328,7 @@ function rebuildGlobeGrid() {
     child.material?.map?.dispose();
     child.material?.dispose();
   }
-  const mapping = state.globeActive ? equirectMapping(state.map) : null;
+  const mapping = state.globeActive ? equirectMapping(state.world) : null;
   if (!mapping || !state.gridEnabled) {
     grid.cell = null;
     return;
@@ -687,21 +687,21 @@ function frameGridCell(mapping) {
 // neighborhood being looked at.
 function updateDetailTiles() {
   if (!globe || !detail.group) return;
-  const variant = state.globeActive ? state.variant || state.map.variants[0] : null;
-  if (!variant) {
+  const lens = state.globeActive ? state.lens || state.world.lenses[0] : null;
+  if (!lens) {
     clearDetailTiles();
     return;
   }
-  if (detail.variant !== variant.tiles) {
+  if (detail.lens !== lens.tiles) {
     clearDetailTiles();
-    detail.variant = variant.tiles;
+    detail.lens = lens.tiles;
   }
   const pov = globe.pointOfView();
   const zoom = Math.min(
     Math.round(zoomForAltitude(pov.altitude)) + 1,
-    variant.maxZoom,
+    lens.maxZoom,
   );
-  if (zoom <= textureZoom || !variant.formats[zoom]) {
+  if (zoom <= textureZoom || !lens.formats[zoom]) {
     clearDetailTiles();
     detail.key = "";
     return;
@@ -727,7 +727,7 @@ function updateDetailTiles() {
       wanted.add(`${zoom}/${column}/${row}`);
     }
   }
-  const key = `${variant.tiles}:${[...wanted].sort().join(",")}`;
+  const key = `${lens.tiles}:${[...wanted].sort().join(",")}`;
   if (key === detail.key) return;
   detail.key = key;
 
@@ -740,7 +740,7 @@ function updateDetailTiles() {
   for (const name of wanted) {
     if (detail.tiles.has(name)) continue;
     const [z, column, row] = name.split("/").map(Number);
-    const mesh = tileMesh(variant, z, column, row);
+    const mesh = tileMesh(lens, z, column, row);
     detail.tiles.set(name, mesh);
     detail.group.add(mesh);
   }
@@ -749,7 +749,7 @@ function updateDetailTiles() {
 // tileMesh drapes one pyramid tile at its place on the sphere: a grid of
 // points through the same latitude-longitude spelling the pins stand by,
 // wearing the tile image once it arrives.
-function tileMesh(variant, zoom, column, row) {
+function tileMesh(lens, zoom, column, row) {
   const span = 360 / 2 ** zoom;
   const west = -180 + column * span;
   const north = 90 - row * span;
@@ -781,7 +781,7 @@ function tileMesh(variant, zoom, column, row) {
   const mesh = new Mesh(geometry, material);
   // Invisible until its picture arrives: a black square teaches nothing.
   mesh.visible = false;
-  const url = `${state.game.base}/tiles/${variant.tiles}/${zoom}/${column}/${row}.${variant.formats[zoom]}`;
+  const url = `${state.volume.base}/tiles/${lens.tiles}/${zoom}/${column}/${row}.${lens.formats[zoom]}`;
   new TextureLoader().load(url, (texture) => {
     texture.colorSpace = SRGBColorSpace;
     material.map = texture;
@@ -924,7 +924,7 @@ function material(category, selected) {
 }
 
 // refreshGlobe re-enters the globe when what it shows has moved underneath
-// it: another raster variant chosen, a category switched in the legend.
+// it: another raster lens chosen, a category switched in the legend.
 export function refreshGlobe() {
   if (state.globeActive) void enterGlobe();
 }
@@ -968,9 +968,9 @@ function spherePins(mapping) {
 // rows, which is the whole planet by the declared mapping. The result rides
 // as a data URL, so the globe asks the app for nothing it has not already
 // been given.
-async function composeTexture(variant) {
-  const zoom = Math.min(textureZoom, variant.maxZoom);
-  const format = variant.formats[zoom];
+async function composeTexture(lens) {
+  const zoom = Math.min(textureZoom, lens.maxZoom);
+  const format = lens.formats[zoom];
   if (!format) return null;
   const columns = 2 ** zoom;
   const rows = columns / 2;
@@ -981,7 +981,7 @@ async function composeTexture(variant) {
   const jobs = [];
   for (let y = 0; y < rows; y++) {
     for (let x = 0; x < columns; x++) {
-      const url = `${state.game.base}/tiles/${variant.tiles}/${zoom}/${x}/${y}.${format}`;
+      const url = `${state.volume.base}/tiles/${lens.tiles}/${zoom}/${x}/${y}.${format}`;
       jobs.push(loadTile(url).then((image) => {
         if (image) context.drawImage(image, x * 256, y * 256, 256, 256);
       }));

@@ -14,7 +14,7 @@ import (
 )
 
 // maxManifestSize bounds what Open will read as a manifest. A manifest lists
-// a game's maps and nothing per pin, so a megabyte is already generous; a
+// a volume's worlds and nothing per pin, so a megabyte is already generous; a
 // larger one is some other file wearing the name.
 const maxManifestSize = 1 << 20
 
@@ -122,16 +122,16 @@ func (b *Bundle) Close() error {
 	return b.archive.Close()
 }
 
-// payloadPeek is the sliver of a map payload that validation reads: which
+// payloadPeek is the sliver of a world payload that validation reads: which
 // pyramids its layers draw from, which icons its categories name, and what
 // the payload says of itself in the shared conventions.
 type payloadPeek struct {
-	Variants []struct {
+	Lenses []struct {
 		Tiles   string   `json:"tiles"`
 		MinZoom int      `json:"minZoom"`
 		MaxZoom int      `json:"maxZoom"`
 		Formats []string `json:"formats"`
-	} `json:"variants"`
+	} `json:"lenses"`
 	Groups []struct {
 		Categories []struct {
 			IconAsset   string            `json:"iconAsset"`
@@ -148,9 +148,8 @@ type textPeek struct {
 	Attrs map[string]string `json:"a"`
 }
 
-// Validate checks the manifest's promises against the archive: every listed
-// map has its three payloads, the packed locations agree with the advertised
-// pin count, every layer's tile levels hold tiles, every named icon exists,
+// Validate checks the manifest's promises against the archive: // world has its three payloads, the packed locations agree with the advertised
+// pin count, every lens's tile levels hold tiles, every named icon exists,
 // and nothing carries a live URL -- Atlas runs with no network, so a URL in a
 // bundle is dead weight at best. Producers and importers run this; opening a
 // bundle at launch does not.
@@ -162,51 +161,51 @@ func (b *Bundle) Validate() error {
 		}
 	}
 
-	for _, entry := range b.Manifest.Maps {
-		detail, err := b.ReadEntry("maps/" + entry.Slug + ".json")
+	for _, entry := range b.Manifest.Worlds {
+		detail, err := b.ReadEntry("worlds/" + entry.Slug + ".json")
 		if err != nil {
-			return fmt.Errorf("map %s: %w", entry.Slug, err)
+			return fmt.Errorf("world %s: %w", entry.Slug, err)
 		}
-		text, err := b.ReadEntry("maps/" + entry.Slug + ".text")
+		text, err := b.ReadEntry("worlds/" + entry.Slug + ".text")
 		if err != nil {
-			return fmt.Errorf("map %s: %w", entry.Slug, err)
+			return fmt.Errorf("world %s: %w", entry.Slug, err)
 		}
 		for _, payload := range [][]byte{detail, text} {
 			for _, scheme := range []string{"http://", "https://"} {
 				if at := strings.Index(string(payload), scheme); at >= 0 {
-					return fmt.Errorf("map %s carries a runtime URL: %q",
+					return fmt.Errorf("world %s carries a runtime URL: %q",
 						entry.Slug, payload[at:min(at+120, len(payload))])
 				}
 			}
 		}
 
-		packed, err := b.ReadEntry("maps/" + entry.Slug + ".bin")
+		packed, err := b.ReadEntry("worlds/" + entry.Slug + ".bin")
 		if err != nil {
-			return fmt.Errorf("map %s: %w", entry.Slug, err)
+			return fmt.Errorf("world %s: %w", entry.Slug, err)
 		}
 		locations, err := UnpackLocations(packed)
 		if err != nil {
-			return fmt.Errorf("map %s: %w", entry.Slug, err)
+			return fmt.Errorf("world %s: %w", entry.Slug, err)
 		}
 		if len(locations) != entry.PinCount {
-			return fmt.Errorf("map %s packs %d locations, and the manifest says %d",
+			return fmt.Errorf("world %s packs %d locations, and the manifest says %d",
 				entry.Slug, len(locations), entry.PinCount)
 		}
 
 		var peek payloadPeek
 		if err := json.Unmarshal(detail, &peek); err != nil {
-			return fmt.Errorf("map %s: decode payload: %w", entry.Slug, err)
+			return fmt.Errorf("world %s: decode payload: %w", entry.Slug, err)
 		}
-		if len(peek.Variants) == 0 {
-			return fmt.Errorf("map %s has no layers", entry.Slug)
+		if len(peek.Lenses) == 0 {
+			return fmt.Errorf("world %s has no lenses", entry.Slug)
 		}
-		for _, variant := range peek.Variants {
-			if len(variant.Formats) != variant.MaxZoom-variant.MinZoom+1 {
-				return fmt.Errorf("map %s layer %s names %d tile formats for %d levels",
-					entry.Slug, variant.Tiles, len(variant.Formats), variant.MaxZoom-variant.MinZoom+1)
+		for _, lens := range peek.Lenses {
+			if len(lens.Formats) != lens.MaxZoom-lens.MinZoom+1 {
+				return fmt.Errorf("world %s lens %s names %d tile formats for %d levels",
+					entry.Slug, lens.Tiles, len(lens.Formats), lens.MaxZoom-lens.MinZoom+1)
 			}
-			for zoom := variant.MinZoom; zoom <= variant.MaxZoom; zoom++ {
-				prefix := "tiles/" + variant.Tiles + "/" + strconv.Itoa(zoom) + "/"
+			for zoom := lens.MinZoom; zoom <= lens.MaxZoom; zoom++ {
+				prefix := "tiles/" + lens.Tiles + "/" + strconv.Itoa(zoom) + "/"
 				var held int
 				for directory, count := range levels {
 					if strings.HasPrefix(directory, prefix) {
@@ -214,15 +213,15 @@ func (b *Bundle) Validate() error {
 					}
 				}
 				if held == 0 {
-					return fmt.Errorf("map %s layer %s has an empty tile level %d",
-						entry.Slug, variant.Tiles, zoom)
+					return fmt.Errorf("world %s lens %s has an empty tile level %d",
+						entry.Slug, lens.Tiles, zoom)
 				}
 			}
 		}
 		for _, group := range peek.Groups {
 			for _, category := range group.Categories {
 				if category.IconAsset != "" && !b.Has("icons/"+category.IconAsset) {
-					return fmt.Errorf("map %s names a missing icon %s", entry.Slug, category.IconAsset)
+					return fmt.Errorf("world %s names a missing icon %s", entry.Slug, category.IconAsset)
 				}
 			}
 		}
@@ -242,42 +241,42 @@ func (b *Bundle) Validate() error {
 // A bundle that declares no conventions is not held to any -- the strictness
 // belongs to the claim.
 func validateConventions(slug string, peek payloadPeek, text []byte) error {
-	if err := semconv.Validate(semconv.EntityMap, peek.Attrs); err != nil {
-		return fmt.Errorf("map %s: %w", slug, err)
+	if err := semconv.Validate(semconv.EntityWorld, peek.Attrs); err != nil {
+		return fmt.Errorf("world %s: %w", slug, err)
 	}
 	if peek.Attrs[semconv.KeyGeometrySurface] == semconv.SurfaceSphere {
 		if peek.Attrs[semconv.KeyGeometryProjection] == "" {
-			return fmt.Errorf("map %s declares a sphere with no projection", slug)
+			return fmt.Errorf("world %s declares a sphere with no projection", slug)
 		}
 		if _, err := semconv.ParseEquirect(
 			peek.Attrs[semconv.KeyGeometryEquirectPx],
 			peek.Attrs[semconv.KeyGeometryEquirectDeg]); err != nil {
-			return fmt.Errorf("map %s: %w", slug, err)
+			return fmt.Errorf("world %s: %w", slug, err)
 		}
 	}
 	for _, group := range peek.Groups {
 		for _, category := range group.Categories {
 			if err := semconv.Validate(semconv.EntityCategory, category.Attrs); err != nil {
-				return fmt.Errorf("map %s: %w", slug, err)
+				return fmt.Errorf("world %s: %w", slug, err)
 			}
 			if declared, ok := category.Attrs[semconv.KeyRenderAs]; ok {
 				if legacy := semconv.RenderAs(nil, category.DisplayType); declared != legacy {
-					return fmt.Errorf("map %s renders a category as %s while its legacy field says %s",
+					return fmt.Errorf("world %s renders a category as %s while its legacy field says %s",
 						slug, declared, legacy)
 				}
 			}
 			if category.Attrs[semconv.KeyIconStd] != "" && category.IconAsset == "" {
-				return fmt.Errorf("map %s declares a standard icon that was never resolved", slug)
+				return fmt.Errorf("world %s declares a standard icon that was never resolved", slug)
 			}
 		}
 	}
 	var entries map[string]textPeek
 	if err := json.Unmarshal(text, &entries); err != nil {
-		return fmt.Errorf("map %s: decode text: %w", slug, err)
+		return fmt.Errorf("world %s: decode text: %w", slug, err)
 	}
 	for id, entry := range entries {
 		if err := semconv.Validate(semconv.EntityLocation, entry.Attrs); err != nil {
-			return fmt.Errorf("map %s pin %s: %w", slug, id, err)
+			return fmt.Errorf("world %s pin %s: %w", slug, id, err)
 		}
 	}
 	return nil

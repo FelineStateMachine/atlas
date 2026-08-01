@@ -22,18 +22,18 @@ type shardMode int
 
 const (
 	shardNone shardMode = iota
-	// shardIntoMaps gives each piece its own entry in the map picker. Use it
+	// shardIntoWorlds gives each piece its own entry in the map picker. Use it
 	// when the pieces are unrelated places that happen to share a sheet.
-	shardIntoMaps
-	// shardIntoVariants keeps one map and offers the pieces as layers, so the
+	shardIntoWorlds
+	// shardIntoLenses keeps one map and offers the pieces as layers, so the
 	// view survives switching between them. Use it when the pieces are the same
 	// ground at different heights.
-	shardIntoVariants
+	shardIntoLenses
 )
 
-var shardedMaps = map[int64]shardMode{
-	602: shardIntoMaps,     // Mojave Wasteland: eight district insets in the margins
-	536: shardIntoVariants, // Hyrule: Sky, Surface and Depths of one world
+var shardedWorlds = map[int64]shardMode{
+	602: shardIntoWorlds, // Mojave Wasteland: eight district insets in the margins
+	536: shardIntoLenses, // Hyrule: Sky, Surface and Depths of one world
 }
 
 type shard struct {
@@ -354,7 +354,7 @@ func rehomeStrays(pieces []shard, placed map[int64][2]float64) {
 
 func orderShards(pieces []shard, mode shardMode) {
 	sort.Slice(pieces, func(a, b int) bool {
-		if mode == shardIntoVariants {
+		if mode == shardIntoLenses {
 			if pieces[a].Bounds.Y != pieces[b].Bounds.Y {
 				return pieces[a].Bounds.Y < pieces[b].Bounds.Y
 			}
@@ -427,19 +427,19 @@ func unprojectLatitude(y float64, grid tileGrid) float64 {
 	return math.Atan(math.Sinh(math.Pi*(1-2*yTile/worldTiles))) * 180 / math.Pi
 }
 
-// splitMap takes a sheet apart when one is declared for it, and otherwise
+// splitWorld takes a sheet apart when one is declared for it, and otherwise
 // hands back the single map it was given.
-func splitMap(m catalogMap, raw rawMap, grid tileGrid) ([]catalogMap, error) {
-	mode := shardedMaps[m.ID]
+func splitWorld(m catalogWorld, raw rawMap, grid tileGrid) ([]catalogWorld, error) {
+	mode := shardedWorlds[m.ID]
 	if mode == shardNone {
-		return []catalogMap{m}, nil
+		return []catalogWorld{m}, nil
 	}
 	pieces, err := planShards(raw, grid, mode)
 	if err != nil {
 		return nil, fmt.Errorf("split %s: %w", m.Title, err)
 	}
-	if mode == shardIntoVariants {
-		return []catalogMap{asVariants(m, pieces)}, nil
+	if mode == shardIntoLenses {
+		return []catalogWorld{asVariants(m, pieces)}, nil
 	}
 	return asMaps(m, pieces), nil
 }
@@ -447,15 +447,15 @@ func splitMap(m catalogMap, raw rawMap, grid tileGrid) ([]catalogMap, error) {
 // asMaps gives each piece its own map. The largest keeps the sheet's name and
 // leads; the rest are named after it so they sort together in the picker
 // instead of scattering among the game's standalone maps.
-func asMaps(m catalogMap, pieces []shard) []catalogMap {
-	out := make([]catalogMap, 0, len(pieces))
+func asMaps(m catalogWorld, pieces []shard) []catalogWorld {
+	out := make([]catalogWorld, 0, len(pieces))
 	for index, piece := range pieces {
 		copied := m
 		copied.Groups = keepLocations(m.Groups, piece.Locations)
 		copied.Zones = keepZones(m.Zones, piece.Regions, piece.Region.ID)
 		copied.PinCount = countLocations(copied.Groups)
 		copied.Center = piece.Center
-		copied.Variants = boundVariants(m.Variants, piece.Bounds, piece.Surface, 0)
+		copied.Lenses = boundVariants(m.Lenses, piece.Bounds, piece.Surface, 0)
 		if index > 0 {
 			copied.ID = piece.Region.ID
 			copied.Title = m.Title + " — " + piece.Region.Title
@@ -470,11 +470,11 @@ func asMaps(m catalogMap, pieces []shard) []catalogMap {
 // asVariants keeps one map and offers the pieces as layers. Locations and zones
 // carry the piece they belong to so the viewer can show one layer at a time,
 // and the view survives switching because the map itself never changes.
-func asVariants(m catalogMap, pieces []shard) catalogMap {
-	var variants []variant
+func asVariants(m catalogWorld, pieces []shard) catalogWorld {
+	var variants []lens
 	var dropped []int64
 	for _, piece := range pieces {
-		bound := boundVariants(m.Variants, piece.Bounds, piece.Surface, piece.Region.ID)
+		bound := boundVariants(m.Lenses, piece.Bounds, piece.Surface, piece.Region.ID)
 		for index := range bound {
 			bound[index].Name = piece.Region.Title
 		}
@@ -497,7 +497,7 @@ func asVariants(m catalogMap, pieces []shard) catalogMap {
 		}
 		dropped = append(dropped, piece.Region.ID)
 	}
-	m.Variants = variants
+	m.Lenses = variants
 	m.Zones = keepZones(m.Zones, nil, dropped...)
 	if len(pieces) > 0 {
 		m.Center = pieces[0].Center
@@ -509,12 +509,12 @@ func asVariants(m catalogMap, pieces []shard) catalogMap {
 // either way; only the window onto it changes. The ground the piece covers
 // travels alongside the window, because they are not the same rectangle and
 // anything measuring the map rather than drawing it wants the ground.
-func boundVariants(variants []variant, bounds, surface contentBounds, shardID int64) []variant {
+func boundVariants(variants []lens, bounds, surface contentBounds, shardID int64) []lens {
 	// Easing two pieces apart can pull a window in past the ground it grew
 	// from, and what the grid divides has to be drawn, so the ground is clipped
 	// to the window rather than reaching beyond it.
 	ground := intersectBounds(surface, bounds)
-	out := make([]variant, 0, len(variants))
+	out := make([]lens, 0, len(variants))
 	for _, source := range variants {
 		clipped := source
 		clipped.Bounds = &contentBounds{
@@ -538,9 +538,9 @@ func boundVariants(variants []variant, bounds, surface contentBounds, shardID in
 // locations are, and the ground its regions outline. That is the archive
 // answering for each map rather than a list of maps to treat specially, and it
 // says the same thing about a border whether the border is solid or patterned.
-func markSurfaces(m *catalogMap, grid tileGrid) {
-	for index := range m.Variants {
-		variant := &m.Variants[index]
+func markSurfaces(m *catalogWorld, grid tileGrid) {
+	for index := range m.Lenses {
+		variant := &m.Lenses[index]
 		window := worldBounds(grid)
 		if variant.Bounds != nil {
 			window = *variant.Bounds
@@ -562,7 +562,7 @@ func markSurfaces(m *catalogMap, grid tileGrid) {
 // Anything drawn outside the window is left out of the reckoning: a few
 // locations sit off the sheet entirely -- three of Marathon's eighty -- and one
 // of those would stretch the ground back over everything it had just left out.
-func contentExtent(m catalogMap, shard int64, window contentBounds, grid tileGrid) (contentBounds, bool) {
+func contentExtent(m catalogWorld, shard int64, window contentBounds, grid tileGrid) (contentBounds, bool) {
 	left, top := math.Inf(1), math.Inf(1)
 	right, bottom := math.Inf(-1), math.Inf(-1)
 	found := false
