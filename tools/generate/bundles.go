@@ -93,12 +93,6 @@ func writeGameBundle(
 			pyramids[local] = detail.Variants[index].Tiles
 			detail.Variants[index].Tiles = local
 		}
-		for groupIndex := range detail.Groups {
-			categories := detail.Groups[groupIndex].Categories
-			for index := range categories {
-				categories[index].IconAsset = strings.TrimPrefix(categories[index].IconAsset, game.Slug+"/")
-			}
-		}
 
 		detailJSON, err := json.Marshal(detail)
 		if err != nil {

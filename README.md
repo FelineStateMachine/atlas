@@ -1,10 +1,12 @@
 # Atlas
 
 Atlas is a standalone, offline game-map explorer built with
-[Allons](../allons), Wails, and OpenLayers. Generation reads the neighboring
-`gamemap` FMG archive; the shipped Go binary embeds the catalog, category
-SVGs, frontend, and every raster tile it serves. There are no sidecars, CDNs,
-or runtime network dependencies.
+[Allons](../allons), Wails, and OpenLayers. The executable carries only the
+application shell; each game travels as a self-contained `.atlas` bundle --
+its maps, packed locations, raster tile pyramids, and category icons in one
+zip archive. Drop a bundle into the application's `bundles` directory and the
+game appears; drop in a newer build of the same game and it updates. There
+are no sidecars, CDNs, or runtime network dependencies.
 
 Keep the three repositories beside one another:
 
@@ -18,8 +20,14 @@ Keep the three repositories beside one another:
 Run Atlas from this repository:
 
 ```sh
-go run -tags dev .
+go generate .   # once, to build the bundles
+ATLAS_BUNDLES_DIR=$PWD/dist/bundles go run -tags dev .
 ```
+
+Without `ATLAS_BUNDLES_DIR` the application reads `.atlas` files from
+`bundles/` under its own data directory (on macOS,
+`~/Library/Application Support/dev.felinestatemachine.atlas/bundles`), which
+is where an installed copy finds the games its user has added.
 
 Wails requires a desktop build tag even when it is invoked through `go run`.
 Atlas supplies the additional macOS `UniformTypeIdentifiers` linker flag
@@ -50,7 +58,7 @@ photographic maps retain smooth interpolation.
 [SCRAPER_PROMPT.md](SCRAPER_PROMPT.md) contains a ready-to-use prompt for
 preserving MapGenie's text-display and zone fields in the upstream archive.
 
-## Refreshing the embedded data
+## Building the game bundles
 
 With `../gamemap` beside this repository:
 
@@ -58,28 +66,41 @@ With `../gamemap` beside this repository:
 go generate .
 ```
 
-`main.go` embeds the entire `assets` tree with `//go:embed all:assets`.
-`go generate` performs three operations:
+`main.go` embeds only the application shell (`assets/index.html`,
+`assets/app.css`, `assets/app.js`). `go generate` performs three operations:
 
 1. `tools/tiles` finds the highest complete source level for every configured
-   layer, keeps it unstitched, and derives every missing lower level.
-   Photographic source tiles retain JPEG/PNG encoding; pixel-art levels are
-   normalized to lossless PNG and use nearest-neighbor reduction. Photo
-   pyramids use smooth box reduction. Repeated placeholder borders are
-   excluded from fit bounds.
+   layer, keeps it unstitched, and derives every missing lower level into
+   `build/tiles`. Photographic source tiles retain JPEG/PNG encoding;
+   pixel-art levels are normalized to lossless PNG and use nearest-neighbor
+   reduction. Photo pyramids use smooth box reduction. Repeated placeholder
+   borders are excluded from fit bounds.
 
    Each pyramid records a stamp over the tiles it was derived from and the
    tool that derived them, so a layer nothing has changed under is left where
    it is: a run that captures one new game costs seconds rather than the half
    minute of re-deriving the rest. `-force` derives everything again.
-2. `tools/generate` builds `assets/catalog.json` and copies referenced archive
-   SVGs into `assets/icons`. Maps with missing snapshots or incomplete
-   configured layers are omitted.
+2. `tools/generate` writes one `.atlas` bundle per game into `dist/bundles`:
+   the game's manifest, one payload per map, its tile pyramids, and its
+   archive SVG icons, validated as each bundle is written. Maps with missing
+   snapshots or incomplete configured layers are omitted. A game whose
+   bundle stamp has not changed keeps its existing file untouched.
 3. `npm ci` and the local esbuild/OpenLayers installation produce the
    self-contained `assets/app.js` and `assets/app.css` bundles.
 
-The resulting binary has no runtime dependency on `../gamemap`, npm, or the
-network.
+Neither the binary nor a bundle has any runtime dependency on `../gamemap`,
+npm, or the network.
+
+## The .atlas format
+
+A `.atlas` file is a zip archive holding one game: `atlas.json` (the
+manifest: game identity, version stamp, tile grid, map list), `maps/<slug>`
+payloads in three parts, `tiles/<pyramid>/z/x/y` rasters stored uncompressed
+for byte-range serving, and `icons/`. The format is Atlas's own and carries
+nothing specific to any capture source; `internal/bundle` owns reading,
+writing, and validation. Two bundles naming the same game slug are two
+versions of that game -- the newest by creation time wins, so updating a game
+is dropping in a newer file.
 
 ## Renderer architecture
 
@@ -132,3 +153,7 @@ go test ./...
 go vet ./...
 go build -tags dev .
 ```
+
+The corpus-dependent tests read `dist/bundles` and skip themselves when no
+bundles have been built, so `go test ./...` passes on a checkout without
+`../gamemap`.

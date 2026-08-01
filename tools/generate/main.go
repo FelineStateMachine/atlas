@@ -1,6 +1,6 @@
-// Command generate turns an FMG archive and the generated raster manifest into
-// the compact catalog consumed by Atlas. The source archive stays outside the
-// Go module; only browser-ready data is embedded in the application.
+// Command generate turns an FMG archive and the generated raster manifest
+// into one .atlas bundle per game. The source archive stays outside the Go
+// module; everything the application serves for a game travels in its bundle.
 package main
 
 import (
@@ -106,10 +106,11 @@ type geometry struct {
 	Coordinates json.RawMessage `json:"coordinates"`
 }
 
+// catalog is the generator's working set: everything built from the archive,
+// held only long enough to be written out one bundle per game.
 type catalog struct {
-	Source   string        `json:"source"`
-	TileGrid tileGrid      `json:"tileGrid"`
-	Games    []catalogGame `json:"games"`
+	TileGrid tileGrid
+	Games    []catalogGame
 }
 
 type tileGrid struct {
@@ -308,25 +309,20 @@ func iconOutsetFor(raw rawMap) string {
 func main() {
 	source := flag.String("source", "", "path containing fmg-archive")
 	tiles := flag.String("tiles", "", "generated tile manifest")
-	output := flag.String("output", "", "catalog JSON destination")
 	bundles := flag.String("bundles", "", "directory receiving one .atlas bundle per game")
 	flag.Parse()
 
-	if *source == "" || *tiles == "" {
-		fmt.Fprintln(os.Stderr, "generate: -source and -tiles are required")
+	if *source == "" || *tiles == "" || *bundles == "" {
+		fmt.Fprintln(os.Stderr, "generate: -source, -tiles, and -bundles are required")
 		os.Exit(2)
 	}
-	if *output == "" && *bundles == "" {
-		fmt.Fprintln(os.Stderr, "generate: nothing to write; pass -output, -bundles, or both")
-		os.Exit(2)
-	}
-	if err := run(*source, *tiles, *output, *bundles); err != nil {
+	if err := run(*source, *tiles, *bundles); err != nil {
 		fmt.Fprintln(os.Stderr, "generate:", err)
 		os.Exit(1)
 	}
 }
 
-func run(source, tileManifestPath, output, bundleDir string) error {
+func run(source, tileManifestPath, bundleDir string) error {
 	archiveRoot := filepath.Join(source, "fmg-archive")
 	var index archive
 	if err := readJSON(filepath.Join(archiveRoot, "archive.json"), &index); err != nil {
@@ -342,7 +338,6 @@ func run(source, tileManifestPath, output, bundleDir string) error {
 	}
 
 	out := catalog{
-		Source: "FMG archive",
 		TileGrid: tileGrid{
 			SourceZoom: 13,
 			FirstTile:  4064,
@@ -350,12 +345,8 @@ func run(source, tileManifestPath, output, bundleDir string) error {
 			Size:       tiles.Size,
 		},
 	}
-	iconRoot := ""
-	if output != "" {
-		iconRoot = filepath.Join(filepath.Dir(output), "icons")
-	}
 	for _, gameRef := range index.Games {
-		game, err := buildGame(archiveRoot, iconRoot, tilesByPath, gameRef, out.TileGrid)
+		game, err := buildGame(archiveRoot, tilesByPath, gameRef, out.TileGrid)
 		if err != nil {
 			return fmt.Errorf("%s: %w", gameRef.Title, err)
 		}
@@ -365,22 +356,11 @@ func run(source, tileManifestPath, output, bundleDir string) error {
 	}
 
 	sort.Slice(out.Games, func(i, j int) bool { return out.Games[i].Title < out.Games[j].Title })
-	if output != "" {
-		if err := writeCatalog(out, output); err != nil {
-			return err
-		}
-	}
-	if bundleDir != "" {
-		if err := writeBundles(out, tiles, filepath.Dir(tileManifestPath), bundleDir); err != nil {
-			return err
-		}
-	}
-	return nil
+	return writeBundles(out, tiles, filepath.Dir(tileManifestPath), bundleDir)
 }
 
 func buildGame(
 	archiveRoot string,
-	iconRoot string,
 	tilesByPath map[string]tileVariantManifest,
 	ref archiveGame,
 	grid tileGrid,
@@ -409,7 +389,7 @@ func buildGame(
 		game.Maps = append(game.Maps, pieces...)
 	}
 	sortGameMaps(game.Slug, game.Maps)
-	if err := attachGameIcons(gamePath, iconRoot, &game); err != nil {
+	if err := attachGameIcons(gamePath, &game); err != nil {
 		return catalogGame{}, err
 	}
 	return game, nil
@@ -662,7 +642,7 @@ func resolveDescriptionLinks(m *catalogMap) {
 	}
 }
 
-func attachGameIcons(gamePath, iconRoot string, game *catalogGame) error {
+func attachGameIcons(gamePath string, game *catalogGame) error {
 	if game.Slug == "" {
 		return nil
 	}
@@ -679,7 +659,7 @@ func attachGameIcons(gamePath, iconRoot string, game *catalogGame) error {
 				asset, found := copied[category.Icon]
 				if !found {
 					var err error
-					asset, err = copyGameIcon(gamePath, iconRoot, game, category.Icon)
+					asset, err = readGameIcon(gamePath, game, category.Icon)
 					if err != nil {
 						return err
 					}
@@ -693,13 +673,11 @@ func attachGameIcons(gamePath, iconRoot string, game *catalogGame) error {
 	return nil
 }
 
-// copyGameIcon takes whichever form the archive holds. Most games publish an
+// readGameIcon takes whichever form the archive holds. Most games publish an
 // icon font that renders to SVG; some publish a marker strip instead, which
-// slices into PNG. The bytes are kept on the game for the bundle writer, and
-// mirrored into iconRoot when the embedded tree is also being written.
-func copyGameIcon(gamePath, iconRoot string, game *catalogGame, icon string) (string, error) {
-	var data []byte
-	var extension string
+// slices into PNG. The bytes ride the game into its bundle, named relative
+// to the bundle's own icons tree.
+func readGameIcon(gamePath string, game *catalogGame, icon string) (string, error) {
 	for _, candidate := range []string{".svg", ".png"} {
 		source := filepath.Join(gamePath, "icons", icon+candidate)
 		contents, err := os.ReadFile(source)
@@ -709,25 +687,10 @@ func copyGameIcon(gamePath, iconRoot string, game *catalogGame, icon string) (st
 		if err != nil {
 			return "", fmt.Errorf("read icon %s: %w", source, err)
 		}
-		data, extension = contents, candidate
-		break
+		game.Icons[icon+candidate] = contents
+		return icon + candidate, nil
 	}
-	if extension == "" {
-		return "", nil
-	}
-	game.Icons[icon+extension] = data
-	asset := filepath.ToSlash(filepath.Join(game.Slug, icon+extension))
-	if iconRoot == "" {
-		return asset, nil
-	}
-	destination := filepath.Join(iconRoot, filepath.FromSlash(asset))
-	if err := os.MkdirAll(filepath.Dir(destination), 0o755); err != nil {
-		return "", fmt.Errorf("create icon directory: %w", err)
-	}
-	if err := os.WriteFile(destination, data, 0o644); err != nil {
-		return "", fmt.Errorf("write icon %s: %w", destination, err)
-	}
-	return asset, nil
+	return "", nil
 }
 
 func validIconKey(value string) bool {

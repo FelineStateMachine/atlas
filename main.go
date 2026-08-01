@@ -1,7 +1,7 @@
-// Command atlas is a self-contained interactive map explorer built with
-// Allons. Its FMG catalog, raster tile pyramids, category icons, and frontend
-// are embedded in the executable, so the application needs no network
-// connection or sidecar data.
+// Command atlas is an offline interactive map explorer built with Allons.
+// The executable carries only the application shell; each game arrives as a
+// self-contained .atlas bundle dropped into the bundles directory, and the
+// application needs no network connection either way.
 package main
 
 import (
@@ -25,12 +25,12 @@ import (
 //	go run ./tools/crawl -game skyrim -map solstheim -max-zoom 15
 //	node tools/icons/render-icons.mjs --game skyrim
 
-//go:generate go run ./tools/tiles -source ../gamemap/fmg-archive -output assets/tiles
-//go:generate go run ./tools/generate -source ../gamemap -tiles assets/tiles/index.json -output assets/catalog.json
+//go:generate go run ./tools/tiles -source ../gamemap/fmg-archive -output build/tiles
+//go:generate go run ./tools/generate -source ../gamemap -tiles build/tiles/index.json -bundles dist/bundles
 //go:generate npm --prefix frontend ci
 //go:generate npm --prefix frontend run build
 
-//go:embed all:assets
+//go:embed assets/index.html assets/app.css assets/app.js
 var assets embed.FS
 
 func main() {

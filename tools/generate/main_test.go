@@ -45,7 +45,6 @@ func TestResolvedCategoryColor(t *testing.T) {
 
 func TestAttachGameIcons(t *testing.T) {
 	source := t.TempDir()
-	output := t.TempDir()
 	if err := os.MkdirAll(filepath.Join(source, "icons"), 0o755); err != nil {
 		t.Fatal(err)
 	}
@@ -65,23 +64,19 @@ func TestAttachGameIcons(t *testing.T) {
 			}},
 		}},
 	}
-	if err := attachGameIcons(source, output, &game); err != nil {
+	if err := attachGameIcons(source, &game); err != nil {
 		t.Fatal(err)
 	}
 
 	categories := game.Maps[0].Groups[0].Categories
-	if got, want := categories[0].IconAsset, "pokemon-red-blue-yellow/pokemon_center.svg"; got != want {
+	if got, want := categories[0].IconAsset, "pokemon_center.svg"; got != want {
 		t.Fatalf("icon asset = %q, want %q", got, want)
 	}
 	if categories[1].IconAsset != "" {
 		t.Fatalf("missing icon asset = %q, want empty", categories[1].IconAsset)
 	}
-	data, err := os.ReadFile(filepath.Join(output, categories[0].IconAsset))
-	if err != nil {
-		t.Fatal(err)
-	}
-	if got := string(data); got != svg {
-		t.Fatalf("copied SVG = %q, want %q", got, svg)
+	if got := string(game.Icons["pokemon_center.svg"]); got != svg {
+		t.Fatalf("carried SVG = %q, want %q", got, svg)
 	}
 }
 
@@ -94,7 +89,6 @@ func TestBuildGameSkipsMapWithoutSnapshotIndex(t *testing.T) {
 
 	game, err := buildGame(
 		archiveRoot,
-		t.TempDir(),
 		nil,
 		archiveGame{
 			Directory: "games/pokemon-red-blue-yellow-246",
