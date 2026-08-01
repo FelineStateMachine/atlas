@@ -61,7 +61,7 @@ export function showPin(pin, focus = false) {
 // is already known and fills in when they arrive; a pin closed or changed in
 // the meantime is left alone.
 export async function fillPinText(pin) {
-  const text = await mapText(state.map.id);
+  const text = await mapText();
   if (state.selectedPin !== pin) return;
   const entry = text[String(pin.location.id)] || {};
   pin.location.description = entry.d || "";

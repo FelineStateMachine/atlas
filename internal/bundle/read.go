@@ -5,8 +5,10 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"os"
 	"strconv"
 	"strings"
+	"time"
 )
 
 // maxManifestSize bounds what Open will read as a manifest. A manifest lists
@@ -23,6 +25,11 @@ type Bundle struct {
 
 	archive *zip.ReadCloser
 	entries map[string]*zip.File
+
+	// size and modTime are the file as it was opened, letting a rescan tell
+	// an untouched file from one rewritten in place under the same name.
+	size    int64
+	modTime time.Time
 }
 
 // Open reads the manifest of the bundle at path and refuses anything that is
@@ -39,6 +46,9 @@ func Open(path string) (*Bundle, error) {
 		Path:    path,
 		archive: archive,
 		entries: make(map[string]*zip.File, len(archive.File)),
+	}
+	if info, err := os.Stat(path); err == nil {
+		bundle.size, bundle.modTime = info.Size(), info.ModTime()
 	}
 	for _, file := range archive.File {
 		bundle.entries[file.Name] = file

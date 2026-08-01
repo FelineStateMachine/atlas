@@ -10,8 +10,8 @@ export function renderOverview() {
   const canvas = elements.overviewCanvas;
   const context = canvas.getContext("2d");
   const extent = activeExtent();
-  const world = state.catalog.tileGrid.size;
-  const tileSize = state.catalog.tileGrid.tileSize;
+  const world = state.game.tileGrid.size;
+  const tileSize = state.game.tileGrid.tileSize;
   const width = extent[2] - extent[0];
   const height = extent[3] - extent[1];
 
@@ -49,7 +49,7 @@ export function renderOverview() {
           tileSize,
         );
       };
-      image.src = `/static/tiles/${encodeURIComponent(variant.tiles)}/${level}/${x}/${y}.${format}`;
+      image.src = `${state.game.base}/tiles/${encodeURIComponent(variant.tiles)}/${level}/${x}/${y}.${format}`;
     }
   }
   updateOverviewViewport();

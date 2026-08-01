@@ -38,7 +38,7 @@ import { isEditableTarget } from "./util.js";
 
 export function bindUIEvents() {
   elements.game.addEventListener("change", () => { void selectGame(elements.game.value); });
-  elements.map.addEventListener("change", () => { void selectMap(Number(elements.map.value)); });
+  elements.map.addEventListener("change", () => { void selectMap(elements.map.value); });
   elements.variant.addEventListener("change", () => selectVariant(Number(elements.variant.value)));
 
   elements.legend.addEventListener("change", (event) => {

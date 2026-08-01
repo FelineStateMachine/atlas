@@ -244,7 +244,7 @@ export function project(latitude, longitude) {
 }
 
 export function mapTileGrid() {
-  const shared = state.catalog.tileGrid;
+  const shared = state.game.tileGrid;
   const own = state.map?.grid;
   return own ? { ...shared, ...own } : shared;
 }

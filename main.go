@@ -7,11 +7,14 @@ package main
 import (
 	"embed"
 	"fmt"
+	"log/slog"
 	"net/http"
 	"os"
+	"path/filepath"
 
 	"github.com/FelineStateMachine/allons/local"
 	"github.com/FelineStateMachine/allons/wailsapp"
+	"github.com/FelineStateMachine/atlas/internal/bundle"
 	"github.com/wailsapp/wails/v2/pkg/options"
 )
 
@@ -38,8 +41,12 @@ func main() {
 			Assets:    assets,
 			Bootstrap: local.CustomBootstrap("/"),
 			Sync:      local.SyncConfig{Autostart: local.AutostartOff},
-			Routes: func(*local.App) http.Handler {
-				return routes(assets)
+			Routes: func(app *local.App) http.Handler {
+				registry := bundle.NewRegistry(bundlesDir(app))
+				if err := registry.Rescan(); err != nil {
+					slog.Warn("atlas: scanning bundles", "error", err)
+				}
+				return routes(assets, registry)
 			},
 		},
 		&options.App{
@@ -59,4 +66,19 @@ func main() {
 		fmt.Fprintln(os.Stderr, "atlas:", err)
 		os.Exit(1)
 	}
+}
+
+// bundlesDir is where installed games live: a directory of .atlas files under
+// the application's own data directory. ATLAS_BUNDLES_DIR points elsewhere for
+// development, so a freshly generated dist/bundles serves without being copied
+// into the running application's library.
+func bundlesDir(app *local.App) string {
+	dir := os.Getenv("ATLAS_BUNDLES_DIR")
+	if dir == "" {
+		dir = filepath.Join(app.DataDir(), "bundles")
+	}
+	if err := os.MkdirAll(dir, 0o755); err != nil {
+		slog.Warn("atlas: creating bundles directory", "path", dir, "error", err)
+	}
+	return dir
 }

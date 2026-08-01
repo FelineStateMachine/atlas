@@ -6,7 +6,7 @@ import { elements, populateSelect } from "./dom.js";
 import { overzoomLevels } from "./constants.js";
 import { loadMap } from "./catalog.js";
 import { readSession, saveSession, writeRoute } from "./session.js";
-import { createView, resolutions } from "./engine.js";
+import { createView, initializeMap, resolutions } from "./engine.js";
 import { renderOverview, setOverviewDocked } from "./overview.js";
 import { setDockFolded } from "./search.js";
 import { renderGrid } from "./grid.js";
@@ -25,10 +25,13 @@ import { clamp, formatNumber } from "./util.js";
 
 export async function selectGame(slug, mapSlug) {
   state.game = state.catalog.games.find((game) => game.slug === slug) || state.catalog.games[0];
+  // The engine exists once there is a game to size its world from: every game
+  // carries its own tile grid now that each arrives in its own bundle.
+  if (!state.engine) initializeMap();
   // Only an explicitly named map overrides what this game remembers.
   if (!mapSlug && !state.restore) state.restore = readSession(state.game.slug);
   elements.game.value = state.game.slug;
-  populateSelect(elements.map, state.game.maps, "title", "id");
+  populateSelect(elements.map, state.game.maps, "title");
   elements.map.disabled = state.game.maps.length === 1;
   elements.map.title = elements.map.disabled ? "This game has one map" : "Choose a map";
   // Returning to a game returns to where it was left, so wandering off to
@@ -36,11 +39,11 @@ export async function selectGame(slug, mapSlug) {
   const remembered = state.restore?.game === state.game.slug ? state.restore : null;
   const wanted = (mapSlug && state.game.maps.find((item) => item.slug === mapSlug)) ||
     (remembered && state.game.maps.find((item) => item.slug === remembered.map));
-  await selectMap((wanted || state.game.maps[0]).id);
+  await selectMap((wanted || state.game.maps[0]).slug);
 }
 
-export async function selectMap(id) {
-  const entry = state.game.maps.find((map) => map.id === id) || state.game.maps[0];
+export async function selectMap(slug) {
+  const entry = state.game.maps.find((map) => map.slug === slug) || state.game.maps[0];
   // A map opened while another is still arriving must not be overtaken by it.
   const run = ++state.mapRun;
   elements.loading.hidden = false;
@@ -50,7 +53,7 @@ export async function selectMap(id) {
   state.settling = true;
   state.map = loaded;
   document.documentElement.style.setProperty("--icon-outset-color", iconOutsetColor());
-  elements.map.value = String(state.map.id);
+  elements.map.value = state.map.slug;
   populateSelect(elements.variant, state.map.variants, "name");
   elements.variantField.hidden = state.map.variants.length < 2;
   state.styleCache.clear();
@@ -139,12 +142,12 @@ export function selectVariant(index, resetView = false) {
   const buildSource = (maxLevel, wanted) => trackLoading(new XYZ({
     projection: state.projection,
     tileGrid: new TileGrid({
-      extent: [0, -state.catalog.tileGrid.size, state.catalog.tileGrid.size, 0],
+      extent: [0, -state.game.tileGrid.size, state.game.tileGrid.size, 0],
       origin: [0, 0],
       // Keep the source grid native. Views may overzoom this last resolution,
       // but no nonexistent tile level is requested.
       resolutions: resolutions(maxLevel),
-      tileSize: state.catalog.tileGrid.tileSize,
+      tileSize: state.game.tileGrid.tileSize,
     }),
     cacheSize: 64,
     interpolate: variant.interpolate,
@@ -153,7 +156,7 @@ export function selectVariant(index, resetView = false) {
     tileUrlFunction: ([zoom, x, y]) => {
       const format = variant.formats[zoom];
       if (!format || x < 0 || y < 0 || !wanted(zoom, x, y)) return undefined;
-      return `/static/tiles/${encodeURIComponent(variant.tiles)}/${zoom}/${x}/${y}.${format}`;
+      return `${state.game.base}/tiles/${encodeURIComponent(variant.tiles)}/${zoom}/${x}/${y}.${format}`;
     },
   }));
 
@@ -281,7 +284,7 @@ export function toggleSidebar() {
 }
 
 export function activeExtent() {
-  const size = state.catalog.tileGrid.size;
+  const size = state.game.tileGrid.size;
   const bounds = state.variant?.bounds || { x: 0, y: 0, width: size, height: size };
   return [bounds.x, -(bounds.y + bounds.height), bounds.x + bounds.width, -bounds.y];
 }

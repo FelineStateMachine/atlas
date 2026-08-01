@@ -6,8 +6,8 @@ import { legendSections } from "./legend.js";
 // map is opened, so the catalog can grow without the wait growing with it.
 export async function loadMap(entry) {
   const [detail, packed] = await Promise.all([
-    fetch(`/static/catalog/${entry.id}.json`).then((r) => r.json()),
-    fetch(`/static/catalog/${entry.id}.bin`).then((r) => r.arrayBuffer()),
+    fetch(`${state.game.base}/maps/${entry.slug}.json`).then((r) => r.json()),
+    fetch(`${state.game.base}/maps/${entry.slug}.bin`).then((r) => r.arrayBuffer()),
   ]);
   const categories = detail.groups.flatMap((group) => group.categories);
   unpackLocations(packed, categories);
@@ -57,13 +57,16 @@ export function unpackLocations(buffer, categories) {
 
 // Descriptions and cross-references are half the catalog by weight and are read
 // one pin at a time, so a map's are fetched the first time one of its pins is
-// opened, and not at all if none ever is.
-export async function mapText(mapID) {
-  if (!state.textByMap.has(mapID)) {
+// opened, and not at all if none ever is. The cache is keyed by the game's
+// stamped base as well as the map, so an updated bundle is never answered
+// with the words of the build it replaced.
+export async function mapText() {
+  const key = `${state.game.base}/${state.map.slug}`;
+  if (!state.textByMap.has(key)) {
     state.textByMap.set(
-      mapID,
-      fetch(`/static/catalog/${mapID}.text`).then((r) => r.json()).catch(() => ({})),
+      key,
+      fetch(`${state.game.base}/maps/${state.map.slug}.text`).then((r) => r.json()).catch(() => ({})),
     );
   }
-  return state.textByMap.get(mapID);
+  return state.textByMap.get(key);
 }

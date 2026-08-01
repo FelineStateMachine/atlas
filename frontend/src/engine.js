@@ -39,7 +39,7 @@ export function eagerVector(options) {
 }
 
 export function initializeMap() {
-  const size = state.catalog.tileGrid.size;
+  const size = state.game.tileGrid.size;
   const worldExtent = [0, -size, size, 0];
   state.projection = new Projection({
     code: "ATLAS:PIXELS",
@@ -253,7 +253,7 @@ export function isAnnotationLayer(layer) {
 }
 
 export function createView(maxZoom) {
-  const size = state.catalog.tileGrid.size;
+  const size = state.game.tileGrid.size;
   return new View({
     projection: state.projection,
     center: [size / 2, -size / 2],
@@ -269,6 +269,6 @@ export function createView(maxZoom) {
 }
 
 export function resolutions(maxZoom) {
-  const base = state.catalog.tileGrid.size / state.catalog.tileGrid.tileSize;
+  const base = state.game.tileGrid.size / state.game.tileGrid.tileSize;
   return Array.from({ length: maxZoom + 1 }, (_, zoom) => base / (2 ** zoom));
 }

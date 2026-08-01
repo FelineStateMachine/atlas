@@ -90,7 +90,7 @@ export function applyCategoryGlyph(element, category, fallback) {
 
 export function iconURL(asset) {
   const path = asset.split("/").map((segment) => encodeURIComponent(segment)).join("/");
-  return `/static/icons/${path}`;
+  return `${state.game.base}/icons/${path}`;
 }
 
 export function initials(value) {

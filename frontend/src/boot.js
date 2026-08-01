@@ -1,7 +1,6 @@
 import { elements, populateSelect } from "./dom.js";
 import { state } from "./state.js";
 import { bindUIEvents } from "./events.js";
-import { initializeMap } from "./engine.js";
 import { readRoute, readSession } from "./session.js";
 import { selectGame } from "./navigation.js";
 import { exposeDiagnostics } from "./diagnostics.js";
@@ -9,11 +8,10 @@ import { exposeDiagnostics } from "./diagnostics.js";
 export async function start() {
   bindUIEvents();
   try {
-    const response = await fetch("/static/catalog.json");
+    const response = await fetch("/data/catalog.json");
     if (!response.ok) throw new Error(`catalog request returned ${response.status}`);
     state.catalog = await response.json();
-    if (!state.catalog.games.length) throw new Error("the embedded catalog contains no maps");
-    initializeMap();
+    if (!state.catalog.games.length) throw new Error("no game bundles are installed");
     populateSelect(elements.game, state.catalog.games, "title");
     const route = readRoute();
     const session = readSession();
