@@ -8,6 +8,7 @@
 package mgdoc
 
 import (
+	"encoding/json"
 	"fmt"
 	"hash/fnv"
 	"math"
@@ -39,8 +40,34 @@ type Map struct {
 	Config           Config            `json:"config"`
 	Game             Game              `json:"game"`
 	Groups           []Group           `json:"groups"`
-	Regions          []struct{}        `json:"regions"`
+	Regions          []Region          `json:"regions"`
 	Attrs            map[string]string `json:"atlas_attrs,omitempty"`
+}
+
+// Region is a named piece of ground: the generator reads it into a zone, and
+// its features carry GeoJSON-shaped polygon geometry whose positions are the
+// same synthetic longitude and latitude a pin speaks. Sources without ground
+// to name leave the slice empty rather than absent, which is the shape a real
+// MapGenie capture spells.
+type Region struct {
+	ID             int64           `json:"id"`
+	Title          string          `json:"title"`
+	Subtitle       string          `json:"subtitle,omitempty"`
+	ParentRegionID *int64          `json:"parent_region_id,omitempty"`
+	CenterX        *float64        `json:"center_x,omitempty"`
+	CenterY        *float64        `json:"center_y,omitempty"`
+	Features       []RegionFeature `json:"features,omitempty"`
+}
+
+type RegionFeature struct {
+	Geometry Geometry `json:"geometry"`
+}
+
+// Geometry is the GeoJSON slice of a region feature: Polygon or MultiPolygon,
+// coordinates kept raw because the generator passes them through verbatim.
+type Geometry struct {
+	Type        string          `json:"type"`
+	Coordinates json.RawMessage `json:"coordinates"`
 }
 
 type Game struct {

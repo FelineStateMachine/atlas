@@ -213,7 +213,7 @@ func Translate(doc []byte) ([]byte, error) {
 			Slug:  capture.Body,
 		},
 		Groups:  groups,
-		Regions: []struct{}{},
+		Regions: []mgdoc.Region{},
 	}
 	return json.Marshal(out)
 }
