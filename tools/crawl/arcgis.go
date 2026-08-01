@@ -73,10 +73,17 @@ func runArcgis(ctx context.Context, fetcher *fetcher, o options) error {
 		Basemap: arcgismap.MapConfig{MaxZoom: maxZoom, Extension: "png"},
 	}
 
-	fmt.Printf("\n== ArcGIS Hub %s / %s (%d datasets)\n", city.Title, date, len(city.Datasets))
+	datasets := city.AllDatasets()
+	fmt.Printf("\n== ArcGIS Hub %s / %s (%d datasets)\n", city.Title, date, len(datasets))
 	pinCount := 0
-	for _, dataset := range city.Datasets {
-		features, err := fetchArcgisDataset(ctx, fetcher, city, dataset)
+	for _, dataset := range datasets {
+		var features []arcgismap.Feature
+		var err error
+		if dataset.Server != "" {
+			features, err = fetchMapServerDataset(ctx, fetcher, window, dataset)
+		} else {
+			features, err = fetchArcgisDataset(ctx, fetcher, city, dataset)
+		}
 		if err != nil {
 			return fmt.Errorf("%s: %w", dataset.Slug, err)
 		}
@@ -514,9 +521,10 @@ func renderArcgisBasemap(
 // capture's own window, so the raster and the pins can never disagree about
 // where the ground is.
 func basemapFeatures(city arcgismap.City, capture *arcgismap.Capture) []basemap.Feature {
-	curated := make(map[string]*arcgismap.Dataset, len(city.Datasets))
-	for at := range city.Datasets {
-		curated[city.Datasets[at].Slug] = &city.Datasets[at]
+	datasets := city.AllDatasets()
+	curated := make(map[string]*arcgismap.Dataset, len(datasets))
+	for at := range datasets {
+		curated[datasets[at].Slug] = &datasets[at]
 	}
 	var features []basemap.Feature
 	for _, dataset := range capture.Datasets {
