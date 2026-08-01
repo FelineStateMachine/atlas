@@ -3,9 +3,10 @@ module github.com/FelineStateMachine/atlas
 go 1.26.0
 
 require (
-	github.com/FelineStateMachine/allons v0.0.0
+	github.com/FelineStateMachine/allons v0.0.1
 	github.com/fsnotify/fsnotify v1.10.1
 	github.com/wailsapp/wails/v2 v2.13.0
+	golang.org/x/image v0.44.0
 )
 
 require (
@@ -38,7 +39,6 @@ require (
 	github.com/wailsapp/go-webview2 v1.0.22 // indirect
 	github.com/wailsapp/mimetype v1.4.1 // indirect
 	golang.org/x/crypto v0.51.0 // indirect
-	golang.org/x/image v0.44.0 // indirect
 	golang.org/x/net v0.54.0 // indirect
 	golang.org/x/sys v0.46.0 // indirect
 	golang.org/x/text v0.40.0 // indirect
@@ -48,5 +48,3 @@ require (
 	modernc.org/memory v1.11.0 // indirect
 	modernc.org/sqlite v1.55.0 // indirect
 )
-
-replace github.com/FelineStateMachine/allons => ../allons-pinned
