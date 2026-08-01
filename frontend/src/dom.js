@@ -40,6 +40,8 @@ export const elements = {
   detailCoordinates: $("#detail-coordinates"),
   detailCell: $("#detail-cell"),
   detailCellField: $("#detail-cell-field"),
+  detailSource: $("#detail-source"),
+  detailSourceField: $("#detail-source-field"),
   detailLinks: $("#detail-links"),
   detailDot: $("#detail-dot"),
   sidebar: $("#sidebar"),

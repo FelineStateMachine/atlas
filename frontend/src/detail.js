@@ -41,6 +41,12 @@ export function showPin(pin, focus = false) {
   const cell = geohashAt(pin.coordinate);
   elements.detailCell.textContent = cell;
   elements.detailCellField.hidden = !cell;
+  // A map composed from several sources says where a pin came from. The
+  // payload's merge account names every contribution; a pin it does not name
+  // is the map's own, and says nothing rather than guessing.
+  const source = pinSource(pin);
+  elements.detailSource.textContent = source;
+  elements.detailSourceField.hidden = !source;
   applyCategoryVisual(elements.detailDot, pin.category);
   applyCategoryGlyph(elements.detailDot, pin.category, initials(pin.category.title));
   elements.detail.hidden = false;
@@ -54,6 +60,31 @@ export function showPin(pin, focus = false) {
       duration: 220,
     });
   }
+}
+
+// pinSource reads a pin's provenance out of the map's merge account: a pin in
+// a source-titled group or adopted into a native category came from that
+// source, and a pin another source matched is corroborated by it. The index
+// is built once per map and thrown away with it.
+function pinSource(pin) {
+  const merged = state.map?.merged;
+  if (!merged?.length) return "";
+  if (state.pinSourceIndex?.map !== state.map) {
+    const byID = new Map();
+    for (const account of merged) {
+      for (const adopted of account.adopted || []) {
+        byID.set(adopted.d, account.source);
+      }
+      for (const pair of account.matched || []) {
+        byID.set(pair.w, `confirmed by ${account.source}`);
+      }
+    }
+    state.pinSourceIndex = { map: state.map, byID };
+  }
+  for (const account of merged) {
+    if (pin.group.title === account.source) return account.source;
+  }
+  return state.pinSourceIndex.byID.get(pin.location.id) || "";
 }
 
 // The words belonging to a pin are fetched the first time one is opened, so a

@@ -27,6 +27,7 @@ export async function loadMap(entry) {
     variants: detail.variants,
     groups: detail.groups,
     zones: detail.zones || [],
+    merged: detail.merged || [],
     sections: legendSections(detail.groups),
   };
 }
