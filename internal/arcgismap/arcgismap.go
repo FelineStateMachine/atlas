@@ -88,6 +88,17 @@ type Dataset struct {
 	// than a lane -- and absent means every feature draws alike.
 	Role     string
 	Emphasis func(Fields) float64
+
+	// National enrichment. A dataset with Server set is fetched from a
+	// plain ArcGIS MapServer query endpoint by the city's padded window
+	// rather than from the city's hub, Where narrowing the rows, and its
+	// geometry is cut to the window at capture time. The first kept field
+	// names the layer's row identity and orders the pages; IDOf derives
+	// the capture's stable feature identifier from the kept fields when
+	// the layer's own object ids churn between upstream refreshes.
+	Server string
+	Where  string
+	IDOf   func(Fields) (int64, bool)
 }
 
 // City is one curated hub. The table is the whole authority: an uncurated
@@ -101,6 +112,13 @@ type City struct {
 	MaxZoom  int
 	BBox     [4]float64 // west, south, east, north, degrees
 	Datasets []Dataset
+}
+
+// AllDatasets is the city's own curation followed by the national
+// enrichment every US city receives by bounding box, in that order, so a
+// city's zones keep their places and the nation's sort after them.
+func (c City) AllDatasets() []Dataset {
+	return append(append(make([]Dataset, 0, len(c.Datasets)+len(National)), c.Datasets...), National...)
 }
 
 // Cities is every city the source knows how to capture. A city that should
@@ -590,8 +608,9 @@ func curatedOrder(city City, capture *Capture) ([]pairing, error) {
 		captured[dataset.Slug] = dataset
 	}
 	var out []pairing
-	for at := range city.Datasets {
-		curated := &city.Datasets[at]
+	curatedAll := city.AllDatasets()
+	for at := range curatedAll {
+		curated := &curatedAll[at]
 		if data, taken := captured[curated.Slug]; taken {
 			out = append(out, pairing{curated, data})
 			delete(captured, curated.Slug)

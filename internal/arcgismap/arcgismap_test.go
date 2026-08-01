@@ -426,6 +426,9 @@ func TestRound7(t *testing.T) {
 
 // The curated table itself must be internally sound: slugs unique and
 // well-formed, point datasets fully spelled, zone functions only on ground.
+// Every city walks with the national enrichment appended, so a private
+// city registered from cities_local.go is held to the same rules,
+// collisions with the national slugs included.
 func TestCuratedTableIsSound(t *testing.T) {
 	for slug, city := range Cities {
 		if slug != city.Slug {
@@ -435,13 +438,16 @@ func TestCuratedTableIsSound(t *testing.T) {
 			t.Fatalf("city %q declares no ground or no pyramid", slug)
 		}
 		seen := map[string]bool{}
-		for _, dataset := range city.Datasets {
+		for _, dataset := range city.AllDatasets() {
 			if dataset.Slug == "" || seen[dataset.Slug] {
 				t.Fatalf("dataset slug %q is empty or doubled", dataset.Slug)
 			}
 			seen[dataset.Slug] = true
-			if dataset.ItemID == "" || dataset.Title == "" {
-				t.Fatalf("dataset %q is missing its identity", dataset.Slug)
+			if (dataset.ItemID == "") == (dataset.Server == "") || dataset.Title == "" {
+				t.Fatalf("dataset %q wants exactly one identity, hub or national", dataset.Slug)
+			}
+			if dataset.Server != "" && len(dataset.Keep) == 0 {
+				t.Fatalf("dataset %q pages a national layer without a row identity", dataset.Slug)
 			}
 			isPoint := dataset.Geometry == "point"
 			if isPoint != (dataset.Group != "") {
