@@ -29,3 +29,31 @@ export const outsetColors = {
   light: "rgba(255, 255, 255, 0.96)",
   dark: "rgba(7, 9, 7, 0.98)",
 };
+
+// The geohash grid's one visual vocabulary. Both projections render from
+// these numbers through gridCellVisual, so the chart and the globe cannot
+// drift apart: line weight encodes the hierarchy the way MGRS grids weigh
+// theirs, the chosen path draws in white over per-cell palette accents, and
+// the label is a small chip in the cell's bottom-right corner -- the
+// bounding-box convention -- spelling the full hash with its prefix faint
+// and its final character bright, the principal digit of the address.
+export const gridTheme = {
+  labelSizePx: 11,
+  neighborLabelSizePx: 10,
+  labelInsetPx: 5,
+  labelFont: "ui-monospace, SFMono-Regular, Menlo, monospace",
+  prefixAlpha: 0.55,
+  chip: "rgba(12, 15, 22, 0.76)",
+  neighborChip: "rgba(8, 11, 18, 0.88)",
+  lineWhite: "#ffffff",
+  widths: { leaf: 2.5, scope: 2.5, scopeBare: 1.8, child: 1.4, neighbor: 1 },
+  childLineAlpha: 0.82,
+  neighborLineAlpha: 0.44,
+  leafFillAlpha: 0.14,
+  childFillAlpha: 0.055,
+  neighborTextAlpha: 0.72,
+  dimColor: "#050810",
+  dimBase: 0.3,
+  dimStep: 0.06,
+  dimCap: 0.52,
+};

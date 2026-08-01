@@ -14,8 +14,6 @@ import {
   BufferGeometry,
   Float32BufferAttribute,
   Group,
-  LineBasicMaterial,
-  LineLoop,
   Mesh,
   MeshBasicMaterial,
   Sprite,
@@ -24,13 +22,23 @@ import {
   TextureLoader,
 } from "three";
 
-import { overzoomLevels } from "./constants.js";
+import { Line2 } from "three/examples/jsm/lines/Line2.js";
+import { LineGeometry } from "three/examples/jsm/lines/LineGeometry.js";
+import { LineMaterial } from "three/examples/jsm/lines/LineMaterial.js";
+
+import { gridTheme, overzoomLevels } from "./constants.js";
 import { showPin } from "./detail.js";
 import { elements } from "./dom.js";
-import { geohashAt, gridCellPlan, pinInGridCell, selectGridPrefix } from "./grid.js";
+import {
+  geohashAt,
+  gridCellPlan,
+  gridCellVisual,
+  pinInGridCell,
+  selectGridPrefix,
+} from "./grid.js";
 import { equirectMapping, mapSurface } from "./semconv.js";
 import { state } from "./state.js";
-import { markerIconKey } from "./styles.js";
+import { markerIconKey, measureLabel } from "./styles.js";
 import { categoryColor, iconOutsetColor, initials } from "./theme.js";
 import { clamp } from "./util.js";
 import { project } from "./zones.js";
@@ -70,8 +78,10 @@ let texturedFor = "";
 // the camera is close enough to want them, keyed by level/column/row.
 const detail = { group: null, tiles: new Map(), key: "", variant: "" };
 // The geohash grid drawn on the sphere: cell boundaries and their letters,
-// rebuilt from the same plan the chart tiles its cells from.
-const grid = { group: null, prefix: null };
+// rebuilt from the same plan the chart tiles its cells from. fitKey coarsens
+// the camera so the grid rebuilds only when a zoom change could move the
+// fit gate, not on every tick of a drag.
+const grid = { group: null, prefix: null, fitKey: "" };
 // The names held up while Z is down: label sprites over the pins nearest
 // the camera, rebuilt as the view settles and dropped on release.
 const labels = { group: null, key: "" };
@@ -230,6 +240,7 @@ async function enterGlobe() {
         document.dispatchEvent(new Event("atlas:globe-camera"));
         updateDetailTiles();
         rebuildGlobeLabels();
+        regridWhenFitChanges();
       });
     document.addEventListener("atlas:selection", syncSelection);
     document.addEventListener("atlas:filters", syncFilters);
@@ -304,10 +315,11 @@ async function enterGlobe() {
   document.dispatchEvent(new Event("atlas:globe-camera"));
 }
 
-// rebuildGlobeGrid redraws the geohash cells on the sphere from the same
-// plan the chart tiles them from: the chosen cell outlined, its subdivision
-// lettered, ancestors' neighbors dimmed. Descending into a cell also turns
-// the globe to frame it, the way the chart fits its view.
+// rebuildGlobeGrid redraws the geohash cells on the sphere as the globe's
+// adapter over gridCellVisual: the same tokens the chart styles from become
+// fat-line boundaries, translucent fill quads, and corner chip sprites, so
+// the two projections read as one instrument. Descending into a cell also
+// turns the globe to frame it, the way the chart fits its view.
 function rebuildGlobeGrid() {
   if (!globe || !grid.group) return;
   for (const child of [...grid.group.children]) {
@@ -322,17 +334,97 @@ function rebuildGlobeGrid() {
     return;
   }
   for (const cell of gridCellPlan()) {
-    if (!state.subgridVisible && cell.role === "child") continue;
     const corners = cellCorners(cell.extent, mapping);
-    grid.group.add(cellBoundary(corners, cell.role));
-    if (cell.role === "child" || cell.role === "leaf") {
-      grid.group.add(cellLetter(cell, corners));
-    }
+    const visual = gridCellVisual(cell, {
+      subgridVisible: state.subgridVisible,
+      labelled: gridLabelFits(cell, corners),
+    });
+    if (!visual) continue;
+    if (visual.fill) grid.group.add(cellFill(corners, visual.fill));
+    grid.group.add(cellBoundary(corners, visual.line));
+    if (visual.label) grid.group.add(cellChip(visual.label, corners));
   }
   if (grid.prefix !== null && grid.prefix !== state.gridPrefix) {
     frameGridCell(mapping);
   }
   grid.prefix = state.gridPrefix;
+}
+
+// cellScreenPx estimates how many pixels a cell spans on screen: degrees of
+// ground per pixel fall out of the camera's distance and field of view. It
+// is the globe's answer to the chart's extent-over-resolution, feeding the
+// same fit gate.
+function cellScreenPx(corners) {
+  const pov = globe.pointOfView();
+  const altitude = Math.max(pov.altitude, nearestAltitude / 2);
+  const fovRadians = (50 * Math.PI) / 180;
+  const groundPerPx =
+    (2 * altitude * globeRadius * Math.tan(fovRadians / 2)) /
+    Math.max(1, elements.globe.clientHeight || 1);
+  const degreePx = ((globeRadius * Math.PI) / 180) / groundPerPx;
+  return {
+    width: Math.abs(corners.east - corners.west) * degreePx,
+    height: Math.abs(corners.north - corners.south) * degreePx,
+  };
+}
+
+// gridLabelFits is labelFitsCell spoken in the globe's terms: the chip --
+// measured in the same fixed pitch the chart measures -- must fit inside
+// the cell's projected footprint.
+function gridLabelFits(cell, corners) {
+  const neighbor = cell.role === "neighbor";
+  const size = neighbor ? gridTheme.neighborLabelSizePx : gridTheme.labelSizePx;
+  const font = `900 ${size}px ${gridTheme.labelFont}`;
+  const px = cellScreenPx(corners);
+  return measureLabel(cell.hash, font) + 9 <= px.width && size + 6 <= px.height;
+}
+
+// cellFill lays a cell's tint or dim on the ground: a translucent quad just
+// off the detail tiles, under the boundary lines.
+function cellFill(corners, fill) {
+  const geometry = quadGeometry(corners, detailRadius + 0.12);
+  const material = new MeshBasicMaterial({
+    color: fill.color,
+    transparent: true,
+    opacity: fill.opacity,
+    depthWrite: false,
+  });
+  const mesh = new Mesh(geometry, material);
+  mesh.renderOrder = 1;
+  return mesh;
+}
+
+// quadGeometry drapes one lat/lng rectangle on the sphere, subdivided
+// enough to follow the curve: a flat chord across a wide cell sags below
+// the surface by more than the layer's clearance, and the ground pokes
+// through the fill in polka dots. Tessellation follows the span so the sag
+// stays a fraction of the clearance at any size.
+function quadGeometry(corners, radius) {
+  const positions = [];
+  const indices = [];
+  const span = Math.max(
+    Math.abs(corners.east - corners.west),
+    Math.abs(corners.north - corners.south),
+  );
+  const steps = clamp(Math.ceil(span / 2), 6, 48);
+  for (let i = 0; i <= steps; i++) {
+    const lat = corners.north + ((corners.south - corners.north) * i) / steps;
+    for (let j = 0; j <= steps; j++) {
+      const lng = corners.west + ((corners.east - corners.west) * j) / steps;
+      positions.push(...surfacePoint(lat, lng, radius));
+    }
+  }
+  for (let i = 0; i < steps; i++) {
+    for (let j = 0; j < steps; j++) {
+      const corner = i * (steps + 1) + j;
+      indices.push(corner, corner + steps + 1, corner + 1);
+      indices.push(corner + 1, corner + steps + 1, corner + steps + 2);
+    }
+  }
+  const geometry = new BufferGeometry();
+  geometry.setAttribute("position", new Float32BufferAttribute(positions, 3));
+  geometry.setIndex(indices);
+  return geometry;
 }
 
 // rebuildGlobeLabels raises names over the pins while Z is held: the ones
@@ -426,63 +518,105 @@ function cellCorners(extent, mapping) {
   return { west, north, east, south };
 }
 
-function cellBoundary(corners, role) {
+// cellBoundary drapes a cell's frame at its token weight. WebGL's plain
+// lines are one pixel whatever they ask for, so the frame is a fat line --
+// Line2 -- whose width is spoken in the same pixels the chart strokes.
+function cellBoundary(corners, line) {
   const positions = [];
-  const steps = 12;
-  const edge = (fromLat, fromLng, toLat, toLng) => {
+  const span = Math.max(
+    Math.abs(corners.east - corners.west),
+    Math.abs(corners.north - corners.south),
+  );
+  const steps = clamp(Math.ceil(span / 2), 12, 48);
+  const point = (t, fromLat, fromLng, toLat, toLng) => [
+    fromLat + (toLat - fromLat) * t,
+    fromLng + (toLng - fromLng) * t,
+  ];
+  const edges = [
+    [corners.north, corners.west, corners.north, corners.east],
+    [corners.north, corners.east, corners.south, corners.east],
+    [corners.south, corners.east, corners.south, corners.west],
+    [corners.south, corners.west, corners.north, corners.west],
+  ];
+  for (const edge of edges) {
     for (let step = 0; step < steps; step++) {
-      const t = step / steps;
-      positions.push(...surfacePoint(
-        fromLat + (toLat - fromLat) * t,
-        fromLng + (toLng - fromLng) * t,
-        detailRadius + 0.25,
-      ));
+      positions.push(...surfacePoint(...point(step / steps, ...edge), detailRadius + 0.25));
     }
-  };
-  edge(corners.north, corners.west, corners.north, corners.east);
-  edge(corners.north, corners.east, corners.south, corners.east);
-  edge(corners.south, corners.east, corners.south, corners.west);
-  edge(corners.south, corners.west, corners.north, corners.west);
-  const geometry = new BufferGeometry();
-  geometry.setAttribute("position", new Float32BufferAttribute(positions, 3));
-  const faded = role === "neighbor";
-  const material = new LineBasicMaterial({
-    color: role === "scope" || role === "leaf" ? 0x3aa5c9 : 0xd8dee6,
+  }
+  positions.push(...positions.slice(0, 3));
+  const geometry = new LineGeometry();
+  geometry.setPositions(positions);
+  const material = new LineMaterial({
+    color: line.color,
     transparent: true,
-    opacity: faded ? 0.12 : role === "child" ? 0.4 : 0.9,
+    opacity: line.opacity,
+    linewidth: line.widthPx,
     depthWrite: false,
   });
-  return new LineLoop(geometry, material);
+  material.resolution.set(elements.globe.clientWidth || 1, elements.globe.clientHeight || 1);
+  const loop = new Line2(geometry, material);
+  loop.computeLineDistances();
+  loop.renderOrder = 2;
+  return loop;
 }
 
-// cellLetter stands a cell's name at its centre, sized to the cell, the
-// same letters the chart writes and the navigator takes.
-function cellLetter(cell, corners) {
+// cellChip writes a cell's address on a small card in its bottom-right
+// corner -- the bounding-box convention -- with the prefix faint and the
+// final character bright, exactly as the chart writes it.
+function cellChip(label, corners) {
+  const scaleUp = 2;
+  const size = label.sizePx * scaleUp;
+  const prefixFont = `500 ${size - 2 * scaleUp}px ${gridTheme.labelFont}`;
+  const finalFont = `900 ${size}px ${gridTheme.labelFont}`;
   const canvas = document.createElement("canvas");
-  canvas.width = 96;
-  canvas.height = 96;
   const context = canvas.getContext("2d");
-  context.font = "700 44px "
-    + "ui-monospace, SFMono-Regular, Menlo, monospace";
-  context.textAlign = "center";
+  context.font = prefixFont;
+  const prefixWidth = label.prefix ? context.measureText(label.prefix).width : 0;
+  context.font = finalFont;
+  const finalWidth = context.measureText(label.final).width;
+  const pad = 5 * scaleUp;
+  canvas.width = Math.ceil(prefixWidth + finalWidth + pad * 2);
+  canvas.height = size + pad * 1.4;
+  context.fillStyle = label.chip;
+  context.fillRect(0, 0, canvas.width, canvas.height);
   context.textBaseline = "middle";
-  context.lineWidth = 8;
-  context.strokeStyle = "rgba(8, 12, 16, 0.85)";
-  const label = cell.hash.slice(-1) || cell.hash;
-  context.strokeText(label, 48, 50);
-  context.fillStyle = "#d8dee6";
-  context.fillText(label, 48, 50);
-  const material = new SpriteMaterial({ depthWrite: false, transparent: true, opacity: 0.85 });
+  const middle = canvas.height / 2 + scaleUp;
+  if (label.prefix) {
+    context.font = prefixFont;
+    context.fillStyle = label.color;
+    context.globalAlpha = gridTheme.prefixAlpha * label.textAlpha;
+    context.fillText(label.prefix, pad, middle);
+  }
+  context.font = finalFont;
+  context.globalAlpha = label.textAlpha;
+  context.fillStyle = label.color;
+  context.fillText(label.final, pad + prefixWidth, middle);
+  context.globalAlpha = 1;
+
+  const material = new SpriteMaterial({
+    depthWrite: false,
+    transparent: true,
+    sizeAttenuation: false,
+  });
   new TextureLoader().load(canvas.toDataURL("image/png"), (texture) => {
     material.map = texture;
     material.needsUpdate = true;
   });
   const sprite = new Sprite(material);
-  const lat = (corners.north + corners.south) / 2;
-  const lng = (corners.west + corners.east) / 2;
-  sprite.position.set(...surfacePoint(lat, lng, detailRadius + 0.3));
-  const size = clamp(Math.abs(corners.east - corners.west) * 0.35, 1.2, 14);
-  sprite.scale.set(size, size, 1);
+  // Just inside the corner, anchored by its own bottom-right, fixed on
+  // screen like the chart's chips.
+  const insetLat = Math.abs(corners.north - corners.south) * 0.02;
+  const insetLng = Math.abs(corners.east - corners.west) * 0.02;
+  sprite.position.set(...surfacePoint(
+    corners.south + insetLat,
+    corners.east - insetLng,
+    detailRadius + 0.35,
+  ));
+  const viewport = Math.max(1, elements.globe.clientHeight || 1);
+  const heightScale = canvas.height / scaleUp / viewport;
+  sprite.scale.set((heightScale * canvas.width) / canvas.height, heightScale, 1);
+  sprite.center.set(1, 0);
+  sprite.renderOrder = 3;
   return sprite;
 }
 
@@ -754,10 +888,23 @@ export function refreshGlobe() {
 }
 
 // resizeGlobe keeps the canvas the size of its pane; globe.gl sizes once at
-// construction and must be told when the pane moves.
+// construction and must be told when the pane moves. The grid follows: its
+// line widths and chips are spoken in pixels of this very pane.
 export function resizeGlobe() {
   if (!globe || elements.globe.hidden) return;
   globe.width(elements.globe.clientWidth).height(elements.globe.clientHeight);
+  rebuildGlobeGrid();
+}
+
+// regridWhenFitChanges redraws the grid only when the camera has moved far
+// enough in depth that a label could newly fit or stop fitting.
+function regridWhenFitChanges() {
+  if (!globe || !state.globeActive || !state.gridEnabled) return;
+  const pov = globe.pointOfView();
+  const key = `${state.gridPrefix}:${Math.round(zoomForAltitude(pov.altitude) * 2)}`;
+  if (key === grid.fitKey) return;
+  grid.fitKey = key;
+  rebuildGlobeGrid();
 }
 
 // spherePins stands every visible pin on the planet: packed synthetic

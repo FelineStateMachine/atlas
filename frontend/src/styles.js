@@ -1,3 +1,4 @@
+import Point from "ol/geom/Point.js";
 import {
   Fill,
   Icon,
@@ -6,7 +7,8 @@ import {
   Text,
 } from "ol/style.js";
 
-import { geohashAlphabet, palette } from "./constants.js";
+import { gridTheme } from "./constants.js";
+import { gridCellVisual } from "./grid.js";
 import { renderAs } from "./semconv.js";
 import { state } from "./state.js";
 import {
@@ -233,70 +235,72 @@ export function textStyles(pin, selected) {
   return styles;
 }
 
+// gridLabelFont spells one chunk of a cell label. Monospace, as the field
+// these are typed into already is: every hash at a level is the same length,
+// so in a fixed pitch a level keeps or drops its labels as one.
+function gridLabelFont(weight, size) {
+  return `${weight} ${size}px ${gridTheme.labelFont}`;
+}
+
+// gridStyle is the chart's adapter over gridCellVisual: the shared tokens
+// become an outline-and-fill style plus, when the cell can carry it, a small
+// chip in the cell's bottom-right corner -- the bounding-box convention --
+// spelling the hash with its prefix faint and its final character bright.
 export function gridStyle(feature, resolution) {
   const cell = feature.get("gridCell");
   if (!cell) return null;
-  const leaf = cell.role === "leaf";
-  const scope = cell.role === "scope";
   const neighbor = cell.role === "neighbor";
-  // Monospace, as the field these are typed into already is: a hash is a code,
-  // and in a proportional face m6w is half again the width of m6j, so a level
-  // lost its labels a few cells at a time as the map shrank. Every hash at a
-  // level is the same length, so in a fixed pitch they are the same width, and
-  // the level keeps or drops its labels as one.
-  const size = leaf || scope ? 15 : neighbor ? 10 : 11;
-  const weight = leaf || scope ? 900 : neighbor ? 750 : 800;
-  const font = `${weight} ${size}px ui-monospace, SFMono-Regular, Menlo, monospace`;
+  const size = neighbor ? gridTheme.neighborLabelSizePx : gridTheme.labelSizePx;
+  const font = gridLabelFont(900, size);
   const padding = neighbor ? [2, 4, 2, 4] : [3, 5, 3, 5];
   const labelled = labelFitsCell(cell, font, size, padding, resolution);
-  // A subdivision is offered so it can be named and descended into, and one too
-  // small to carry its names is a mesh laid over the map. It waits for the zoom
-  // that has room for them, so the cells and their labels arrive together --
-  // and putting the grid away by hand leaves exactly that state, the one the
-  // map arrives at on its own. What stays either way is the boundary of the
-  // chosen cell and the shaded ancestors around it, which say where the reader
-  // is and dim what is outside.
-  if (cell.role === "child" && (!labelled || !state.subgridVisible)) return null;
-  // The scope is drawn two ways: with the subgrid inside it, where a bare
-  // outline would be lost among its own children, and without, where the
-  // boundary is what is left of the cell and carries its name.
-  const bare = scope && state.subgridVisible;
+  const visual = gridCellVisual(cell, {
+    subgridVisible: state.subgridVisible,
+    labelled,
+  });
+  if (!visual) return null;
+
   const key = `grid:${cell.hash}:${cell.role}:${cell.contextDistance}:` +
-    `${labelled ? 1 : 0}:${bare ? 1 : 0}`;
+    `${labelled ? 1 : 0}:${visual.bare ? 1 : 0}`;
   if (state.styleCache.has(key)) return state.styleCache.get(key);
-  const color = palette[Math.max(0, geohashAlphabet.indexOf(cell.hash[cell.hash.length - 1])) %
-    palette.length];
-  const style = new Style({
-    fill: scope
-      ? undefined
-      : new Fill({
-        color: neighbor
-          ? `rgba(5, 8, 16, ${Math.min(0.52, 0.30 + cell.contextDistance * 0.06)})`
-          : hexToRGBA(color, leaf ? 0.14 : 0.055),
-      }),
+
+  const zIndex = cell.role === "leaf" || cell.role === "scope" ? 100 : feature.get("priority");
+  const styles = [new Style({
+    fill: visual.fill
+      ? new Fill({ color: hexToRGBA(visual.fill.color, visual.fill.opacity) })
+      : undefined,
     stroke: new Stroke({
-      color: leaf || scope ? "#ffffff" : hexToRGBA(color, neighbor ? 0.44 : 0.82),
-      width: leaf ? 2.5 : scope ? (bare ? 1.8 : 2.5) : neighbor ? 1 : 1.4,
+      color: hexToRGBA(visual.line.color, visual.line.opacity),
+      width: visual.line.widthPx,
     }),
-    text: labelled && !bare
-      ? new Text({
-        text: cell.hash,
-        font,
-        fill: new Fill({
-          color: leaf || scope ? "#ffffff" : neighbor ? hexToRGBA(color, 0.72) : color,
-        }),
-        stroke: new Stroke({ color: "rgba(0,0,0,0.96)", width: 4 }),
-        backgroundFill: new Fill({
-          color: neighbor ? "rgba(8,11,18,0.88)" : "rgba(12,15,22,0.76)",
-        }),
+    zIndex,
+  })];
+  if (visual.label) {
+    // The prefix is context and the final character is the address's
+    // principal digit, so the prefix takes a lighter, smaller cut of the
+    // same fixed pitch -- one fill serves both chunks, and the weight
+    // carries the faintness.
+    const chunks = visual.label.prefix
+      ? [visual.label.prefix, gridLabelFont(500, size - 2), visual.label.final, gridLabelFont(900, size)]
+      : visual.label.final;
+    const inset = gridTheme.labelInsetPx * resolution;
+    styles.push(new Style({
+      geometry: new Point([cell.extent[2] - inset, cell.extent[1] + inset]),
+      text: new Text({
+        text: chunks,
+        font: gridLabelFont(900, size),
+        textAlign: "right",
+        textBaseline: "bottom",
+        fill: new Fill({ color: hexToRGBA(visual.label.color, visual.label.textAlpha) }),
+        backgroundFill: new Fill({ color: visual.label.chip }),
         padding,
         overflow: true,
-      })
-      : undefined,
-    zIndex: leaf || scope ? 100 : feature.get("priority"),
-  });
-  state.styleCache.set(key, style);
-  return style;
+      }),
+      zIndex: zIndex + 1,
+    }));
+  }
+  state.styleCache.set(key, styles);
+  return styles;
 }
 
 // A hash names the cell it sits in, so a label wider than its cell names the

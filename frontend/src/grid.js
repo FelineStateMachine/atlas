@@ -1,7 +1,7 @@
 import Feature from "ol/Feature.js";
 import Polygon from "ol/geom/Polygon.js";
 
-import { geohashAlphabet, geohashMaxDepth } from "./constants.js";
+import { geohashAlphabet, geohashMaxDepth, gridTheme, palette } from "./constants.js";
 import { closeDetail } from "./detail.js";
 import { elements } from "./dom.js";
 import { activeExtent, viewMaxZoom } from "./navigation.js";
@@ -146,6 +146,65 @@ export function renderGrid() {
   // Anything else drawing the grid -- the globe -- redraws from the same
   // plan the same moment the chart does.
   document.dispatchEvent(new Event("atlas:grid"));
+}
+
+// gridCellColor is the accent a cell wears everywhere it is drawn: the
+// palette keyed by the hash's final character, so siblings differ and a
+// cell keeps its color at every depth it appears.
+export function gridCellColor(hash) {
+  return palette[
+    Math.max(0, geohashAlphabet.indexOf(hash[hash.length - 1])) % palette.length
+  ];
+}
+
+// gridCellVisual is the one styling of a grid cell, as pure tokens: what
+// its boundary weighs, what fills it, and what its corner label says. The
+// chart adapts these into ol/style and the globe into materials and
+// sprites; neither holds a color or width of its own, so the projections
+// read as one instrument. A child cell too small for its label returns
+// nothing at all -- the subdivision appears at the size it can be read,
+// on both panes at the same visual moment.
+export function gridCellVisual(cell, { subgridVisible, labelled }) {
+  const { role, contextDistance } = cell;
+  if (role === "child" && (!labelled || !subgridVisible)) return null;
+  const color = gridCellColor(cell.hash);
+  const chosen = role === "leaf" || role === "scope";
+  const bare = role === "scope" && subgridVisible;
+
+  const line = {
+    color: chosen ? gridTheme.lineWhite : color,
+    opacity: role === "neighbor"
+      ? gridTheme.neighborLineAlpha
+      : role === "child" ? gridTheme.childLineAlpha : 1,
+    widthPx: bare
+      ? gridTheme.widths.scopeBare
+      : gridTheme.widths[role],
+  };
+
+  let fill = null;
+  if (role === "neighbor") {
+    fill = {
+      color: gridTheme.dimColor,
+      opacity: Math.min(gridTheme.dimCap, gridTheme.dimBase + contextDistance * gridTheme.dimStep),
+    };
+  } else if (role === "leaf") {
+    fill = { color, opacity: gridTheme.leafFillAlpha };
+  } else if (role === "child") {
+    fill = { color, opacity: gridTheme.childFillAlpha };
+  }
+
+  let label = null;
+  if (labelled && !bare) {
+    label = {
+      prefix: cell.hash.slice(0, -1),
+      final: cell.hash.slice(-1),
+      color: chosen ? gridTheme.lineWhite : color,
+      textAlpha: role === "neighbor" ? gridTheme.neighborTextAlpha : 1,
+      chip: role === "neighbor" ? gridTheme.neighborChip : gridTheme.chip,
+      sizePx: role === "neighbor" ? gridTheme.neighborLabelSizePx : gridTheme.labelSizePx,
+    };
+  }
+  return { line, fill, label, bare };
 }
 
 // gridCellPlan is the one account of which cells the grid shows: the chosen
