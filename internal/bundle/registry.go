@@ -237,11 +237,13 @@ func (r *Registry) Release(slug string) {
 	}
 }
 
-// Install copies bundle files into the directory under their canonical
-// names -- <game-slug>.atlas -- validating each before it is let in, and
-// rescans once at the end. It reports the games installed and, separately,
-// what was wrong with anything refused: one bad file does not turn the rest
-// of a multi-selection away.
+// Install copies bundle files into the directory under their versioned
+// names -- <game>-<capture-day>-<stamp>.atlas -- validating each before it
+// is let in, and rescans once at the end. Versions sit side by side and the
+// newest-wins fold serves the right one, so importing an old file can never
+// overwrite a newer build; it just arrives already shadowed. It reports the
+// games installed and, separately, what was wrong with anything refused:
+// one bad file does not turn the rest of a multi-selection away.
 func (r *Registry) Install(paths []string) (installed []string, refused []string) {
 	for _, path := range paths {
 		slug, err := r.installOne(path)
@@ -270,11 +272,15 @@ func (r *Registry) installOne(path string) (string, error) {
 	}
 	slug := opened.Manifest.Game.Slug
 
-	target := filepath.Join(r.dir, slug+".atlas")
+	target := filepath.Join(r.dir, VersionedFileName(opened.Manifest))
 	if same, err := filepath.Abs(path); err == nil {
 		if resolved, err := filepath.Abs(target); err == nil && same == resolved {
 			return slug, nil
 		}
+	}
+	// This exact build already installed under its own name: nothing to copy.
+	if _, err := os.Stat(target); err == nil {
+		return slug, nil
 	}
 	source, err := os.Open(path)
 	if err != nil {

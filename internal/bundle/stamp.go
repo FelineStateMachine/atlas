@@ -57,3 +57,25 @@ func ShortStamp(stamp string) string {
 	}
 	return stamp[:12]
 }
+
+// VersionedFileName is the name a bundle carries in a registry directory:
+// the game, the day its data was captured, and enough of the stamp to tell
+// two builds of the same capture apart. Versions of a game sit side by side
+// under these names, and the newest-wins fold is what serves the right one --
+// the name is for people and for cheap existence checks, never for ordering.
+func VersionedFileName(m Manifest) string {
+	var day strings.Builder
+	for _, r := range m.Version.CreatedAt {
+		if r >= '0' && r <= '9' {
+			day.WriteRune(r)
+			if day.Len() == 8 {
+				break
+			}
+		}
+	}
+	name := m.Game.Slug
+	if day.Len() > 0 {
+		name += "-" + day.String()
+	}
+	return name + "-" + ShortStamp(m.Version.Stamp) + ".atlas"
+}

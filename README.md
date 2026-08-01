@@ -83,8 +83,12 @@ go generate .
 2. `tools/generate` writes one `.atlas` bundle per game into `dist/bundles`:
    the game's manifest, one payload per map, its tile pyramids, and its
    archive SVG icons, validated as each bundle is written. Maps with missing
-   snapshots or incomplete configured layers are omitted. A game whose
-   bundle stamp has not changed keeps its existing file untouched.
+   snapshots or incomplete configured layers are omitted. Bundles are named
+   `<game>-<capture-day>-<stamp>.atlas`, versioned by the newest snapshot
+   capture across the game's maps -- building the same archive anywhere
+   yields the same file -- and a build already present is left untouched.
+   Older versions are never pruned: the directory is a registry, and
+   `index.json` beside the bundles lists every game's builds, newest first.
 3. `npm ci` and the local esbuild/OpenLayers installation produce the
    self-contained `assets/app.js` and `assets/app.css` bundles.
 
@@ -99,8 +103,10 @@ payloads in three parts, `tiles/<pyramid>/z/x/y` rasters stored uncompressed
 for byte-range serving, and `icons/`. The format is Atlas's own and carries
 nothing specific to any capture source; `internal/bundle` owns reading,
 writing, and validation. Two bundles naming the same game slug are two
-versions of that game -- the newest by creation time wins, so updating a game
-is dropping in a newer file.
+versions of that game -- the newest by capture time wins, so updating a game
+is dropping in a newer file, and an older file dropped beside a newer one is
+simply shadowed. File names carry the version for people and for cheap
+existence checks; ordering always comes from the manifest inside.
 
 ## Renderer architecture
 

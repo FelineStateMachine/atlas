@@ -9,14 +9,15 @@ import (
 	"path/filepath"
 	"sort"
 	"strings"
-	"time"
 
 	"github.com/FelineStateMachine/atlas/internal/bundle"
 )
 
-// writeBundles packs each game into its own .atlas file. A bundle is the
-// game complete -- payloads, tiles, icons -- named by nothing but its own
-// slug, so the file can travel on its own and land in any Atlas.
+// writeBundles packs each game into its own .atlas file, named by game,
+// capture day, and stamp. The directory is a registry, not a mirror: a new
+// capture lands beside the builds before it rather than over them, nothing
+// is pruned, and the newest-wins fold at serving time is what decides which
+// version a reader sees.
 func writeBundles(out catalog, tiles tileManifest, tilesDir, bundleDir string) error {
 	if err := os.MkdirAll(bundleDir, 0o755); err != nil {
 		return fmt.Errorf("create bundle directory: %w", err)
@@ -26,31 +27,12 @@ func writeBundles(out catalog, tiles tileManifest, tilesDir, bundleDir string) e
 		stampByAsset[variant.AssetPath] = variant.Stamp
 	}
 
-	kept := make(map[string]bool, len(out.Games))
 	for _, game := range out.Games {
-		kept[game.Slug+".atlas"] = true
 		if err := writeGameBundle(game, out.TileGrid, stampByAsset, tilesDir, bundleDir); err != nil {
 			return fmt.Errorf("%s: %w", game.Title, err)
 		}
 	}
-
-	// A game that has left the catalog leaves the directory too, the same way
-	// tools/tiles prunes pyramids: what the source no longer names is not
-	// kept around to shadow anything.
-	entries, err := os.ReadDir(bundleDir)
-	if err != nil {
-		return err
-	}
-	for _, entry := range entries {
-		name := entry.Name()
-		if entry.IsDir() || kept[name] || !strings.HasSuffix(name, ".atlas") {
-			continue
-		}
-		if err := os.Remove(filepath.Join(bundleDir, name)); err != nil {
-			return fmt.Errorf("prune %s: %w", name, err)
-		}
-	}
-	return nil
+	return writeRegistryIndex(bundleDir)
 }
 
 // gamePayload is one map's three parts, built once and used for both the
@@ -137,17 +119,24 @@ func writeGameBundle(
 	stamp.Add(bundle.ManifestName, bundle.HashBytes(identity))
 	manifest.Version.Stamp = stamp.Sum()
 
-	// An unchanged game keeps its file, and with it its creation time, so a
-	// rebuild of everything does not read as an update of everything.
-	target := filepath.Join(bundleDir, game.Slug+".atlas")
-	if existing, err := bundle.Open(target); err == nil {
-		carried := existing.Manifest.Version.Stamp
-		existing.Close()
-		if carried == manifest.Version.Stamp {
-			return nil
+	// The version is the capture, not the build: the newest capture time
+	// across the game's maps. Building the same archive anywhere, any time,
+	// yields the same version and the same file name, which is what lets a
+	// directory of these files stand as a registry.
+	for _, m := range game.Maps {
+		if m.UpdatedAt > manifest.Version.CreatedAt {
+			manifest.Version.CreatedAt = m.UpdatedAt
 		}
 	}
-	manifest.Version.CreatedAt = time.Now().UTC().Format(time.RFC3339)
+	if manifest.Version.CreatedAt == "" {
+		return fmt.Errorf("no map carries a capture time to version the bundle by")
+	}
+
+	// This exact build already in the registry keeps its file untouched.
+	target := filepath.Join(bundleDir, bundle.VersionedFileName(manifest))
+	if _, err := os.Stat(target); err == nil {
+		return nil
+	}
 
 	file, err := os.CreateTemp(bundleDir, game.Slug+".atlas.tmp-*")
 	if err != nil {
@@ -212,6 +201,85 @@ func writeGameBundle(
 	}
 	fmt.Printf("bundled %s (%d maps)\n", filepath.Base(target), len(game.Maps))
 	return nil
+}
+
+// registryVersion is one build of one game as the registry index lists it.
+type registryVersion struct {
+	File      string `json:"file"`
+	Stamp     string `json:"stamp"`
+	CreatedAt string `json:"createdAt"`
+	Size      int64  `json:"size"`
+	Maps      int    `json:"maps"`
+}
+
+type registryEntry struct {
+	Slug     string            `json:"slug"`
+	Title    string            `json:"title"`
+	Versions []registryVersion `json:"versions"`
+}
+
+// writeRegistryIndex reads every bundle in the directory back and writes
+// index.json beside them: each game, each of its builds, newest first. The
+// index is derived from the files it sits with, never the other way around,
+// so a hand-copied or hand-deleted bundle is reflected by the next run
+// rather than contradicted by a stale listing.
+func writeRegistryIndex(bundleDir string) error {
+	paths, err := filepath.Glob(filepath.Join(bundleDir, "*.atlas"))
+	if err != nil {
+		return err
+	}
+	entries := make(map[string]*registryEntry)
+	newest := make(map[string]string)
+	for _, path := range paths {
+		opened, err := bundle.Open(path)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "generate: index: skipping %s: %v\n", filepath.Base(path), err)
+			continue
+		}
+		manifest := opened.Manifest
+		opened.Close()
+		var size int64
+		if info, err := os.Stat(path); err == nil {
+			size = info.Size()
+		}
+		entry := entries[manifest.Game.Slug]
+		if entry == nil {
+			entry = &registryEntry{Slug: manifest.Game.Slug}
+			entries[manifest.Game.Slug] = entry
+		}
+		// The newest version's title speaks for the game.
+		if manifest.Version.CreatedAt >= newest[manifest.Game.Slug] {
+			newest[manifest.Game.Slug] = manifest.Version.CreatedAt
+			entry.Title = manifest.Game.Title
+		}
+		entry.Versions = append(entry.Versions, registryVersion{
+			File:      filepath.Base(path),
+			Stamp:     manifest.Version.Stamp,
+			CreatedAt: manifest.Version.CreatedAt,
+			Size:      size,
+			Maps:      len(manifest.Maps),
+		})
+	}
+
+	listed := make([]registryEntry, 0, len(entries))
+	for _, entry := range entries {
+		sort.Slice(entry.Versions, func(i, j int) bool {
+			if entry.Versions[i].CreatedAt != entry.Versions[j].CreatedAt {
+				return entry.Versions[i].CreatedAt > entry.Versions[j].CreatedAt
+			}
+			return entry.Versions[i].Stamp > entry.Versions[j].Stamp
+		})
+		listed = append(listed, *entry)
+	}
+	sort.Slice(listed, func(i, j int) bool { return listed[i].Title < listed[j].Title })
+
+	data, err := json.Marshal(struct {
+		Games []registryEntry `json:"games"`
+	}{Games: listed})
+	if err != nil {
+		return err
+	}
+	return os.WriteFile(filepath.Join(bundleDir, "index.json"), append(data, '\n'), 0o644)
 }
 
 // localPyramidName strips the game the pyramid belonged to in the shared tile

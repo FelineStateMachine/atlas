@@ -224,6 +224,17 @@ func TestValidateRefusesRuntimeURLsAndWrongCounts(t *testing.T) {
 	}
 }
 
+// The file name is derived from nothing but the manifest, so the same build
+// carries the same name wherever and whenever it is written.
+func TestVersionedFileNameIsDeterministic(t *testing.T) {
+	manifest := validManifest()
+	manifest.Version.CreatedAt = "2026-08-01T09:30:00Z"
+	manifest.Version.Stamp = strings.Repeat("ab", 32)
+	if got, want := bundle.VersionedFileName(manifest), "fixture-20260801-abababababab.atlas"; got != want {
+		t.Errorf("name = %q, want %q", got, want)
+	}
+}
+
 func TestMoreRecentIsTotalAndPrefersNewer(t *testing.T) {
 	older := open(t, bundletest.Build(t, t.TempDir(), bundletest.Spec{Slug: "game", CreatedAt: "2026-01-01T00:00:00Z"}))
 	newer := open(t, bundletest.Build(t, t.TempDir(), bundletest.Spec{Slug: "game", CreatedAt: "2026-06-01T00:00:00Z"}))

@@ -242,12 +242,39 @@ func TestInstallCopiesTheSoundAndRefusesTheBroken(t *testing.T) {
 	if len(refused) != 1 {
 		t.Fatalf("refused = %v, want the one broken file", refused)
 	}
-	// The copy lands under the game's canonical name, whatever the source
-	// file was called, and the rescan has already made it servable.
-	if _, err := os.Stat(filepath.Join(registry.Dir(), "game.atlas")); err != nil {
+	// The copy lands under the build's own versioned name, whatever the
+	// source file was called, and the rescan has already made it servable.
+	held, ok := registry.Snapshot().Games["game"]
+	if !ok {
+		t.Fatal("the installed game is not being served")
+	}
+	want := filepath.Join(registry.Dir(), bundle.VersionedFileName(held.Manifest))
+	if held.Path != want {
+		t.Errorf("installed at %s, want %s", held.Path, want)
+	}
+	if _, err := os.Stat(want); err != nil {
 		t.Error(err)
 	}
-	if _, ok := registry.Snapshot().Games["game"]; !ok {
-		t.Error("the installed game is not being served")
+}
+
+// Importing a build older than the one installed must not send the library
+// backwards: the old file arrives under its own name and sits shadowed.
+func TestInstallingAnOlderBuildDoesNotDowngrade(t *testing.T) {
+	registry := bundle.NewRegistry(t.TempDir())
+	newer := bundletest.Build(t, t.TempDir(), bundletest.Spec{
+		Slug: "game", Title: "Newer", CreatedAt: "2026-06-01T00:00:00Z",
+	})
+	older := bundletest.Build(t, t.TempDir(), bundletest.Spec{
+		Slug: "game", Title: "Older", CreatedAt: "2026-01-01T00:00:00Z",
+	})
+
+	if installed, refused := registry.Install([]string{newer}); len(installed) != 1 || len(refused) != 0 {
+		t.Fatalf("installing the newer build: %v / %v", installed, refused)
+	}
+	if installed, refused := registry.Install([]string{older}); len(installed) != 1 || len(refused) != 0 {
+		t.Fatalf("installing the older build: %v / %v", installed, refused)
+	}
+	if won := registry.Snapshot().Games["game"].Manifest.Game.Title; won != "Newer" {
+		t.Errorf("the library serves %q after an old import, want the newer build", won)
 	}
 }
