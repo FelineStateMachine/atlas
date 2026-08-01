@@ -10,6 +10,7 @@ import (
 
 	"github.com/FelineStateMachine/atlas/internal/icons"
 	"github.com/FelineStateMachine/atlas/internal/mgdoc"
+	"github.com/FelineStateMachine/atlas/internal/semconv"
 )
 
 // fixture is a small capture exercising everything Translate decides: two
@@ -269,6 +270,49 @@ func TestTranslateRejectsBadCaptures(t *testing.T) {
 		}
 		if _, err := Translate(doc); err == nil || !strings.Contains(err.Error(), test.mention) {
 			t.Fatalf("%s: %v", test.name, err)
+		}
+	}
+}
+
+// TestDeclaredMappingInverts is the honesty check the geometry conventions
+// stand on: a pin's packed synthetic position, run through the viewer's
+// projection and backward through the mapping the map itself declares, must
+// recover the coordinates the Gazetteer published -- for every pin, without
+// the pin saying anything.
+func TestDeclaredMappingInverts(t *testing.T) {
+	m := translate(t, fixture())
+	mapping, err := semconv.ParseEquirect(
+		m.Attrs[semconv.KeyGeometryEquirectPx],
+		m.Attrs[semconv.KeyGeometryEquirectDeg])
+	if err != nil {
+		t.Fatal(err)
+	}
+	if m.Attrs[semconv.KeyGeometrySurface] != semconv.SurfaceSphere ||
+		m.Attrs[semconv.KeyGeometryBody] != "mars" {
+		t.Fatalf("geometry attrs: %v", m.Attrs)
+	}
+	published := map[string][2]float64{}
+	for _, feature := range fixture().Features {
+		published[feature.Name] = [2]float64{feature.Latitude, feature.Longitude}
+	}
+	for _, group := range m.Groups {
+		for _, category := range group.Categories {
+			for _, location := range category.Locations {
+				x := mgdoc.ProjectX(location.Longitude, mgdoc.SourceZoom, 0)
+				y := mgdoc.ProjectY(location.Latitude, mgdoc.SourceZoom, 0)
+				lat, lon := mapping.Invert(x, y)
+				if lon < 0 {
+					lon += 360
+				}
+				want := published[location.Title]
+				if math.Abs(lat-want[0]) > 1e-9 || math.Abs(lon-want[1]) > 1e-9 {
+					t.Errorf("%s recovered at %v,%v, published %v", location.Title, lat, lon, want)
+				}
+				// And the pin's own account agrees with what was published.
+				if location.Attrs[semconv.KeyGeoLat] == "" || location.Attrs[semconv.KeyGeoLon] == "" {
+					t.Errorf("%s carries no true coordinates", location.Title)
+				}
+			}
 		}
 	}
 }

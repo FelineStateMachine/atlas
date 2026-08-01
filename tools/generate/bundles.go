@@ -25,7 +25,8 @@ import (
 //	3  origin provenance on every map; overlap merges across map slugs
 //	4  semantic conventions: attributes ride every payload
 //	5  standard icons resolved for categories that declare one
-const policyRevision = 5
+//	6  geometry declared: spheres say so, pins carry true coordinates
+const policyRevision = 6
 
 // writeBundles packs each game into its own .atlas file, named by game,
 // capture day, and stamp. The directory is a registry, not a mirror: a new

@@ -191,6 +191,19 @@ func Translate(doc []byte) ([]byte, error) {
 		InitialLatitude:  mgdoc.SyntheticLatitude(mgdoc.WorldSize / 4),
 		InitialLongitude: mgdoc.SyntheticLongitude(mgdoc.WorldSize / 2),
 		Config:           mgdoc.Config{TileSets: sets},
+		// The map says what it pictures: a sphere, flattened by the equi-
+		// rectangular projection into the top half of the world square. The
+		// mapping is the whole story -- any reader can run a pin's packed
+		// position backward through it and stand on the planet -- and it is
+		// exactly the transform worldPixel projects features through, so the
+		// two can never disagree without a test noticing.
+		Attrs: map[string]string{
+			semconv.KeyGeometrySurface:     semconv.SurfaceSphere,
+			semconv.KeyGeometryProjection:  semconv.ProjectionEquirect,
+			semconv.KeyGeometryEquirectPx:  equirectPx,
+			semconv.KeyGeometryEquirectDeg: equirectDeg,
+			semconv.KeyGeometryBody:        capture.Body,
+		},
 		Game: mgdoc.Game{
 			ID: gameID,
 			// A planet is a "game" to the pipeline, which is the point being
@@ -243,6 +256,14 @@ func extension(given string) string {
 	}
 	return "jpg"
 }
+
+// The declared flattening, spelled once for the map attributes and for
+// worldPixel below: the mosaic fills the top half of the world square and
+// pictures the whole ground, -180..180 west to east, 90..-90 top to bottom.
+const (
+	equirectPx  = "0,0,8192,4096"
+	equirectDeg = "-180,90,180,-90"
+)
 
 // worldPixel lands a feature's planetary coordinates on the picture. The
 // mosaic spans longitude -180..180 west to east and latitude 90..-90 top to
@@ -350,6 +371,13 @@ func buildGroups(capture *Capture, ids *mgdoc.IDSpace, scope string) ([]mgdoc.Gr
 				Description: describe(feature),
 				Latitude:    mgdoc.SyntheticLatitude(y),
 				Longitude:   mgdoc.SyntheticLongitude(x),
+				// The coordinates as the Gazetteer published them, verbatim:
+				// provenance beside the synthetic position, so no reader ever
+				// has to parse a pin's card to learn where it truly is.
+				Attrs: map[string]string{
+					semconv.KeyGeoLat: strconv.FormatFloat(feature.Latitude, 'f', -1, 64),
+					semconv.KeyGeoLon: strconv.FormatFloat(feature.Longitude, 'f', -1, 64),
+				},
 			})
 		}
 		categories = append(categories, category)
