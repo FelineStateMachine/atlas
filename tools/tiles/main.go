@@ -22,6 +22,10 @@ import (
 	"strconv"
 	"strings"
 
+	// WebP sources decode through image.Decode like any other; Go encodes
+	// none, so levels derived from them are written as JPEG or PNG.
+	_ "golang.org/x/image/webp"
+
 	"github.com/FelineStateMachine/atlas/internal/ignmap"
 )
 
@@ -634,6 +638,11 @@ func buildPyramid(root string, plan tilePlan) (variantManifest, error) {
 		if !plan.Interpolate || derivedFormat == "png" {
 			derivedFormat = "png"
 		}
+		// A WebP source level copies through as it came, but nothing here
+		// encodes WebP, so the levels folded down from it take JPEG.
+		if derivedFormat == "webp" {
+			derivedFormat = "jpg"
+		}
 		mask, err := deriveLevel(root, plan.AssetPath, localZoom, formats[localZoom+1], derivedFormat, !plan.Interpolate, background)
 		if err != nil {
 			return variantManifest{}, err
@@ -1085,13 +1094,14 @@ func readJSON(path string, destination any) error {
 
 func normalizeFormat(value string) string {
 	value = strings.ToLower(strings.TrimPrefix(value, "."))
-	if value == "jpeg" {
+	switch value {
+	case "jpeg":
+		return "jpg"
+	case "png", "webp":
+		return value
+	default:
 		return "jpg"
 	}
-	if value != "png" {
-		return "jpg"
-	}
-	return value
 }
 
 // isPixelArt marks maps drawn on a pixel grid. They are folded down with
