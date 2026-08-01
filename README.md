@@ -1,21 +1,27 @@
 # Atlas
 
 Atlas is a standalone, offline game-map explorer built with
-[Allons](../allons), Wails, and OpenLayers. The executable carries only the
+[Allons](https://github.com/FelineStateMachine/allons), Wails, and
+OpenLayers. The executable carries only the
 application shell; each game travels as a self-contained `.atlas` bundle --
 its maps, packed locations, raster tile pyramids, and category icons in one
 zip archive. Drop a bundle into the application's `bundles` directory and the
 game appears; drop in a newer build of the same game and it updates. There
 are no sidecars, CDNs, or runtime network dependencies.
 
-Keep the three repositories beside one another:
+Allons is an ordinary module dependency, fetched by version. Building
+bundles additionally wants the `gamemap` corpus beside this repository:
 
 ```text
 ~/Developer/
-├── allons/
 ├── atlas/
 └── gamemap/
 ```
+
+To hack on Allons itself, point a workspace at a local checkout rather
+than editing `go.mod` — `go work init . ../allons` — since `go.work` is
+ignored and a committed `replace` directive would break anyone without
+the sibling checkout.
 
 Run Atlas from this repository:
 
