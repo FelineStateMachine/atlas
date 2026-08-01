@@ -30,6 +30,10 @@
           <span>Layer</span>
           <select id="variant-select" aria-label="Map layer"></select>
         </label>
+        <button class="icon-button globe-toggle" id="globe-toggle" type="button" hidden
+          aria-pressed="false" aria-label="View as globe" title="View as globe">
+          <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3c2.8 2.6 4 5.6 4 9s-1.2 6.4-4 9c-2.8-2.6-4-5.6-4-9s1.2-6.4 4-9Z"/></svg>
+        </button>
         <button class="icon-button add-bundles" id="add-bundles" type="button"
           aria-label="Add game bundles" title="Add .atlas game bundles">
           <svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg>
@@ -96,6 +100,7 @@
     </aside>
 
     <main class="map-panel">
+      <div id="globe" class="globe" hidden aria-label="Interactive globe"></div>
       <div id="map" class="map" tabindex="0" autofocus aria-label="Interactive game map">
         <div class="map-loading" id="map-loading">
           <span class="spinner"></span>

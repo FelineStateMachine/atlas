@@ -17,3 +17,30 @@ export function renderAs(category) {
 export function mapSurface(map) {
   return map?.attrs?.["atlas.geometry.surface"] || "plane";
 }
+
+// equirectMapping reads the flattening a spherical map declares: the raster
+// window it fills in world pixels and the ground that window pictures in
+// degrees. It returns an inverter from world pixels back to true latitude
+// and longitude -- the whole story any reader needs to stand a packed pin
+// on the sphere -- or null when the declaration is absent or malformed,
+// which a validated bundle never is.
+export function equirectMapping(map) {
+  const attrs = map?.attrs || {};
+  if (attrs["atlas.geometry.projection"] !== "equirect") return null;
+  const px = (attrs["atlas.geometry.equirect.px"] || "").split(",").map(Number);
+  const deg = (attrs["atlas.geometry.equirect.deg"] || "").split(",").map(Number);
+  if (px.length !== 4 || deg.length !== 4 || px.some(Number.isNaN) || deg.some(Number.isNaN)) {
+    return null;
+  }
+  const [x, y, w, h] = px;
+  const [west, north, east, south] = deg;
+  if (!w || !h || north === south || west === east) return null;
+  return {
+    toLatLng(worldX, worldY) {
+      return [
+        north - ((worldY - y) / h) * (north - south),
+        west + ((worldX - x) / w) * (east - west),
+      ];
+    },
+  };
+}

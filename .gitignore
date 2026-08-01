@@ -8,3 +8,4 @@
 /tiles
 /build/
 /dist/
+.playwright-cli/

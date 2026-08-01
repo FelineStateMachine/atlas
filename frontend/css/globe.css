@@ -1,0 +1,18 @@
+/* The globe pane sits exactly where the chart does, one toggle apart. The
+   canvas inside is sized by the renderer, so the pane only has to hold the
+   space and stay dark to its edges. */
+.globe {
+  position: absolute;
+  inset: 0;
+  background: #0b0e12;
+  overflow: hidden;
+}
+
+.globe[hidden] {
+  display: none;
+}
+
+.globe-toggle[aria-pressed="true"] {
+  color: var(--accent, #d98a4b);
+  border-color: currentColor;
+}

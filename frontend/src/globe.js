@@ -1,0 +1,263 @@
+// The globe: a map that declares itself a sphere can be looked at as one.
+// The renderer is globe.gl -- three.js with the community's globe work
+// already done -- fed entirely from the bundle: the texture is composited
+// from the map's own equirectangular tiles, which drape a sphere with no
+// reprojection at all (u is x over width, v is y over height, exactly), and
+// every pin's position comes from running its packed synthetic coordinates
+// backward through the mapping the map declares. Pins stand off the surface
+// as billboards wearing the same haloed category icons the chart draws, the
+// selected one ringed and raised so it reads as chosen, and a click opens
+// the same card it opens on the chart. The chart never goes away: this is a
+// second way of seeing the same bundle, a toggle apart.
+import Globe from "globe.gl";
+import { Sprite, SpriteMaterial, TextureLoader } from "three";
+
+import { showPin } from "./detail.js";
+import { elements } from "./dom.js";
+import { equirectMapping, mapSurface } from "./semconv.js";
+import { state } from "./state.js";
+import { markerIconKey } from "./styles.js";
+import { categoryColor, iconOutsetColor, initials } from "./theme.js";
+import { project } from "./zones.js";
+
+// textureZoom picks the pyramid level the sphere wears: deep enough to read,
+// shallow enough that one canvas holds it everywhere (level 4 is a
+// 4096x2048 texture).
+const textureZoom = 4;
+
+let globe = null;
+let texturedFor = "";
+// The sprites standing on the sphere right now, by pin, so a selection or
+// filter change restyles them in place instead of rebuilding two thousand.
+const sprites = new Map();
+const placed = new Map();
+const materials = new Map();
+
+// syncGlobe is called whenever a map arrives or leaves: it puts the toggle
+// up only for maps that declare a sphere with a mapping the viewer can
+// invert, and always returns the reader to the chart, which is where every
+// map opens.
+export function syncGlobe() {
+  const offered = mapSurface(state.map) === "sphere" && equirectMapping(state.map) !== null;
+  elements.globeToggle.hidden = !offered;
+  leaveGlobe();
+  if (!offered && globe) {
+    globe._destructor();
+    globe = null;
+    texturedFor = "";
+    elements.globe.replaceChildren();
+  }
+}
+
+export function toggleGlobe() {
+  if (state.globeActive) leaveGlobe();
+  else void enterGlobe();
+}
+
+function leaveGlobe() {
+  state.globeActive = false;
+  elements.globe.hidden = true;
+  elements.globeToggle.setAttribute("aria-pressed", "false");
+  elements.viewport.hidden = false;
+}
+
+async function enterGlobe() {
+  const mapping = equirectMapping(state.map);
+  if (!mapping) return;
+  state.globeActive = true;
+  elements.viewport.hidden = true;
+  elements.globe.hidden = false;
+  elements.globeToggle.setAttribute("aria-pressed", "true");
+
+  if (!globe) {
+    globe = Globe({ animateIn: false })(elements.globe)
+      .backgroundColor("#0b0e12")
+      .showAtmosphere(true)
+      .atmosphereColor("#8a6f5b")
+      .atmosphereAltitude(0.12)
+      .objectLat((point) => point.lat)
+      .objectLng((point) => point.lng)
+      .objectAltitude((point) => (point.pin === state.selectedPin ? 0.03 : 0.014))
+      .objectThreeObject((point) => spriteFor(point.pin))
+      .objectLabel((point) => point.pin.location.title)
+      .onObjectClick((point) => showPin(point.pin))
+      .onObjectHover((point) => {
+        elements.globe.style.cursor = point ? "pointer" : "";
+      });
+    globe.pointOfView({ lat: 10, lng: 0, altitude: 2.2 });
+    document.addEventListener("atlas:selection", syncSelection);
+    document.addEventListener("atlas:filters", syncFilters);
+  }
+  resizeGlobe();
+
+  const variant = state.variant || state.map.variants[0];
+  const key = `${state.game.stamp}:${state.map.slug}:${variant.tiles}`;
+  if (texturedFor !== key) {
+    texturedFor = key;
+    const texture = await composeTexture(variant);
+    if (texture && texturedFor === key) {
+      globe.globeImageUrl(texture);
+    }
+  }
+  sprites.clear();
+  placed.clear();
+  globe.objectsData(spherePins(mapping));
+  syncFilters();
+}
+
+// syncSelection restyles the sprites a selection change touched: the chosen
+// pin grows, takes its ring, lifts a little higher off the ground -- and
+// the globe turns to face it, because a ring on the far side of a planet
+// selects nothing anyone can see.
+function syncSelection() {
+  if (!globe || !state.globeActive) return;
+  for (const [pin, sprite] of sprites) {
+    const selected = pin === state.selectedPin;
+    sprite.material = material(pin.category, selected);
+    const size = selected ? 9 : 5;
+    sprite.scale.set(size, size, 1);
+  }
+  // Altitude rides the accessor, so re-declaring it reseats the two that
+  // moved along with everyone else -- cheap at this scale.
+  globe.objectAltitude((point) => (point.pin === state.selectedPin ? 0.03 : 0.014));
+  const stood = placed.get(state.selectedPin);
+  if (stood) {
+    const altitude = globe.pointOfView().altitude;
+    globe.pointOfView({ lat: stood.lat, lng: stood.lng, altitude }, 600);
+  }
+}
+
+// syncFilters shows and hides sprites as the legend and the search decide,
+// the same visibility the chart draws from.
+function syncFilters() {
+  if (!globe || !state.globeActive) return;
+  for (const [pin, sprite] of sprites) {
+    sprite.visible = !pin.filteredHidden && !state.hiddenCategories.has(pin.category.id);
+  }
+}
+
+// spriteFor stands one pin up as a billboard wearing its category's icon --
+// the same haloed, tinted raster the chart composes -- so what a marker is
+// reads the same on the sphere as on the sheet.
+function spriteFor(pin) {
+  const sprite = new Sprite(material(pin.category, pin === state.selectedPin));
+  const size = pin === state.selectedPin ? 9 : 5;
+  sprite.scale.set(size, size, 1);
+  sprites.set(pin, sprite);
+  return sprite;
+}
+
+// material caches one sprite material per category and selection state. The
+// icon raster is the chart's own when it has arrived; a category still
+// waiting, or one with no artwork at all, wears its initials the same way
+// the chart's fallback draws them.
+function material(category, selected) {
+  const key = `${markerIconKey(category)}:${selected ? "ringed" : "plain"}`;
+  let held = materials.get(key);
+  if (held) return held;
+  held = new SpriteMaterial({ depthWrite: false });
+  materials.set(key, held);
+  const icon = state.markerIcons.get(markerIconKey(category));
+  const finish = (image) => {
+    const canvas = document.createElement("canvas");
+    canvas.width = 80;
+    canvas.height = 80;
+    const context = canvas.getContext("2d");
+    if (image) {
+      context.drawImage(image, 8, 8, 64, 64);
+    } else {
+      context.font = "900 26px Inter, system-ui, sans-serif";
+      context.textAlign = "center";
+      context.textBaseline = "middle";
+      context.lineWidth = 6;
+      context.strokeStyle = iconOutsetColor();
+      context.strokeText(initials(category.title), 40, 41);
+      context.fillStyle = categoryColor(category);
+      context.fillText(initials(category.title), 40, 41);
+    }
+    if (selected) {
+      context.beginPath();
+      context.arc(40, 40, 36, 0, Math.PI * 2);
+      context.lineWidth = 5;
+      context.strokeStyle = "#ffffff";
+      context.stroke();
+    }
+    new TextureLoader().load(canvas.toDataURL("image/png"), (texture) => {
+      held.map = texture;
+      held.needsUpdate = true;
+    });
+  };
+  if (icon) {
+    const image = new Image();
+    image.onload = () => finish(image);
+    image.onerror = () => finish(null);
+    image.src = icon;
+  } else {
+    finish(null);
+  }
+  return held;
+}
+
+// refreshGlobe re-enters the globe when what it shows has moved underneath
+// it: another raster variant chosen, a category switched in the legend.
+export function refreshGlobe() {
+  if (state.globeActive) void enterGlobe();
+}
+
+// resizeGlobe keeps the canvas the size of its pane; globe.gl sizes once at
+// construction and must be told when the pane moves.
+export function resizeGlobe() {
+  if (!globe || elements.globe.hidden) return;
+  globe.width(elements.globe.clientWidth).height(elements.globe.clientHeight);
+}
+
+// spherePins stands every visible pin on the planet: packed synthetic
+// coordinates, through the viewer's own projection to world pixels, then
+// backward through the declared mapping to true latitude and longitude.
+function spherePins(mapping) {
+  const points = [];
+  for (const pin of state.pins) {
+    const [x, negY] = project(pin.location.lat, pin.location.lng);
+    const [lat, lng] = mapping.toLatLng(x, -negY);
+    points.push({ lat, lng, pin });
+    placed.set(pin, { lat, lng });
+  }
+  return points;
+}
+
+// composeTexture stitches the sphere's skin from the bundle's own tiles at
+// one fixed level: the full width of the pyramid and the top half of its
+// rows, which is the whole planet by the declared mapping. The result rides
+// as a data URL, so the globe asks the app for nothing it has not already
+// been given.
+async function composeTexture(variant) {
+  const zoom = Math.min(textureZoom, variant.maxZoom);
+  const format = variant.formats[zoom];
+  if (!format) return null;
+  const columns = 2 ** zoom;
+  const rows = columns / 2;
+  const canvas = document.createElement("canvas");
+  canvas.width = columns * 256;
+  canvas.height = rows * 256;
+  const context = canvas.getContext("2d");
+  const jobs = [];
+  for (let y = 0; y < rows; y++) {
+    for (let x = 0; x < columns; x++) {
+      const url = `${state.game.base}/tiles/${variant.tiles}/${zoom}/${x}/${y}.${format}`;
+      jobs.push(loadTile(url).then((image) => {
+        if (image) context.drawImage(image, x * 256, y * 256, 256, 256);
+      }));
+    }
+  }
+  await Promise.all(jobs);
+  return canvas.toDataURL("image/jpeg", 0.92);
+}
+
+function loadTile(url) {
+  return new Promise((resolve) => {
+    const image = new Image();
+    image.onload = () => resolve(image);
+    image.onerror = () => resolve(null);
+    image.src = url;
+  });
+}

@@ -14,6 +14,8 @@ export const elements = {
   dockRailName: $("#dock-rail-name"),
   visibleCount: $("#visible-count"),
   viewport: $("#map"),
+  globe: $("#globe"),
+  globeToggle: $("#globe-toggle"),
   layers: $("#layers"),
   zoneToggle: $("#zone-toggle"),
   zoneCount: $("#zone-count"),

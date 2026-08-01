@@ -19,6 +19,9 @@ export function revealPin(pin) {
 
 export function showPin(pin, focus = false) {
   state.selectedPin = pin;
+  // Anything else drawing the selection -- the globe -- hears about it the
+  // same moment the chart's layers do.
+  document.dispatchEvent(new Event("atlas:selection"));
   refreshPrioritySource();
   state.layers.pins.changed();
   state.layers.pinLabels.changed();
@@ -130,6 +133,7 @@ export function renderDetailLinks(pin) {
 export function closeDetail() {
   const hadSelection = state.selectedPin !== null;
   state.selectedPin = null;
+  document.dispatchEvent(new Event("atlas:selection"));
   if (state.sources) {
     refreshPrioritySource();
     state.layers.pins.changed();

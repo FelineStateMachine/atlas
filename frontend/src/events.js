@@ -18,6 +18,7 @@ import {
   toggleSection,
 } from "./legend.js";
 import { applyPinFilters, setLabelsHeld } from "./pins.js";
+import { refreshGlobe, resizeGlobe, toggleGlobe } from "./globe.js";
 import { jumpToZone, setZonesVisible, toggleZoneHighlight } from "./zones.js";
 import { foldDockByHand, revealDock } from "./search.js";
 import { importBundles } from "./library.js";
@@ -42,7 +43,11 @@ export function bindUIEvents() {
   elements.map.addEventListener("change", () => { void selectMap(elements.map.value); });
   elements.addBundles.addEventListener("click", () => { void importBundles(); });
   elements.emptyOpen.addEventListener("click", () => { void importBundles(); });
-  elements.variant.addEventListener("change", () => selectVariant(Number(elements.variant.value)));
+  elements.variant.addEventListener("change", () => {
+    selectVariant(Number(elements.variant.value));
+    refreshGlobe();
+  });
+  elements.globeToggle.addEventListener("click", () => toggleGlobe());
 
   elements.legend.addEventListener("change", (event) => {
     const input = event.target;
@@ -254,6 +259,7 @@ export function bindUIEvents() {
   window.addEventListener("resize", () => {
     state.engine?.updateSize();
     updateOverviewViewport();
+    resizeGlobe();
   });
   // Holding the pointer down steers the map: a reader crossing the world drags
   // the locator there in one sweep instead of clicking their way across it.

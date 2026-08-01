@@ -11,6 +11,7 @@ import { createView, initializeMap, resolutions } from "./engine.js";
 import { renderOverview, setOverviewDocked } from "./overview.js";
 import { setDockFolded } from "./search.js";
 import { renderGrid } from "./grid.js";
+import { syncGlobe } from "./globe.js";
 import { renderZones } from "./zones.js";
 import { renderLegend } from "./legend.js";
 import {
@@ -102,6 +103,9 @@ export async function selectMap(slug) {
   renderZones();
   buildPins();
   selectVariant(restore ? clamp(restore.variant, 0, state.map.variants.length - 1) : 0, true);
+  // A map that declares itself a sphere offers the globe; every map opens
+  // on the chart either way.
+  syncGlobe();
   // The remembered arrangement has been spent. Kept, it would be read again by
   // the next thing that asks: a variant swap would drop the reader back where
   // the session opened, and switching to another game would hand that game the

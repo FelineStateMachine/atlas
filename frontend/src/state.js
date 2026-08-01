@@ -15,6 +15,9 @@ export const state = {
   hoveredPin: null,
   labelsHeld: false,
   gridEnabled: false,
+  // Whether the reader is looking at the planet instead of the chart: only
+  // a map that declares itself a sphere can turn this on.
+  globeActive: false,
   // Whether the cells are drawn, which is a separate question from whether one
   // of them is holding the map to a place.
   subgridVisible: true,

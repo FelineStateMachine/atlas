@@ -57,6 +57,9 @@ export function applyPinFilters() {
   refreshPinRendering();
   if (state.selectedPin?.filteredHidden) closeDetail();
   renderSearchResults();
+  // Anything else drawing the pins -- the globe -- filters the same moment
+  // the chart does.
+  document.dispatchEvent(new Event("atlas:filters"));
 }
 
 export function updateZonePinFocus() {
