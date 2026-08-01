@@ -17,6 +17,7 @@ import (
 
 	"github.com/FelineStateMachine/atlas/internal/bundle"
 	"github.com/FelineStateMachine/atlas/internal/ignmap"
+	"github.com/FelineStateMachine/atlas/internal/pbmap"
 )
 
 type archive struct {
@@ -477,6 +478,9 @@ func buildMap(
 		return nil, "", err
 	}
 	if doc, err = ignmap.MaybeTranslate(latest.Kind, doc); err != nil {
+		return nil, "", err
+	}
+	if doc, err = pbmap.MaybeTranslate(latest.Kind, doc); err != nil {
 		return nil, "", err
 	}
 	var raw rawMap

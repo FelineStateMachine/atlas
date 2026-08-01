@@ -27,6 +27,7 @@ import (
 	_ "golang.org/x/image/webp"
 
 	"github.com/FelineStateMachine/atlas/internal/ignmap"
+	"github.com/FelineStateMachine/atlas/internal/pbmap"
 )
 
 const (
@@ -451,6 +452,9 @@ func inspectMap(mapDir string) ([]tilePlan, string, string, error) {
 		return nil, "", "", err
 	}
 	if doc, err = ignmap.MaybeTranslate(latest.Kind, doc); err != nil {
+		return nil, "", "", err
+	}
+	if doc, err = pbmap.MaybeTranslate(latest.Kind, doc); err != nil {
 		return nil, "", "", err
 	}
 	var raw rawMap
@@ -994,9 +998,9 @@ func sourceTilePath(mapDir string, record tileRecord) (string, error) {
 
 // tileSetPath recovers the layer path a record belongs to: everything between
 // the source's marker segment and "/<zoom>/". MapGenie serves tiles under
-// /games/, IGN under /wikimaps/.
+// /games/, IGN under /wikimaps/, Piggyback under /tiles/.
 func tileSetPath(rawURL string, zoom int) string {
-	for _, marker := range []string{"/games/", "/wikimaps/"} {
+	for _, marker := range []string{"/games/", "/wikimaps/", "/tiles/"} {
 		_, rest, found := strings.Cut(rawURL, marker)
 		if !found {
 			continue
