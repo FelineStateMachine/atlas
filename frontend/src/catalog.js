@@ -21,6 +21,7 @@ export async function loadWorld(entry) {
   ]);
   const categories = detail.groups.flatMap((group) => group.categories);
   unpackLocations(packed, categories);
+  const sections = legendSections(detail.groups);
   return {
     ...entry,
     grid: detail.grid,
@@ -29,7 +30,7 @@ export async function loadWorld(entry) {
     zones: detail.zones || [],
     attrs: detail.attrs || {},
     merged: detail.merged || [],
-    sections: legendSections(detail.groups),
+    sections,
   };
 }
 
@@ -74,11 +75,11 @@ export function unpackLocations(buffer, categories) {
 // with the words of the build it replaced.
 export async function worldText() {
   const key = `${state.volume.base}/${state.world.slug}`;
-  if (!state.textByMap.has(key)) {
-    state.textByMap.set(
+  if (!state.textByWorld.has(key)) {
+    state.textByWorld.set(
       key,
       fetch(`${state.volume.base}/worlds/${state.world.slug}.text`).then((r) => r.json()).catch(() => ({})),
     );
   }
-  return state.textByMap.get(key);
+  return state.textByWorld.get(key);
 }

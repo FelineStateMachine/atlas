@@ -52,9 +52,12 @@ export async function selectWorld(slug) {
   let loaded;
   try {
     loaded = await loadWorld(entry);
-  } catch {
+  } catch (error) {
     // The bundle moved underneath the catalog: refetching the catalog brings
     // the new build's URLs, and the refresh re-selects this world through them.
+    // The error is spoken either way -- a coding fault in the load path would
+    // otherwise wear the same silence as a stale stamp, forever.
+    console.error(`world ${entry.slug} failed to load`, error);
     if (state.worldRun === run) {
       elements.loading.hidden = true;
       void refreshCatalog();

@@ -45,8 +45,8 @@ export const state = {
   // comes out on its own the first time there is something in it to read.
   dockDismissed: false,
   renderedShard: 0,
-  mapRun: 0,
-  textByMap: new Map(),
+  worldRun: 0,
+  textByWorld: new Map(),
   restore: null,
   settling: false,
   styleCache: new Map(),

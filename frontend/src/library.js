@@ -45,8 +45,8 @@ async function reconcile() {
     // screen through the new stamped base, carrying the exact arrangement --
     // camera, filters, panels -- across so the swap reads as the map
     // sharpening rather than the application starting over.
-    for (const key of state.textByMap.keys()) {
-      if (key.startsWith(previous.base + "/")) state.textByMap.delete(key);
+    for (const key of state.textByWorld.keys()) {
+      if (key.startsWith(previous.base + "/")) state.textByWorld.delete(key);
     }
     const view = state.engine?.getView();
     state.restore = {
