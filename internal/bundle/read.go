@@ -9,6 +9,8 @@ import (
 	"strconv"
 	"strings"
 	"time"
+
+	"github.com/FelineStateMachine/atlas/internal/semconv"
 )
 
 // maxManifestSize bounds what Open will read as a manifest. A manifest lists
@@ -121,7 +123,8 @@ func (b *Bundle) Close() error {
 }
 
 // payloadPeek is the sliver of a map payload that validation reads: which
-// pyramids its layers draw from and which icons its categories name.
+// pyramids its layers draw from, which icons its categories name, and what
+// the payload says of itself in the shared conventions.
 type payloadPeek struct {
 	Variants []struct {
 		Tiles   string   `json:"tiles"`
@@ -131,9 +134,18 @@ type payloadPeek struct {
 	} `json:"variants"`
 	Groups []struct {
 		Categories []struct {
-			IconAsset string `json:"iconAsset"`
+			IconAsset   string            `json:"iconAsset"`
+			DisplayType string            `json:"displayType"`
+			Attrs       map[string]string `json:"attrs"`
 		} `json:"categories"`
 	} `json:"groups"`
+	Attrs map[string]string `json:"attrs"`
+}
+
+// textPeek is the sliver of a pin's text entry that validation reads: its
+// attributes, which are the only conventions that ride the text file.
+type textPeek struct {
+	Attrs map[string]string `json:"a"`
 }
 
 // Validate checks the manifest's promises against the archive: every listed
@@ -213,6 +225,59 @@ func (b *Bundle) Validate() error {
 					return fmt.Errorf("map %s names a missing icon %s", entry.Slug, category.IconAsset)
 				}
 			}
+		}
+		if b.Manifest.Conventions >= 1 {
+			if err := validateConventions(entry.Slug, peek, text); err != nil {
+				return err
+			}
+		}
+	}
+	return nil
+}
+
+// validateConventions holds a declaring bundle to the vocabulary it claims:
+// every attribute registered and well-formed, the render attribute agreeing
+// with the legacy field it will one day retire, a declared standard icon
+// actually resolved, and a declared sphere carrying a mapping that parses.
+// A bundle that declares no conventions is not held to any -- the strictness
+// belongs to the claim.
+func validateConventions(slug string, peek payloadPeek, text []byte) error {
+	if err := semconv.Validate(semconv.EntityMap, peek.Attrs); err != nil {
+		return fmt.Errorf("map %s: %w", slug, err)
+	}
+	if peek.Attrs[semconv.KeyGeometrySurface] == semconv.SurfaceSphere {
+		if peek.Attrs[semconv.KeyGeometryProjection] == "" {
+			return fmt.Errorf("map %s declares a sphere with no projection", slug)
+		}
+		if _, err := semconv.ParseEquirect(
+			peek.Attrs[semconv.KeyGeometryEquirectPx],
+			peek.Attrs[semconv.KeyGeometryEquirectDeg]); err != nil {
+			return fmt.Errorf("map %s: %w", slug, err)
+		}
+	}
+	for _, group := range peek.Groups {
+		for _, category := range group.Categories {
+			if err := semconv.Validate(semconv.EntityCategory, category.Attrs); err != nil {
+				return fmt.Errorf("map %s: %w", slug, err)
+			}
+			if declared, ok := category.Attrs[semconv.KeyRenderAs]; ok {
+				if legacy := semconv.RenderAs(nil, category.DisplayType); declared != legacy {
+					return fmt.Errorf("map %s renders a category as %s while its legacy field says %s",
+						slug, declared, legacy)
+				}
+			}
+			if category.Attrs[semconv.KeyIconStd] != "" && category.IconAsset == "" {
+				return fmt.Errorf("map %s declares a standard icon that was never resolved", slug)
+			}
+		}
+	}
+	var entries map[string]textPeek
+	if err := json.Unmarshal(text, &entries); err != nil {
+		return fmt.Errorf("map %s: decode text: %w", slug, err)
+	}
+	for id, entry := range entries {
+		if err := semconv.Validate(semconv.EntityLocation, entry.Attrs); err != nil {
+			return fmt.Errorf("map %s pin %s: %w", slug, id, err)
 		}
 	}
 	return nil

@@ -30,9 +30,17 @@ const (
 
 // Manifest is what a bundle says about itself: which game it is, which build
 // of that game's data it carries, and which maps are inside.
+//
+// Conventions names the semantic-convention vocabulary the payloads were
+// written against; zero is a bundle from before the conventions existed.
+// It is a declaration, never a gate -- a reader that knows a newer or older
+// vocabulary still opens the bundle and ignores what it cannot speak --
+// but validation is stricter about a bundle that declares than one that
+// does not.
 type Manifest struct {
 	Format        string     `json:"format"`
 	FormatVersion int        `json:"formatVersion"`
+	Conventions   int        `json:"conventions,omitempty"`
 	Game          Game       `json:"game"`
 	Version       Version    `json:"version"`
 	TileGrid      TileGrid   `json:"tileGrid"`

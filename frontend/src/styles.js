@@ -7,6 +7,7 @@ import {
 } from "ol/style.js";
 
 import { geohashAlphabet, palette } from "./constants.js";
+import { renderAs } from "./semconv.js";
 import { state } from "./state.js";
 import {
   atMaximumNativeZoom,
@@ -84,7 +85,7 @@ export function zoneTextFeatureStyle(feature) {
 export function priorityFeatureStyle(feature) {
   const pin = feature.get("pin");
   if (!pin || pinIsHidden(pin)) return null;
-  if (pin.category.displayType === "text") return textStyles(pin, pin === state.selectedPin);
+  if (renderAs(pin.category) === "text") return textStyles(pin, pin === state.selectedPin);
   const marker = markerStyles(pin, pin === state.selectedPin);
   if (pin === state.hoveredPin || pin === state.selectedPin) {
     return [marker, markerLabelStyle(pin)];

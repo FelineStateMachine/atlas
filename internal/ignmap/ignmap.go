@@ -22,6 +22,7 @@ import (
 	"strings"
 
 	"github.com/FelineStateMachine/atlas/internal/mgdoc"
+	"github.com/FelineStateMachine/atlas/internal/semconv"
 )
 
 // Kind names IGN captures in a map's snapshot index, alongside the "map"
@@ -261,6 +262,7 @@ func buildGroups(capture *Capture, ids *mgdoc.IDSpace, scope string) ([]mgdoc.Gr
 			DisplayType: "markers",
 			Visible:     true,
 			Locations:   make([]mgdoc.Location, 0, len(markers)),
+			Attrs:       map[string]string{semconv.KeyRenderAs: semconv.RenderAsPin},
 		}
 		for _, marker := range markers {
 			locationID, err := ids.Claim("ign:marker:" + marker.ID)

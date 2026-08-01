@@ -30,6 +30,7 @@ import (
 	"strconv"
 
 	"github.com/FelineStateMachine/atlas/internal/mgdoc"
+	"github.com/FelineStateMachine/atlas/internal/semconv"
 )
 
 // Kind names Trek captures in a map's snapshot index.
@@ -289,6 +290,7 @@ func buildGroups(capture *Capture, ids *mgdoc.IDSpace, scope string) ([]mgdoc.Gr
 			DisplayType: "markers",
 			Visible:     true,
 			Locations:   make([]mgdoc.Location, 0, len(byType[featureType])),
+			Attrs:       map[string]string{semconv.KeyRenderAs: semconv.RenderAsPin},
 		}
 		for _, feature := range byType[featureType] {
 			locationID, err := ids.Claim("trek:feature:" + strconv.FormatInt(feature.ID, 10))

@@ -8,6 +8,7 @@ import Projection from "ol/proj/Projection.js";
 import VectorSource from "ol/source/Vector.js";
 
 import { elements } from "./dom.js";
+import { renderAs } from "./semconv.js";
 import { state } from "./state.js";
 import {
   featureOrder,
@@ -231,7 +232,7 @@ export function initializeMap() {
       (feature, layer) => (isAnnotationLayer(layer) && feature.get("pin")) || null,
       { hitTolerance: 4, layerFilter: isAnnotationLayer },
     );
-    const hovered = hit?.category.displayType === "text" ? null : hit;
+    const hovered = hit && renderAs(hit.category) === "text" ? null : hit;
     setHoveredPin(hovered || null);
     const gridHit = state.gridEnabled && state.engine.hasFeatureAtPixel(event.pixel, {
       layerFilter: (layer) =>

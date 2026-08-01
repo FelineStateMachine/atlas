@@ -21,6 +21,7 @@ import (
 	"strings"
 
 	"github.com/FelineStateMachine/atlas/internal/mgdoc"
+	"github.com/FelineStateMachine/atlas/internal/semconv"
 )
 
 // Kind names Piggyback captures in a map's snapshot index.
@@ -386,6 +387,10 @@ func buildCategory(
 	if err != nil {
 		return mgdoc.Category{}, false, err
 	}
+	renderAs := semconv.RenderAsPin
+	if displayType == "text" {
+		renderAs = semconv.RenderAsText
+	}
 	category := mgdoc.Category{
 		ID:    categoryID,
 		Title: typeLabel,
@@ -396,6 +401,7 @@ func buildCategory(
 		DisplayType: displayType,
 		Visible:     true,
 		Locations:   make([]mgdoc.Location, 0, len(pins)),
+		Attrs:       map[string]string{semconv.KeyRenderAs: renderAs},
 	}
 	for _, pin := range pins {
 		locationID, err := ids.Claim("pb:pin:" + pin.ID)

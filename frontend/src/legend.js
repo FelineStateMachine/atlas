@@ -3,6 +3,7 @@ import { state } from "./state.js";
 import { saveSession } from "./session.js";
 import { applyPinFilters } from "./pins.js";
 import { renderSearchResults } from "./search.js";
+import { renderAs } from "./semconv.js";
 import { applyCategoryVisual, applyCategoryGlyph, initials } from "./theme.js";
 import { formatNumber } from "./util.js";
 
@@ -16,7 +17,7 @@ export function legendSections(groups) {
   for (const group of groups) {
     const drawn = [];
     for (const category of group.categories) {
-      (category.displayType === "text" ? text : drawn).push(category);
+      (renderAs(category) === "text" ? text : drawn).push(category);
     }
     if (drawn.length) {
       sections.push({ key: `group-${group.id}`, title: group.title, categories: drawn });
@@ -102,7 +103,7 @@ export function onlyButton(label) {
 }
 
 export function categoryToggle(category) {
-  const isText = category.displayType === "text";
+  const isText = renderAs(category) === "text";
   const row = document.createElement("label");
   row.className = "category-row";
   applyCategoryVisual(row, category);

@@ -11,6 +11,7 @@ import (
 	"strings"
 
 	"github.com/FelineStateMachine/atlas/internal/bundle"
+	"github.com/FelineStateMachine/atlas/internal/semconv"
 )
 
 // policyRevision orders builds of the same capture. The data has not moved
@@ -22,7 +23,8 @@ import (
 //	1  first revisioned builds
 //	2  merge resolution: subset names, adoption, one-to-one matches
 //	3  origin provenance on every map; overlap merges across map slugs
-const policyRevision = 3
+//	4  semantic conventions: attributes ride every payload
+const policyRevision = 4
 
 // writeBundles packs each game into its own .atlas file, named by game,
 // capture day, and stamp. The directory is a registry, not a mirror: a new
@@ -64,6 +66,7 @@ func writeGameBundle(
 	manifest := bundle.Manifest{
 		Format:        bundle.Format,
 		FormatVersion: bundle.FormatVersion,
+		Conventions:   semconv.Version,
 		Game:          bundle.Game{Slug: game.Slug, Title: game.Title},
 		Version:       bundle.Version{Revision: policyRevision},
 		TileGrid: bundle.TileGrid{

@@ -26,17 +26,21 @@ const (
 )
 
 // Only the fields tools/tiles and tools/generate actually read, spelled with
-// the snake_case tags their own decoders name.
+// the snake_case tags their own decoders name. Attrs carries the semantic
+// conventions a translator declares -- registered atlas.* keys -- under a
+// field no real MapGenie capture spells, so a snapshot passing through
+// untranslated simply says nothing and the generator speaks for it.
 type Map struct {
-	ID               int64      `json:"id"`
-	Title            string     `json:"title"`
-	Slug             string     `json:"slug"`
-	InitialLatitude  float64    `json:"initial_latitude"`
-	InitialLongitude float64    `json:"initial_longitude"`
-	Config           Config     `json:"config"`
-	Game             Game       `json:"game"`
-	Groups           []Group    `json:"groups"`
-	Regions          []struct{} `json:"regions"`
+	ID               int64             `json:"id"`
+	Title            string            `json:"title"`
+	Slug             string            `json:"slug"`
+	InitialLatitude  float64           `json:"initial_latitude"`
+	InitialLongitude float64           `json:"initial_longitude"`
+	Config           Config            `json:"config"`
+	Game             Game              `json:"game"`
+	Groups           []Group           `json:"groups"`
+	Regions          []struct{}        `json:"regions"`
+	Attrs            map[string]string `json:"atlas_attrs,omitempty"`
 }
 
 type Game struct {
@@ -75,20 +79,22 @@ type Group struct {
 }
 
 type Category struct {
-	ID          int64      `json:"id"`
-	Title       string     `json:"title"`
-	Icon        string     `json:"icon"`
-	DisplayType string     `json:"display_type"`
-	Visible     bool       `json:"visible"`
-	Locations   []Location `json:"locations"`
+	ID          int64             `json:"id"`
+	Title       string            `json:"title"`
+	Icon        string            `json:"icon"`
+	DisplayType string            `json:"display_type"`
+	Visible     bool              `json:"visible"`
+	Locations   []Location        `json:"locations"`
+	Attrs       map[string]string `json:"atlas_attrs,omitempty"`
 }
 
 type Location struct {
-	ID          int64   `json:"id"`
-	Title       string  `json:"title"`
-	Description string  `json:"description,omitempty"`
-	Latitude    float64 `json:"latitude"`
-	Longitude   float64 `json:"longitude"`
+	ID          int64             `json:"id"`
+	Title       string            `json:"title"`
+	Description string            `json:"description,omitempty"`
+	Latitude    float64           `json:"latitude"`
+	Longitude   float64           `json:"longitude"`
+	Attrs       map[string]string `json:"atlas_attrs,omitempty"`
 }
 
 // Synthetic coordinates invert the viewer's projection, so a pin's linear

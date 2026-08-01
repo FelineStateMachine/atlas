@@ -31,6 +31,9 @@ type mapDetail struct {
 	Variants []variant      `json:"variants"`
 	Groups   []catalogGroup `json:"groups"`
 	Zones    []zone         `json:"zones,omitempty"`
+	// Attrs is the map speaking the shared conventions -- its geometry, its
+	// marker outset -- for any reader that knows the vocabulary.
+	Attrs map[string]string `json:"attrs,omitempty"`
 	// Merged is the provenance of any other sources folded into this map.
 	// The viewer ignores it; it exists so the merged payload carries its own
 	// account.
@@ -41,6 +44,10 @@ type mapDetail struct {
 type locationText struct {
 	Description string        `json:"d,omitempty"`
 	Links       []catalogLink `json:"l,omitempty"`
+	// Attrs carries a pin's own conventions -- its true planetary
+	// coordinates, when a source published them -- read when its card opens,
+	// like everything else here.
+	Attrs map[string]string `json:"a,omitempty"`
 }
 
 // buildPayload splits one map three ways: its layers, categories and regions
@@ -49,7 +56,7 @@ type locationText struct {
 func buildPayload(m catalogMap) (mapDetail, []byte, map[string]locationText) {
 	// Categories keep their identity; their locations travel packed, each
 	// carrying the position of its category in this same flattened order.
-	detail := mapDetail{Grid: m.Grid, Variants: m.Variants, Zones: m.Zones, Merged: m.Merged}
+	detail := mapDetail{Grid: m.Grid, Variants: m.Variants, Zones: m.Zones, Attrs: m.Attrs, Merged: m.Merged}
 	var locations []bundle.Location
 	text := make(map[string]locationText)
 	var ordinal uint16
@@ -73,10 +80,11 @@ func buildPayload(m catalogMap) (mapDetail, []byte, map[string]locationText) {
 					Shard:  location.Shard,
 					Owner:  ordinal,
 				})
-				if location.Description != "" || len(location.Links) > 0 {
+				if location.Description != "" || len(location.Links) > 0 || len(location.Attrs) > 0 {
 					text[strconv.FormatInt(location.ID, 10)] = locationText{
 						Description: location.Description,
 						Links:       location.Links,
+						Attrs:       location.Attrs,
 					}
 				}
 			}

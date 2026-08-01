@@ -5,6 +5,7 @@ import { closeDetail } from "./detail.js";
 import { elements } from "./dom.js";
 import { pinInGridCell } from "./grid.js";
 import { renderSearchResults } from "./search.js";
+import { renderAs } from "./semconv.js";
 import { updateVisibleCount } from "./navigation.js";
 import { state } from "./state.js";
 import { prepareMarkerIcon } from "./styles.js";
@@ -19,7 +20,7 @@ export function buildPins() {
   state.pinByID.clear();
   for (const group of state.map.groups) {
     for (const category of group.categories) {
-      if (category.displayType !== "text") prepareMarkerIcon(category);
+      if (renderAs(category) !== "text") prepareMarkerIcon(category);
       for (const location of category.locations) {
         const pin = {
           location,
@@ -37,7 +38,7 @@ export function buildPins() {
         });
         state.pins.push(pin);
         state.pinByID.set(location.id, pin);
-        if (category.displayType === "text") state.sources.text.addFeature(pin.feature);
+        if (renderAs(category) === "text") state.sources.text.addFeature(pin.feature);
         else state.sources.pins.addFeature(pin.feature);
       }
     }

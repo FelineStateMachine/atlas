@@ -8,6 +8,7 @@ import (
 	"errors"
 	"flag"
 	"fmt"
+	"maps"
 	"os"
 	"path/filepath"
 	"regexp"
@@ -18,6 +19,7 @@ import (
 	"github.com/FelineStateMachine/atlas/internal/bundle"
 	"github.com/FelineStateMachine/atlas/internal/ignmap"
 	"github.com/FelineStateMachine/atlas/internal/pbmap"
+	"github.com/FelineStateMachine/atlas/internal/semconv"
 	"github.com/FelineStateMachine/atlas/internal/trekmap"
 )
 
@@ -41,16 +43,17 @@ type snapshotIndex struct {
 }
 
 type rawMap struct {
-	ID               int64       `json:"id"`
-	Title            string      `json:"title"`
-	Slug             string      `json:"slug"`
-	InitialLatitude  float64     `json:"initial_latitude"`
-	InitialLongitude float64     `json:"initial_longitude"`
-	InitialZoom      float64     `json:"initial_zoom"`
-	Config           rawConfig   `json:"config"`
-	Game             rawGame     `json:"game"`
-	Groups           []rawGroup  `json:"groups"`
-	Regions          []rawRegion `json:"regions"`
+	ID               int64             `json:"id"`
+	Title            string            `json:"title"`
+	Slug             string            `json:"slug"`
+	InitialLatitude  float64           `json:"initial_latitude"`
+	InitialLongitude float64           `json:"initial_longitude"`
+	InitialZoom      float64           `json:"initial_zoom"`
+	Config           rawConfig         `json:"config"`
+	Game             rawGame           `json:"game"`
+	Groups           []rawGroup        `json:"groups"`
+	Regions          []rawRegion       `json:"regions"`
+	Attrs            map[string]string `json:"atlas_attrs"`
 }
 
 type rawGame struct {
@@ -77,23 +80,25 @@ type rawGroup struct {
 }
 
 type rawCategory struct {
-	ID          int64         `json:"id"`
-	Title       string        `json:"title"`
-	Icon        string        `json:"icon"`
-	Color       string        `json:"color"`
-	IconColor   string        `json:"icon_color"`
-	DisplayType string        `json:"display_type"`
-	Visible     bool          `json:"visible"`
-	Locations   []rawLocation `json:"locations"`
+	ID          int64             `json:"id"`
+	Title       string            `json:"title"`
+	Icon        string            `json:"icon"`
+	Color       string            `json:"color"`
+	IconColor   string            `json:"icon_color"`
+	DisplayType string            `json:"display_type"`
+	Visible     bool              `json:"visible"`
+	Locations   []rawLocation     `json:"locations"`
+	Attrs       map[string]string `json:"atlas_attrs"`
 }
 
 type rawLocation struct {
-	ID          int64           `json:"id"`
-	Title       string          `json:"title"`
-	Description string          `json:"description"`
-	Latitude    json.RawMessage `json:"latitude"`
-	Longitude   json.RawMessage `json:"longitude"`
-	RegionID    *int64          `json:"region_id"`
+	ID          int64             `json:"id"`
+	Title       string            `json:"title"`
+	Description string            `json:"description"`
+	Latitude    json.RawMessage   `json:"latitude"`
+	Longitude   json.RawMessage   `json:"longitude"`
+	RegionID    *int64            `json:"region_id"`
+	Attrs       map[string]string `json:"atlas_attrs"`
 }
 
 type rawRegion struct {
@@ -155,6 +160,10 @@ type catalogMap struct {
 	Slug       string     `json:"slug"`
 	IconOutset string     `json:"iconOutset,omitempty"`
 	Center     coordinate `json:"center"`
+	// Attrs is the map's account of itself in the shared conventions --
+	// geometry, marker outset -- validated against the registry before a
+	// bundle is written.
+	Attrs map[string]string `json:"attrs,omitempty"`
 	// Grid is carried only by a map whose window is not the shared one, so the
 	// catalog reads the same as it did for every map that is.
 	Grid     *mapGrid       `json:"grid,omitempty"`
@@ -259,6 +268,9 @@ type catalogCategory struct {
 	DisplayType string            `json:"displayType"`
 	Visible     bool              `json:"visible"`
 	Locations   []catalogLocation `json:"locations"`
+	// Attrs speaks the conventions for this category -- how it renders, what
+	// its icon is -- beside the legacy fields it will one day retire.
+	Attrs map[string]string `json:"attrs,omitempty"`
 }
 
 type catalogLocation struct {
@@ -272,6 +284,10 @@ type catalogLocation struct {
 	// layers, and is absent on maps that are not.
 	Shard int64         `json:"shard,omitempty"`
 	Links []catalogLink `json:"links,omitempty"`
+	// Attrs never rides the detail payload -- locations there are stripped
+	// -- and ships instead in the text file beside the description, read
+	// when a pin is opened.
+	Attrs map[string]string `json:"-"`
 }
 
 // catalogLink is a cross-reference the source wrote as a mapgenie URL, resolved
@@ -445,7 +461,66 @@ func buildGame(
 	if err := attachGameIcons(gamePath, &game); err != nil {
 		return catalogGame{}, err
 	}
+	if err := speakConventions(&game); err != nil {
+		return catalogGame{}, fmt.Errorf("%s: %w", game.Slug, err)
+	}
 	return game, nil
+}
+
+// speakConventions makes every map answer in the shared vocabulary,
+// whatever its source knew how to say. A capture that declared its
+// attributes keeps them; one that predates the conventions -- every
+// MapGenie snapshot -- has them spoken for it from the same rules that
+// used to be unwritten: the display type it carried, the icon it resolved
+// to, the outset its curation chose. Then the whole game is held to the
+// registry, so an unregistered key or a foreign value fails here, one
+// build old, rather than riding into a bundle.
+func speakConventions(game *catalogGame) error {
+	for mapIndex := range game.Maps {
+		m := &game.Maps[mapIndex]
+		if m.IconOutset != "" {
+			m.Attrs = withAttr(m.Attrs, semconv.KeyIconOutset, m.IconOutset)
+		}
+		if err := semconv.Validate(semconv.EntityMap, m.Attrs); err != nil {
+			return fmt.Errorf("map %s: %w", m.Slug, err)
+		}
+		for groupIndex := range m.Groups {
+			categories := m.Groups[groupIndex].Categories
+			for categoryIndex := range categories {
+				category := &categories[categoryIndex]
+				if _, declared := category.Attrs[semconv.KeyRenderAs]; !declared {
+					category.Attrs = withAttr(category.Attrs, semconv.KeyRenderAs,
+						semconv.RenderAs(nil, category.DisplayType))
+				}
+				if category.IconAsset != "" {
+					kind := semconv.IconKindGlyph
+					if category.IconPicture {
+						kind = semconv.IconKindPicture
+					}
+					category.Attrs = withAttr(category.Attrs, semconv.KeyIconKind, kind)
+				}
+				if err := semconv.Validate(semconv.EntityCategory, category.Attrs); err != nil {
+					return fmt.Errorf("map %s category %q: %w", m.Slug, category.Title, err)
+				}
+				for _, location := range category.Locations {
+					if err := semconv.Validate(semconv.EntityLocation, location.Attrs); err != nil {
+						return fmt.Errorf("map %s pin %q: %w", m.Slug, location.Title, err)
+					}
+				}
+			}
+		}
+	}
+	return nil
+}
+
+// withAttr sets one attribute on a copy of the map, never the map itself: a
+// split sheet's pieces share their source's attributes by reference, and
+// speaking for one piece must not put words in another's mouth.
+func withAttr(attrs map[string]string, key, value string) map[string]string {
+	out := make(map[string]string, len(attrs)+1)
+	maps.Copy(out, attrs)
+	out[key] = value
+	return out
 }
 
 func sortGameMaps(gameSlug string, maps []catalogMap) {
@@ -535,6 +610,7 @@ func buildMap(
 		IconOutset: iconOutsetFor(raw),
 		Center:     coordinate{Latitude: raw.InitialLatitude, Longitude: raw.InitialLongitude},
 		UpdatedAt:  latest.CapturedAt,
+		Attrs:      raw.Attrs,
 	}
 	if len(raw.Config.TileSets) == 0 {
 		return nil, "", fmt.Errorf("%w: no tile sets", errMapNotReady)
@@ -614,6 +690,7 @@ func buildMap(
 				IconColor:   resolvedIconColor(rawGroup, rawCategory),
 				DisplayType: rawCategory.DisplayType,
 				Visible:     rawCategory.Visible,
+				Attrs:       rawCategory.Attrs,
 			}
 			for _, rawLocation := range rawCategory.Locations {
 				lat, err := number(rawLocation.Latitude)
@@ -631,6 +708,7 @@ func buildMap(
 					Latitude:    lat,
 					Longitude:   lng,
 					RegionID:    rawLocation.RegionID,
+					Attrs:       rawLocation.Attrs,
 				})
 				m.PinCount++
 			}
