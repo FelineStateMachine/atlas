@@ -6,14 +6,23 @@
 package main
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
 	"hash/fnv"
+	"image"
+	"image/png"
+	"os"
 	"path/filepath"
+	"sort"
 	"strconv"
 	"strings"
+
+	// Piggyback draws its icons only as WebP; they decode here and land in
+	// the archive as the PNG the pipeline reads.
+	_ "golang.org/x/image/webp"
 
 	"github.com/FelineStateMachine/atlas/internal/mgdoc"
 	"github.com/FelineStateMachine/atlas/internal/pbmap"
@@ -84,6 +93,11 @@ func runPB(ctx context.Context, fetcher *fetcher, o options) error {
 		fmt.Printf("   would survey tiles z%d-%d and write the capture to %s\n",
 			page.minZoom, pbDeepest(page, o), mapDir)
 		return nil
+	}
+
+	if err := fetchPBIcons(ctx, fetcher, gameSlug, pageURL,
+		filepath.Join(o.archive, gameDirectory), capture); err != nil {
+		return err
 	}
 
 	index, err := readTileIndex(mapDir)
@@ -351,6 +365,105 @@ func composePBCapture(
 	}
 	capture.Normalize()
 	return capture
+}
+
+// fetchPBIcons stores each type's marker icon under the key the translator
+// gives its category, so the icons attach at the next generation. Piggyback
+// serves them only as WebP under an asset prefix of the app's own -- for
+// cyberpunk-2077 the assets live under "cyberpunk" -- so the prefix is found
+// by asking, and each icon is decoded and archived as the PNG the pipeline
+// reads. A type without an icon, like the district name labels, is simply a
+// type the viewer keeps its fallback glyph for.
+func fetchPBIcons(
+	ctx context.Context,
+	f *fetcher,
+	gameSlug, pageURL, gameDir string,
+	capture *pbmap.Capture,
+) error {
+	keys := make(map[string]bool)
+	for _, category := range capture.Categories {
+		for _, t := range category.Types {
+			keys[t.Key] = true
+		}
+	}
+	for _, pin := range capture.Pins {
+		keys[pin.TypeKey] = true
+	}
+	ordered := make([]string, 0, len(keys))
+	for key := range keys {
+		ordered = append(ordered, key)
+	}
+	sort.Strings(ordered)
+
+	prefix, found := "", false
+	fetched, absent := 0, 0
+	for _, key := range ordered {
+		path := filepath.Join(gameDir, "icons", key+".png")
+		if _, err := os.Stat(path); err == nil {
+			continue
+		}
+		if !found {
+			prefix, found = discoverPBIconPrefix(ctx, f, gameSlug, pageURL, ordered)
+			if !found {
+				fmt.Println("   no icon prefix answers; the viewer will use its fallback glyphs")
+				return nil
+			}
+		}
+		body, _, err := f.get(ctx, pageURL+"/"+prefix+"/icons/"+key+"@2x.webp")
+		if errors.Is(err, errAbsent) {
+			absent++
+			continue
+		}
+		if err != nil {
+			return fmt.Errorf("icon %s: %w", key, err)
+		}
+		decoded, _, err := image.Decode(bytes.NewReader(body))
+		if err != nil {
+			return fmt.Errorf("decode icon %s: %w", key, err)
+		}
+		var out bytes.Buffer
+		if err := png.Encode(&out, decoded); err != nil {
+			return fmt.Errorf("encode icon %s: %w", key, err)
+		}
+		if err := writeFile(path, out.Bytes()); err != nil {
+			return err
+		}
+		fetched++
+	}
+	if fetched > 0 || absent > 0 {
+		fmt.Printf("   %d icons · %d types draw no icon\n", fetched, absent)
+	}
+	return nil
+}
+
+// discoverPBIconPrefix finds the asset prefix by asking: the game's slug, and
+// then the slug with its trailing words dropped, against the first few types.
+func discoverPBIconPrefix(
+	ctx context.Context,
+	f *fetcher,
+	gameSlug, pageURL string,
+	keys []string,
+) (string, bool) {
+	candidates := []string{gameSlug}
+	for at := strings.LastIndex(gameSlug, "-"); at > 0; at = strings.LastIndex(gameSlug[:at], "-") {
+		candidates = append(candidates, gameSlug[:at])
+	}
+	probes := keys
+	if len(probes) > 3 {
+		probes = probes[:3]
+	}
+	for _, candidate := range candidates {
+		for _, key := range probes {
+			_, _, err := f.get(ctx, pageURL+"/"+candidate+"/icons/"+key+"@2x.webp")
+			if err == nil {
+				return candidate, true
+			}
+			if !errors.Is(err, errAbsent) {
+				return "", false
+			}
+		}
+	}
+	return "", false
 }
 
 func pbDeepest(page *pbPage, o options) int {
