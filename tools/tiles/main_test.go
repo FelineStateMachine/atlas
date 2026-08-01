@@ -35,6 +35,59 @@ func TestExpectedBoundsUsesConfiguredLayerBounds(t *testing.T) {
 	}
 }
 
+// The two windows the archive holds. A layer that declares nothing is cut from
+// the shared square at zoom 13, and lands on the base and world grid the viewer
+// assumed before any of this was measured; GTA 5 declares its own, five levels
+// shallower and anchored at the origin.
+func TestFrameForMeasuresEachWindow(t *testing.T) {
+	tests := []struct {
+		name     string
+		set      rawTileSet
+		wantBase int
+		wantGrid gridSpec
+	}{
+		{
+			name:     "the shared window",
+			set:      rawTileSet{MaxZoom: 15},
+			wantBase: 8,
+			wantGrid: gridSpec{SourceZoom: 13, FirstTile: 4064},
+		},
+		{
+			name: "a window of its own",
+			set: rawTileSet{MaxZoom: 7, Bounds: map[string]rawTileSetBound{
+				"7": {X: rawRange{Min: 0, Max: 42}, Y: rawRange{Min: 0, Max: 42}},
+			}},
+			wantBase: 1,
+			wantGrid: gridSpec{SourceZoom: 6, FirstTile: 0},
+		},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			frame, ok := frameFor(test.set)
+			if !ok {
+				t.Fatal("frameFor() found no window")
+			}
+			if frame.BaseZoom != test.wantBase {
+				t.Errorf("BaseZoom = %d, want %d", frame.BaseZoom, test.wantBase)
+			}
+			if got := frame.grid(); got != test.wantGrid {
+				t.Errorf("grid() = %#v, want %#v", got, test.wantGrid)
+			}
+		})
+	}
+}
+
+// A window that is one tile on one axis and two on the other would place pins
+// against an origin it does not have.
+func TestFrameForRejectsAnUnsquareWindow(t *testing.T) {
+	set := rawTileSet{MaxZoom: 4, Bounds: map[string]rawTileSetBound{
+		"4": {X: rawRange{Min: 0, Max: 3}, Y: rawRange{Min: 8, Max: 11}},
+	}}
+	if _, ok := frameFor(set); ok {
+		t.Fatal("frameFor() accepted a window whose axes rest on different tiles")
+	}
+}
+
 func TestTileSetPath(t *testing.T) {
 	const rawURL = "https://tiles.mapgenie.io/games/skyrim/skyrim/default-v1/13/4076/4064.jpg"
 	if got, want := tileSetPath(rawURL, 13), "skyrim/skyrim/default-v1"; got != want {

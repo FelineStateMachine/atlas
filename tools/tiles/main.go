@@ -24,12 +24,69 @@ import (
 )
 
 const (
-	referenceZoom  = 13
-	baseSourceZoom = 8
-	firstTile      = 4064
-	tileSize       = 256
-	worldSize      = 8192
+	referenceZoom = 13
+	firstTile     = 4064
+	tileSize      = 256
+	worldSize     = 8192
+	// worldZoomLevels is how far the world square sits above the level that
+	// holds a map in one tile: 8192 units of world across, 256 to a tile, so
+	// five halvings. It is what makes a unit of world one pixel of the
+	// reference level, whichever level that turns out to be.
+	worldZoomLevels = 5
 )
+
+// A tile set's window is where its map sits in the source grid, and the games
+// do not agree on it. The maps captured most recently are cut from a 32-tile
+// square at zoom 13; Grand Theft Auto 5 is cut from a square at the origin
+// whose deepest level is 43 tiles across and whose shallowest is 3. Both are
+// the same kind of pyramid seen from a different height, so no one height is
+// assumed: each layer is measured, and the zoom whose window collapses into a
+// single tile is the floor its local zooms are counted from.
+type tileFrame struct {
+	// BaseZoom is the source zoom that holds the whole window in one tile, and
+	// BaseTile is that tile. Local zoom 0 is this level, so a layer's local
+	// zooms are its source zooms less BaseZoom.
+	BaseZoom int
+	BaseTile int
+}
+
+// frameFor halves a tile set's declared window until it is a single tile. A set
+// that declares nothing is measured against the shared window instead, which is
+// where every map cut from a 32-tile square at zoom 13 lands.
+func frameFor(set rawTileSet) (tileFrame, bool) {
+	bounds := expectedBounds(set, set.MaxZoom)
+	for shift := 0; shift <= set.MaxZoom; shift++ {
+		x, y := bounds.X.Min>>shift, bounds.Y.Min>>shift
+		if x != bounds.X.Max>>shift || y != bounds.Y.Max>>shift {
+			continue
+		}
+		// The viewer places a pin from one origin for both axes, so a window
+		// whose axes come to rest on different tiles would draw the map in one
+		// place and its pins in another. Nothing in the archive is shaped that
+		// way; a layer that is says so rather than being silently a tile out.
+		if x != y {
+			return tileFrame{}, false
+		}
+		return tileFrame{BaseZoom: set.MaxZoom - shift, BaseTile: x}, true
+	}
+	return tileFrame{}, false
+}
+
+// origin is the first tile of a source level: the base tile, halved back down
+// the pyramid the same way the window was.
+func (f tileFrame) origin(zoom int) int {
+	return f.BaseTile << (zoom - f.BaseZoom)
+}
+
+// grid is where this layer's world space sits in the source grid, in the terms
+// the viewer needs to place a pin: the zoom whose pixels are the world's units,
+// and the first tile of the window at that zoom. A map in the shared window
+// lands back on zoom 13 and tile 4064, which is where the numbers the viewer
+// used to assume came from.
+func (f tileFrame) grid() gridSpec {
+	reference := f.BaseZoom + worldZoomLevels
+	return gridSpec{SourceZoom: reference, FirstTile: f.origin(reference)}
+}
 
 type archive struct {
 	Games []archiveGame `json:"games"`
@@ -102,6 +159,7 @@ type tilePlan struct {
 	// cover the map completely; deeper ones may be partially captured and are
 	// carried as extra detail on top of the complete pyramid.
 	Levels          map[int][]tileFile
+	Frame           tileFrame
 	Interpolate     bool
 	MapDir          string
 	MaxFullZoom     int
@@ -124,8 +182,12 @@ type variantManifest struct {
 	// FullZoom is the deepest level with complete coverage. Levels beyond it
 	// exist only where Coverage says so; the viewer falls back to the parent
 	// tile elsewhere.
-	FullZoom    int                       `json:"fullZoom"`
-	SourceZoom  int                       `json:"sourceZoom"`
+	FullZoom   int `json:"fullZoom"`
+	SourceZoom int `json:"sourceZoom"`
+	// Grid places this layer's world space in the source tile grid. Pins arrive
+	// as latitudes and longitudes in that grid, so it is what lets them be laid
+	// over the raster.
+	Grid        gridSpec                  `json:"grid"`
 	Formats     []string                  `json:"formats"`
 	Bounds      *contentBounds            `json:"bounds,omitempty"`
 	Interpolate bool                      `json:"interpolate"`
@@ -135,6 +197,11 @@ type variantManifest struct {
 	// tiles and the tool that reduced them -- so a later run can tell that
 	// nothing has moved and keep what it already built.
 	Stamp string `json:"stamp,omitempty"`
+}
+
+type gridSpec struct {
+	SourceZoom int `json:"sourceZoom"`
+	FirstTile  int `json:"firstTile"`
 }
 
 // levelCoverage is a row-major bitset over the [X,Y,W,H] tile window of one
@@ -259,6 +326,10 @@ func run(source, output string, force bool) error {
 			for _, plan := range plans {
 				stamp := planStamp(plan)
 				if kept, ok := carry(built, plan, stamp, output, force); ok {
+					// The window is read from the archive rather than derived
+					// from the pyramid, so it is answered from the plan even
+					// for a layer nothing has changed under.
+					kept.Grid = plan.Frame.grid()
 					out.Variants = append(out.Variants, kept)
 					carried++
 					continue
@@ -398,10 +469,14 @@ func inspectMap(mapDir string) ([]tilePlan, string, string, error) {
 
 	plans := make([]tilePlan, 0, len(raw.Config.TileSets))
 	for _, set := range raw.Config.TileSets {
+		frame, ok := frameFor(set)
+		if !ok {
+			return nil, raw.Title, fmt.Sprintf("layer %q has no square window", set.Name), nil
+		}
 		levels := make(map[int][]tileFile)
 		maxFullZoom, maxSourceZoom := -1, -1
 		for zoom, level := range byPath[set.Path] {
-			if zoom < baseSourceZoom || zoom > set.MaxZoom {
+			if zoom < frame.BaseZoom || zoom > set.MaxZoom {
 				continue
 			}
 			files, full, err := readLevel(mapDir, set, zoom, level)
@@ -417,7 +492,7 @@ func inspectMap(mapDir string) ([]tilePlan, string, string, error) {
 				maxFullZoom = max(maxFullZoom, zoom)
 			}
 		}
-		if maxFullZoom < baseSourceZoom {
+		if maxFullZoom < frame.BaseZoom {
 			return nil, raw.Title, fmt.Sprintf("layer %q has no complete source level", set.Name), nil
 		}
 		// A partial level is only usable if every level beneath it exists;
@@ -434,7 +509,8 @@ func inspectMap(mapDir string) ([]tilePlan, string, string, error) {
 		}
 		plans = append(plans, tilePlan{
 			AssetPath:       assetPath,
-			Bounds:          contentBoundsFor(levels[maxFullZoom], maxFullZoom),
+			Bounds:          contentBoundsFor(levels[maxFullZoom], maxFullZoom, frame),
+			Frame:           frame,
 			Levels:          levels,
 			Interpolate:     !isPixelArt(raw.Game.Slug),
 			MapDir:          mapDir,
@@ -507,8 +583,8 @@ func worldTileRange(zoom int) (int, int) {
 }
 
 func buildPyramid(root string, plan tilePlan) (variantManifest, error) {
-	maxZoom := plan.MaxSourceZoom - baseSourceZoom
-	fullZoom := plan.MaxFullZoom - baseSourceZoom
+	maxZoom := plan.MaxSourceZoom - plan.Frame.BaseZoom
+	fullZoom := plan.MaxFullZoom - plan.Frame.BaseZoom
 	formats := make([]string, maxZoom+1)
 	coverage := make(map[string]*levelCoverage)
 
@@ -561,7 +637,7 @@ func buildPyramid(root string, plan tilePlan) (variantManifest, error) {
 	// level that survives with nothing in it ends the pyramid: advertising a
 	// zoom with no tiles would only produce misses.
 	for localZoom := fullZoom + 1; localZoom <= maxZoom; localZoom++ {
-		sourceZoom := localZoom + baseSourceZoom
+		sourceZoom := localZoom + plan.Frame.BaseZoom
 		format, mask, err := copyLevel(root, plan, sourceZoom, localZoom, plan.Levels[sourceZoom], placeholder)
 		if err != nil {
 			return variantManifest{}, err
@@ -585,6 +661,7 @@ func buildPyramid(root string, plan tilePlan) (variantManifest, error) {
 		MaxZoom:     maxZoom,
 		FullZoom:    fullZoom,
 		SourceZoom:  plan.MaxSourceZoom,
+		Grid:        plan.Frame.grid(),
 		Formats:     formats,
 		Bounds:      plan.Bounds,
 		Interpolate: plan.Interpolate,
@@ -627,7 +704,7 @@ func copyLevel(
 		return "", nil, fmt.Errorf("source level %d has no tiles", sourceZoom)
 	}
 	outputFormat := files[0].Format
-	origin, _ := worldTileRange(sourceZoom)
+	origin := plan.Frame.origin(sourceZoom)
 	span := 1 << localZoom
 	builder := &coverageBuilder{total: span * span}
 
@@ -825,7 +902,7 @@ func downsample(source *image.NRGBA, nearest bool) *image.NRGBA {
 	return target
 }
 
-func contentBoundsFor(files []tileFile, zoom int) *contentBounds {
+func contentBoundsFor(files []tileFile, zoom int, frame tileFrame) *contentBounds {
 	counts := make(map[string]int)
 	var placeholder string
 	for _, file := range files {
@@ -850,15 +927,17 @@ func contentBoundsFor(files []tileFile, zoom int) *contentBounds {
 	if maxX < minX || maxY < minY {
 		return nil
 	}
-	// Bounds are reported in the shared world space, which is sized at the
-	// reference zoom. A shallower level covers more world per tile and a deeper
-	// one covers less, so the tile pitch is scaled both ways.
-	origin, _ := worldTileRange(zoom)
+	// Bounds are reported in world space, which is sized at this layer's own
+	// reference zoom -- the level whose pixels are its units. A shallower level
+	// covers more world per tile and a deeper one covers less, so the tile pitch
+	// is scaled both ways.
+	reference := frame.BaseZoom + worldZoomLevels
+	origin := frame.origin(zoom)
 	pitch, divisor := tileSize, 1
-	if zoom < referenceZoom {
-		pitch = tileSize << (referenceZoom - zoom)
-	} else if zoom > referenceZoom {
-		divisor = 1 << (zoom - referenceZoom)
+	if zoom < reference {
+		pitch = tileSize << (reference - zoom)
+	} else if zoom > reference {
+		divisor = 1 << (zoom - reference)
 	}
 	bounds := &contentBounds{
 		X:      (minX - origin) * pitch / divisor,
