@@ -10,7 +10,17 @@
 // the same card it opens on the chart. The chart never goes away: this is a
 // second way of seeing the same bundle, a toggle apart.
 import Globe from "globe.gl";
-import { Sprite, SpriteMaterial, TextureLoader } from "three";
+import {
+  BufferGeometry,
+  Float32BufferAttribute,
+  Group,
+  Mesh,
+  MeshBasicMaterial,
+  Sprite,
+  SpriteMaterial,
+  SRGBColorSpace,
+  TextureLoader,
+} from "three";
 
 import { overzoomLevels } from "./constants.js";
 import { showPin } from "./detail.js";
@@ -22,13 +32,36 @@ import { categoryColor, iconOutsetColor, initials } from "./theme.js";
 import { clamp } from "./util.js";
 import { project } from "./zones.js";
 
-// textureZoom picks the pyramid level the sphere wears: deep enough to read,
-// shallow enough that one canvas holds it everywhere (level 4 is a
-// 4096x2048 texture).
+// textureZoom picks the pyramid level the sphere wears everywhere: deep
+// enough to read from orbit, shallow enough that one canvas holds the whole
+// planet (level 4 is a 4096x2048 texture). Closer than that, the detail
+// layer below takes over with the pyramid's own tiles.
 const textureZoom = 4;
+
+// The sphere three-globe draws has radius 100, and its objects place a
+// latitude and longitude with this exact spelling; the detail tiles use the
+// same one, so they land on the pixel the base skin and the pins already
+// agree on. Tiles float just off the skin, well under the pins.
+const globeRadius = 100;
+const detailRadius = globeRadius + 0.2;
+const detailSegments = 8;
+const detailTileBudget = 96;
+
+function surfacePoint(lat, lng, radius) {
+  const phi = ((90 - lat) * Math.PI) / 180;
+  const theta = ((90 - lng) * Math.PI) / 180;
+  return [
+    radius * Math.sin(phi) * Math.cos(theta),
+    radius * Math.cos(phi),
+    radius * Math.sin(phi) * Math.sin(theta),
+  ];
+}
 
 let globe = null;
 let texturedFor = "";
+// The detail layer: pyramid tiles standing just off the base skin wherever
+// the camera is close enough to want them, keyed by level/column/row.
+const detail = { group: null, tiles: new Map(), key: "", variant: "" };
 // The pins the standing sprites were built from. The renderer creates
 // sprites lazily on its own tick, so nothing here may assume they exist
 // the moment the data is handed over -- each sprite is born already
@@ -50,9 +83,12 @@ export function syncGlobe() {
   elements.globeToggle.hidden = !offered;
   leaveGlobe();
   if (!offered && globe) {
+    clearDetailTiles();
+    detail.group = null;
     globe._destructor();
     globe = null;
     texturedFor = "";
+    pinsBuilt = null;
     elements.globe.replaceChildren();
   }
 }
@@ -97,6 +133,9 @@ function leaveGlobe() {
   elements.globe.hidden = true;
   elements.globeToggle.setAttribute("aria-pressed", "false");
   elements.viewport.hidden = false;
+  // The neighborhood of tiles under the camera goes back to the pyramid;
+  // the base skin is all a put-away globe keeps.
+  clearDetailTiles();
   // The overview goes back to marking the chart's window; the memo that
   // spares it redundant work must not spare it this change.
   state.overviewKey = "";
@@ -142,9 +181,14 @@ async function enterGlobe() {
       .onObjectHover((point) => {
         elements.globe.style.cursor = point ? "pointer" : "";
       })
-      .onZoom(() => document.dispatchEvent(new Event("atlas:globe-camera")));
+      .onZoom(() => {
+        document.dispatchEvent(new Event("atlas:globe-camera"));
+        updateDetailTiles();
+      });
     document.addEventListener("atlas:selection", syncSelection);
     document.addEventListener("atlas:filters", syncFilters);
+    detail.group = new Group();
+    globe.scene().add(detail.group);
   }
   resizeGlobe();
 
@@ -174,7 +218,136 @@ async function enterGlobe() {
   }
   syncFilters();
   restyleSelection();
+  updateDetailTiles();
   document.dispatchEvent(new Event("atlas:globe-camera"));
+}
+
+// updateDetailTiles keeps the pyramid under the camera: past the base
+// skin's depth, the level the altitude asks for is fetched tile by tile
+// around the point being faced -- the same tiles the chart reads, each one
+// a perfect square of latitude and longitude draped at its place. Away
+// from the camera the base skin carries on; this layer only ever holds the
+// neighborhood being looked at.
+function updateDetailTiles() {
+  if (!globe || !detail.group) return;
+  const variant = state.globeActive ? state.variant || state.map.variants[0] : null;
+  if (!variant) {
+    clearDetailTiles();
+    return;
+  }
+  if (detail.variant !== variant.tiles) {
+    clearDetailTiles();
+    detail.variant = variant.tiles;
+  }
+  const pov = globe.pointOfView();
+  const zoom = Math.min(
+    Math.round(zoomForAltitude(pov.altitude)) + 1,
+    variant.maxZoom,
+  );
+  if (zoom <= textureZoom || !variant.formats[zoom]) {
+    clearDetailTiles();
+    detail.key = "";
+    return;
+  }
+
+  const columns = 2 ** zoom;
+  const rows = columns / 2;
+  const span = 360 / columns;
+  // How much ground the camera can possibly see: the horizon angle at this
+  // altitude, padded a little so tiles arrive before their ground does.
+  const horizon = (Math.acos(1 / (1 + pov.altitude)) * 180) / Math.PI + span;
+  const centerColumn = Math.floor((((pov.lng + 180) % 360) + 360) % 360 / span);
+  const centerRow = Math.floor((90 - pov.lat) / span);
+  let reach = Math.ceil(horizon / span);
+  while ((2 * reach + 1) ** 2 > detailTileBudget && reach > 1) reach--;
+
+  const wanted = new Set();
+  for (let dr = -reach; dr <= reach; dr++) {
+    const row = centerRow + dr;
+    if (row < 0 || row >= rows) continue;
+    for (let dc = -reach; dc <= reach; dc++) {
+      const column = (((centerColumn + dc) % columns) + columns) % columns;
+      wanted.add(`${zoom}/${column}/${row}`);
+    }
+  }
+  const key = `${variant.tiles}:${[...wanted].sort().join(",")}`;
+  if (key === detail.key) return;
+  detail.key = key;
+
+  for (const [name, mesh] of detail.tiles) {
+    if (wanted.has(name)) continue;
+    detail.group.remove(mesh);
+    disposeTile(mesh);
+    detail.tiles.delete(name);
+  }
+  for (const name of wanted) {
+    if (detail.tiles.has(name)) continue;
+    const [z, column, row] = name.split("/").map(Number);
+    const mesh = tileMesh(variant, z, column, row);
+    detail.tiles.set(name, mesh);
+    detail.group.add(mesh);
+  }
+}
+
+// tileMesh drapes one pyramid tile at its place on the sphere: a grid of
+// points through the same latitude-longitude spelling the pins stand by,
+// wearing the tile image once it arrives.
+function tileMesh(variant, zoom, column, row) {
+  const span = 360 / 2 ** zoom;
+  const west = -180 + column * span;
+  const north = 90 - row * span;
+  const positions = [];
+  const uvs = [];
+  const indices = [];
+  for (let i = 0; i <= detailSegments; i++) {
+    const lat = north - (i / detailSegments) * span;
+    for (let j = 0; j <= detailSegments; j++) {
+      const lng = west + (j / detailSegments) * span;
+      positions.push(...surfacePoint(lat, lng, detailRadius));
+      uvs.push(j / detailSegments, 1 - i / detailSegments);
+    }
+  }
+  const stride = detailSegments + 1;
+  for (let i = 0; i < detailSegments; i++) {
+    for (let j = 0; j < detailSegments; j++) {
+      const corner = i * stride + j;
+      indices.push(corner, corner + stride, corner + 1);
+      indices.push(corner + 1, corner + stride, corner + stride + 1);
+    }
+  }
+  const geometry = new BufferGeometry();
+  geometry.setAttribute("position", new Float32BufferAttribute(positions, 3));
+  geometry.setAttribute("uv", new Float32BufferAttribute(uvs, 2));
+  geometry.setIndex(indices);
+
+  const material = new MeshBasicMaterial();
+  const mesh = new Mesh(geometry, material);
+  // Invisible until its picture arrives: a black square teaches nothing.
+  mesh.visible = false;
+  const url = `${state.game.base}/tiles/${variant.tiles}/${zoom}/${column}/${row}.${variant.formats[zoom]}`;
+  new TextureLoader().load(url, (texture) => {
+    texture.colorSpace = SRGBColorSpace;
+    material.map = texture;
+    material.needsUpdate = true;
+    mesh.visible = true;
+  });
+  return mesh;
+}
+
+function clearDetailTiles() {
+  if (!detail.group) return;
+  for (const mesh of detail.tiles.values()) {
+    detail.group.remove(mesh);
+    disposeTile(mesh);
+  }
+  detail.tiles.clear();
+  detail.key = "";
+}
+
+function disposeTile(mesh) {
+  mesh.geometry.dispose();
+  mesh.material.map?.dispose();
+  mesh.material.dispose();
 }
 
 // restyleSelection dresses the standing sprites for the current selection:
