@@ -351,7 +351,7 @@ func captureIGNTiles(
 	for zoom := 0; zoom <= deepest; zoom++ {
 		maxX, maxY := ignmap.LevelExtent(capture.Map.Width, capture.Map.Height, zoom)
 		window := tileWindow{minX: 0, minY: 0, maxX: maxX, maxY: maxY}
-		results, err := fetchIGNLevel(ctx, fetcher, o, template, setID, extension,
+		results, err := fetchTemplateLevel(ctx, fetcher, o, template, "", setID, extension,
 			mapDir, zoom, window.tiles(), index)
 		if err != nil {
 			return stats, err
@@ -370,11 +370,15 @@ func captureIGNTiles(
 	return stats, nil
 }
 
-func fetchIGNLevel(
+// fetchTemplateLevel takes one level of a pyramid whose URLs come from a
+// {z}/{x}/{y} template, in whatever punctuation the source spells the tokens.
+// The hashes of held tiles are recorded alongside fetched ones, so a resumed
+// crawl sees the same picture of the level a fresh one would.
+func fetchTemplateLevel(
 	ctx context.Context,
 	fetcher *fetcher,
 	o options,
-	template string,
+	template, referer string,
 	setID int64,
 	extension, mapDir string,
 	zoom int,
@@ -411,6 +415,7 @@ func fetchIGNLevel(
 			if record.Status == "cached" {
 				if _, err := os.Stat(path); err == nil {
 					result.skipped++
+					result.hashes[coordinate] = record.ContentHash
 					continue
 				}
 			}
@@ -426,7 +431,7 @@ func fetchIGNLevel(
 			defer group.Done()
 			defer func() { <-gate }()
 
-			body, contentType, err := fetcher.get(ctx, url)
+			body, contentType, err := fetcher.getReferred(ctx, url, referer)
 			mu.Lock()
 			defer mu.Unlock()
 			if err != nil {

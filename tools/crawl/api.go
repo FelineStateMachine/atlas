@@ -82,8 +82,22 @@ func (f *fetcher) penalise(d time.Duration) {
 const maxAttempts = 4
 
 func (f *fetcher) get(ctx context.Context, url string) ([]byte, string, error) {
+	return f.getReferred(ctx, url, "")
+}
+
+// getReferred names the page the request stands in for. Piggyback's tile CDN
+// serves only requests that arrive as its own map's, and answers everything
+// else 403 -- which get would read as "not published".
+func (f *fetcher) getReferred(ctx context.Context, url, referer string) ([]byte, string, error) {
 	return f.do(ctx, url, func() (*http.Request, error) {
-		return http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
+		request, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
+		if err != nil {
+			return nil, err
+		}
+		if referer != "" {
+			request.Header.Set("Referer", referer)
+		}
+		return request, nil
 	})
 }
 

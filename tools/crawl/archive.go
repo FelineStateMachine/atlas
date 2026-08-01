@@ -116,9 +116,10 @@ func readTileIndex(mapDir string) (*tileIndex, error) {
 
 // tileSetPathOf recovers the layer path from a tile URL, matching how
 // tools/tiles groups levels: everything between the source's marker segment
-// and "/<zoom>/". MapGenie serves tiles under /games/, IGN under /wikimaps/.
+// and "/<zoom>/". MapGenie serves tiles under /games/, IGN under /wikimaps/,
+// Piggyback under /tiles/.
 func tileSetPathOf(url string, zoom int) string {
-	for _, marker := range []string{"/games/", "/wikimaps/"} {
+	for _, marker := range []string{"/games/", "/wikimaps/", "/tiles/"} {
 		_, rest, found := strings.Cut(url, marker)
 		if !found {
 			continue
