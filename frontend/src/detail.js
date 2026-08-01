@@ -1,6 +1,6 @@
 import { mapText } from "./catalog.js";
 import { elements } from "./dom.js";
-import { geohashAt } from "./grid.js";
+import { geohashCellAt } from "./cellsystems/geohash.js";
 import { syncLegendCheckboxes, syncSectionSwitches } from "./legend.js";
 import { viewMaxZoom } from "./navigation.js";
 import { applyPinFilters, refreshPrioritySource } from "./pins.js";
@@ -41,7 +41,7 @@ export function showPin(pin, focus = false) {
   // characters the grid draws and the navigator takes, which say where a place
   // is by saying which part of the map it is in. A pin off the ground the grid
   // divides has no cell to name, and says nothing rather than the nearest one.
-  const cell = geohashAt(pin.coordinate);
+  const cell = geohashCellAt(pin.coordinate);
   elements.detailCell.textContent = cell;
   elements.detailCellField.hidden = !cell;
   // A map composed from several sources says where a pin came from. The

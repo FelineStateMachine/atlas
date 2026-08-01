@@ -71,7 +71,8 @@ export async function selectMap(slug) {
   elements.variantField.hidden = state.map.variants.length < 2;
   state.styleCache.clear();
   setHoveredPin(null);
-  state.gridPrefix = "";
+  state.gridCell = "";
+  state.gridSystem = "geohash";
   state.hiddenCategories.clear();
   // Zones are a navigation aid, not the primary filter surface: keep boundaries
   // drawn but fold the index away so pin groups stay above the fold.

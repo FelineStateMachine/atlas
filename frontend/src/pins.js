@@ -162,7 +162,7 @@ export function pinIsZoneCulled(pin) {
 // way highlighting a zone does. What lies outside was still being drawn, so the
 // answer stayed as crowded as it was before the cell was chosen.
 export function pinIsGridCulled(pin) {
-  if (!state.gridEnabled || !state.gridPrefix || pinInGridCell(pin)) return false;
+  if (!state.gridEnabled || !state.gridCell || pinInGridCell(pin)) return false;
   if (pin === state.selectedPin) return false;
   return !(Boolean(state.search) &&
     pin.location.title.toLocaleLowerCase().includes(state.search));

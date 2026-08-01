@@ -1,28 +1,19 @@
+// The grid controller: the telescoping interactions -- open, descend,
+// ascend, divide, hold pins to the chosen cell -- spoken against whichever
+// cell system divides this map. The systems themselves live in
+// cellsystems/, each a pure object keeping one contract; this file owns
+// the state, the navigator, and the plan both renderers draw from, and it
+// no longer knows what a geohash is.
 import Feature from "ol/Feature.js";
 import Polygon from "ol/geom/Polygon.js";
 
-import { geohashAlphabet, geohashMaxDepth, gridTheme, palette } from "./constants.js";
+import { activeSystem } from "./cellsystems/index.js";
+import { gridTheme, palette } from "./constants.js";
 import { closeDetail } from "./detail.js";
 import { elements } from "./dom.js";
-import { activeExtent, viewMaxZoom } from "./navigation.js";
+import { viewMaxZoom } from "./navigation.js";
 import { refreshPrioritySource } from "./pins.js";
 import { state } from "./state.js";
-
-// What the grid divides is the ground the map covers, which is not the window
-// its raster is cut from: a piece of a sheet keeps a margin so the title drawn
-// beside it survives the crop. On a big map that margin is nothing; on a small
-// one it is a fifth of the width, and the cells over it are cells the map never
-// gets -- b naming blank sheet while m carries what b should have held.
-export function gridExtent() {
-  const surface = state.variant?.surface;
-  if (!surface) return activeExtent();
-  return [
-    surface.x,
-    -(surface.y + surface.height),
-    surface.x + surface.width,
-    -surface.y,
-  ];
-}
 
 export function handleGridKey(event) {
   if (event.key.toLocaleLowerCase() === "g") {
@@ -91,18 +82,16 @@ export function updateGridHint() {
   }
   // Compact while it is carrying a hash: the mode, the place and the state of
   // the subdivision are one reading, not three separate ones.
-  elements.gridHint.textContent = `G-${state.gridPrefix || "root"}` +
+  elements.gridHint.textContent = `G-${state.gridCell || "root"}` +
     (state.subgridVisible ? "" : " no subgrid");
 }
 
-export function selectGridPrefix(prefix) {
-  const maximum = gridMaxDepth();
-  const normalized = [...prefix.toLocaleLowerCase()]
-    .filter((character) => geohashAlphabet.includes(character))
-    .slice(0, maximum)
-    .join("");
-  const changed = normalized !== state.gridPrefix;
-  state.gridPrefix = normalized;
+export function selectGridCell(raw) {
+  const system = activeSystem();
+  const id = system.parseInput(system.normalizeInput(raw));
+  if (id === null) return;
+  const changed = id !== state.gridCell;
+  state.gridCell = id;
   if (!state.gridEnabled) state.gridEnabled = true;
   renderGrid();
   refreshPrioritySource();
@@ -121,11 +110,11 @@ export function selectGridPrefix(prefix) {
 
 export function ascendGrid() {
   if (!state.gridEnabled) return;
-  if (!state.gridPrefix) {
+  if (!state.gridCell) {
     toggleGrid(false);
     return;
   }
-  selectGridPrefix(state.gridPrefix.slice(0, -1));
+  selectGridCell(activeSystem().parent(state.gridCell));
 }
 
 export function renderGrid() {
@@ -135,12 +124,14 @@ export function renderGrid() {
   elements.gridNavigator.hidden = !state.gridEnabled;
   updateGridHint();
   if (state.gridEnabled && state.variant) {
-    const maximum = gridMaxDepth();
-    elements.gridInput.maxLength = maximum;
-    elements.gridInput.value = state.gridPrefix;
-    elements.gridBack.title = state.gridPrefix ? "Back one geohash level" : "Close geohash grid";
+    const system = activeSystem();
+    elements.gridInput.maxLength = system.inputLength(state.map);
+    elements.gridInput.value = state.gridCell;
+    elements.gridBack.title = state.gridCell
+      ? `Back one ${system.slug} level`
+      : `Close ${system.slug} grid`;
     for (const cell of gridCellPlan()) {
-      addGridFeature(cell.hash, cell.extent, cell.role, cell.contextDistance);
+      addGridFeature(cell);
     }
   }
   // Anything else drawing the grid -- the globe -- redraws from the same
@@ -148,13 +139,11 @@ export function renderGrid() {
   document.dispatchEvent(new Event("atlas:grid"));
 }
 
-// gridCellColor is the accent a cell wears everywhere it is drawn: the
-// palette keyed by the hash's final character, so siblings differ and a
-// cell keeps its color at every depth it appears.
-export function gridCellColor(hash) {
-  return palette[
-    Math.max(0, geohashAlphabet.indexOf(hash[hash.length - 1])) % palette.length
-  ];
+// gridCellColor is the accent a cell wears everywhere it is drawn, chosen
+// by the system so siblings differ and a cell keeps its color at every
+// depth it appears.
+export function gridCellColor(id) {
+  return palette[activeSystem().colorKey(id)];
 }
 
 // gridCellVisual is the one styling of a grid cell, as pure tokens: what
@@ -195,9 +184,10 @@ export function gridCellVisual(cell, { subgridVisible, labelled }) {
 
   let label = null;
   if (labelled && !bare) {
+    const { context, principal } = activeSystem().label(cell.hash);
     label = {
-      prefix: cell.hash.slice(0, -1),
-      final: cell.hash.slice(-1),
+      prefix: context,
+      final: principal,
       color: chosen ? gridTheme.lineWhite : color,
       textAlpha: role === "neighbor" ? gridTheme.neighborTextAlpha : 1,
       chip: role === "neighbor" ? gridTheme.neighborChip : gridTheme.chip,
@@ -210,138 +200,98 @@ export function gridCellVisual(cell, { subgridVisible, labelled }) {
 // gridCellPlan is the one account of which cells the grid shows: the chosen
 // cell outlined, its subdivision, and the dimmed neighbors of every
 // ancestor. The chart tiles it as polygons and the globe drapes it as
-// boundaries, both reading this.
+// boundaries, both reading this. Emission order is part of the contract --
+// the parity harness compares it positionally.
 export function gridCellPlan() {
+  const system = activeSystem();
   const cells = [];
-  for (let depth = 0; depth < state.gridPrefix.length; depth++) {
-    const parent = state.gridPrefix.slice(0, depth);
-    const selected = state.gridPrefix.slice(0, depth + 1);
-    for (const character of geohashAlphabet) {
-      const hash = parent + character;
-      if (hash === selected) continue;
-      cells.push({
-        hash,
-        extent: geohashExtent(hash),
-        role: "neighbor",
-        contextDistance: state.gridPrefix.length - depth,
-      });
+  const chain = ancestorChain(system, state.gridCell);
+  for (let depth = 0; depth < chain.length - 1; depth++) {
+    const selected = chain[depth + 1];
+    for (const id of system.children(chain[depth])) {
+      if (id === selected) continue;
+      cells.push(planCell(system, id, "neighbor", chain.length - 1 - depth));
     }
   }
-  if (state.gridPrefix.length >= gridMaxDepth()) {
-    cells.push({ hash: state.gridPrefix, extent: currentGridExtent(), role: "leaf", contextDistance: 0 });
+  if (state.gridCell && system.level(state.gridCell) >= system.maxLevel(state.map)) {
+    cells.push(planCell(system, state.gridCell, "leaf", 0));
     return cells;
   }
   // The cell the reader is inside, outlined rather than tiled. It is the one
   // part of the grid that survives putting the grid away: what is on screen is
   // still a chosen place, and a boundary says so where a bare map does not.
-  if (state.gridPrefix) {
-    cells.push({ hash: state.gridPrefix, extent: currentGridExtent(), role: "scope", contextDistance: 0 });
+  if (state.gridCell) {
+    cells.push(planCell(system, state.gridCell, "scope", 0));
   }
-  for (const character of geohashAlphabet) {
-    const hash = state.gridPrefix + character;
-    cells.push({ hash, extent: geohashExtent(hash), role: "child", contextDistance: 0 });
+  for (const id of system.children(state.gridCell)) {
+    cells.push(planCell(system, id, "child", 0));
   }
   return cells;
 }
 
-export function addGridFeature(hash, extent, role, contextDistance = 0) {
-  const [minimumX, minimumY, maximumX, maximumY] = extent;
-  const count = state.pins.filter((pin) => {
-    if (pin.filteredHidden) return false;
-    const [x, y] = pin.coordinate;
-    return x >= minimumX && x <= maximumX && y >= minimumY && y <= maximumY;
-  }).length;
+// ancestorChain walks from the root down to the chosen cell, root first.
+function ancestorChain(system, id) {
+  const chain = [id];
+  let held = id;
+  while (held) {
+    held = system.parent(held);
+    chain.unshift(held);
+  }
+  return chain;
+}
+
+function planCell(system, id, role, contextDistance) {
+  return {
+    hash: id,
+    extent: system.bbox(id),
+    ring: system.ring(id),
+    pole: system.poleContained(id),
+    childIndex: system.childIndex(id),
+    role,
+    contextDistance,
+  };
+}
+
+export function addGridFeature(cell) {
+  const system = activeSystem();
+  const count = state.pins.filter((pin) =>
+    !pin.filteredHidden && system.contains(cell.hash, pin.coordinate)).length;
   const feature = new Feature({
-    geometry: new Polygon([[
-      [minimumX, minimumY],
-      [minimumX, maximumY],
-      [maximumX, maximumY],
-      [maximumX, minimumY],
-      [minimumX, minimumY],
-    ]]),
-    gridCell: { hash, extent, role, count, contextDistance },
-    priority: role === "neighbor"
-      ? -contextDistance * 100 + geohashAlphabet.indexOf(hash[hash.length - 1])
-      : geohashAlphabet.indexOf(hash[hash.length - 1]),
+    geometry: gridGeometry(cell),
+    // Exactly these five keys: the parity harness serializes this object,
+    // and the id keeps the field name `hash` whatever system minted it.
+    gridCell: {
+      hash: cell.hash,
+      extent: cell.extent,
+      role: cell.role,
+      count,
+      contextDistance: cell.contextDistance,
+    },
+    priority: cell.role === "neighbor"
+      ? -cell.contextDistance * 100 + cell.childIndex
+      : cell.childIndex,
   });
-  const source = role === "neighbor" ? state.sources.gridContext : state.sources.grid;
+  const source = cell.role === "neighbor" ? state.sources.gridContext : state.sources.grid;
   source.addFeature(feature);
 }
 
+// gridGeometry tiles one plan cell for the chart. A system's ring is a
+// closed loop already; today every ring stays within the surface, and the
+// wrap-and-pole cases arrive with the first system whose cells are not
+// rectangles of the picture.
+function gridGeometry(cell) {
+  return new Polygon([cell.ring]);
+}
+
 export function currentGridExtent() {
-  return geohashExtent(state.gridPrefix);
+  return activeSystem().bbox(state.gridCell);
 }
 
-export function geohashExtent(hash) {
-  const extent = [...gridExtent()];
-  let splitX = true;
-  for (const character of hash) {
-    const value = geohashAlphabet.indexOf(character);
-    if (value < 0) continue;
-    for (const mask of [16, 8, 4, 2, 1]) {
-      if (splitX) {
-        const middle = (extent[0] + extent[2]) / 2;
-        if (value & mask) extent[0] = middle;
-        else extent[2] = middle;
-      } else {
-        const middle = (extent[1] + extent[3]) / 2;
-        if (value & mask) extent[1] = middle;
-        else extent[3] = middle;
-      }
-      splitX = !splitX;
-    }
-  }
-  return extent;
-}
-
-export function gridMaxDepth() {
-  return geohashMaxDepth;
-}
-
-// The reverse of geohashExtent: the same halvings, choosing at each one the
-// side the point is on. What comes back is the cell the grid would draw around
-// it, so it is a place the reader can type into the navigator and go to.
-//
-// Worked out when it is asked for rather than written into the catalog: the
-// grid divides the ground a variant covers, and a map offered as layers gives
-// each layer its own, so the same pin is in different cells depending on which
-// one is open. A hash stored beside a location could only be right for one.
-export function geohashAt(coordinate, depth = gridMaxDepth()) {
-  const extent = [...gridExtent()];
-  const [x, y] = coordinate;
-  if (x < extent[0] || x > extent[2] || y < extent[1] || y > extent[3]) return "";
-  let splitX = true;
-  let hash = "";
-  for (let level = 0; level < depth; level++) {
-    let value = 0;
-    for (const mask of [16, 8, 4, 2, 1]) {
-      if (splitX) {
-        const middle = (extent[0] + extent[2]) / 2;
-        if (x >= middle) {
-          value |= mask;
-          extent[0] = middle;
-        } else {
-          extent[2] = middle;
-        }
-      } else {
-        const middle = (extent[1] + extent[3]) / 2;
-        if (y >= middle) {
-          value |= mask;
-          extent[1] = middle;
-        } else {
-          extent[3] = middle;
-        }
-      }
-      splitX = !splitX;
-    }
-    hash += geohashAlphabet[value];
-  }
-  return hash;
+export function gridMaxLevel() {
+  return activeSystem().maxLevel(state.map);
 }
 
 export function pinInGridCell(pin) {
-  if (!state.gridEnabled || !state.gridPrefix) return false;
-  const extent = currentGridExtent();
-  const [x, y] = pin.coordinate;
-  return x >= extent[0] && x <= extent[2] && y >= extent[1] && y <= extent[3];
+  if (!state.gridEnabled || !state.gridCell) return false;
+  return activeSystem().contains(state.gridCell, pin.coordinate);
 }

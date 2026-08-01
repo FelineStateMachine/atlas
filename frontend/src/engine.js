@@ -27,7 +27,7 @@ import {
 } from "./styles.js";
 import { settleView } from "./navigation.js";
 import { updateOverviewViewport } from "./overview.js";
-import { selectGridPrefix } from "./grid.js";
+import { selectGridCell } from "./grid.js";
 import { setHoveredPin } from "./pins.js";
 import { showPin } from "./detail.js";
 
@@ -211,7 +211,7 @@ export function initializeMap() {
         },
       );
       if (cell) {
-        selectGridPrefix(cell.hash);
+        selectGridCell(cell.hash);
         return;
       }
     }

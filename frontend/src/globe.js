@@ -29,12 +29,12 @@ import { LineMaterial } from "three/examples/jsm/lines/LineMaterial.js";
 import { gridTheme, overzoomLevels } from "./constants.js";
 import { showPin } from "./detail.js";
 import { elements } from "./dom.js";
+import { activeSystem } from "./cellsystems/index.js";
 import {
-  geohashAt,
   gridCellPlan,
   gridCellVisual,
   pinInGridCell,
-  selectGridPrefix,
+  selectGridCell,
 } from "./grid.js";
 import { equirectMapping, mapSurface } from "./semconv.js";
 import { state } from "./state.js";
@@ -81,7 +81,7 @@ const detail = { group: null, tiles: new Map(), key: "", variant: "" };
 // rebuilt from the same plan the chart tiles its cells from. fitKey coarsens
 // the camera so the grid rebuilds only when a zoom change could move the
 // fit gate, not on every tick of a drag.
-const grid = { group: null, prefix: null, fitKey: "" };
+const grid = { group: null, cell: null, fitKey: "" };
 // The names held up while Z is down: label sprites over the pins nearest
 // the camera, rebuilt as the view settles and dropped on release.
 const labels = { group: null, key: "" };
@@ -110,7 +110,7 @@ export function syncGlobe() {
     clearDetailTiles();
     detail.group = null;
     grid.group = null;
-    grid.prefix = null;
+    grid.cell = null;
     labels.group = null;
     labels.key = "";
     globe._destructor();
@@ -260,8 +260,8 @@ async function enterGlobe() {
       const held = equirectMapping(state.map);
       if (!held) return;
       const [worldX, worldY] = held.toWorld(lat, lng);
-      const hash = geohashAt([worldX, -worldY], state.gridPrefix.length + 1);
-      if (hash) selectGridPrefix(hash);
+      const target = activeSystem().descendTarget(state.gridCell, [worldX, -worldY]);
+      if (target) selectGridCell(target);
     });
     // The camera stays outside the skin: closer than the nearest altitude
     // the world turns inside out, and the numbers it produces poison every
@@ -330,7 +330,7 @@ function rebuildGlobeGrid() {
   }
   const mapping = state.globeActive ? equirectMapping(state.map) : null;
   if (!mapping || !state.gridEnabled) {
-    grid.prefix = null;
+    grid.cell = null;
     return;
   }
   for (const cell of gridCellPlan()) {
@@ -344,10 +344,10 @@ function rebuildGlobeGrid() {
     grid.group.add(cellBoundary(corners, visual.line));
     if (visual.label) grid.group.add(cellChip(visual.label, corners));
   }
-  if (grid.prefix !== null && grid.prefix !== state.gridPrefix) {
+  if (grid.cell !== null && grid.cell !== state.gridCell) {
     frameGridCell(mapping);
   }
-  grid.prefix = state.gridPrefix;
+  grid.cell = state.gridCell;
 }
 
 // cellScreenPx estimates how many pixels a cell spans on screen: degrees of
@@ -437,7 +437,7 @@ function rebuildGlobeLabels() {
   const wanted = state.globeActive && state.labelsHeld;
   const pov = wanted ? globe.pointOfView() : null;
   const key = wanted
-    ? `${Math.round(pov.lat)}:${Math.round(pov.lng)}:${pov.altitude.toFixed(2)}:${state.gridPrefix}`
+    ? `${Math.round(pov.lat)}:${Math.round(pov.lng)}:${pov.altitude.toFixed(2)}:${state.gridCell}`
     : "";
   if (key === labels.key) return;
   labels.key = key;
@@ -802,7 +802,7 @@ function syncSelection() {
 // the chart holds them.
 function pinShown(pin) {
   if (pin.filteredHidden || state.hiddenCategories.has(pin.category.id)) return false;
-  if (state.gridEnabled && state.gridPrefix && !pinInGridCell(pin)) return false;
+  if (state.gridEnabled && state.gridCell && !pinInGridCell(pin)) return false;
   return true;
 }
 
@@ -903,7 +903,7 @@ export function resizeGlobe() {
 function regridWhenFitChanges() {
   if (!globe || !state.globeActive || !state.gridEnabled) return;
   const pov = globe.pointOfView();
-  const key = `${state.gridPrefix}:${Math.round(zoomForAltitude(pov.altitude) * 2)}`;
+  const key = `${state.gridCell}:${Math.round(zoomForAltitude(pov.altitude) * 2)}`;
   if (key === grid.fitKey) return;
   grid.fitKey = key;
   rebuildGlobeGrid();

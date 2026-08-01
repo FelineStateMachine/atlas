@@ -15,13 +15,17 @@ export const state = {
   hoveredPin: null,
   labelsHeld: false,
   gridEnabled: false,
+  // Which cell system divides the map, by slug; geohash until chosen
+  // otherwise, and reset with the map so no map boots into a system it
+  // does not offer.
+  gridSystem: "geohash",
   // Whether the reader is looking at the planet instead of the chart: only
   // a map that declares itself a sphere can turn this on.
   globeActive: false,
   // Whether the cells are drawn, which is a separate question from whether one
   // of them is holding the map to a place.
   subgridVisible: true,
-  gridPrefix: "",
+  gridCell: "",
   zonesVisible: true,
   zoneRecords: new Map(),
   highlightedZones: new Set(),

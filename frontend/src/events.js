@@ -1,6 +1,6 @@
 import { $, elements } from "./dom.js";
 import { state } from "./state.js";
-import { geohashAlphabet } from "./constants.js";
+import { activeSystem } from "./cellsystems/index.js";
 import {
   changeZoom,
   selectGame,
@@ -25,9 +25,8 @@ import { importBundles } from "./library.js";
 import { closeDetail, revealPin } from "./detail.js";
 import {
   ascendGrid,
-  gridMaxDepth,
   handleGridKey,
-  selectGridPrefix,
+  selectGridCell,
   setSubgridVisible,
 } from "./grid.js";
 import { readRoute } from "./session.js";
@@ -162,13 +161,13 @@ export function bindUIEvents() {
     state.globeActive ? changeGlobeZoom(-1) : changeZoom(-1));
   elements.gridBack.addEventListener("click", ascendGrid);
   elements.gridInput.addEventListener("input", () => {
-    const maximum = gridMaxDepth();
-    const value = [...elements.gridInput.value.toLocaleLowerCase()]
-      .filter((character) => geohashAlphabet.includes(character))
-      .slice(0, maximum)
-      .join("");
+    // The system says what the field keeps of a keystroke and when the
+    // text has become a place: geohash goes somewhere on every character,
+    // a token system waits until the address parses whole.
+    const system = activeSystem();
+    const value = system.normalizeInput(elements.gridInput.value);
     elements.gridInput.value = value;
-    selectGridPrefix(value);
+    if (system.parseInput(value) !== null) selectGridCell(value);
   });
   elements.subgridToggle.addEventListener("click", () => {
     setSubgridVisible(!state.subgridVisible);

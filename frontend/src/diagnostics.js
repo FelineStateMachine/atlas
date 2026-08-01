@@ -2,7 +2,7 @@ import { elements } from "./dom.js";
 import { state } from "./state.js";
 import { viewMaxZoom } from "./navigation.js";
 import { refreshCatalog } from "./library.js";
-import { currentGridExtent, gridMaxDepth, pinInGridCell } from "./grid.js";
+import { currentGridExtent, gridMaxLevel, pinInGridCell } from "./grid.js";
 
 export function exposeDiagnostics() {
   const snapshot = () => ({
@@ -57,14 +57,14 @@ export function exposeDiagnostics() {
     },
     grid: {
       enabled: state.gridEnabled,
-      prefix: state.gridPrefix,
-      maximumDepth: gridMaxDepth(),
+      prefix: state.gridCell,
+      maximumDepth: gridMaxLevel(),
       extent: state.gridEnabled ? currentGridExtent() : null,
       cells: [
         ...state.sources.grid.getFeatures(),
         ...state.sources.gridContext.getFeatures(),
       ].map((feature) => feature.get("gridCell")),
-      priorityPins: state.gridPrefix
+      priorityPins: state.gridCell
         ? state.pins.filter((pin) => !pin.filteredHidden && pinInGridCell(pin)).length
         : 0,
     },
