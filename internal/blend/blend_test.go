@@ -115,8 +115,8 @@ func TestNormalizeTitleFoldsFastTravelSpellings(t *testing.T) {
 		"Skippy, The Talking Gun ":          "skippy the talking gun",
 	}
 	for given, want := range cases {
-		if got := normalizeTitle(given); got != want {
-			t.Errorf("normalizeTitle(%q) = %q, want %q", given, got, want)
+		if got := NormalizeTitle(given); got != want {
+			t.Errorf("NormalizeTitle(%q) = %q, want %q", given, got, want)
 		}
 	}
 }

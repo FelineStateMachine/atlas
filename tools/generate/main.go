@@ -162,6 +162,10 @@ type catalogMap struct {
 	Parent    string `json:"parent,omitempty"`
 	PinCount  int    `json:"pinCount"`
 	UpdatedAt string `json:"updatedAt"`
+	// Merged is the account of every other source folded into this map:
+	// what matched, what was added, what was held back and why. It rides in
+	// the payload as provenance.
+	Merged []mergedSource `json:"merged,omitempty"`
 }
 
 type coordinate struct {
@@ -382,6 +386,12 @@ func run(source, tileManifestPath, bundleDir string) error {
 			out.Games = append(out.Games, game)
 		}
 	}
+
+	merged, err := mergeAcrossSources(out.Games, out.TileGrid)
+	if err != nil {
+		return err
+	}
+	out.Games = merged
 
 	sort.Slice(out.Games, func(i, j int) bool { return out.Games[i].Title < out.Games[j].Title })
 	return writeBundles(out, tiles, filepath.Dir(tileManifestPath), bundleDir)

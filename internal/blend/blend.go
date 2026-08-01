@@ -171,7 +171,7 @@ func uniqueByName(anchors []Anchor) map[string]Anchor {
 	counts := make(map[string]int, len(anchors))
 	held := make(map[string]Anchor, len(anchors))
 	for _, anchor := range anchors {
-		name := normalizeTitle(anchor.Title)
+		name := NormalizeTitle(anchor.Title)
 		if name == "" {
 			continue
 		}
@@ -191,10 +191,12 @@ var (
 	nonAlphanumeric  = regexp.MustCompile(`[^a-z0-9]+`)
 )
 
-// normalizeTitle folds the spellings apart sources give one place. The fast
+// NormalizeTitle folds the spellings apart sources give one place. The fast
 // travel suffix goes because one source titles the place and another titles
-// the service at it, and they are the same anchor.
-func normalizeTitle(title string) string {
+// the service at it, and they are the same anchor. Anything comparing pins
+// across sources should compare through this, so a name means the same thing
+// to the fit and to whoever consumes it.
+func NormalizeTitle(title string) string {
 	title = strings.ToLower(title)
 	title = fastTravelSuffix.ReplaceAllString(title, "")
 	return strings.TrimSpace(nonAlphanumeric.ReplaceAllString(title, " "))

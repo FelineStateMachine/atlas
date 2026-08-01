@@ -53,6 +53,7 @@ type measure struct {
 	File      string
 	Stamp     string
 	CreatedAt string
+	Revision  int
 
 	Pins         int
 	Described    int
@@ -116,11 +117,15 @@ func run(dir string) error {
 	sort.Strings(slugs)
 	for _, slug := range slugs {
 		builds := byGame[slug]
-		// The registry's own order: newest capture first, then stamp, so the
-		// first line of every game is the build the reader sees.
+		// The registry's own order: newest capture first, then the newer
+		// policy revision, then stamp, so the first line of every game is
+		// the build the reader sees.
 		sort.Slice(builds, func(a, b int) bool {
 			if builds[a].CreatedAt != builds[b].CreatedAt {
 				return builds[a].CreatedAt > builds[b].CreatedAt
+			}
+			if builds[a].Revision != builds[b].Revision {
+				return builds[a].Revision > builds[b].Revision
 			}
 			return builds[a].Stamp > builds[b].Stamp
 		})
@@ -171,6 +176,7 @@ func measureBundle(path string) (string, string, measure, error) {
 		File:      filepath.Base(path),
 		Stamp:     manifest.Version.Stamp,
 		CreatedAt: manifest.Version.CreatedAt,
+		Revision:  manifest.Version.Revision,
 	}
 
 	// Annotation: how thoroughly the locations are explained in writing.

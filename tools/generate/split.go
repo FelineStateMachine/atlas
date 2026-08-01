@@ -31,6 +31,10 @@ type mapDetail struct {
 	Variants []variant      `json:"variants"`
 	Groups   []catalogGroup `json:"groups"`
 	Zones    []zone         `json:"zones,omitempty"`
+	// Merged is the provenance of any other sources folded into this map.
+	// The viewer ignores it; it exists so the merged payload carries its own
+	// account.
+	Merged []mergedSource `json:"merged,omitempty"`
 }
 
 // locationText holds what only a selected pin needs.
@@ -45,7 +49,7 @@ type locationText struct {
 func buildPayload(m catalogMap) (mapDetail, []byte, map[string]locationText) {
 	// Categories keep their identity; their locations travel packed, each
 	// carrying the position of its category in this same flattened order.
-	detail := mapDetail{Grid: m.Grid, Variants: m.Variants, Zones: m.Zones}
+	detail := mapDetail{Grid: m.Grid, Variants: m.Variants, Zones: m.Zones, Merged: m.Merged}
 	var locations []bundle.Location
 	text := make(map[string]locationText)
 	var ordinal uint16
