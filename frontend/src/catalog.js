@@ -4,7 +4,7 @@ import { legendSections } from "./legend.js";
 // A map arrives in two pieces: its layers, categories and regions as JSON, and
 // its locations packed as parallel arrays. Nothing here is fetched until the
 // map is opened, so the catalog can grow without the wait growing with it.
-export async function loadMap(entry) {
+export async function loadWorld(entry) {
   const [detailResponse, packedResponse] = await Promise.all([
     fetch(`${state.volume.base}/worlds/${entry.slug}.json`),
     fetch(`${state.volume.base}/worlds/${entry.slug}.bin`),

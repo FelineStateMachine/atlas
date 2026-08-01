@@ -4,7 +4,7 @@ import TileGrid from "ol/tilegrid/TileGrid.js";
 import { state } from "./state.js";
 import { elements, populateSelect } from "./dom.js";
 import { overzoomLevels } from "./constants.js";
-import { loadMap } from "./catalog.js";
+import { loadWorld } from "./catalog.js";
 import { refreshCatalog } from "./library.js";
 import { readSession, saveSession, writeRoute } from "./session.js";
 import { createView, initializeMap, resolutions } from "./engine.js";
@@ -25,36 +25,36 @@ import { closeDetail } from "./detail.js";
 import { iconOutsetColor } from "./theme.js";
 import { clamp, formatNumber } from "./util.js";
 
-export async function selectVolume(slug, mapSlug) {
+export async function selectVolume(slug, worldSlug) {
   state.volume = state.catalog.volumes.find((volume) => volume.slug === slug) || state.catalog.volumes[0];
   // The engine exists once there is a volume to size its world square from: every volume
   // carries its own tile grid now that each arrives in its own bundle.
   if (!state.engine) initializeMap();
   // Only an explicitly named world overrides what this volume remembers.
-  if (!mapSlug && !state.restore) state.restore = readSession(state.volume.slug);
+  if (!worldSlug && !state.restore) state.restore = readSession(state.volume.slug);
   elements.volume.value = state.volume.slug;
-  populateSelect(elements.world, state.volume.maps, "title");
-  elements.world.disabled = state.volume.maps.length === 1;
+  populateSelect(elements.world, state.volume.worlds, "title");
+  elements.world.disabled = state.volume.worlds.length === 1;
   elements.world.title = elements.world.disabled ? "This volume has one world" : "Choose a world";
   // Returning to a volume returns to where it was left, so wandering off to
   // another volume and back does not cost the reader their place.
   const remembered = state.restore?.volume === state.volume.slug ? state.restore : null;
-  const wanted = (mapSlug && state.volume.maps.find((item) => item.slug === mapSlug)) ||
-    (remembered && state.volume.maps.find((item) => item.slug === remembered.map));
-  await selectWorld((wanted || state.volume.maps[0]).slug);
+  const wanted = (worldSlug && state.volume.worlds.find((item) => item.slug === worldSlug)) ||
+    (remembered && state.volume.worlds.find((item) => item.slug === remembered.world));
+  await selectWorld((wanted || state.volume.worlds[0]).slug);
 }
 
 export async function selectWorld(slug) {
-  const entry = state.volume.maps.find((map) => map.slug === slug) || state.volume.maps[0];
-  // A map opened while another is still arriving must not be overtaken by it.
+  const entry = state.volume.worlds.find((world) => world.slug === slug) || state.volume.worlds[0];
+  // A world opened while another is still arriving must not be overtaken by it.
   const run = ++state.worldRun;
   elements.loading.hidden = false;
   let loaded;
   try {
-    loaded = await loadMap(entry);
+    loaded = await loadWorld(entry);
   } catch {
     // The bundle moved underneath the catalog: refetching the catalog brings
-    // the new build's URLs, and the refresh re-selects this map through them.
+    // the new build's URLs, and the refresh re-selects this world through them.
     if (state.worldRun === run) {
       elements.loading.hidden = true;
       void refreshCatalog();
