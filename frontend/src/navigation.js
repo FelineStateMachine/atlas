@@ -25,29 +25,29 @@ import { closeDetail } from "./detail.js";
 import { iconOutsetColor } from "./theme.js";
 import { clamp, formatNumber } from "./util.js";
 
-export async function selectGame(slug, mapSlug) {
-  state.game = state.catalog.games.find((game) => game.slug === slug) || state.catalog.games[0];
-  // The engine exists once there is a game to size its world from: every game
+export async function selectVolume(slug, mapSlug) {
+  state.volume = state.catalog.volumes.find((volume) => volume.slug === slug) || state.catalog.volumes[0];
+  // The engine exists once there is a volume to size its world square from: every volume
   // carries its own tile grid now that each arrives in its own bundle.
   if (!state.engine) initializeMap();
-  // Only an explicitly named map overrides what this game remembers.
-  if (!mapSlug && !state.restore) state.restore = readSession(state.game.slug);
-  elements.game.value = state.game.slug;
-  populateSelect(elements.map, state.game.maps, "title");
-  elements.map.disabled = state.game.maps.length === 1;
-  elements.map.title = elements.map.disabled ? "This game has one map" : "Choose a map";
-  // Returning to a game returns to where it was left, so wandering off to
-  // another game and back does not cost the reader their place.
-  const remembered = state.restore?.game === state.game.slug ? state.restore : null;
-  const wanted = (mapSlug && state.game.maps.find((item) => item.slug === mapSlug)) ||
-    (remembered && state.game.maps.find((item) => item.slug === remembered.map));
-  await selectMap((wanted || state.game.maps[0]).slug);
+  // Only an explicitly named world overrides what this volume remembers.
+  if (!mapSlug && !state.restore) state.restore = readSession(state.volume.slug);
+  elements.volume.value = state.volume.slug;
+  populateSelect(elements.world, state.volume.maps, "title");
+  elements.world.disabled = state.volume.maps.length === 1;
+  elements.world.title = elements.world.disabled ? "This volume has one world" : "Choose a world";
+  // Returning to a volume returns to where it was left, so wandering off to
+  // another volume and back does not cost the reader their place.
+  const remembered = state.restore?.volume === state.volume.slug ? state.restore : null;
+  const wanted = (mapSlug && state.volume.maps.find((item) => item.slug === mapSlug)) ||
+    (remembered && state.volume.maps.find((item) => item.slug === remembered.map));
+  await selectWorld((wanted || state.volume.maps[0]).slug);
 }
 
-export async function selectMap(slug) {
-  const entry = state.game.maps.find((map) => map.slug === slug) || state.game.maps[0];
+export async function selectWorld(slug) {
+  const entry = state.volume.maps.find((map) => map.slug === slug) || state.volume.maps[0];
   // A map opened while another is still arriving must not be overtaken by it.
-  const run = ++state.mapRun;
+  const run = ++state.worldRun;
   elements.loading.hidden = false;
   let loaded;
   try {
@@ -55,20 +55,20 @@ export async function selectMap(slug) {
   } catch {
     // The bundle moved underneath the catalog: refetching the catalog brings
     // the new build's URLs, and the refresh re-selects this map through them.
-    if (state.mapRun === run) {
+    if (state.worldRun === run) {
       elements.loading.hidden = true;
       void refreshCatalog();
     }
     return;
   }
-  if (state.mapRun !== run) return;
+  if (state.worldRun !== run) return;
 
   state.settling = true;
-  state.map = loaded;
+  state.world = loaded;
   document.documentElement.style.setProperty("--icon-outset-color", iconOutsetColor());
-  elements.map.value = state.map.slug;
-  populateSelect(elements.variant, state.map.variants, "name");
-  elements.variantField.hidden = state.map.variants.length < 2;
+  elements.world.value = state.world.slug;
+  populateSelect(elements.lens, state.world.lenses, "name");
+  elements.lensField.hidden = state.world.lenses.length < 2;
   state.styleCache.clear();
   setHoveredPin(null);
   state.gridCell = "";
@@ -78,21 +78,21 @@ export async function selectMap(slug) {
   // drawn but fold the index away so pin groups stay above the fold.
   state.collapsedSections.clear();
   state.collapsedSections.add("zones");
-  for (const group of state.map.groups) {
+  for (const group of state.world.groups) {
     for (const category of group.categories) {
       if (!category.visible) state.hiddenCategories.add(category.id);
     }
   }
-  const restore = state.restore?.map === state.map.slug ? state.restore : null;
+  const restore = state.restore?.map === state.world.slug ? state.restore : null;
   if (restore) {
     state.hiddenCategories = new Set(restore.hidden);
     state.collapsedSections = new Set(restore.collapsed);
   }
-  // Where the corner of the screen is wanted is a preference about the game
+  // Where the corner of the screen is wanted is a preference about the volume
   // rather than about one of its maps, so it carries across them.
   setOverviewDocked(Boolean(state.restore?.overviewDocked), false);
   // A map opens on the map: the panel is away until a pin or a search gives it
-  // something to hold. A game that remembers otherwise is a reader who has
+  // something to hold. A volume that remembers otherwise is a reader who has
   // already said where they want it.
   setDockFolded(state.restore ? Boolean(state.restore.dockFolded) : true, false);
   state.dockDismissed = Boolean(state.restore?.dockDismissed);
@@ -103,15 +103,15 @@ export async function selectMap(slug) {
   renderLegend();
   renderZones();
   buildPins();
-  selectVariant(restore ? clamp(restore.variant, 0, state.map.variants.length - 1) : 0, true);
+  selectLens(restore ? clamp(restore.lens, 0, state.world.lenses.length - 1) : 0, true);
   // A map that declares itself a sphere offers the globe; every map opens
   // on the chart either way.
   syncGlobe();
   // The remembered arrangement has been spent. Kept, it would be read again by
-  // the next thing that asks: a variant swap would drop the reader back where
-  // the session opened, and switching to another game would hand that game the
-  // dock and overview this one was left with instead of its own -- selectGame
-  // only reads a game's session when nothing is held here.
+  // the next thing that asks: a lens swap would drop the reader back where
+  // the session opened, and switching to another volume would hand that volume the
+  // dock and overview this one was left with instead of its own -- selectVolume
+  // only reads a volume's session when nothing is held here.
   state.restore = null;
   elements.sidebar.classList.remove("is-open");
   elements.mobileLegend.setAttribute("aria-expanded", "false");
@@ -120,16 +120,16 @@ export async function selectMap(slug) {
   saveSession();
 }
 
-export function selectVariant(index, resetView = false) {
-  const priorVariant = state.variant;
-  state.variant = state.map.variants[index] || state.map.variants[0];
-  const variant = state.variant;
-  const carried = resetView ? null : carryViewAcrossShards(priorVariant, variant);
-  const maxViewZoom = viewMaxZoom(variant);
-  elements.variant.value = String(state.map.variants.indexOf(state.variant));
+export function selectLens(index, resetView = false) {
+  const priorLens = state.lens;
+  state.lens = state.world.lenses[index] || state.world.lenses[0];
+  const lens = state.lens;
+  const carried = resetView ? null : carryViewAcrossShards(priorLens, lens);
+  const maxViewZoom = viewMaxZoom(lens);
+  elements.lens.value = String(state.world.lenses.indexOf(state.lens));
   if (resetView) state.engine.setView(createView(maxViewZoom, activeExtent()));
   else {
-    // The view is rebuilt around the new variant's own window -- shards do
+    // The view is rebuilt around the new lens's own window -- shards do
     // not share one -- but keeps the place the reader was carried to.
     const previous = state.engine.getView();
     const held = createView(maxViewZoom, activeExtent());
@@ -164,39 +164,39 @@ export function selectVariant(index, resetView = false) {
   const buildSource = (maxLevel, wanted) => trackLoading(new XYZ({
     projection: state.projection,
     tileGrid: new TileGrid({
-      extent: [0, -state.game.tileGrid.size, state.game.tileGrid.size, 0],
+      extent: [0, -state.volume.tileGrid.size, state.volume.tileGrid.size, 0],
       origin: [0, 0],
       // Keep the source grid native. Views may overzoom this last resolution,
       // but no nonexistent tile level is requested.
       resolutions: resolutions(maxLevel),
-      tileSize: state.game.tileGrid.tileSize,
+      tileSize: state.volume.tileGrid.tileSize,
     }),
     cacheSize: 64,
-    interpolate: variant.interpolate,
+    interpolate: lens.interpolate,
     transition: 0,
     wrapX: false,
     tileUrlFunction: ([zoom, x, y]) => {
-      const format = variant.formats[zoom];
+      const format = lens.formats[zoom];
       if (!format || x < 0 || y < 0 || !wanted(zoom, x, y)) return undefined;
-      return `${state.game.base}/tiles/${encodeURIComponent(variant.tiles)}/${zoom}/${x}/${y}.${format}`;
+      return `${state.volume.base}/tiles/${encodeURIComponent(lens.tiles)}/${zoom}/${x}/${y}.${format}`;
     },
   }));
 
-  const fullZoom = variant.fullZoom ?? variant.maxZoom;
-  const base = buildSource(fullZoom, (zoom, x, y) => tileExists(variant, zoom, x, y));
+  const fullZoom = lens.fullZoom ?? lens.maxZoom;
+  const base = buildSource(fullZoom, (zoom, x, y) => tileExists(lens, zoom, x, y));
   const previous = state.layers.raster.getSource();
   state.layers.raster.setSource(base);
   state.layers.raster.setExtent(activeExtent());
   // Tiles matching the map's background were never written; painting that
   // colour behind the layer makes their absence invisible.
-  state.layers.raster.setBackground(variant.background || undefined);
+  state.layers.raster.setBackground(lens.background || undefined);
   previous?.clear();
 
   const previousDetail = state.layers.rasterDetail.getSource();
-  if (variant.maxZoom > fullZoom) {
+  if (lens.maxZoom > fullZoom) {
     state.layers.rasterDetail.setSource(buildSource(
-      variant.maxZoom,
-      (zoom, x, y) => zoom > fullZoom && tileExists(variant, zoom, x, y),
+      lens.maxZoom,
+      (zoom, x, y) => zoom > fullZoom && tileExists(lens, zoom, x, y),
     ));
     state.layers.rasterDetail.setExtent(activeExtent());
     state.layers.rasterDetail.setVisible(true);
@@ -213,15 +213,15 @@ export function selectVariant(index, resetView = false) {
   }
   state.overviewKey = "";
   renderOverview();
-  // Only a map being opened has a view to restore. A variant is a different
+  // Only a world being opened has a view to restore. A lens is a different
   // picture of the ground the reader is already looking at -- spring for
   // summer, one layer of a split map for another -- so the swap is made
   // underneath them and everything else, the view included, stays as it is.
-  const resume = resetView && state.restore?.map === state.map.slug ? state.restore : null;
-  // Zones and pins are built before a variant is chosen, so on a split map the
+  const resume = resetView && state.restore?.map === state.world.slug ? state.restore : null;
+  // Zones and pins are built before a lens is chosen, so on a split world the
   // first render shows every layer at once. Comparing against what was actually
   // rendered catches that as well as a later switch between layers.
-  if (state.renderedShard !== (variant.shard || 0)) {
+  if (state.renderedShard !== (lens.shard || 0)) {
     renderZones();
     applyPinFilters();
   }
@@ -248,18 +248,18 @@ export function selectVariant(index, resetView = false) {
 // fullZoom exist only where the capture reached. Asking for a tile that was
 // never emitted would be a wasted request and a 404, so consult the coverage
 // bitset first and let OpenLayers show the parent tile instead.
-export function tileExists(variant, zoom, x, y) {
-  const coverage = variant.coverage?.[zoom];
+export function tileExists(lens, zoom, x, y) {
+  const coverage = lens.coverage?.[zoom];
   if (!coverage) return true;
   const column = x - coverage.x;
   const row = y - coverage.y;
   if (column < 0 || row < 0 || column >= coverage.w || row >= coverage.h) return false;
-  const bits = coverageBits(variant, zoom, coverage);
+  const bits = coverageBits(lens, zoom, coverage);
   const index = row * coverage.w + column;
   return (bits[index >> 3] & (1 << (index & 7))) !== 0;
 }
 
-export function coverageBits(variant, zoom, coverage) {
+export function coverageBits(lens, zoom, coverage) {
   if (!coverage.decoded) {
     const binary = atob(coverage.bits);
     const bytes = new Uint8Array(binary.length);
@@ -269,8 +269,8 @@ export function coverageBits(variant, zoom, coverage) {
   return coverage.decoded;
 }
 
-export function viewMaxZoom(variant) {
-  return variant.maxZoom + overzoomLevels;
+export function viewMaxZoom(lens) {
+  return lens.maxZoom + overzoomLevels;
 }
 
 // What a view owes the rest of the page once it has come to rest.
@@ -306,18 +306,18 @@ export function toggleSidebar() {
 }
 
 export function activeExtent() {
-  const size = state.game.tileGrid.size;
-  const bounds = state.variant?.bounds || { x: 0, y: 0, width: size, height: size };
+  const size = state.volume.tileGrid.size;
+  const bounds = state.lens?.bounds || { x: 0, y: 0, width: size, height: size };
   return [bounds.x, -(bounds.y + bounds.height), bounds.x + bounds.width, -bounds.y];
 }
 
 export function fitMap() {
-  if (!state.engine || !state.variant) return;
+  if (!state.engine || !state.lens) return;
   const view = state.engine.getView();
   view.fit(activeExtent(), {
     size: state.engine.getSize(),
     padding: [36, 36, 36, 36],
-    maxZoom: state.variant.maxZoom,
+    maxZoom: state.lens.maxZoom,
     duration: 0,
   });
   state.fitZoom = view.getZoom() || 0;
@@ -328,7 +328,7 @@ export function changeZoom(delta) {
   const view = state.engine.getView();
   const current = view.getZoom() || 0;
   view.animate({
-    zoom: clamp(current + delta, state.variant.minZoom, viewMaxZoom(state.variant)),
+    zoom: clamp(current + delta, state.lens.minZoom, viewMaxZoom(state.lens)),
     duration: 140,
   });
 }

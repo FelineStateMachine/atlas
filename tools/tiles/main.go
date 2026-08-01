@@ -26,6 +26,7 @@ import (
 	// none, so levels derived from them are written as JPEG or PNG.
 	_ "golang.org/x/image/webp"
 
+	"github.com/FelineStateMachine/atlas/internal/arcgismap"
 	"github.com/FelineStateMachine/atlas/internal/blend"
 	"github.com/FelineStateMachine/atlas/internal/ignmap"
 	"github.com/FelineStateMachine/atlas/internal/mgdoc"
@@ -222,12 +223,12 @@ type pendingPlan struct {
 }
 
 type manifest struct {
-	TileSize int               `json:"tileSize"`
-	Size     int               `json:"size"`
-	Variants []variantManifest `json:"variants"`
+	TileSize int            `json:"tileSize"`
+	Size     int            `json:"size"`
+	Lenses   []lensManifest `json:"lenses"`
 }
 
-type variantManifest struct {
+type lensManifest struct {
 	SourcePath string `json:"sourcePath"`
 	AssetPath  string `json:"assetPath"`
 	MinZoom    int    `json:"minZoom"`
@@ -421,12 +422,12 @@ func run(source, output string, force bool) error {
 			} else {
 				kept.Grid = plan.Warp.Base.Frame.grid()
 			}
-			out.Variants = append(out.Variants, kept)
+			out.Lenses = append(out.Lenses, kept)
 			carried++
 			continue
 		}
 		fmt.Printf("tile %s / %s / %s\n", entry.gameTitle, entry.title, plan.SourcePath)
-		var variant variantManifest
+		var variant lensManifest
 		var err error
 		if plan.Warp == nil {
 			variant, err = buildPyramid(temp, plan)
@@ -437,11 +438,11 @@ func run(source, output string, force bool) error {
 			return fmt.Errorf("%s / %s: %w", entry.title, plan.SourcePath, err)
 		}
 		variant.Stamp = stamp
-		out.Variants = append(out.Variants, variant)
+		out.Lenses = append(out.Lenses, variant)
 		derived[plan.AssetPath] = true
 	}
-	sort.Slice(out.Variants, func(i, j int) bool {
-		return out.Variants[i].SourcePath < out.Variants[j].SourcePath
+	sort.Slice(out.Lenses, func(i, j int) bool {
+		return out.Lenses[i].SourcePath < out.Lenses[j].SourcePath
 	})
 	if err := installPyramids(temp, output, out, derived); err != nil {
 		return err
@@ -454,21 +455,21 @@ func run(source, output string, force bool) error {
 // moved. Keeping one is doing nothing at all: it stays where it is, and only
 // the layers that were derived again are installed over the top.
 func carry(
-	built map[string]variantManifest,
+	built map[string]lensManifest,
 	plan tilePlan,
 	stamp, output string,
 	force bool,
-) (variantManifest, bool) {
+) (lensManifest, bool) {
 	if force {
-		return variantManifest{}, false
+		return lensManifest{}, false
 	}
 	entry, ok := built[plan.SourcePath]
 	if !ok || entry.Stamp == "" || entry.Stamp != stamp || entry.AssetPath != plan.AssetPath {
-		return variantManifest{}, false
+		return lensManifest{}, false
 	}
 	if _, err := os.Stat(filepath.Join(output, plan.AssetPath)); err != nil {
 		// Whatever the last run left is not there to be kept, so derive it.
-		return variantManifest{}, false
+		return lensManifest{}, false
 	}
 	return entry, true
 }
@@ -494,8 +495,8 @@ func installPyramids(temp, output string, out manifest, derived map[string]bool)
 		}
 	}
 
-	wanted := make(map[string]bool, len(out.Variants))
-	for _, variant := range out.Variants {
+	wanted := make(map[string]bool, len(out.Lenses))
+	for _, variant := range out.Lenses {
 		wanted[variant.AssetPath] = true
 	}
 	entries, err := os.ReadDir(output)
@@ -545,6 +546,9 @@ func inspectMap(mapDir string) ([]tilePlan, string, string, error) {
 		return nil, "", "", err
 	}
 	if doc, err = trekmap.MaybeTranslate(latest.Kind, doc); err != nil {
+		return nil, "", "", err
+	}
+	if doc, err = arcgismap.MaybeTranslate(latest.Kind, doc); err != nil {
 		return nil, "", "", err
 	}
 	var raw rawMap
@@ -735,7 +739,7 @@ func worldTileRange(zoom int) (int, int) {
 	return firstTile << shift, ((firstTile + worldTilesAtReference) << shift) - 1
 }
 
-func buildPyramid(root string, plan tilePlan) (variantManifest, error) {
+func buildPyramid(root string, plan tilePlan) (lensManifest, error) {
 	maxZoom := plan.MaxSourceZoom - plan.Frame.BaseZoom
 	fullZoom := plan.MaxFullZoom - plan.Frame.BaseZoom
 	formats := make([]string, maxZoom+1)
@@ -750,7 +754,7 @@ func buildPyramid(root string, plan tilePlan) (variantManifest, error) {
 	placeholder := placeholderHash(full)
 	backgroundHex, err := placeholderColor(full, placeholder)
 	if err != nil {
-		return variantManifest{}, err
+		return lensManifest{}, err
 	}
 	if backgroundHex == "" {
 		placeholder = ""
@@ -764,7 +768,7 @@ func buildPyramid(root string, plan tilePlan) (variantManifest, error) {
 	// both more consistent and never leaves a level empty.
 	format, mask, err := copyLevel(root, plan, plan.MaxFullZoom, fullZoom, full, placeholder)
 	if err != nil {
-		return variantManifest{}, err
+		return lensManifest{}, err
 	}
 	formats[fullZoom] = format
 	if mask != nil {
@@ -782,7 +786,7 @@ func buildPyramid(root string, plan tilePlan) (variantManifest, error) {
 		}
 		mask, err := deriveLevel(root, plan.AssetPath, localZoom, formats[localZoom+1], derivedFormat, !plan.Interpolate, background)
 		if err != nil {
-			return variantManifest{}, err
+			return lensManifest{}, err
 		}
 		formats[localZoom] = derivedFormat
 		if mask != nil {
@@ -798,7 +802,7 @@ func buildPyramid(root string, plan tilePlan) (variantManifest, error) {
 		sourceZoom := localZoom + plan.Frame.BaseZoom
 		format, mask, err := copyLevel(root, plan, sourceZoom, localZoom, plan.Levels[sourceZoom], placeholder)
 		if err != nil {
-			return variantManifest{}, err
+			return lensManifest{}, err
 		}
 		if mask == nil {
 			maxZoom = localZoom - 1
@@ -812,7 +816,7 @@ func buildPyramid(root string, plan tilePlan) (variantManifest, error) {
 	if len(coverage) == 0 {
 		coverage = nil
 	}
-	return variantManifest{
+	return lensManifest{
 		SourcePath:  plan.SourcePath,
 		AssetPath:   plan.AssetPath,
 		MinZoom:     0,

@@ -13,8 +13,8 @@ import { colorFor } from "./theme.js";
 import { formatNumber } from "./util.js";
 
 export function renderZones() {
-  const zones = (state.map.zones || []).filter(onActiveShard);
-  state.renderedShard = state.variant?.shard || 0;
+  const zones = (state.world.zones || []).filter(onActiveShard);
+  state.renderedShard = state.lens?.shard || 0;
   state.sources.zones.clear();
   state.sources.zoneTitles.clear();
   state.zoneRecords.clear();
@@ -177,7 +177,7 @@ export function jumpToZone(zoneID) {
   state.engine.getView().fit(record.extent, {
     size: state.engine.getSize(),
     padding: [54, 54, 54, 54],
-    maxZoom: viewMaxZoom(state.variant),
+    maxZoom: viewMaxZoom(state.lens),
     duration: 220,
   });
   elements.sidebar.classList.remove("is-open");
@@ -227,7 +227,7 @@ export function projectZoneGeometry(rawGeometry) {
 }
 
 // A pin arrives as a latitude and longitude in the source tile grid, which is
-// not the same grid for every game: most maps are cut from a 32-tile square at
+// not the same grid for every volume: most worlds are cut from a 32-tile square at
 // zoom 13, and a map cut from a window of its own carries where that window
 // sits. Both describe the same world square, so everything downstream of this
 // -- the view, the overview, the geohash grid -- works in units either way.
@@ -244,7 +244,7 @@ export function project(latitude, longitude) {
 }
 
 export function mapTileGrid() {
-  const shared = state.game.tileGrid;
-  const own = state.map?.grid;
+  const shared = state.volume.tileGrid;
+  const own = state.world?.grid;
   return own ? { ...shared, ...own } : shared;
 }

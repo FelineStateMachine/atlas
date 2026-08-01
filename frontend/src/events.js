@@ -3,9 +3,9 @@ import { state } from "./state.js";
 import { activeSystem } from "./cellsystems/index.js";
 import {
   changeZoom,
-  selectGame,
-  selectMap,
-  selectVariant,
+  selectVolume,
+  selectWorld,
+  selectLens,
   settleView,
   toggleSidebar,
 } from "./navigation.js";
@@ -39,12 +39,12 @@ import {
 import { isEditableTarget } from "./util.js";
 
 export function bindUIEvents() {
-  elements.game.addEventListener("change", () => { void selectGame(elements.game.value); });
-  elements.map.addEventListener("change", () => { void selectMap(elements.map.value); });
+  elements.volume.addEventListener("change", () => { void selectVolume(elements.volume.value); });
+  elements.world.addEventListener("change", () => { void selectWorld(elements.world.value); });
   elements.addBundles.addEventListener("click", () => { void importBundles(); });
   elements.emptyOpen.addEventListener("click", () => { void importBundles(); });
-  elements.variant.addEventListener("change", () => {
-    selectVariant(Number(elements.variant.value));
+  elements.lens.addEventListener("change", () => {
+    selectLens(Number(elements.lens.value));
     refreshGlobe();
   });
   elements.globeToggle.addEventListener("click", () => toggleGlobe());
@@ -280,11 +280,11 @@ export function bindUIEvents() {
   window.addEventListener("blur", () => setLabelsHeld(false));
   window.addEventListener("hashchange", () => {
     const route = readRoute();
-    if (route.game === state.game?.slug && route.map === state.map?.slug) return;
+    if (route.volume === state.volume?.slug && route.world === state.world?.slug) return;
     // An address typed by hand names where to go, so it overrides what the
-    // game remembers.
+    // volume remembers.
     state.restore = null;
-    void selectGame(route.game || state.catalog.games[0].slug, route.map);
+    void selectVolume(route.volume || state.catalog.volumes[0].slug, route.world);
   });
   window.addEventListener("resize", () => {
     state.engine?.updateSize();

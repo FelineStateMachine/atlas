@@ -11,16 +11,16 @@ import { geohashSystem, geohashCellAt } from "../src/cellsystems/geohash.js";
 import { s2System } from "../src/cellsystems/s2.js";
 
 function onSquareSurface() {
-  state.game = { tileGrid: { size: 1024 } };
-  state.variant = { surface: { x: 0, y: 0, width: 1024, height: 1024 } };
+  state.volume = { tileGrid: { size: 1024 } };
+  state.lens = { surface: { x: 0, y: 0, width: 1024, height: 1024 } };
 }
 
 test("surfaceExtent prefers the surface and falls back to bounds", () => {
   onSquareSurface();
   assert.deepEqual(surfaceExtent(), [0, -1024, 1024, -0]);
-  state.variant = { bounds: { x: 128, y: 256, width: 512, height: 256 } };
+  state.lens = { bounds: { x: 128, y: 256, width: 512, height: 256 } };
   assert.deepEqual(surfaceExtent(), [128, -512, 640, -256]);
-  state.variant = null;
+  state.lens = null;
   assert.deepEqual(surfaceExtent(), [0, -1024, 1024, -0]);
 });
 
@@ -105,9 +105,9 @@ test("plan primitives stay stable", () => {
 // A Mars-shaped map: the top half of an 8192 world square declared as the
 // whole equirectangular ground.
 function onSphereMap() {
-  state.game = { tileGrid: { size: 8192 } };
-  state.variant = { surface: { x: 0, y: 0, width: 8192, height: 4096 } };
-  state.map = {
+  state.volume = { tileGrid: { size: 8192 } };
+  state.lens = { surface: { x: 0, y: 0, width: 8192, height: 4096 } };
+  state.world = {
     attrs: {
       "atlas.geometry.surface": "sphere",
       "atlas.geometry.projection": "equirect",
@@ -119,9 +119,9 @@ function onSphereMap() {
 
 test("s2 applies only where a sphere is declared", () => {
   onSphereMap();
-  assert.equal(s2System.appliesTo(state.map), true);
+  assert.equal(s2System.appliesTo(state.world), true);
   assert.equal(s2System.appliesTo({ attrs: {} }), false);
-  assert.equal(geohashSystem.appliesTo(state.map), true, "geohash applies everywhere");
+  assert.equal(geohashSystem.appliesTo(state.world), true, "geohash applies everywhere");
 });
 
 test("s2 tokens carry the Go library's vectors", () => {
@@ -130,7 +130,7 @@ test("s2 tokens carry the Go library's vectors", () => {
   // parent is token 47a1cb. The point in world pixels comes through the
   // declared mapping.
   const world = [((11.770681595 + 180) / 360) * 8192, -(((90 - 49.703498679) / 180) * 4096)];
-  const row = s2System.locate(world, state.map);
+  const row = s2System.locate(world, state.world);
   assert.deepEqual(row, { label: "S2", value: "47a1cb" });
   assert.equal(s2System.level("47a1cb"), 11, "port level = s2 level + 1");
   assert.equal(s2System.parent("1"), "", "a face's parent is the root");
@@ -176,17 +176,17 @@ test("s2 input parses whole or not at all", () => {
 
 test("a place carries across systems at like precision", () => {
   onSphereMap();
-  assert.equal(equivalentCell(geohashSystem, s2System, "", state.map), "", "root maps to root");
+  assert.equal(equivalentCell(geohashSystem, s2System, "", state.world), "", "root maps to root");
   // A level-2 geohash cell is 256x128 of the 8192x4096 world; the S2 cell
   // holding its center at the nearest area sits within a level either way.
-  const token = s2System.parseInput(equivalentCell(geohashSystem, s2System, "m6", state.map));
+  const token = s2System.parseInput(equivalentCell(geohashSystem, s2System, "m6", state.world));
   assert.ok(token, "the translation names a real cell");
   assert.equal(s2System.contains(token, geohashSystem.center("m6")), true,
     "the new cell holds the old center");
   assert.ok(Math.abs(s2System.level(token) - 4) <= 1,
     `precision carries: level ${s2System.level(token)} ~ 4`);
   // And back: the round trip stays on the same ground at the same depth.
-  const home = equivalentCell(s2System, geohashSystem, token, state.map);
+  const home = equivalentCell(s2System, geohashSystem, token, state.world);
   assert.equal(geohashSystem.contains(home, s2System.center(token)), true);
   assert.ok(Math.abs(home.length - 2) <= 1, `round trip keeps depth: "${home}"`);
 });

@@ -8,17 +8,17 @@ import { state } from "./state.js";
 import { clamp } from "./util.js";
 
 export function renderOverview() {
-  const variant = state.variant;
+  const lens = state.lens;
   const canvas = elements.overviewCanvas;
   const context = canvas.getContext("2d");
   const extent = activeExtent();
-  const world = state.game.tileGrid.size;
-  const tileSize = state.game.tileGrid.tileSize;
+  const world = state.volume.tileGrid.size;
+  const tileSize = state.volume.tileGrid.tileSize;
   const width = extent[2] - extent[0];
   const height = extent[3] - extent[1];
 
   let level = 0;
-  while (level < variant.fullZoom &&
+  while (level < lens.fullZoom &&
     (Math.max(width, height) / world) * tileSize * (2 ** level) < overviewTargetSize) {
     level++;
   }
@@ -26,20 +26,20 @@ export function renderOverview() {
   canvas.width = Math.max(1, Math.round(width * scale));
   canvas.height = Math.max(1, Math.round(height * scale));
   context.clearRect(0, 0, canvas.width, canvas.height);
-  if (variant.background) {
-    context.fillStyle = variant.background;
+  if (lens.background) {
+    context.fillStyle = lens.background;
     context.fillRect(0, 0, canvas.width, canvas.height);
   }
 
   const run = ++state.overviewRun;
-  const format = variant.formats[level];
+  const format = lens.formats[level];
   const first = Math.floor((extent[0] / world) * (2 ** level));
   const last = Math.ceil((extent[2] / world) * (2 ** level));
   const top = Math.floor((-extent[3] / world) * (2 ** level));
   const bottom = Math.ceil((-extent[1] / world) * (2 ** level));
   for (let y = top; y < bottom; y++) {
     for (let x = first; x < last; x++) {
-      if (!format || !tileExists(variant, level, x, y)) continue;
+      if (!format || !tileExists(lens, level, x, y)) continue;
       const image = new Image();
       image.onload = () => {
         if (state.overviewRun !== run) return;
@@ -51,7 +51,7 @@ export function renderOverview() {
           tileSize,
         );
       };
-      image.src = `${state.game.base}/tiles/${encodeURIComponent(variant.tiles)}/${level}/${x}/${y}.${format}`;
+      image.src = `${state.volume.base}/tiles/${encodeURIComponent(lens.tiles)}/${level}/${x}/${y}.${format}`;
     }
   }
   updateOverviewViewport();
@@ -65,8 +65,8 @@ export function updateOverviewViewport() {
   // same flat chart the corner has always drawn.
   const camera = globeCamera();
   if (camera) {
-    const mapping = equirectMapping(state.map);
-    if (!mapping || !state.variant) return;
+    const mapping = equirectMapping(state.world);
+    if (!mapping || !state.lens) return;
     const extent = activeExtent();
     const [worldX, worldY] = mapping.toWorld(camera.lat, camera.lng);
     const canvas = elements.overviewCanvas;
@@ -83,7 +83,7 @@ export function updateOverviewViewport() {
     return;
   }
   const view = state.engine?.getView();
-  if (!view || !state.variant) return;
+  if (!view || !state.lens) return;
   const extent = activeExtent();
   const visible = view.calculateExtent(state.engine.getSize());
   const width = extent[2] - extent[0];
@@ -120,7 +120,7 @@ export function updateOverviewViewport() {
 // Put away rather than switched off: the overview keeps drawing, and the handle
 // it leaves behind is the whole of the way back. A reader who wants the corner
 // of their map usually wants it for that map's whole session, so the choice is
-// remembered with the rest of what a game is left in.
+// remembered with the rest of what a volume is left in.
 export function setOverviewDocked(docked, remember = true) {
   state.overviewDocked = docked;
   // A sweep in progress ends where it is rather than following the panel out.
@@ -146,7 +146,7 @@ export function overviewNavigate(event, ease) {
   // The same press steers whichever pane is showing: the chart's window, or
   // the globe turned to face the point under the finger.
   if (state.globeActive) {
-    const mapping = equirectMapping(state.map);
+    const mapping = equirectMapping(state.world);
     if (!mapping) return;
     const worldX = extent[0] + fraction(event.clientX, rect.left, rect.right) * (extent[2] - extent[0]);
     const worldY = -extent[3] + fraction(event.clientY, rect.top, rect.bottom) * (extent[3] - extent[1]);
@@ -155,7 +155,7 @@ export function overviewNavigate(event, ease) {
     return;
   }
   const view = state.engine?.getView();
-  if (!view || !state.variant) return;
+  if (!view || !state.lens) return;
   const center = [
     extent[0] + fraction(event.clientX, rect.left, rect.right) * (extent[2] - extent[0]),
     extent[3] - fraction(event.clientY, rect.top, rect.bottom) * (extent[3] - extent[1]),

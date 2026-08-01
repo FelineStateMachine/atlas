@@ -1,9 +1,9 @@
 export const $ = (selector) => document.querySelector(selector);
 export const elements = {
-  game: $("#game-select"),
-  map: $("#map-select"),
-  variant: $("#variant-select"),
-  variantField: $("#variant-field"),
+  volume: $("#volume-select"),
+  world: $("#world-select"),
+  lens: $("#lens-select"),
+  lensField: $("#lens-field"),
   legend: $("#legend"),
   search: $("#pin-search"),
   searchResults: $("#dock-results"),

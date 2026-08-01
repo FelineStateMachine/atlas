@@ -53,9 +53,9 @@ func TestAttachGameIcons(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	game := catalogGame{
+	game := catalogVolume{
 		Slug: "pokemon-red-blue-yellow",
-		Maps: []catalogMap{{
+		Worlds: []catalogWorld{{
 			Groups: []catalogGroup{{
 				Categories: []catalogCategory{
 					{Icon: "pokemon_center"},
@@ -64,11 +64,11 @@ func TestAttachGameIcons(t *testing.T) {
 			}},
 		}},
 	}
-	if err := attachGameIcons(source, &game); err != nil {
+	if err := attachVolumeIcons(source, &game); err != nil {
 		t.Fatal(err)
 	}
 
-	categories := game.Maps[0].Groups[0].Categories
+	categories := game.Worlds[0].Groups[0].Categories
 	if got, want := categories[0].IconAsset, "pokemon_center.svg"; got != want {
 		t.Fatalf("icon asset = %q, want %q", got, want)
 	}
@@ -87,7 +87,7 @@ func TestBuildGameSkipsMapWithoutSnapshotIndex(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	game, err := buildGame(
+	game, err := buildVolume(
 		archiveRoot,
 		nil,
 		nil,
@@ -101,20 +101,20 @@ func TestBuildGameSkipsMapWithoutSnapshotIndex(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(game.Maps) != 0 {
-		t.Fatalf("maps = %d, want 0", len(game.Maps))
+	if len(game.Worlds) != 0 {
+		t.Fatalf("maps = %d, want 0", len(game.Worlds))
 	}
 }
 
 func TestSortGameMapsPrefersPrimaryMap(t *testing.T) {
-	maps := []catalogMap{
+	maps := []catalogWorld{
 		{Title: "Big MT", Slug: "big-mt"},
 		{Title: "Zion Canyon", Slug: "zion-canyon"},
 		{Title: "Mojave Wasteland", Slug: "mojave-wasteland"},
 		{Title: "Sierra Madre", Slug: "sierra-madre"},
 	}
 
-	sortGameMaps("fallout-new-vegas", maps)
+	sortVolumeWorlds("fallout-new-vegas", maps)
 
 	want := []string{"mojave-wasteland", "big-mt", "sierra-madre", "zion-canyon"}
 	for index, slug := range want {
@@ -129,7 +129,7 @@ func TestSortGameMapsPrefersPrimaryMap(t *testing.T) {
 // this way once, and every layer's pins drew over every other.
 func TestBuildPayloadPacksEveryColumn(t *testing.T) {
 	region := int64(77)
-	m := catalogMap{Groups: []catalogGroup{{Categories: []catalogCategory{
+	m := catalogWorld{Groups: []catalogGroup{{Categories: []catalogCategory{
 		{Locations: []catalogLocation{
 			{ID: 11, Title: "Sky Mine", Latitude: 1.5, Longitude: -2.5, Shard: 1783},
 		}},
@@ -213,8 +213,8 @@ func TestMarkSurfacesMeasuresContentsNotTheWindow(t *testing.T) {
 		}
 	}
 	window := contentBounds{X: 2000, Y: 2000, Width: 3000, Height: 3000}
-	m := catalogMap{
-		Variants: []variant{{Bounds: &window}},
+	m := catalogWorld{
+		Lenses: []lens{{Bounds: &window}},
 		Groups: []catalogGroup{{
 			Categories: []catalogCategory{{
 				Locations: []catalogLocation{
@@ -229,7 +229,7 @@ func TestMarkSurfacesMeasuresContentsNotTheWindow(t *testing.T) {
 
 	markSurfaces(&m, grid)
 
-	surface := m.Variants[0].Surface
+	surface := m.Lenses[0].Surface
 	if surface == nil {
 		t.Fatal("no surface measured")
 	}
@@ -253,8 +253,8 @@ func TestMarkSurfacesKeepsGroundAlreadyMeasured(t *testing.T) {
 	grid := tileGrid{SourceZoom: 13, FirstTile: 4064, TileSize: 256, Size: 8192}
 	window := contentBounds{X: 2000, Y: 2000, Width: 3000, Height: 3000}
 	ground := contentBounds{X: 2500, Y: 2500, Width: 2000, Height: 2000}
-	m := catalogMap{
-		Variants: []variant{{Bounds: &window, Surface: &ground}},
+	m := catalogWorld{
+		Lenses: []lens{{Bounds: &window, Surface: &ground}},
 		Groups: []catalogGroup{{
 			Categories: []catalogCategory{{
 				Locations: []catalogLocation{{
@@ -267,7 +267,7 @@ func TestMarkSurfacesKeepsGroundAlreadyMeasured(t *testing.T) {
 
 	markSurfaces(&m, grid)
 
-	surface := m.Variants[0].Surface
+	surface := m.Lenses[0].Surface
 	if surface.X > ground.X || surface.Y > ground.Y ||
 		surface.X+surface.Width < ground.X+ground.Width ||
 		surface.Y+surface.Height < ground.Y+ground.Height {

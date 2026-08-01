@@ -1,12 +1,17 @@
-// Package bundle defines the .atlas file: one game, complete, in one zip
-// archive. A bundle carries everything the viewer needs to draw its game --
-// map payloads, tile pyramids, category icons -- behind a manifest naming what
-// is inside, so the application can list a game without reading past the
+// Package bundle defines the .atlas file: one volume, complete, in one zip
+// archive. A volume is the subject of an atlas -- a game, a planet, a city --
+// and its bundle carries everything the viewer needs to draw it: world
+// payloads, tile pyramids, category icons, behind a manifest naming what is
+// inside, so the application can list a volume without reading past the
 // manifest and can serve it without unpacking anything to disk.
 //
-// The format is Atlas's own. It carries no trace of where a game's data was
-// captured from; a producer flattens whatever its source looks like into this
-// shape, and the application only ever sees this shape.
+// The format is Atlas's own, and so are its words. A volume holds worlds --
+// the distinct grounds a reader can stand on, which for a game are its maps
+// and for a captured city are its dated revisions -- and each world is seen
+// through one or more lenses, the rasters that picture it. The format
+// carries no trace of where a volume's data was captured from; a producer
+// flattens whatever its source looks like into this shape, and the
+// application only ever sees this shape.
 package bundle
 
 import (
@@ -19,8 +24,10 @@ const (
 	// .atlas is refused by name rather than by whatever fails first.
 	Format = "atlas-bundle"
 	// FormatVersion is bumped when the layout changes shape. A reader refuses
-	// versions it does not know rather than guessing at them.
-	FormatVersion = 1
+	// versions it does not know rather than guessing at them. Version 2
+	// renamed the format's concepts -- game to volume, map to world, variant
+	// to lens -- through the manifest and payload keys alike.
+	FormatVersion = 2
 
 	// ManifestName is the entry the whole bundle is read through. The writer
 	// places it first in the archive so a listing shows it first, though the
@@ -28,8 +35,8 @@ const (
 	ManifestName = "atlas.json"
 )
 
-// Manifest is what a bundle says about itself: which game it is, which build
-// of that game's data it carries, and which maps are inside.
+// Manifest is what a bundle says about itself: which volume it is, which
+// build of that volume's data it carries, and which worlds are inside.
 //
 // Conventions names the semantic-convention vocabulary the payloads were
 // written against; zero is a bundle from before the conventions existed.
@@ -38,24 +45,24 @@ const (
 // but validation is stricter about a bundle that declares than one that
 // does not.
 type Manifest struct {
-	Format        string     `json:"format"`
-	FormatVersion int        `json:"formatVersion"`
-	Conventions   int        `json:"conventions,omitempty"`
-	Game          Game       `json:"game"`
-	Version       Version    `json:"version"`
-	TileGrid      TileGrid   `json:"tileGrid"`
-	Maps          []MapEntry `json:"maps"`
+	Format        string       `json:"format"`
+	FormatVersion int          `json:"formatVersion"`
+	Conventions   int          `json:"conventions,omitempty"`
+	Volume        Volume       `json:"volume"`
+	Version       Version      `json:"version"`
+	TileGrid      TileGrid     `json:"tileGrid"`
+	Worlds        []WorldEntry `json:"worlds"`
 }
 
-// Game is the identity a bundle claims. The slug is the identity proper: two
-// bundles naming the same slug are two versions of the same game, however
-// their files are named.
-type Game struct {
+// Volume is the identity a bundle claims. The slug is the identity proper:
+// two bundles naming the same slug are two versions of the same volume,
+// however their files are named.
+type Volume struct {
 	Slug  string `json:"slug"`
 	Title string `json:"title"`
 }
 
-// Version distinguishes builds of the same game. The stamp is a content
+// Version distinguishes builds of the same volume. The stamp is a content
 // fingerprint -- two bundles with equal stamps hold the same data -- and
 // CreatedAt orders them, so a newer bundle dropped beside an older one wins.
 // Revision orders builds of the same capture: the data has not moved, but
@@ -68,10 +75,10 @@ type Version struct {
 	Revision  int    `json:"revision,omitempty"`
 }
 
-// TileGrid is the window this game's maps are cut from: the zoom the source
-// was captured at, where the first tile sits, and how big a tile and the world
-// are. A map cut from a window of its own overrides part of this in its own
-// payload.
+// TileGrid is the window this volume's worlds are cut from: the zoom the
+// source was captured at, where the first tile sits, and how big a tile and
+// the world square are. A world cut from a window of its own overrides part
+// of this in its own payload.
 type TileGrid struct {
 	SourceZoom int `json:"sourceZoom"`
 	FirstTile  int `json:"firstTile"`
@@ -79,17 +86,18 @@ type TileGrid struct {
 	Size       int `json:"size"`
 }
 
-// Coordinate is a point in map space, in the latitude and longitude of the
-// game's own projection.
+// Coordinate is a point in world space, in the latitude and longitude of the
+// volume's own projection.
 type Coordinate struct {
 	Lat float64 `json:"lat"`
 	Lng float64 `json:"lng"`
 }
 
-// MapEntry lists one map: enough to offer it and to open it, and nothing that
-// only matters once it is open. The slug names the map's payload entries --
-// maps/<slug>.json, .bin, and .text -- and is the map's identity everywhere.
-type MapEntry struct {
+// WorldEntry lists one world: enough to offer it and to open it, and nothing
+// that only matters once it is open. The slug names the world's payload
+// entries -- worlds/<slug>.json, .bin, and .text -- and is the world's
+// identity everywhere.
+type WorldEntry struct {
 	Slug       string     `json:"slug"`
 	Title      string     `json:"title"`
 	Parent     string     `json:"parent,omitempty"`
@@ -109,28 +117,28 @@ func (m Manifest) Validate() error {
 	if m.FormatVersion != FormatVersion {
 		return fmt.Errorf("format version is %d, and this reads %d", m.FormatVersion, FormatVersion)
 	}
-	if err := validSlug(m.Game.Slug); err != nil {
-		return fmt.Errorf("game slug: %w", err)
+	if err := validSlug(m.Volume.Slug); err != nil {
+		return fmt.Errorf("volume slug: %w", err)
 	}
-	if m.Game.Title == "" {
-		return fmt.Errorf("game %s has no title", m.Game.Slug)
+	if m.Volume.Title == "" {
+		return fmt.Errorf("volume %s has no title", m.Volume.Slug)
 	}
 	if m.Version.Stamp == "" || m.Version.CreatedAt == "" {
-		return fmt.Errorf("game %s carries no version", m.Game.Slug)
+		return fmt.Errorf("volume %s carries no version", m.Volume.Slug)
 	}
-	if len(m.Maps) == 0 {
-		return fmt.Errorf("game %s lists no maps", m.Game.Slug)
+	if len(m.Worlds) == 0 {
+		return fmt.Errorf("volume %s lists no worlds", m.Volume.Slug)
 	}
-	seen := make(map[string]bool, len(m.Maps))
-	for _, entry := range m.Maps {
+	seen := make(map[string]bool, len(m.Worlds))
+	for _, entry := range m.Worlds {
 		if err := validSlug(entry.Slug); err != nil {
-			return fmt.Errorf("map slug: %w", err)
+			return fmt.Errorf("world slug: %w", err)
 		}
 		if entry.Title == "" {
-			return fmt.Errorf("map %s has no title", entry.Slug)
+			return fmt.Errorf("world %s has no title", entry.Slug)
 		}
 		if seen[entry.Slug] {
-			return fmt.Errorf("map slug %s is listed twice", entry.Slug)
+			return fmt.Errorf("world slug %s is listed twice", entry.Slug)
 		}
 		seen[entry.Slug] = true
 	}

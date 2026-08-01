@@ -1,6 +1,6 @@
 // Zones, grid cells, and categories without an archive color draw from this
 // wheel. Mid-tone hues anchored on the identity's cerulean and earths: bright
-// enough to read over game tiles under the white outset, muted enough not to
+// enough to read over world tiles under the white outset, muted enough not to
 // shout over the neutral chrome.
 export const palette = [
   "#4fb3d5", "#c9924b", "#82b56a", "#c96a6a", "#9581cc",
@@ -21,7 +21,7 @@ export const overzoomLevels = 2;
 // is filtered out and which groups are folded.
 export const sessionKey = "atlas.session";
 
-// The overview is drawn once per variant from the shallowest pyramid level big
+// The overview is drawn once per lens from the shallowest pyramid level big
 // enough to read, then only the viewport rectangle moves.
 export const overviewTargetSize = 168;
 

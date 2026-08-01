@@ -17,10 +17,10 @@ import (
 	"github.com/fsnotify/fsnotify"
 )
 
-// BasePath is the URL prefix game content is served under. It appears in the
+// BasePath is the URL prefix volume content is served under. It appears in the
 // composed catalog so the frontend never assembles a content URL from parts
 // it has to guess.
-const BasePath = "/data/g"
+const BasePath = "/data/v"
 
 // closeGrace is how long a retired bundle stays open after a rescan replaces
 // it. A request served from the old snapshot finishes in milliseconds; the
@@ -48,30 +48,30 @@ type Registry struct {
 // Snapshot is the registry's world at one moment: the winning bundle per
 // game and the catalog those winners compose.
 type Snapshot struct {
-	// Games maps each game slug to its bundle.
-	Games map[string]*Bundle
+	// Volumes maps each volume slug to its bundle.
+	Volumes map[string]*Bundle
 	// Catalog is the merged /data/catalog.json body, marshaled once at scan
 	// time because every launch fetches it and it only changes here.
 	Catalog []byte
 }
 
-// catalogGame is one game as the composed catalog lists it. The base URL
+// catalogVolume is one volume as the composed catalog lists it. The base URL
 // carries the version stamp, so everything beneath it may be cached as
-// immutable and a new version of the game arrives at new URLs.
-type catalogGame struct {
-	Slug     string     `json:"slug"`
-	Title    string     `json:"title"`
-	Stamp    string     `json:"stamp"`
-	Base     string     `json:"base"`
-	TileGrid TileGrid   `json:"tileGrid"`
-	Maps     []MapEntry `json:"maps"`
+// immutable and a new version of the volume arrives at new URLs.
+type catalogVolume struct {
+	Slug     string       `json:"slug"`
+	Title    string       `json:"title"`
+	Stamp    string       `json:"stamp"`
+	Base     string       `json:"base"`
+	TileGrid TileGrid     `json:"tileGrid"`
+	Worlds   []WorldEntry `json:"worlds"`
 }
 
 // NewRegistry answers for dir, which need not exist yet: a directory that is
-// missing or empty is a catalog with no games, not an error.
+// missing or empty is a catalog with no volumes, not an error.
 func NewRegistry(dir string) *Registry {
 	registry := &Registry{dir: dir}
-	registry.snap.Store(&Snapshot{Games: map[string]*Bundle{}, Catalog: composeCatalog(dir, nil)})
+	registry.snap.Store(&Snapshot{Volumes: map[string]*Bundle{}, Catalog: composeCatalog(dir, nil)})
 	return registry
 }
 
@@ -108,7 +108,7 @@ func (r *Registry) Rescan() error {
 	sort.Strings(paths)
 
 	previous := r.snap.Load()
-	next := &Snapshot{Games: make(map[string]*Bundle, len(paths))}
+	next := &Snapshot{Volumes: make(map[string]*Bundle, len(paths))}
 	opened := make([]*Bundle, 0, len(paths))
 	for _, path := range paths {
 		// A bundle already serving is not reopened: the file it was opened
@@ -121,28 +121,28 @@ func (r *Registry) Rescan() error {
 			continue
 		}
 		opened = append(opened, loaded)
-		if standing, ok := next.Games[loaded.Manifest.Game.Slug]; !ok || MoreRecent(loaded, standing) {
+		if standing, ok := next.Volumes[loaded.Manifest.Volume.Slug]; !ok || MoreRecent(loaded, standing) {
 			if ok {
 				slog.Info("atlas: bundle shadowed",
-					"game", loaded.Manifest.Game.Slug, "shadowed", standing.Path)
+					"volume", loaded.Manifest.Volume.Slug, "shadowed", standing.Path)
 			}
-			next.Games[loaded.Manifest.Game.Slug] = loaded
+			next.Volumes[loaded.Manifest.Volume.Slug] = loaded
 		}
 	}
-	next.Catalog = composeCatalog(r.dir, next.Games)
+	next.Catalog = composeCatalog(r.dir, next.Volumes)
 	r.snap.Store(next)
 
-	// What the rescan changed, by game: an arrival, a departure, or a winner
+	// What the rescan changed, by volume: an arrival, a departure, or a winner
 	// whose version stamp moved.
 	var changed []string
-	for slug, winner := range next.Games {
-		before, had := previous.Games[slug]
+	for slug, winner := range next.Volumes {
+		before, had := previous.Volumes[slug]
 		if !had || before.Manifest.Version.Stamp != winner.Manifest.Version.Stamp {
 			changed = append(changed, slug)
 		}
 	}
-	for slug := range previous.Games {
-		if _, still := next.Games[slug]; !still {
+	for slug := range previous.Volumes {
+		if _, still := next.Volumes[slug]; !still {
 			changed = append(changed, slug)
 		}
 	}
@@ -150,8 +150,8 @@ func (r *Registry) Rescan() error {
 
 	// Everything opened by this scan or held by the last snapshot that did
 	// not win a slug is retired together.
-	serving := make(map[*Bundle]bool, len(next.Games))
-	for _, winner := range next.Games {
+	serving := make(map[*Bundle]bool, len(next.Volumes))
+	for _, winner := range next.Volumes {
 		serving[winner] = true
 	}
 	var retired []*Bundle
@@ -160,7 +160,7 @@ func (r *Registry) Rescan() error {
 			retired = append(retired, candidate)
 		}
 	}
-	for _, held := range previous.Games {
+	for _, held := range previous.Volumes {
 		if !serving[held] {
 			retired = append(retired, held)
 		}
@@ -225,24 +225,24 @@ func (r *Registry) Watch(ctx context.Context) error {
 	return nil
 }
 
-// Release closes the open archive behind one game so its file can be renamed
-// over on platforms that lock open files. The snapshot still lists the game
+// Release closes the open archive behind one volume so its file can be renamed
+// over on platforms that lock open files. The snapshot still lists the volume
 // until the next rescan; a request in that window is answered with a 404,
 // which the frontend already treats as its cue to refetch the catalog.
 func (r *Registry) Release(slug string) {
 	r.rescan.Lock()
 	defer r.rescan.Unlock()
-	if held := r.snap.Load().Games[slug]; held != nil {
+	if held := r.snap.Load().Volumes[slug]; held != nil {
 		held.Close()
 	}
 }
 
 // Install copies bundle files into the directory under their versioned
-// names -- <game>-<capture-day>-<stamp>.atlas -- validating each before it
+// names -- <volume>-<capture-day>-<stamp>.atlas -- validating each before it
 // is let in, and rescans once at the end. Versions sit side by side and the
 // newest-wins fold serves the right one, so importing an old file can never
 // overwrite a newer build; it just arrives already shadowed. It reports the
-// games installed and, separately, what was wrong with anything refused:
+// volumes installed and, separately, what was wrong with anything refused:
 // one bad file does not turn the rest of a multi-selection away.
 func (r *Registry) Install(paths []string) (installed []string, refused []string) {
 	for _, path := range paths {
@@ -270,7 +270,7 @@ func (r *Registry) installOne(path string) (string, error) {
 	if err := opened.Validate(); err != nil {
 		return "", fmt.Errorf("%s: %w", filepath.Base(path), err)
 	}
-	slug := opened.Manifest.Game.Slug
+	slug := opened.Manifest.Volume.Slug
 
 	target := filepath.Join(r.dir, VersionedFileName(opened.Manifest))
 	if same, err := filepath.Abs(path); err == nil {
@@ -304,7 +304,7 @@ func (r *Registry) installOne(path string) (string, error) {
 	}
 	if err := os.Rename(staged.Name(), target); err != nil {
 		// Windows refuses to rename over a file that is open. Closing the
-		// game's archive first is what makes replacing an installed game
+		// volume's archive first is what makes replacing an installed volume
 		// possible there; the moment of unreadability ends at the rescan
 		// Install finishes with.
 		r.Release(slug)
@@ -318,7 +318,7 @@ func (r *Registry) installOne(path string) (string, error) {
 // openOrCarry reuses the already-open bundle for a path whose size and
 // modification time have not moved, and opens the file fresh otherwise.
 func openOrCarry(previous *Snapshot, path string) (*Bundle, error) {
-	for _, held := range previous.Games {
+	for _, held := range previous.Volumes {
 		if held.Path != path {
 			continue
 		}
@@ -332,25 +332,25 @@ func openOrCarry(previous *Snapshot, path string) (*Bundle, error) {
 }
 
 func composeCatalog(dir string, games map[string]*Bundle) []byte {
-	listed := make([]catalogGame, 0, len(games))
+	listed := make([]catalogVolume, 0, len(games))
 	for slug, held := range games {
 		manifest := held.Manifest
-		listed = append(listed, catalogGame{
+		listed = append(listed, catalogVolume{
 			Slug:     slug,
-			Title:    manifest.Game.Title,
+			Title:    manifest.Volume.Title,
 			Stamp:    manifest.Version.Stamp,
 			Base:     strings.Join([]string{BasePath, slug, ShortStamp(manifest.Version.Stamp)}, "/"),
 			TileGrid: manifest.TileGrid,
-			Maps:     manifest.Maps,
+			Worlds:   manifest.Worlds,
 		})
 	}
 	sort.Slice(listed, func(i, j int) bool { return listed[i].Title < listed[j].Title })
 	// The bundles directory rides along so an empty library can tell the
 	// reader where a bundle goes, in the words of their own machine.
 	composed, err := json.Marshal(struct {
-		Games      []catalogGame `json:"games"`
-		BundlesDir string        `json:"bundlesDir,omitempty"`
-	}{Games: listed, BundlesDir: dir})
+		Volumes    []catalogVolume `json:"volumes"`
+		BundlesDir string          `json:"bundlesDir,omitempty"`
+	}{Volumes: listed, BundlesDir: dir})
 	if err != nil {
 		// Nothing in a validated manifest can fail to marshal; if something
 		// does, an empty catalog is a saner face than a panic.

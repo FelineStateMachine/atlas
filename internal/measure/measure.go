@@ -1,4 +1,4 @@
-// Package measure is the one place a build of a game is judged. The
+// Package measure is the one place a build of a volume is judged. The
 // cartograph workbench and the maturity report used to each carry their own
 // copy of the same yardstick -- and the registry's ordering rule lived in
 // three places at once -- so "how good is this build" could quietly mean
@@ -28,14 +28,14 @@ import (
 // Build is one .atlas file measured whole: its identity, the axes, and every
 // merge account its payloads carry.
 type Build struct {
-	Path      string
-	File      string
-	GameSlug  string
-	GameTitle string
-	Stamp     string
-	CreatedAt string
-	Revision  int
-	MapSlugs  []string
+	Path        string
+	File        string
+	VolumeSlug  string
+	VolumeTitle string
+	Stamp       string
+	CreatedAt   string
+	Revision    int
+	MapSlugs    []string
 
 	Pins         int
 	Described    int
@@ -49,7 +49,7 @@ type Build struct {
 	TextSets     int
 	Zones        int
 	Vertices     int
-	Variants     int
+	Lenses       int
 	IconsCarried int
 	IconsWanted  int
 
@@ -67,7 +67,7 @@ type Build struct {
 	Merges []MergeAccount
 }
 
-// MergeAccount is one source's account of its merge into one map, kept whole
+// MergeAccount is one source's account of its merge into one world, kept whole
 // rather than counted: the pairs and the held pins are what a diff compares.
 type MergeAccount struct {
 	Map       string
@@ -89,7 +89,7 @@ type MatchedPair struct {
 	Enriched   bool  `json:"e"`
 }
 
-// AdoptedPin records a donor-only pin that joined one of the serving map's
+// AdoptedPin records a donor-only pin that joined one of the serving world's
 // own categories.
 type AdoptedPin struct {
 	Donor int64  `json:"d"`
@@ -103,8 +103,8 @@ type HeldPin struct {
 	Reason string `json:"why"`
 }
 
-// mapDetail is the sliver of a map payload measurement reads.
-type mapDetail struct {
+// worldDetail is the sliver of a world payload measurement reads.
+type worldDetail struct {
 	Attrs  map[string]string `json:"attrs"`
 	Groups []struct {
 		Categories []struct {
@@ -128,10 +128,10 @@ type mapDetail struct {
 			Coordinates json.RawMessage `json:"coordinates"`
 		} `json:"features"`
 	} `json:"zones"`
-	Variants []struct {
+	Lenses []struct {
 		Name    string `json:"name"`
 		MaxZoom int    `json:"maxZoom"`
-	} `json:"variants"`
+	} `json:"lenses"`
 }
 
 // MedianMatchPx is the middle distance of the account's matched pairs: the
@@ -236,8 +236,8 @@ func MeasureBundle(path string) (*Build, error) {
 	b := &Build{
 		Path:        path,
 		File:        filepath.Base(path),
-		GameSlug:    manifest.Game.Slug,
-		GameTitle:   manifest.Game.Title,
+		VolumeSlug:  manifest.Volume.Slug,
+		VolumeTitle: manifest.Volume.Title,
 		Stamp:       manifest.Version.Stamp,
 		CreatedAt:   manifest.Version.CreatedAt,
 		Revision:    manifest.Version.Revision,
@@ -247,14 +247,14 @@ func MeasureBundle(path string) (*Build, error) {
 
 	// Annotation: how thoroughly the locations are explained in writing.
 	var lengths []int
-	for _, entry := range manifest.Maps {
+	for _, entry := range manifest.Worlds {
 		b.MapSlugs = append(b.MapSlugs, entry.Slug)
 		b.Pins += entry.PinCount
 		var text map[string]struct {
 			Description string            `json:"d"`
 			Attrs       map[string]string `json:"a"`
 		}
-		if err := readEntry(entries, "maps/"+entry.Slug+".text", &text); err != nil {
+		if err := readEntry(entries, "worlds/"+entry.Slug+".text", &text); err != nil {
 			return nil, err
 		}
 		for _, held := range text {
@@ -270,8 +270,8 @@ func MeasureBundle(path string) (*Build, error) {
 			lengths = append(lengths, len(cleaned))
 		}
 
-		var detail mapDetail
-		if err := readEntry(entries, "maps/"+entry.Slug+".json", &detail); err != nil {
+		var detail worldDetail
+		if err := readEntry(entries, "worlds/"+entry.Slug+".json", &detail); err != nil {
 			return nil, err
 		}
 		b.UnknownAttrs += unknownAttrs(detail.Attrs)
@@ -283,9 +283,9 @@ func MeasureBundle(path string) (*Build, error) {
 				b.Geometry = semconv.SurfacePlane
 			}
 		}
-		b.Variants += len(detail.Variants)
-		for _, variant := range detail.Variants {
-			b.Depth = max(b.Depth, variant.MaxZoom)
+		b.Lenses += len(detail.Lenses)
+		for _, lens := range detail.Lenses {
+			b.Depth = max(b.Depth, lens.MaxZoom)
 		}
 		b.Zones += len(detail.Zones)
 		for _, zone := range detail.Zones {
@@ -372,18 +372,18 @@ func unknownAttrs(attrs map[string]string) int {
 	return unknown
 }
 
-// LoadPins reads the packed locations of every map, keyed the way a diff
-// compares them: by map slug, then pin id.
-func LoadPins(path string, mapSlugs []string) (map[string]map[int64]string, error) {
+// LoadPins reads the packed locations of every world, keyed the way a diff
+// compares them: by world slug, then pin id.
+func LoadPins(path string, worldSlugs []string) (map[string]map[int64]string, error) {
 	opened, err := bundle.Open(path)
 	if err != nil {
 		return nil, err
 	}
 	defer opened.Close()
 
-	pins := make(map[string]map[int64]string, len(mapSlugs))
-	for _, slug := range mapSlugs {
-		packed, err := opened.ReadEntry("maps/" + slug + ".bin")
+	pins := make(map[string]map[int64]string, len(worldSlugs))
+	for _, slug := range worldSlugs {
+		packed, err := opened.ReadEntry("worlds/" + slug + ".bin")
 		if err != nil {
 			return nil, fmt.Errorf("map %s: %w", slug, err)
 		}

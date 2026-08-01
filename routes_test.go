@@ -102,24 +102,24 @@ func TestCatalogAnswersForInstalledBundles(t *testing.T) {
 		t.Errorf("catalog Cache-Control = %q, want no-store", cache)
 	}
 	var catalog struct {
-		Games []struct {
+		Volumes []struct {
 			Slug  string `json:"slug"`
 			Title string `json:"title"`
 			Base  string `json:"base"`
 			Maps  []struct {
 				Slug string `json:"slug"`
-			} `json:"maps"`
-		} `json:"games"`
+			} `json:"worlds"`
+		} `json:"volumes"`
 	}
 	if err := json.Unmarshal(rec.Body.Bytes(), &catalog); err != nil {
 		t.Fatal(err)
 	}
-	if len(catalog.Games) != 2 ||
-		catalog.Games[0].Title != "Aardvark Saga" || catalog.Games[1].Title != "Zebra Quest" {
-		t.Fatalf("games = %+v, want Aardvark Saga then Zebra Quest", catalog.Games)
+	if len(catalog.Volumes) != 2 ||
+		catalog.Volumes[0].Title != "Aardvark Saga" || catalog.Volumes[1].Title != "Zebra Quest" {
+		t.Fatalf("games = %+v, want Aardvark Saga then Zebra Quest", catalog.Volumes)
 	}
-	if base := catalog.Games[0].Base; !strings.HasPrefix(base, "/data/g/aardvark-saga/") {
-		t.Errorf("base = %q, want a stamped /data/g/aardvark-saga/ prefix", base)
+	if base := catalog.Volumes[0].Base; !strings.HasPrefix(base, "/data/v/aardvark-saga/") {
+		t.Errorf("base = %q, want a stamped /data/v/aardvark-saga/ prefix", base)
 	}
 }
 
@@ -129,14 +129,14 @@ func TestCatalogIsEmptyRatherThanAbsentWithNoBundles(t *testing.T) {
 		t.Fatalf("status = %d", rec.Code)
 	}
 	var catalog struct {
-		Games      []any  `json:"games"`
+		Volumes    []any  `json:"volumes"`
 		BundlesDir string `json:"bundlesDir"`
 	}
 	if err := json.Unmarshal(rec.Body.Bytes(), &catalog); err != nil {
 		t.Fatal(err)
 	}
-	if catalog.Games == nil || len(catalog.Games) != 0 {
-		t.Errorf("games = %v, want a present, empty list", catalog.Games)
+	if catalog.Volumes == nil || len(catalog.Volumes) != 0 {
+		t.Errorf("volumes = %v, want a present, empty list", catalog.Volumes)
 	}
 	// The empty state tells the reader where bundles go, in the words of
 	// their own machine.
@@ -159,15 +159,15 @@ func TestImportWithoutAWindowIsRefused(t *testing.T) {
 func TestDataServesEveryKindOfBundleEntry(t *testing.T) {
 	registry := fixtureRegistry(t, bundletest.Spec{
 		Slug: "game", Title: "Game",
-		Maps: []bundletest.MapSpec{{Slug: "overworld", Pins: []bundletest.Pin{{Title: "Origin"}}}},
+		Worlds: []bundletest.WorldSpec{{Slug: "overworld", Pins: []bundletest.Pin{{Title: "Origin"}}}},
 	})
 	handler := routes(assets, registry)
 	base := gameBase(t, handler, "game")
 
 	served := []struct{ path, kind string }{
-		{"/maps/overworld.json", "application/json"},
-		{"/maps/overworld.text", "application/json"},
-		{"/maps/overworld.bin", "application/octet-stream"},
+		{"/worlds/overworld.json", "application/json"},
+		{"/worlds/overworld.text", "application/json"},
+		{"/worlds/overworld.bin", "application/octet-stream"},
 		{"/tiles/overworld/0/0/0.jpg", "image/jpeg"},
 		{"/icons/marker.svg", "image/svg+xml"},
 	}
@@ -187,7 +187,7 @@ func TestDataServesEveryKindOfBundleEntry(t *testing.T) {
 		}
 	}
 
-	packed := get(t, handler, base+"/maps/overworld.bin").Body.Bytes()
+	packed := get(t, handler, base+"/worlds/overworld.bin").Body.Bytes()
 	locations, err := bundle.UnpackLocations(packed)
 	if err != nil {
 		t.Fatal(err)
@@ -203,14 +203,14 @@ func TestDataRefusesWhatItDoesNotHold(t *testing.T) {
 	base := gameBase(t, handler, "game")
 
 	refused := []string{
-		"/data/g/other-game/000000000000/maps/overworld.json",
+		"/data/v/other-volume/000000000000/worlds/overworld.json",
 		// A stale stamp is a build that has been replaced: the frontend takes
 		// the 404 as its cue to refetch the catalog.
-		"/data/g/game/000000000000/maps/overworld.json",
+		"/data/v/game/000000000000/worlds/overworld.json",
 		// The manifest and anything outside the content trees stay private.
 		base + "/atlas.json",
 		base + "/maps/missing.json",
-		base + "/maps/overworld",
+		base + "/worlds/overworld",
 	}
 	for _, path := range refused {
 		if rec := get(t, handler, path); rec.Code != http.StatusNotFound {
@@ -235,15 +235,15 @@ func TestDataRefusesWhatItDoesNotHold(t *testing.T) {
 func gameBase(t *testing.T, handler http.Handler, slug string) string {
 	t.Helper()
 	var catalog struct {
-		Games []struct {
+		Volumes []struct {
 			Slug string `json:"slug"`
 			Base string `json:"base"`
-		} `json:"games"`
+		} `json:"volumes"`
 	}
 	if err := json.Unmarshal(get(t, handler, "/data/catalog.json").Body.Bytes(), &catalog); err != nil {
 		t.Fatal(err)
 	}
-	for _, game := range catalog.Games {
+	for _, game := range catalog.Volumes {
 		if game.Slug == slug {
 			return game.Base
 		}
@@ -273,7 +273,7 @@ func builtRegistry(t *testing.T) *bundle.Registry {
 
 func builtBundles(t *testing.T) map[string]*bundle.Bundle {
 	t.Helper()
-	games := builtRegistry(t).Snapshot().Games
+	games := builtRegistry(t).Snapshot().Volumes
 	if len(games) == 0 {
 		t.Skip("no built bundles in the library; run go generate first")
 	}
@@ -291,12 +291,12 @@ func builtGame(t *testing.T, games map[string]*bundle.Bundle, slug string) *bund
 
 func builtMapSlug(t *testing.T, held *bundle.Bundle, title string) string {
 	t.Helper()
-	for _, entry := range held.Manifest.Maps {
+	for _, entry := range held.Manifest.Worlds {
 		if entry.Title == title {
 			return entry.Slug
 		}
 	}
-	t.Fatalf("%s has no map titled %q", held.Manifest.Game.Slug, title)
+	t.Fatalf("%s has no map titled %q", held.Manifest.Volume.Slug, title)
 	return ""
 }
 
@@ -367,9 +367,9 @@ func TestBuiltBundlesKeepTheirPromises(t *testing.T) {
 	var maps int
 	for _, held := range games {
 		if err := held.Validate(); err != nil {
-			t.Errorf("%s: %v", held.Manifest.Game.Slug, err)
+			t.Errorf("%s: %v", held.Manifest.Volume.Slug, err)
 		}
-		maps += len(held.Manifest.Maps)
+		maps += len(held.Manifest.Worlds)
 	}
 	if maps < 20 {
 		t.Errorf("built bundles list %d maps, want at least 20", maps)
@@ -385,7 +385,7 @@ func TestBuiltBundlesKeepTheirPromises(t *testing.T) {
 // starting up. It must not grow with what the bundles hold.
 func TestComposedCatalogStaysSmall(t *testing.T) {
 	registry := builtRegistry(t)
-	if len(registry.Snapshot().Games) == 0 {
+	if len(registry.Snapshot().Volumes) == 0 {
 		t.Skip("no built bundles in the library; run go generate first")
 	}
 	if size := len(registry.Snapshot().Catalog); size > 64*1024 {
@@ -591,20 +591,20 @@ func TestBuiltBundlesCarryCategoryIconsAndColors(t *testing.T) {
 	var iconAssets int
 	var foundPokemonCenter bool
 	for _, held := range games {
-		for _, entry := range held.Manifest.Maps {
+		for _, entry := range held.Manifest.Worlds {
 			for _, group := range readBuiltPayload(t, held, entry.Slug).Groups {
 				for _, category := range group.Categories {
 					if category.IconAsset != "" {
 						iconAssets++
 						if strings.Contains(category.IconAsset, "/") {
 							t.Errorf("%s names icon %q, which is not bundle-relative",
-								held.Manifest.Game.Slug, category.IconAsset)
+								held.Manifest.Volume.Slug, category.IconAsset)
 						}
 						if !held.Has("icons/" + category.IconAsset) {
-							t.Errorf("%s icon %q is missing", held.Manifest.Game.Slug, category.IconAsset)
+							t.Errorf("%s icon %q is missing", held.Manifest.Volume.Slug, category.IconAsset)
 						}
 					}
-					if held.Manifest.Game.Slug != "pokemon-red-blue-yellow" ||
+					if held.Manifest.Volume.Slug != "pokemon-red-blue-yellow" ||
 						entry.Title != "Yellow" || category.Title != "Pokémon Center" {
 						continue
 					}

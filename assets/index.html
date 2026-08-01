@@ -5,37 +5,37 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="color-scheme" content="dark">
   <link rel="icon" href="data:,">
-  <title>Atlas — Game Map Explorer</title>
+  <title>Atlas — World Explorer</title>
   <link rel="stylesheet" href="/static/app.css">
   <script src="/static/app.js" defer></script>
 </head>
 <body>
   <div class="app-shell">
     <header class="topbar">
-      <div class="brand" aria-label="Atlas — Game map explorer" title="Game map explorer">
+      <div class="brand" aria-label="Atlas — World explorer" title="World explorer">
         <svg viewBox="0 0 10 10" aria-hidden="true"><path d="M5 .8 9.2 5 5 9.2.8 5Z"/></svg>
         <strong>ATLAS</strong>
       </div>
 
       <div class="map-pickers">
         <label>
-          <span>Game</span>
-          <select id="game-select" aria-label="Game"></select>
+          <span>Volume</span>
+          <select id="volume-select" aria-label="Volume"></select>
         </label>
         <label>
-          <span>Map</span>
-          <select id="map-select" aria-label="Map"></select>
+          <span>World</span>
+          <select id="world-select" aria-label="World"></select>
         </label>
-        <label id="variant-field">
-          <span>Layer</span>
-          <select id="variant-select" aria-label="Map layer"></select>
+        <label id="lens-field">
+          <span>Lens</span>
+          <select id="lens-select" aria-label="World lens"></select>
         </label>
         <button class="globe-toggle" id="globe-toggle" type="button" hidden
           aria-pressed="false" aria-label="View as globe" title="View as globe">
           <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3c2.8 2.6 4 5.6 4 9s-1.2 6.4-4 9c-2.8-2.6-4-5.6-4-9s1.2-6.4 4-9Z"/></svg>
         </button>
         <button class="icon-button add-bundles" id="add-bundles" type="button"
-          aria-label="Add game bundles" title="Add .atlas game bundles">
+          aria-label="Add volumes" title="Add .atlas volumes">
           <svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg>
         </button>
       </div>
@@ -101,7 +101,7 @@
 
     <main class="map-panel">
       <div id="globe" class="globe" hidden aria-label="Interactive globe"></div>
-      <div id="map" class="map" tabindex="0" autofocus aria-label="Interactive game map">
+      <div id="map" class="map" tabindex="0" autofocus aria-label="Interactive world map">
         <div class="map-loading" id="map-loading">
           <span class="spinner"></span>
           <strong>Unfolding map</strong>
@@ -193,8 +193,8 @@
   </div>
 
   <div id="empty-state" class="empty-state" hidden>
-    <strong>No games installed yet</strong>
-    <p>Each game is a single <code>.atlas</code> file. Drop one into</p>
+    <strong>No volumes installed yet</strong>
+    <p>Each volume is a single <code>.atlas</code> file. Drop one into</p>
     <p><code id="empty-path"></code></p>
     <p>and it appears here on its own — or pick files to copy in:</p>
     <button id="empty-open" type="button">Open .atlas files…</button>

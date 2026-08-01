@@ -12,9 +12,9 @@ export function renderAs(category) {
   return category.displayType === "text" ? "text" : "pin";
 }
 
-// mapSurface answers what the map's raster pictures. A map that says
+// worldSurface answers what the map's raster pictures. A map that says
 // nothing is a plane, which every map was until the planets arrived.
-export function mapSurface(map) {
+export function worldSurface(map) {
   return map?.attrs?.["atlas.geometry.surface"] || "plane";
 }
 

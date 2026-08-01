@@ -29,7 +29,7 @@ type Location struct {
 
 // PackLocations lays the locations out as parallel arrays, four-byte fields
 // first so a reader can view each one directly without copying or realigning.
-// Coordinates are single precision, which resolves far finer than a game map
+// Coordinates are single precision, which resolves far finer than a world
 // is drawn.
 func PackLocations(locations []Location) []byte {
 	count := len(locations)

@@ -6,14 +6,14 @@ import { legendSections } from "./legend.js";
 // map is opened, so the catalog can grow without the wait growing with it.
 export async function loadMap(entry) {
   const [detailResponse, packedResponse] = await Promise.all([
-    fetch(`${state.game.base}/maps/${entry.slug}.json`),
-    fetch(`${state.game.base}/maps/${entry.slug}.bin`),
+    fetch(`${state.volume.base}/worlds/${entry.slug}.json`),
+    fetch(`${state.volume.base}/worlds/${entry.slug}.bin`),
   ]);
   // A refusal here is almost always a stamp that has gone stale: the bundle
   // was replaced between the catalog fetch and this one. The caller refetches
   // the catalog and arrives at the new build's URLs.
   if (!detailResponse.ok || !packedResponse.ok) {
-    throw new Error(`map ${entry.slug} is not served under this catalog any more`);
+    throw new Error(`world ${entry.slug} is not served under this catalog any more`);
   }
   const [detail, packed] = await Promise.all([
     detailResponse.json(),
@@ -24,7 +24,7 @@ export async function loadMap(entry) {
   return {
     ...entry,
     grid: detail.grid,
-    variants: detail.variants,
+    lenses: detail.lenses,
     groups: detail.groups,
     zones: detail.zones || [],
     attrs: detail.attrs || {},
@@ -69,15 +69,15 @@ export function unpackLocations(buffer, categories) {
 
 // Descriptions and cross-references are half the catalog by weight and are read
 // one pin at a time, so a map's are fetched the first time one of its pins is
-// opened, and not at all if none ever is. The cache is keyed by the game's
+// opened, and not at all if none ever is. The cache is keyed by the volume's
 // stamped base as well as the map, so an updated bundle is never answered
 // with the words of the build it replaced.
-export async function mapText() {
-  const key = `${state.game.base}/${state.map.slug}`;
+export async function worldText() {
+  const key = `${state.volume.base}/${state.world.slug}`;
   if (!state.textByMap.has(key)) {
     state.textByMap.set(
       key,
-      fetch(`${state.game.base}/maps/${state.map.slug}.text`).then((r) => r.json()).catch(() => ({})),
+      fetch(`${state.volume.base}/worlds/${state.world.slug}.text`).then((r) => r.json()).catch(() => ({})),
     );
   }
   return state.textByMap.get(key);

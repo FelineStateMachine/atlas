@@ -2,16 +2,16 @@ import { outsetColors, palette } from "./constants.js";
 import { state } from "./state.js";
 
 export function iconOutsetColor() {
-  return outsetColors[state.map?.iconOutset === "dark" ? "dark" : "light"];
+  return outsetColors[state.world?.iconOutset === "dark" ? "dark" : "light"];
 }
 
 // A marker is drawn in its category's colour and edged with the map's outset,
 // so a colour close to that outset leaves the marker with nothing to stand
 // against. Rather than edge it the other way -- which would put a pale rim on
 // a map that asked for dark ones -- the colour itself is taken to a lighter or
-// darker variant of the same hue, so the legend still matches the map.
+// darker shade of the same hue, so the legend still matches the world.
 export function legibleIconColor(color) {
-  const dark = state.map?.iconOutset === "dark";
+  const dark = state.world?.iconOutset === "dark";
   const luminance = relativeLuminance(color);
   if (dark ? luminance > 0.3 : luminance < 0.88) return color;
   return withLightness(color, dark ? 0.74 : 0.42);
@@ -90,7 +90,7 @@ export function applyCategoryGlyph(element, category, fallback) {
 
 export function iconURL(asset) {
   const path = asset.split("/").map((segment) => encodeURIComponent(segment)).join("/");
-  return `${state.game.base}/icons/${path}`;
+  return `${state.volume.base}/icons/${path}`;
 }
 
 export function initials(value) {

@@ -31,7 +31,7 @@ export function legendSections(groups) {
 
 export function renderLegend() {
   const fragment = document.createDocumentFragment();
-  for (const section of state.map.sections) {
+  for (const section of state.world.sections) {
     const element = document.createElement("section");
     element.className = "layer-section";
     element.dataset.layerSection = section.key;
@@ -160,7 +160,7 @@ export function syncSectionCollapse() {
 export function setAllCategories(visible) {
   state.hiddenCategories.clear();
   if (!visible) {
-    for (const group of state.map.groups) {
+    for (const group of state.world.groups) {
       for (const category of group.categories) state.hiddenCategories.add(category.id);
     }
   }
@@ -177,7 +177,7 @@ export function syncLegendCheckboxes() {
 }
 
 export function toggleSection(key) {
-  const section = state.map.sections.find((item) => item.key === key);
+  const section = state.world.sections.find((item) => item.key === key);
   if (!section) return;
   const hasVisible = section.categories.some((category) => !state.hiddenCategories.has(category.id));
   for (const category of section.categories) {
@@ -193,7 +193,7 @@ export function toggleSection(key) {
 // out of a hundred and sixty categories. Everything else is hidden rather than
 // remembered, so Show all is the single, obvious way back.
 export function showOnly(target) {
-  if (!state.map) return;
+  if (!state.world) return;
   // Asking to isolate what is already isolated means the reader is done with
   // it, so the same control lets them back out.
   if (isOnly(target)) {
@@ -201,7 +201,7 @@ export function showOnly(target) {
     return;
   }
   state.hiddenCategories.clear();
-  for (const section of state.map.sections) {
+  for (const section of state.world.sections) {
     const wanted = target.section === section.key;
     for (const category of section.categories) {
       if (!wanted && target.category !== category.id) {
@@ -217,7 +217,7 @@ export function showOnly(target) {
 
 // True when what is on screen is already exactly what this target would isolate.
 export function isOnly(target) {
-  for (const section of state.map.sections) {
+  for (const section of state.world.sections) {
     for (const category of section.categories) {
       const wanted = target.section === section.key || target.category === category.id;
       if (wanted === state.hiddenCategories.has(category.id)) return false;
@@ -230,7 +230,7 @@ export function isOnly(target) {
 // reached -- including by switching categories off one at a time.
 export function updateSoloChip() {
   const chip = elements.soloChip;
-  if (!state.map) {
+  if (!state.world) {
     chip.hidden = true;
     return;
   }
@@ -238,7 +238,7 @@ export function updateSoloChip() {
   let visibleCount = 0;
   let soleSection = null;
   let sectionsShowing = 0;
-  for (const section of state.map.sections) {
+  for (const section of state.world.sections) {
     let shown = 0;
     for (const category of section.categories) {
       if (state.hiddenCategories.has(category.id)) continue;
@@ -260,8 +260,8 @@ export function updateSoloChip() {
 }
 
 export function syncSectionSwitches() {
-  if (!state.map) return;
-  for (const section of state.map.sections) {
+  if (!state.world) return;
+  for (const section of state.world.sections) {
     const input = elements.legend.querySelector(`input[data-section-toggle="${section.key}"]`);
     if (input) {
       input.checked = section.categories.some((category) => !state.hiddenCategories.has(category.id));

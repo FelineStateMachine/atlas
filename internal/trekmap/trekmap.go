@@ -206,14 +206,15 @@ func Translate(doc []byte) ([]byte, error) {
 		},
 		Game: mgdoc.Game{
 			ID: gameID,
-			// A planet is a "game" to the pipeline, which is the point being
+			// A planet is a volume to the bundle, spelled in the archive's
+			// upstream game shape here, which is the point being
 			// proven: the slug is the body's own lowercase name, free for
 			// another source's capture of the same body to answer to.
 			Title: mgdoc.SpellOut(capture.Body),
 			Slug:  capture.Body,
 		},
 		Groups:  groups,
-		Regions: []struct{}{},
+		Regions: []mgdoc.Region{},
 	}
 	return json.Marshal(out)
 }

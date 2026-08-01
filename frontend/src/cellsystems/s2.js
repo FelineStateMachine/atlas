@@ -11,7 +11,7 @@
 import { s2 } from "s2js";
 
 import { palette } from "../constants.js";
-import { geoMapping, mapSurface } from "../semconv.js";
+import { geoMapping, worldSurface } from "../semconv.js";
 import { state } from "../state.js";
 
 import { surfaceExtent } from "./index.js";
@@ -32,8 +32,8 @@ const s2Level = (id) => s2.cellid.level(s2.cellid.fromToken(id));
 let bridge = { map: null, mapping: null };
 
 function mapping() {
-  if (bridge.map !== state.map) {
-    bridge = { map: state.map, mapping: geoMapping(state.map) };
+  if (bridge.map !== state.world) {
+    bridge = { map: state.world, mapping: geoMapping(state.world) };
   }
   return bridge.mapping;
 }
@@ -73,7 +73,7 @@ export const s2System = {
   // Only a map that declares what its picture is of -- a sphere, through
   // any invertible flattening -- can be divided geodesically.
   appliesTo(map) {
-    return mapSurface(map) === "sphere" && geoMapping(map) !== null;
+    return worldSurface(map) === "sphere" && geoMapping(map) !== null;
   },
 
   maxLevel() {

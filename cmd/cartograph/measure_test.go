@@ -31,7 +31,7 @@ func TestMeasureBundle(t *testing.T) {
 		Slug:      "hollowmere",
 		Title:     "Hollowmere",
 		CreatedAt: "2026-03-01T00:00:00Z",
-		Maps: []bundletest.MapSpec{{
+		Worlds: []bundletest.WorldSpec{{
 			Slug: "overworld",
 			Pins: []bundletest.Pin{
 				{Title: "Gate", Description: "The way in."},
@@ -46,8 +46,8 @@ func TestMeasureBundle(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if measured.GameSlug != "hollowmere" || measured.GameTitle != "Hollowmere" {
-		t.Fatalf("identity read as %s (%s)", measured.GameTitle, measured.GameSlug)
+	if measured.VolumeSlug != "hollowmere" || measured.VolumeTitle != "Hollowmere" {
+		t.Fatalf("identity read as %s (%s)", measured.VolumeTitle, measured.VolumeSlug)
 	}
 
 	// Annotation: three pins, two with words. The medians sort "The way in."
@@ -72,9 +72,9 @@ func TestMeasureBundle(t *testing.T) {
 	}
 
 	// Structure and icons: one group of one iconed marker category, one layer.
-	if measured.Categories != 1 || measured.Groups != 1 || measured.Variants != 1 {
+	if measured.Categories != 1 || measured.Groups != 1 || measured.Lenses != 1 {
 		t.Errorf("structure: %d categories, %d groups, %d layers; want 1 each",
-			measured.Categories, measured.Groups, measured.Variants)
+			measured.Categories, measured.Groups, measured.Lenses)
 	}
 	if measured.IconsCarried != 1 || measured.IconsWanted != 1 {
 		t.Errorf("icons: %d of %d; want 1 of 1", measured.IconsCarried, measured.IconsWanted)
@@ -132,7 +132,7 @@ func TestLibraryOrdersBuilds(t *testing.T) {
 	})
 
 	lib := &library{dir: dir}
-	games, skipped, err := lib.games()
+	games, skipped, err := lib.volumes()
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -170,7 +170,7 @@ func TestLibrarySkipsBadBundles(t *testing.T) {
 	if err := os.WriteFile(filepath.Join(dir, "broken.atlas"), []byte("not a zip"), 0o644); err != nil {
 		t.Fatal(err)
 	}
-	games, skipped, err := (&library{dir: dir}).games()
+	games, skipped, err := (&library{dir: dir}).volumes()
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -182,7 +182,7 @@ func TestLibrarySkipsBadBundles(t *testing.T) {
 func TestLoadPins(t *testing.T) {
 	path := bundletest.Build(t, t.TempDir(), bundletest.Spec{
 		Slug: "hollowmere",
-		Maps: []bundletest.MapSpec{{
+		Worlds: []bundletest.WorldSpec{{
 			Slug: "overworld",
 			Pins: []bundletest.Pin{{Title: "Gate"}, {Title: "Well"}},
 		}},

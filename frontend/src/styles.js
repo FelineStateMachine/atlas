@@ -211,7 +211,7 @@ export function dropMarkerStyles() {
 }
 
 export function markerIconKey(category) {
-  return `${category.iconAsset || ""}:${categoryColor(category)}:${state.map?.iconOutset || "light"}`;
+  return `${category.iconAsset || ""}:${categoryColor(category)}:${state.world?.iconOutset || "light"}`;
 }
 
 export function textStyles(pin, selected) {

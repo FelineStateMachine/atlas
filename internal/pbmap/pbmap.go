@@ -219,7 +219,7 @@ func Translate(doc []byte) ([]byte, error) {
 			Slug:  capture.GameSlug,
 		},
 		Groups:  groups,
-		Regions: []struct{}{},
+		Regions: []mgdoc.Region{},
 	}
 	return json.Marshal(out)
 }

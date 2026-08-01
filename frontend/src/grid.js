@@ -110,7 +110,7 @@ export function selectGridCell(raw) {
   state.engine.getView().fit(currentGridExtent(), {
     size: state.engine.getSize(),
     padding: [52, 52, 52, 52],
-    maxZoom: viewMaxZoom(state.variant),
+    maxZoom: viewMaxZoom(state.lens),
     duration: 180,
   });
 }
@@ -131,9 +131,9 @@ export function renderGrid() {
   elements.gridNavigator.hidden = !state.gridEnabled;
   updateGridHint();
   syncGridSystemControl();
-  if (state.gridEnabled && state.variant) {
+  if (state.gridEnabled && state.lens) {
     const system = activeSystem();
-    elements.gridInput.maxLength = system.inputLength(state.map);
+    elements.gridInput.maxLength = system.inputLength(state.world);
     elements.gridInput.value = state.gridCell;
     elements.gridBack.title = state.gridCell
       ? `Back one ${system.slug} level`
@@ -152,7 +152,7 @@ export function renderGrid() {
 // cycling to the next on click -- and nothing at all when geohash is the
 // only voice. The full name lives on the field label beside it.
 function syncGridSystemControl() {
-  const systems = applicableSystems(state.map);
+  const systems = applicableSystems(state.world);
   const active = activeSystem();
   elements.gridSystemName.textContent = active.name;
   elements.gridSystem.hidden = systems.length < 2;
@@ -166,7 +166,7 @@ function syncGridSystemControl() {
 
 // cycleGridSystem steps to the next system that can divide this map.
 export function cycleGridSystem() {
-  const systems = applicableSystems(state.map);
+  const systems = applicableSystems(state.world);
   if (systems.length < 2) return;
   const at = systems.indexOf(activeSystem());
   setGridSystem(systems[(at + 1) % systems.length].slug);
@@ -182,7 +182,7 @@ export function setGridSystem(slug) {
   const from = activeSystem();
   const held = state.gridCell;
   state.gridSystem = slug;
-  state.gridCell = held ? equivalentCell(from, activeSystem(), held, state.map) : "";
+  state.gridCell = held ? equivalentCell(from, activeSystem(), held, state.world) : "";
   renderGrid();
   refreshPrioritySource();
   state.layers.pins.changed();
@@ -264,7 +264,7 @@ export function gridCellPlan() {
       cells.push(planCell(system, id, "neighbor", chain.length - 1 - depth));
     }
   }
-  if (state.gridCell && system.level(state.gridCell) >= system.maxLevel(state.map)) {
+  if (state.gridCell && system.level(state.gridCell) >= system.maxLevel(state.world)) {
     cells.push(planCell(system, state.gridCell, "leaf", 0));
     return cells;
   }
@@ -369,7 +369,7 @@ export function currentGridExtent() {
 }
 
 export function gridMaxLevel() {
-  return activeSystem().maxLevel(state.map);
+  return activeSystem().maxLevel(state.world);
 }
 
 export function pinInGridCell(pin) {

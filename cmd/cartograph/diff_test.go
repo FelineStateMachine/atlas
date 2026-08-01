@@ -15,7 +15,7 @@ func diffFixture(t *testing.T) (*build, *build, map[string]map[int64]string, map
 	dir := t.TempDir()
 	install(t, dir, "hollowmere-a.atlas", bundletest.Spec{
 		Slug: "hollowmere", Title: "Hollowmere", CreatedAt: "2026-01-01T00:00:00Z",
-		Maps: []bundletest.MapSpec{{
+		Worlds: []bundletest.WorldSpec{{
 			Slug: "overworld",
 			Pins: []bundletest.Pin{
 				{Title: "Gate"}, {Title: "Well", Silent: true}, {Title: "Shrine"},
@@ -32,7 +32,7 @@ func diffFixture(t *testing.T) (*build, *build, map[string]map[int64]string, map
 	})
 	install(t, dir, "hollowmere-b.atlas", bundletest.Spec{
 		Slug: "hollowmere", Title: "Hollowmere", CreatedAt: "2026-02-01T00:00:00Z",
-		Maps: []bundletest.MapSpec{{
+		Worlds: []bundletest.WorldSpec{{
 			Slug: "overworld",
 			Pins: []bundletest.Pin{
 				{Title: "Gate", Description: "The way in."}, {Title: "Well"},
@@ -49,7 +49,7 @@ func diffFixture(t *testing.T) (*build, *build, map[string]map[int64]string, map
 		}},
 	})
 
-	games, _, err := (&library{dir: dir}).games()
+	games, _, err := (&library{dir: dir}).volumes()
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -120,7 +120,7 @@ func TestDiffPage(t *testing.T) {
 	server, _ := testServer(t)
 	ts := newTestSite(t, server)
 
-	status, body := get(t, ts, "/game/hollowmere/diff?a=hollowmere-jan.atlas&b=hollowmere-feb.atlas")
+	status, body := get(t, ts, "/volume/hollowmere/diff?a=hollowmere-jan.atlas&b=hollowmere-feb.atlas")
 	if status != 200 {
 		t.Fatalf("diff page answered %d", status)
 	}
@@ -129,7 +129,7 @@ func TestDiffPage(t *testing.T) {
 			t.Errorf("diff page misses %q", want)
 		}
 	}
-	if status, _ := get(t, ts, "/game/hollowmere/diff?a=hollowmere-jan.atlas&b=nowhere.atlas"); status != 400 {
+	if status, _ := get(t, ts, "/volume/hollowmere/diff?a=hollowmere-jan.atlas&b=nowhere.atlas"); status != 400 {
 		t.Errorf("diff with a missing build answered %d", status)
 	}
 }

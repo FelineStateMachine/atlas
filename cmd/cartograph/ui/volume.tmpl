@@ -1,30 +1,30 @@
-{{define "title"}}Cartograph · {{.Game.Title}}{{end}}
+{{define "title"}}Cartograph · {{.Volume.Title}}{{end}}
 {{define "content"}}
 <section class="page-head">
-  <h1>{{.Game.Title}} <span class="dim">{{.Game.Slug}}</span></h1>
-  <p class="dim">{{len .Game.Builds}} builds, newest first — the first is the one the reader serves.</p>
+  <h1>{{.Volume.Title}} <span class="dim">{{.Volume.Slug}}</span></h1>
+  <p class="dim">{{len .Volume.Builds}} builds, newest first — the first is the one the reader serves.</p>
 </section>
-{{if gt (len .Game.Builds) 1}}
-<form class="compare" action="/game/{{.Game.Slug}}/diff" method="get">
+{{if gt (len .Volume.Builds) 1}}
+<form class="compare" action="/volume/{{.Volume.Slug}}/diff" method="get">
   <label>compare</label>
   <select name="a">
-    {{range $at, $b := .Game.Builds}}<option value="{{$b.File}}"{{if eq $at 1}} selected{{end}}>{{$b.File}}</option>{{end}}
+    {{range $at, $b := .Volume.Builds}}<option value="{{$b.File}}"{{if eq $at 1}} selected{{end}}>{{$b.File}}</option>{{end}}
   </select>
   <label>against</label>
   <select name="b">
-    {{range $at, $b := .Game.Builds}}<option value="{{$b.File}}"{{if eq $at 0}} selected{{end}}>{{$b.File}}</option>{{end}}
+    {{range $at, $b := .Volume.Builds}}<option value="{{$b.File}}"{{if eq $at 0}} selected{{end}}>{{$b.File}}</option>{{end}}
   </select>
   <button>What moved</button>
 </form>
 {{end}}
-{{range $at, $b := .Game.Builds}}
+{{range $at, $b := .Volume.Builds}}
 <section class="build{{if eq $at 0}} serving{{end}}">
   <h2>{{$b.File}}{{if eq $at 0}} <span class="tag">serving</span>{{end}}</h2>
   <p class="dim">captured {{$b.CreatedAt}} · revision {{$b.Revision}} · stamp {{$b.ShortStamp}}</p>
   <dl class="axes">
     <div><dt>annotation</dt><dd><b>{{$b.Pins}}</b> pins · {{$b.Described}} described ({{$b.DescribedPct}}) · median {{$b.MedianLength}} chars</dd></div>
     <div><dt>cartography</dt><dd><b>{{$b.TileCount}}</b> tiles · {{$b.RasterMB}} MB unique raster · depth z{{$b.Depth}} holds {{$b.DepthTiles}} tiles</dd></div>
-    <div><dt>structure</dt><dd><b>{{$b.Categories}}</b> categories in {{$b.Groups}} groups · {{$b.TextSets}} text label sets · {{$b.Zones}} zones ({{$b.Vertices}} vertices) · {{$b.Variants}} layers</dd></div>
+    <div><dt>structure</dt><dd><b>{{$b.Categories}}</b> categories in {{$b.Groups}} groups · {{$b.TextSets}} text label sets · {{$b.Zones}} zones ({{$b.Vertices}} vertices) · {{$b.Lenses}} lenses</dd></div>
     <div><dt>icons</dt><dd><b>{{$b.IconsCarried}}</b> of {{$b.IconsWanted}} marker categories carry one ({{$b.IconPct}})</dd></div>
   </dl>
   {{if $b.Merges}}

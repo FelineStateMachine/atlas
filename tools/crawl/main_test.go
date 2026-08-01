@@ -165,6 +165,29 @@ func TestIGNArchiveIDStaysApartFromMapGenie(t *testing.T) {
 	}
 }
 
+func TestArcgisArchiveIDStaysApartFromEveryOtherSource(t *testing.T) {
+	id := arcgisArchiveID("arcgis:bend-or")
+	if id <= 1<<35 {
+		t.Fatalf("id %d could collide with another source's ids", id)
+	}
+	if id >= 1<<53 {
+		t.Fatalf("id %d would lose integers read back through a float64", id)
+	}
+	if again := arcgisArchiveID("arcgis:bend-or"); again != id {
+		t.Fatalf("id is unstable: %d then %d", id, again)
+	}
+}
+
+func TestArcgisTileTemplateRecoversItsTileSetPath(t *testing.T) {
+	// The rendered basemap's record URLs must group under the same layer
+	// path the translator declares, through the same marker every archive
+	// reader cuts on.
+	url := "arcgis-basemap://tiles/bend-or/2026-08-01/basemap/6/12/40.png"
+	if got := tileSetPathOf(url, 6); got != "bend-or/2026-08-01/basemap" {
+		t.Fatalf("tileSetPathOf = %q", got)
+	}
+}
+
 func TestTileIndexReusesExistingTileSetDirectory(t *testing.T) {
 	// Re-crawling an archive the extension captured must not orphan its files.
 	index := newTileIndex(203)

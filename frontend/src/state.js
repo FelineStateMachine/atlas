@@ -1,8 +1,8 @@
 export const state = {
   catalog: null,
-  game: null,
-  map: null,
-  variant: null,
+  volume: null,
+  world: null,
+  lens: null,
   engine: null,
   projection: null,
   layers: null,
@@ -15,15 +15,15 @@ export const state = {
   hoveredPin: null,
   labelsHeld: false,
   gridEnabled: false,
-  // Which cell system divides the map, by slug; geohash until chosen
-  // otherwise, and reset with the map so no map boots into a system it
+  // Which cell system divides the world, by slug; geohash until chosen
+  // otherwise, and reset with the world so no world boots into a system it
   // does not offer.
   gridSystem: "geohash",
   // Whether the reader is looking at the planet instead of the chart: only
-  // a map that declares itself a sphere can turn this on.
+  // a world that declares itself a sphere can turn this on.
   globeActive: false,
   // Whether the cells are drawn, which is a separate question from whether one
-  // of them is holding the map to a place.
+  // of them is holding the view to a place.
   subgridVisible: true,
   gridCell: "",
   zonesVisible: true,

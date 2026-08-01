@@ -1,5 +1,5 @@
 // Command atlas is an offline interactive map explorer built with Allons.
-// The executable carries only the application shell; each game arrives as a
+// The executable carries only the application shell; each volume arrives as a
 // self-contained .atlas bundle dropped into the bundles directory, and the
 // application needs no network connection either way.
 package main
@@ -21,7 +21,7 @@ import (
 )
 
 // catalogChangedTopic is the event the frontend refreshes its catalog on: a
-// bundle arrived, was replaced, or left, and the games on offer moved with it.
+// bundle arrived, was replaced, or left, and the volumes on offer moved with it.
 const catalogChangedTopic = "atlas:catalog-changed"
 
 // Archive capture is deliberately not a generate step: it reaches out to
@@ -67,7 +67,7 @@ func main() {
 			},
 		},
 		&options.App{
-			Title: "Atlas — Game Map Explorer",
+			Title: "Atlas — World Explorer",
 			OnStartup: func(wctx context.Context) {
 				captureWailsContext(wctx)
 				if err := registry.Watch(wctx); err != nil {
@@ -91,7 +91,7 @@ func main() {
 	}
 }
 
-// bundlesDir is where installed games live: a directory of .atlas files under
+// bundlesDir is where installed volumes live: a directory of .atlas files under
 // the application's own data directory. ATLAS_BUNDLES_DIR points elsewhere for
 // development, so a freshly generated dist/bundles serves without being copied
 // into the running application's library.

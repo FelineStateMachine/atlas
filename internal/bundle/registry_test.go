@@ -15,12 +15,12 @@ import (
 func decodeCatalog(t *testing.T, snapshot *bundle.Snapshot) []map[string]any {
 	t.Helper()
 	var catalog struct {
-		Games []map[string]any `json:"games"`
+		Volumes []map[string]any `json:"volumes"`
 	}
 	if err := json.Unmarshal(snapshot.Catalog, &catalog); err != nil {
 		t.Fatal(err)
 	}
-	return catalog.Games
+	return catalog.Volumes
 }
 
 func TestRegistryAnswersEmptyForAMissingDirectory(t *testing.T) {
@@ -75,10 +75,10 @@ func TestRegistryLetsTheNewestBundleOfAGameWin(t *testing.T) {
 		t.Fatal(err)
 	}
 	snapshot := registry.Snapshot()
-	if len(snapshot.Games) != 1 {
-		t.Fatalf("games = %d, want the two files folded into one", len(snapshot.Games))
+	if len(snapshot.Volumes) != 1 {
+		t.Fatalf("games = %d, want the two files folded into one", len(snapshot.Volumes))
 	}
-	if won := snapshot.Games["game"].Manifest.Game.Title; won != "New Title" {
+	if won := snapshot.Volumes["game"].Manifest.Volume.Title; won != "New Title" {
 		t.Errorf("the winning bundle is %q, want the newer one", won)
 	}
 }
@@ -112,7 +112,7 @@ func TestRescanSeesArrivalsUpdatesAndDepartures(t *testing.T) {
 		t.Fatal(err)
 	}
 	before := registry.Snapshot()
-	if before.Games["game"].Manifest.Game.Title != "First" {
+	if before.Volumes["game"].Manifest.Volume.Title != "First" {
 		t.Fatal("an arriving bundle is not seen")
 	}
 
@@ -120,7 +120,7 @@ func TestRescanSeesArrivalsUpdatesAndDepartures(t *testing.T) {
 	if err := registry.Rescan(); err != nil {
 		t.Fatal(err)
 	}
-	if registry.Snapshot().Games["game"] != before.Games["game"] {
+	if registry.Snapshot().Volumes["game"] != before.Volumes["game"] {
 		t.Error("an untouched file was reopened")
 	}
 
@@ -135,12 +135,12 @@ func TestRescanSeesArrivalsUpdatesAndDepartures(t *testing.T) {
 		t.Fatal(err)
 	}
 	after := registry.Snapshot()
-	if after.Games["game"].Manifest.Game.Title != "Second" {
+	if after.Volumes["game"].Manifest.Volume.Title != "Second" {
 		t.Fatal("a replaced file still serves its old content")
 	}
 	// The old snapshot still reads until its grace ends, so a request that
 	// loaded it before the swap finishes cleanly.
-	if _, err := before.Games["game"].ReadEntry("maps/overworld.json"); err != nil {
+	if _, err := before.Volumes["game"].ReadEntry("worlds/overworld.json"); err != nil {
 		t.Errorf("the retired bundle is already unreadable: %v", err)
 	}
 
@@ -215,7 +215,7 @@ func TestWatchSeesADroppedBundleOnItsOwn(t *testing.T) {
 
 	deadline := time.After(5 * time.Second)
 	for {
-		if _, ok := registry.Snapshot().Games["game"]; ok {
+		if _, ok := registry.Snapshot().Volumes["game"]; ok {
 			return
 		}
 		select {
@@ -244,7 +244,7 @@ func TestInstallCopiesTheSoundAndRefusesTheBroken(t *testing.T) {
 	}
 	// The copy lands under the build's own versioned name, whatever the
 	// source file was called, and the rescan has already made it servable.
-	held, ok := registry.Snapshot().Games["game"]
+	held, ok := registry.Snapshot().Volumes["game"]
 	if !ok {
 		t.Fatal("the installed game is not being served")
 	}
@@ -274,7 +274,7 @@ func TestInstallingAnOlderBuildDoesNotDowngrade(t *testing.T) {
 	if installed, refused := registry.Install([]string{older}); len(installed) != 1 || len(refused) != 0 {
 		t.Fatalf("installing the older build: %v / %v", installed, refused)
 	}
-	if won := registry.Snapshot().Games["game"].Manifest.Game.Title; won != "Newer" {
+	if won := registry.Snapshot().Volumes["game"].Manifest.Volume.Title; won != "Newer" {
 		t.Errorf("the library serves %q after an old import, want the newer build", won)
 	}
 }

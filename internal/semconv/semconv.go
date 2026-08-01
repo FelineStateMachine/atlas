@@ -36,7 +36,7 @@ type Entity string
 
 const (
 	EntityBundle   Entity = "bundle"
-	EntityMap      Entity = "map"
+	EntityWorld    Entity = "world"
 	EntityCategory Entity = "category"
 	EntityLocation Entity = "location"
 )
@@ -89,6 +89,17 @@ const (
 	// GeometryEquirectDeg is the ground that window pictures, in degrees,
 	// as "west,north,east,south".
 	KeyGeometryEquirectDeg = "atlas.geometry.equirect.deg"
+
+	// GeometryMercatorPx is the raster window a Web-Mercator cut fills, in
+	// world pixels, as "x,y,w,h". Where equirect declares y linear in
+	// degrees, mercator declares y linear in the projected latitude --
+	// asinh(tan latitude) -- which is the flattening a real-world tile
+	// window actually is.
+	KeyGeometryMercatorPx = "atlas.geometry.mercator.px"
+
+	// GeometryMercatorDeg is the ground that window pictures, in degrees at
+	// the window's edges, as "west,north,east,south".
+	KeyGeometryMercatorDeg = "atlas.geometry.mercator.deg"
 
 	// GeometryBody names the body pictured, e.g. "mars".
 	KeyGeometryBody = "atlas.geometry.body"
@@ -202,13 +213,15 @@ var registry = map[string]definition{
 	KeyRenderAs:            {EntityCategory, Stable, enum(RenderAsPin, RenderAsText)},
 	KeyIconStd:             {EntityCategory, Stable, setName},
 	KeyIconKind:            {EntityCategory, Stable, enum(IconKindGlyph, IconKindPicture)},
-	KeyIconOutset:          {EntityMap, Stable, enum(OutsetLight, OutsetDark)},
-	KeyGeometrySurface:     {EntityMap, Stable, enum(SurfacePlane, SurfaceSphere)},
-	KeyGeometryProjection:  {EntityMap, Stable, enum(ProjectionEquirect)},
-	KeyGeometryEquirectPx:  {EntityMap, Stable, numbers(4)},
-	KeyGeometryEquirectDeg: {EntityMap, Stable, numbers(4)},
-	KeyGeometryBody:        {EntityMap, Experimental, slug},
-	KeyGeometryRadiusKM:    {EntityMap, Experimental, decimal},
+	KeyIconOutset:          {EntityWorld, Stable, enum(OutsetLight, OutsetDark)},
+	KeyGeometrySurface:     {EntityWorld, Stable, enum(SurfacePlane, SurfaceSphere)},
+	KeyGeometryProjection:  {EntityWorld, Stable, enum(ProjectionEquirect)},
+	KeyGeometryEquirectPx:  {EntityWorld, Stable, numbers(4)},
+	KeyGeometryEquirectDeg: {EntityWorld, Stable, numbers(4)},
+	KeyGeometryMercatorPx:  {EntityWorld, Experimental, numbers(4)},
+	KeyGeometryMercatorDeg: {EntityWorld, Experimental, numbers(4)},
+	KeyGeometryBody:        {EntityWorld, Experimental, slug},
+	KeyGeometryRadiusKM:    {EntityWorld, Experimental, decimal},
 	KeyGeoLat:              {EntityLocation, Experimental, decimal},
 	KeyGeoLon:              {EntityLocation, Experimental, decimal},
 	KeyCategoryKey:         {EntityCategory, Experimental, slug},
