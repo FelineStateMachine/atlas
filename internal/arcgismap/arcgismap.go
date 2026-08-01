@@ -84,6 +84,12 @@ type Dataset struct {
 	ZoneOf      func(Fields) ZoneKey
 	StrokeWidth float64
 
+	// Zoneomics marks the dataset whose zone buckets are enriched with
+	// district rules when a crawl is handed exported zone reports: each
+	// report joins its bucket by zone code, and the note lands on the
+	// bucket's zone as prose.
+	Zoneomics bool
+
 	// Basemap. Emphasis scales a stroke per feature -- an arterial wider
 	// than a lane -- and absent means every feature draws alike.
 	Role     string
@@ -148,6 +154,7 @@ var bend = City{
 				}
 				return ZoneKey{Key: slugify(code), Title: code}
 			},
+			Zoneomics: true,
 		},
 		{
 			Slug: "annexations", Title: "Annexations",
@@ -338,6 +345,21 @@ type Capture struct {
 	Window   Window            `json:"window"`
 	Basemap  MapConfig         `json:"basemap"`
 	Datasets []CapturedDataset `json:"datasets"`
+	// Zoneomics carries the district rules fetched beside the datasets,
+	// one note per zone bucket of the dataset curated for enrichment.
+	// Riding the same capture means the enrichment shares the datasets'
+	// content addressing: a rules change is a new version the same way a
+	// boundary change is, and an unchanged day stays no day at all.
+	Zoneomics []ZoneNote `json:"zoneomics,omitempty"`
+}
+
+// ZoneNote is what Zoneomics said about one zone bucket: the bucket's own
+// key, and the answer's fields flattened to text under dotted names --
+// kept as data rather than prose, so re-curating how a zone card reads is
+// a translator change, not a re-fetch.
+type ZoneNote struct {
+	Code   string `json:"code"`
+	Fields Fields `json:"fields,omitempty"`
 }
 
 // MapConfig is the basemap pyramid as rendered: the deepest level drawn, and
@@ -389,6 +411,7 @@ func (c *Capture) Normalize() {
 		features := dataset.Features
 		sort.Slice(features, func(a, b int) bool { return features[a].ID < features[b].ID })
 	}
+	sort.Slice(c.Zoneomics, func(a, b int) bool { return c.Zoneomics[a].Code < c.Zoneomics[b].Code })
 }
 
 // MaybeTranslate hands other sources' snapshots through untouched and
@@ -664,6 +687,20 @@ const zoneLimit = 256
 // region, and line features widen into ribbon polygons first, because a
 // zone is ground and a line has none.
 func buildRegions(capture *Capture, pairs []pairing, ids *mgdoc.IDSpace) ([]mgdoc.Region, error) {
+	// Notes join the zone buckets under the buckets' own spelling: the
+	// slugified code, which is what ZoneOf keys zoning zones by.
+	notes := make(map[string]ZoneNote, len(capture.Zoneomics))
+	for _, note := range capture.Zoneomics {
+		if note.Code == "" {
+			return nil, fmt.Errorf("a zoneomics note names no zone")
+		}
+		key := slugify(note.Code)
+		if _, doubled := notes[key]; doubled {
+			return nil, fmt.Errorf("zoneomics notes name %q twice", note.Code)
+		}
+		notes[key] = note
+	}
+
 	regions := []mgdoc.Region{}
 	for _, pair := range pairs {
 		curated, data := pair.curated, pair.data
@@ -696,6 +733,13 @@ func buildRegions(capture *Capture, pairs []pairing, ids *mgdoc.IDSpace) ([]mgdo
 				if curated.Geometry == "line" && curated.StrokeWidth > 0 {
 					zone.Attrs = map[string]string{
 						semconv.KeyStrokeWidthPx: strconv.FormatFloat(curated.StrokeWidth, 'f', -1, 64),
+					}
+				}
+				// The enriched dataset's zones speak their rules: the
+				// captured Zoneomics note composes into the zone's card.
+				if curated.Zoneomics {
+					if note, told := notes[key.Key]; told {
+						zone.Description = composeZoneNote(note)
 					}
 				}
 				buckets[key.Key] = zone
@@ -781,6 +825,100 @@ func zoneGeometry(window Window, curated *Dataset, feature Feature) (*mgdoc.Geom
 		return nil, err
 	}
 	return &mgdoc.Geometry{Type: "MultiPolygon", Coordinates: coordinates}, nil
+}
+
+// composeZoneNote writes a zone's card from the note's flattened fields.
+// Field names arrive dotted by API section -- zoning.*, plu.*, controls.*
+// -- and the exact vocabulary varies by plan, so composition is generic:
+// sections in a fixed order, each field spelled out as its own line, every
+// string scrubbed, and the source named at the end. Re-curating how a card
+// reads is an edit here, re-applied to captures already on disk.
+func composeZoneNote(note ZoneNote) string {
+	sections := []struct{ prefix, title string }{
+		{"zoning.", "Zoning"},
+		{"plu.", "Permitted uses"},
+		{"controls.", "Standards"},
+	}
+	keys := make([]string, 0, len(note.Fields))
+	for key := range note.Fields {
+		keys = append(keys, key)
+	}
+	sort.Strings(keys)
+
+	var parts []string
+	claimed := make(map[string]bool, len(keys))
+	for _, section := range sections {
+		var lines []string
+		for _, key := range keys {
+			if !strings.HasPrefix(key, section.prefix) {
+				continue
+			}
+			claimed[key] = true
+			if line := noteLine(strings.TrimPrefix(key, section.prefix), note.Fields[key]); line != "" {
+				lines = append(lines, line)
+			}
+		}
+		if len(lines) > 0 {
+			parts = append(parts, section.title+"\n"+strings.Join(lines, "\n"))
+		}
+	}
+	// Fields outside the known sections still speak, unsectioned: a plan
+	// answering in a vocabulary this table has not met loses nothing.
+	var loose []string
+	for _, key := range keys {
+		if claimed[key] {
+			continue
+		}
+		if line := noteLine(key, note.Fields[key]); line != "" {
+			loose = append(loose, line)
+		}
+	}
+	if len(loose) > 0 {
+		parts = append(parts, strings.Join(loose, "\n"))
+	}
+	if len(parts) == 0 {
+		return ""
+	}
+	return strings.Join(parts, "\n\n") + "\n\nData: Zoneomics"
+}
+
+// noteLine spells one flattened field as card prose: the name unslugged,
+// the value unpacked and scrubbed -- per line, so losing a smuggled URL
+// never flattens the card's shape.
+func noteLine(name, value string) string {
+	value = scrub(unpackControls(strings.TrimSpace(value)))
+	if value == "" {
+		return ""
+	}
+	return mgdoc.SpellOut(strings.ReplaceAll(strings.ReplaceAll(name, "_", "-"), ".", "-")) + ": " + value
+}
+
+// unpackControls opens the exports' packed control spelling --
+// "max_building_height_ft-25; min_lot_area_sq_ft-7000" -- into prose, and
+// leaves any value not shaped that way exactly as it came.
+func unpackControls(value string) string {
+	segments := strings.Split(value, "; ")
+	unpacked := make([]string, 0, len(segments))
+	for _, segment := range segments {
+		name, rest, found := strings.Cut(segment, "-")
+		if !found || name == "" || !packedControlName(name) {
+			return value
+		}
+		unpacked = append(unpacked, mgdoc.SpellOut(strings.ReplaceAll(name, "_", "-"))+" "+rest)
+	}
+	return strings.Join(unpacked, "; ")
+}
+
+// packedControlName admits only the snake_case names the packed spelling
+// uses, so a prose value that merely contains a hyphen stays prose.
+func packedControlName(name string) bool {
+	for _, r := range name {
+		if r >= 'a' && r <= 'z' || r >= '0' && r <= '9' || r == '_' {
+			continue
+		}
+		return false
+	}
+	return true
 }
 
 // synthetic is one position's whole journey: true degrees to world pixel to

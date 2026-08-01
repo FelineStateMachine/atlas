@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"math"
 	"strconv"
+	"strings"
 	"testing"
 
 	"github.com/FelineStateMachine/atlas/internal/mgdoc"
@@ -367,6 +368,63 @@ func TestTranslateRefusals(t *testing.T) {
 			}
 		}
 	})
+}
+
+// A captured Zoneomics note composes onto its zone bucket's card, and only
+// onto the dataset curated for enrichment.
+func TestZoneomicsNotesComposeOntoZones(t *testing.T) {
+	capture := fixtureCapture()
+	capture.Zoneomics = []ZoneNote{
+		{Code: "PF", Fields: Fields{
+			"zoning.zone_name":       "PF",
+			"zoning.zone_guide":      "Public facilities district",
+			"plu.uses":               "civic; schools",
+			"controls.max_height_ft": "45",
+			"controls.notes":         "see https://example.com/code",
+		}},
+	}
+	out := translated(t, capture)
+	var pf *mgdoc.Region
+	for at := range out.Regions {
+		if out.Regions[at].Title == "PF" {
+			pf = &out.Regions[at]
+		}
+	}
+	if pf == nil {
+		t.Fatal("no PF zone")
+	}
+	description := pf.Description
+	for _, want := range []string{"Zoning", "Zone Name: PF", "Permitted uses", "civic; schools", "Standards", "Max Height Ft: 45", "Data: Zoneomics"} {
+		if !strings.Contains(description, want) {
+			t.Fatalf("card misses %q:\n%s", want, description)
+		}
+	}
+	if strings.Contains(description, "http") {
+		t.Fatalf("card carries a live URL:\n%s", description)
+	}
+	// The un-enriched RS zone and every non-zoning zone stay quiet.
+	for _, region := range out.Regions {
+		if region.Title != "PF" && region.Description != "" {
+			t.Fatalf("zone %q composed a card from nothing", region.Title)
+		}
+	}
+}
+
+func TestTranslateRefusesBrokenZoneomicsNotes(t *testing.T) {
+	refuse := func(name string, notes []ZoneNote) {
+		t.Helper()
+		capture := fixtureCapture()
+		capture.Zoneomics = notes
+		raw, err := json.Marshal(&capture)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if _, err := Translate(raw); err == nil {
+			t.Fatalf("%s: translated anyway", name)
+		}
+	}
+	refuse("nameless note", []ZoneNote{{Code: "", Fields: Fields{"a": "b"}}})
+	refuse("doubled note", []ZoneNote{{Code: "PF", Fields: Fields{"a": "b"}}, {Code: "pf", Fields: Fields{"a": "b"}}})
 }
 
 // One nameless row is the source's hygiene: the pin is left out and the

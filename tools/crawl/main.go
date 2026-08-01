@@ -67,6 +67,7 @@ type options struct {
 	trek        string
 	arcgis      string
 	captureDate string
+	zoneomics   string
 	maxZoom     int
 	list        bool
 	dryRun      bool
@@ -84,6 +85,7 @@ func parseOptions() options {
 	flag.StringVar(&o.trek, "trek", "", "planetary body from NASA Trek and the IAU Gazetteer, e.g. mars")
 	flag.StringVar(&o.arcgis, "arcgis", "", "city from an ArcGIS Hub open-data site, e.g. bend-or")
 	flag.StringVar(&o.captureDate, "capture-date", "", "the day an -arcgis capture answers to, YYYY-MM-DD (default: today)")
+	flag.StringVar(&o.zoneomics, "zoneomics", "", "directory (or one file) of exported Zoneomics zone-report CSVs to join onto the -arcgis capture")
 	flag.IntVar(&o.maxZoom, "max-zoom", 0, "deepest zoom to capture (default: the layer's own maximum)")
 	flag.BoolVar(&o.list, "list", false, "list games, or the maps of -game, and exit")
 	flag.BoolVar(&o.dryRun, "dry-run", false, "report what would be fetched without writing anything")

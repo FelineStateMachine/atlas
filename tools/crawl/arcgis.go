@@ -89,6 +89,18 @@ func runArcgis(ctx context.Context, fetcher *fetcher, o options) error {
 			Features: features,
 		})
 	}
+	// The Zoneomics leg rides the same capture as the datasets it explains,
+	// and it is asked for or absent -- never partial: a capture that lost
+	// its enrichment to an unreadable file would read as the city having
+	// changed.
+	if o.zoneomics != "" {
+		notes, err := loadZoneomicsReports(o.zoneomics)
+		if err != nil {
+			return err
+		}
+		capture.Zoneomics = notes
+		fmt.Printf("   zoneomics          %5d district reports\n", len(notes))
+	}
 	capture.Normalize()
 	raw, err := json.MarshalIndent(capture, "", "  ")
 	if err != nil {
