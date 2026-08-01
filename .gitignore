@@ -6,6 +6,9 @@
 /crawl
 /generate
 /tiles
+/cartograph
+go.work
+go.work.sum
 /build/
 /dist/
 .playwright-cli/
