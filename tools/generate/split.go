@@ -1,13 +1,13 @@
 package main
 
 import (
-	"encoding/binary"
 	"encoding/json"
 	"fmt"
-	"math"
 	"os"
 	"path/filepath"
 	"strconv"
+
+	"github.com/FelineStateMachine/atlas/internal/bundle"
 )
 
 // The catalog was one file holding every location of every game, fetched whole
@@ -24,13 +24,6 @@ import (
 // Descriptions were half the catalog by weight and are read one pin at a time,
 // so they are the part most worth not loading. Locations are overwhelmingly
 // numbers, and numbers written as text cost several times what they measure.
-
-const (
-	locationMagic = "ATLASLOC"
-	// 2 added the shard column. A map split into layers offers one at a time,
-	// and without it every layer's locations were drawn over every other.
-	locationVersion = 2
-)
 
 // mapIndex is a map as the index knows it: enough to list it and to open it,
 // and nothing that only matters once it is open.
@@ -61,7 +54,13 @@ type catalogIndex struct {
 // mapDetail is everything needed to draw a map except its locations, which
 // travel packed alongside.
 type mapDetail struct {
-	ID       int64          `json:"id"`
+	// ID is the numeric identity the embedded tree keys its payload files by.
+	// Bundles key everything by slug and leave it unset.
+	ID int64 `json:"id,omitempty"`
+	// Grid travels with the layers it describes: a map cut from a window of its
+	// own is the only one that carries it, and it is needed exactly when the
+	// map is opened.
+	Grid     *mapGrid       `json:"grid,omitempty"`
 	Variants []variant      `json:"variants"`
 	Groups   []catalogGroup `json:"groups"`
 	Zones    []zone         `json:"zones,omitempty"`
@@ -119,12 +118,28 @@ func writeCatalog(out catalog, output string) error {
 
 func writeMapPayload(payloadDir string, m catalogMap) error {
 	name := strconv.FormatInt(m.ID, 10)
+	detail, packed, text := buildPayload(m)
+	detail.ID = m.ID
 
+	if err := writeJSONFile(filepath.Join(payloadDir, name+".json"), detail); err != nil {
+		return err
+	}
+	if err := os.WriteFile(filepath.Join(payloadDir, name+".bin"), packed, 0o644); err != nil {
+		return fmt.Errorf("write locations: %w", err)
+	}
+	return writeJSONFile(filepath.Join(payloadDir, name+".text"), text)
+}
+
+// buildPayload splits one map three ways: its layers, categories and regions
+// as a detail structure, its locations packed, and its descriptions keyed by
+// location. Both destinations -- the embedded tree and the game's bundle --
+// are written from this one split.
+func buildPayload(m catalogMap) (mapDetail, []byte, map[string]locationText) {
 	// Categories keep their identity; their locations travel packed, each
 	// carrying the position of its category in this same flattened order.
-	detail := mapDetail{ID: m.ID, Variants: m.Variants, Zones: m.Zones}
-	var locations []catalogLocation
-	var owners []uint16
+	detail := mapDetail{Grid: m.Grid, Variants: m.Variants, Zones: m.Zones}
+	var locations []bundle.Location
+	text := make(map[string]locationText)
 	var ordinal uint16
 	for _, group := range m.Groups {
 		listed := catalogGroup{ID: group.ID, Title: group.Title}
@@ -133,89 +148,31 @@ func writeMapPayload(payloadDir string, m catalogMap) error {
 			stripped.Locations = nil
 			listed.Categories = append(listed.Categories, stripped)
 			for _, location := range category.Locations {
-				locations = append(locations, location)
-				owners = append(owners, ordinal)
+				var region int64
+				if location.RegionID != nil {
+					region = *location.RegionID
+				}
+				locations = append(locations, bundle.Location{
+					ID:     location.ID,
+					Title:  location.Title,
+					Lat:    location.Latitude,
+					Lng:    location.Longitude,
+					Region: region,
+					Shard:  location.Shard,
+					Owner:  ordinal,
+				})
+				if location.Description != "" || len(location.Links) > 0 {
+					text[strconv.FormatInt(location.ID, 10)] = locationText{
+						Description: location.Description,
+						Links:       location.Links,
+					}
+				}
 			}
 			ordinal++
 		}
 		detail.Groups = append(detail.Groups, listed)
 	}
-
-	if err := writeJSONFile(filepath.Join(payloadDir, name+".json"), detail); err != nil {
-		return err
-	}
-	if err := os.WriteFile(filepath.Join(payloadDir, name+".bin"), packLocations(locations, owners), 0o644); err != nil {
-		return fmt.Errorf("write locations: %w", err)
-	}
-
-	text := make(map[string]locationText, len(locations))
-	for _, location := range locations {
-		if location.Description == "" && len(location.Links) == 0 {
-			continue
-		}
-		text[strconv.FormatInt(location.ID, 10)] = locationText{
-			Description: location.Description,
-			Links:       location.Links,
-		}
-	}
-	return writeJSONFile(filepath.Join(payloadDir, name+".text"), text)
-}
-
-// packLocations lays the locations out as parallel arrays, four-byte fields
-// first so a reader can view each one directly without copying or realigning.
-// Coordinates are single precision, which resolves far finer than a game map
-// is drawn.
-func packLocations(locations []catalogLocation, owners []uint16) []byte {
-	count := len(locations)
-
-	titles := make([]byte, 0, count*12)
-	offsets := make([]uint32, count+1)
-	for index, location := range locations {
-		offsets[index] = uint32(len(titles))
-		titles = append(titles, location.Title...)
-	}
-	offsets[count] = uint32(len(titles))
-
-	size := 16 + count*20 + (count+1)*4 + count*2 + len(titles)
-	out := make([]byte, size)
-	copy(out, locationMagic)
-	binary.LittleEndian.PutUint16(out[8:], locationVersion)
-	binary.LittleEndian.PutUint32(out[10:], uint32(count))
-	// out[14:16] is reserved, and keeps the arrays four-byte aligned.
-
-	at := 16
-	put32 := func(value uint32) {
-		binary.LittleEndian.PutUint32(out[at:], value)
-		at += 4
-	}
-	for _, location := range locations {
-		put32(uint32(int32(location.ID)))
-	}
-	for _, location := range locations {
-		put32(math.Float32bits(float32(location.Latitude)))
-	}
-	for _, location := range locations {
-		put32(math.Float32bits(float32(location.Longitude)))
-	}
-	for _, location := range locations {
-		region := int32(0)
-		if location.RegionID != nil {
-			region = int32(*location.RegionID)
-		}
-		put32(uint32(region))
-	}
-	for _, location := range locations {
-		put32(uint32(int32(location.Shard)))
-	}
-	for _, offset := range offsets {
-		put32(offset)
-	}
-	for _, owner := range owners {
-		binary.LittleEndian.PutUint16(out[at:], owner)
-		at += 2
-	}
-	copy(out[at:], titles)
-	return out
+	return detail, bundle.PackLocations(locations), text
 }
 
 func writeJSONFile(path string, value any) error {

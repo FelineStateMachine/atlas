@@ -119,22 +119,38 @@ type tileGrid struct {
 	Size       int `json:"size"`
 }
 
+// mapGrid is where one map's world space sits in the source tile grid. Most
+// maps sit in the shared window and say nothing; a map cut from a window of its
+// own carries the two numbers that differ, and the catalog's grid answers for
+// the rest.
+type mapGrid struct {
+	SourceZoom int `json:"sourceZoom"`
+	FirstTile  int `json:"firstTile"`
+}
+
 type catalogGame struct {
 	ID    int64        `json:"id"`
 	Title string       `json:"title"`
 	Slug  string       `json:"slug"`
 	Maps  []catalogMap `json:"maps"`
+	// Icons carries the game's category icons by bundle-relative name, read
+	// once from the archive so every writer -- the embedded tree today, the
+	// game's bundle -- draws on the same bytes.
+	Icons map[string][]byte `json:"-"`
 }
 
 type catalogMap struct {
-	ID         int64          `json:"id"`
-	Title      string         `json:"title"`
-	Slug       string         `json:"slug"`
-	IconOutset string         `json:"iconOutset,omitempty"`
-	Center     coordinate     `json:"center"`
-	Variants   []variant      `json:"variants"`
-	Groups     []catalogGroup `json:"groups"`
-	Zones      []zone         `json:"zones,omitempty"`
+	ID         int64      `json:"id"`
+	Title      string     `json:"title"`
+	Slug       string     `json:"slug"`
+	IconOutset string     `json:"iconOutset,omitempty"`
+	Center     coordinate `json:"center"`
+	// Grid is carried only by a map whose window is not the shared one, so the
+	// catalog reads the same as it did for every map that is.
+	Grid     *mapGrid       `json:"grid,omitempty"`
+	Variants []variant      `json:"variants"`
+	Groups   []catalogGroup `json:"groups"`
+	Zones    []zone         `json:"zones,omitempty"`
 	// Parent names the map this one was split out of, so an inset sorts with
 	// the sheet it came from rather than alphabetically among unrelated maps.
 	Parent    string `json:"parent,omitempty"`
@@ -191,10 +207,12 @@ type tileManifest struct {
 type tileVariantManifest struct {
 	SourcePath  string                    `json:"sourcePath"`
 	AssetPath   string                    `json:"assetPath"`
+	Stamp       string                    `json:"stamp"`
 	MinZoom     int                       `json:"minZoom"`
 	MaxZoom     int                       `json:"maxZoom"`
 	FullZoom    int                       `json:"fullZoom"`
 	SourceZoom  int                       `json:"sourceZoom"`
+	Grid        mapGrid                   `json:"grid"`
 	Formats     []string                  `json:"formats"`
 	Bounds      *contentBounds            `json:"bounds"`
 	Interpolate bool                      `json:"interpolate"`
@@ -291,19 +309,24 @@ func main() {
 	source := flag.String("source", "", "path containing fmg-archive")
 	tiles := flag.String("tiles", "", "generated tile manifest")
 	output := flag.String("output", "", "catalog JSON destination")
+	bundles := flag.String("bundles", "", "directory receiving one .atlas bundle per game")
 	flag.Parse()
 
-	if *source == "" || *tiles == "" || *output == "" {
-		fmt.Fprintln(os.Stderr, "generate: -source, -tiles, and -output are required")
+	if *source == "" || *tiles == "" {
+		fmt.Fprintln(os.Stderr, "generate: -source and -tiles are required")
 		os.Exit(2)
 	}
-	if err := run(*source, *tiles, *output); err != nil {
+	if *output == "" && *bundles == "" {
+		fmt.Fprintln(os.Stderr, "generate: nothing to write; pass -output, -bundles, or both")
+		os.Exit(2)
+	}
+	if err := run(*source, *tiles, *output, *bundles); err != nil {
 		fmt.Fprintln(os.Stderr, "generate:", err)
 		os.Exit(1)
 	}
 }
 
-func run(source, tileManifestPath, output string) error {
+func run(source, tileManifestPath, output, bundleDir string) error {
 	archiveRoot := filepath.Join(source, "fmg-archive")
 	var index archive
 	if err := readJSON(filepath.Join(archiveRoot, "archive.json"), &index); err != nil {
@@ -327,7 +350,10 @@ func run(source, tileManifestPath, output string) error {
 			Size:       tiles.Size,
 		},
 	}
-	iconRoot := filepath.Join(filepath.Dir(output), "icons")
+	iconRoot := ""
+	if output != "" {
+		iconRoot = filepath.Join(filepath.Dir(output), "icons")
+	}
 	for _, gameRef := range index.Games {
 		game, err := buildGame(archiveRoot, iconRoot, tilesByPath, gameRef, out.TileGrid)
 		if err != nil {
@@ -339,7 +365,17 @@ func run(source, tileManifestPath, output string) error {
 	}
 
 	sort.Slice(out.Games, func(i, j int) bool { return out.Games[i].Title < out.Games[j].Title })
-	return writeCatalog(out, output)
+	if output != "" {
+		if err := writeCatalog(out, output); err != nil {
+			return err
+		}
+	}
+	if bundleDir != "" {
+		if err := writeBundles(out, tiles, filepath.Dir(tileManifestPath), bundleDir); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 func buildGame(
@@ -455,10 +491,32 @@ func buildMap(
 	if len(raw.Config.TileSets) == 0 {
 		return nil, "", fmt.Errorf("%w: no tile sets", errMapNotReady)
 	}
+	// The catalog's grid is the window most maps are cut from; this map's own
+	// takes its place below, and what is left of the shared one -- the size of
+	// the world and of a tile, which no map differs on -- carries through.
+	shared := grid
 	for _, set := range raw.Config.TileSets {
 		tiles, ok := tilesByPath[set.Path]
 		if !ok {
 			return nil, "", fmt.Errorf("%w: tile layer %s is missing", errMapNotReady, set.Path)
+		}
+		// Every layer of a map is a picture of the same ground, so they agree on
+		// the window it is cut from. One that does not would be a map drawn in
+		// two places at once, and no pin could be placed on it.
+		window := tiles.Grid
+		if window == (mapGrid{}) {
+			// An index written before layers carried their window: the shared
+			// one is what every map in it was cut from.
+			window = mapGrid{SourceZoom: shared.SourceZoom, FirstTile: shared.FirstTile}
+		}
+		if len(m.Variants) == 0 {
+			grid.SourceZoom, grid.FirstTile = window.SourceZoom, window.FirstTile
+			if window != (mapGrid{SourceZoom: shared.SourceZoom, FirstTile: shared.FirstTile}) {
+				m.Grid = &window
+			}
+		} else if window.SourceZoom != grid.SourceZoom || window.FirstTile != grid.FirstTile {
+			return nil, "", fmt.Errorf("%w: tile layer %s sits in a different window from %s",
+				errMapNotReady, set.Path, raw.Config.TileSets[0].Path)
 		}
 		m.Variants = append(m.Variants, variant{
 			Name:        set.Name,
@@ -608,6 +666,7 @@ func attachGameIcons(gamePath, iconRoot string, game *catalogGame) error {
 	if game.Slug == "" {
 		return nil
 	}
+	game.Icons = make(map[string][]byte)
 	copied := make(map[string]string)
 	for mapIndex := range game.Maps {
 		for groupIndex := range game.Maps[mapIndex].Groups {
@@ -620,7 +679,7 @@ func attachGameIcons(gamePath, iconRoot string, game *catalogGame) error {
 				asset, found := copied[category.Icon]
 				if !found {
 					var err error
-					asset, err = copyGameIcon(gamePath, iconRoot, game.Slug, category.Icon)
+					asset, err = copyGameIcon(gamePath, iconRoot, game, category.Icon)
 					if err != nil {
 						return err
 					}
@@ -636,8 +695,9 @@ func attachGameIcons(gamePath, iconRoot string, game *catalogGame) error {
 
 // copyGameIcon takes whichever form the archive holds. Most games publish an
 // icon font that renders to SVG; some publish a marker strip instead, which
-// slices into PNG.
-func copyGameIcon(gamePath, iconRoot, gameSlug, icon string) (string, error) {
+// slices into PNG. The bytes are kept on the game for the bundle writer, and
+// mirrored into iconRoot when the embedded tree is also being written.
+func copyGameIcon(gamePath, iconRoot string, game *catalogGame, icon string) (string, error) {
 	var data []byte
 	var extension string
 	for _, candidate := range []string{".svg", ".png"} {
@@ -655,7 +715,11 @@ func copyGameIcon(gamePath, iconRoot, gameSlug, icon string) (string, error) {
 	if extension == "" {
 		return "", nil
 	}
-	asset := filepath.ToSlash(filepath.Join(gameSlug, icon+extension))
+	game.Icons[icon+extension] = data
+	asset := filepath.ToSlash(filepath.Join(game.Slug, icon+extension))
+	if iconRoot == "" {
+		return asset, nil
+	}
 	destination := filepath.Join(iconRoot, filepath.FromSlash(asset))
 	if err := os.MkdirAll(filepath.Dir(destination), 0o755); err != nil {
 		return "", fmt.Errorf("create icon directory: %w", err)

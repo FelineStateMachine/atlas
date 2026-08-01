@@ -132,24 +132,28 @@ func TestSortGameMapsPrefersPrimaryMap(t *testing.T) {
 // The packed payload is the only thing the frontend reads a location from, so
 // a field left out of it is a field the map does not have. Shard went missing
 // this way once, and every layer's pins drew over every other.
-func TestPackLocationsCarriesEveryColumn(t *testing.T) {
+func TestBuildPayloadPacksEveryColumn(t *testing.T) {
 	region := int64(77)
-	locations := []catalogLocation{
-		{ID: 11, Title: "Sky Mine", Latitude: 1.5, Longitude: -2.5, Shard: 1783},
-		{ID: 12, Title: "Deep Well", Latitude: -3, Longitude: 4, RegionID: &region, Shard: 1785},
-	}
+	m := catalogMap{Groups: []catalogGroup{{Categories: []catalogCategory{
+		{Locations: []catalogLocation{
+			{ID: 11, Title: "Sky Mine", Latitude: 1.5, Longitude: -2.5, Shard: 1783},
+		}},
+		{Locations: []catalogLocation{
+			{ID: 12, Title: "Deep Well", Latitude: -3, Longitude: 4, RegionID: &region, Shard: 1785},
+		}},
+	}}}}
 
-	packed := packLocations(locations, []uint16{0, 1})
+	_, packed, _ := buildPayload(m)
 
-	if magic := string(packed[:8]); magic != locationMagic {
-		t.Fatalf("magic = %q, want %q", magic, locationMagic)
+	if magic := string(packed[:8]); magic != "ATLASLOC" {
+		t.Fatalf("magic = %q, want %q", magic, "ATLASLOC")
 	}
-	if version := binary.LittleEndian.Uint16(packed[8:]); version != locationVersion {
-		t.Fatalf("version = %d, want %d", version, locationVersion)
+	if version := binary.LittleEndian.Uint16(packed[8:]); version != 2 {
+		t.Fatalf("version = %d, want 2", version)
 	}
 	count := int(binary.LittleEndian.Uint32(packed[10:]))
-	if count != len(locations) {
-		t.Fatalf("count = %d, want %d", count, len(locations))
+	if count != 2 {
+		t.Fatalf("count = %d, want 2", count)
 	}
 
 	column := func(index int) []int32 {
