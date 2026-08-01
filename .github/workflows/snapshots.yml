@@ -1,0 +1,22 @@
+# The scheduler over the public proof cities: the living test of the same
+# reusable workflow a city IT team points at their own city with their own
+# zone reports; see docs/snapshots.md for that setup.
+name: Snapshots
+
+on:
+  schedule:
+    - cron: "17 6 * * 1"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  city:
+    strategy:
+      fail-fast: false
+      matrix:
+        city: [bend-or, redondo-beach-ca]
+    uses: ./.github/workflows/snapshot.yml
+    with:
+      city: ${{ matrix.city }}

@@ -1,0 +1,127 @@
+# Snapshot builds one city's .atlas on a schedule and publishes it only when
+# the city changed. It is reusable: a caller names the city and provides the
+# state -- an fmg-archive committed to a branch of the calling repository --
+# and this workflow crawls, composes, gates on the bundle's own content
+# stamp, and publishes to the caller's releases. A city IT team runs their
+# own copy in a private repository with their curation and their key; this
+# repository's scheduler runs it over the public proof cities as the living
+# test of the same path.
+name: Snapshot
+
+on:
+  workflow_call:
+    inputs:
+      city:
+        description: "curated city slug, e.g. bend-or"
+        required: true
+        type: string
+      atlas-ref:
+        description: "atlas ref to build with"
+        required: false
+        type: string
+        default: main
+      state-branch:
+        description: "branch of the calling repository holding the fmg-archive"
+        required: false
+        type: string
+        default: snapshots
+
+permissions:
+  contents: write
+
+env:
+  CGO_ENABLED: "0"
+  GOFLAGS: -trimpath -buildvcs=false
+
+jobs:
+  snapshot:
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Check out snapshot state
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.state-branch }}
+          path: state
+          # The state branch must exist; docs/snapshots.md shows the one-time
+          # orphan-branch setup.
+
+      - name: Check out atlas
+        uses: actions/checkout@v4
+        with:
+          repository: FelineStateMachine/atlas
+          ref: ${{ inputs.atlas-ref }}
+          path: atlas
+
+      - name: Adopt private curation
+        run: |
+          if [ -f state/cities_local.go ]; then
+            cp state/cities_local.go atlas/internal/arcgismap/cities_local.go
+            echo "private curation adopted"
+          fi
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: atlas/go.mod
+          cache-dependency-path: atlas/go.sum
+
+      - name: Crawl
+        working-directory: atlas
+        run: |
+          # Zone reports exported from a Zoneomics subscription live beside
+          # the archive on the state branch, one directory per city; a
+          # directory's presence is the opt-in.
+          FLAGS=""
+          if [ -d "../state/zoneomics/${{ inputs.city }}" ]; then
+            FLAGS="-zoneomics ../state/zoneomics/${{ inputs.city }}"
+          fi
+          go run ./tools/crawl -archive ../state/fmg-archive -arcgis "${{ inputs.city }}" $FLAGS
+
+      - name: Compose
+        working-directory: atlas
+        run: |
+          go run ./tools/tiles -source ../state/fmg-archive -output build/tiles
+          go run ./tools/generate -source ../state -tiles build/tiles/index.json -bundles ../out
+
+      - name: Gate on the stamp
+        id: gate
+        working-directory: out
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          FILE=$(ls ${{ inputs.city }}-*.atlas | sort | tail -1)
+          echo "file=$FILE" >> "$GITHUB_OUTPUT"
+          if gh release view "snapshot-${{ inputs.city }}" --repo "$GITHUB_REPOSITORY" \
+               --json assets -q '.assets[].name' 2>/dev/null | grep -qx "$FILE"; then
+            echo "unchanged: $FILE is already published"
+            echo "changed=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "changed=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Commit the archive
+        if: steps.gate.outputs.changed == 'true'
+        working-directory: state
+        run: |
+          git config user.name "atlas-snapshot"
+          git config user.email "snapshot@users.noreply.github.com"
+          git add -A
+          git diff --cached --quiet || git commit -m "snapshot ${{ inputs.city }}: ${{ steps.gate.outputs.file }}"
+          git push
+
+      - name: Publish
+        if: steps.gate.outputs.changed == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          FILE="${{ steps.gate.outputs.file }}"
+          RELEASE="snapshot-${{ inputs.city }}"
+          if ! gh release view "$RELEASE" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+            gh release create "$RELEASE" --repo "$GITHUB_REPOSITORY" \
+              --title "Snapshots: ${{ inputs.city }}" \
+              --notes "Scheduled .atlas snapshots. Every published version stays; *-latest.atlas always names the newest." \
+              --target "${{ inputs.state-branch }}"
+          fi
+          cp "out/$FILE" "out/${{ inputs.city }}-latest.atlas"
+          gh release upload "$RELEASE" --repo "$GITHUB_REPOSITORY" \
+            "out/$FILE" "out/${{ inputs.city }}-latest.atlas#${{ inputs.city }}-latest.atlas" --clobber
+          echo "published $FILE"
