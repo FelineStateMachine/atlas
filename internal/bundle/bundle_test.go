@@ -247,6 +247,32 @@ func TestMoreRecentIsTotalAndPrefersNewer(t *testing.T) {
 	}
 }
 
+// Builds of one capture share a creation time; the policy revision decides
+// between them, so a rebuild under a newer rule supersedes deterministically
+// rather than by whichever stamp happens to sort higher.
+func TestMoreRecentPrefersTheNewerRevisionOfOneCapture(t *testing.T) {
+	captured := "2026-06-01T00:00:00Z"
+	plain := open(t, bundletest.Build(t, t.TempDir(), bundletest.Spec{
+		Slug: "game", CreatedAt: captured,
+		Stamp: strings.Repeat("ff", 32),
+	}))
+	revised := open(t, bundletest.Build(t, t.TempDir(), bundletest.Spec{
+		Slug: "game", CreatedAt: captured, Revision: 1,
+		Stamp: strings.Repeat("00", 32),
+	}))
+
+	if !bundle.MoreRecent(revised, plain) || bundle.MoreRecent(plain, revised) {
+		t.Error("the revision does not decide between builds of one capture")
+	}
+
+	newerCapture := open(t, bundletest.Build(t, t.TempDir(), bundletest.Spec{
+		Slug: "game", CreatedAt: "2026-07-01T00:00:00Z",
+	}))
+	if !bundle.MoreRecent(newerCapture, revised) {
+		t.Error("a revision outweighed a newer capture")
+	}
+}
+
 func open(t *testing.T, path string) *bundle.Bundle {
 	t.Helper()
 	opened, err := bundle.Open(path)

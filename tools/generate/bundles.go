@@ -13,6 +13,13 @@ import (
 	"github.com/FelineStateMachine/atlas/internal/bundle"
 )
 
+// policyRevision orders builds of the same capture. The data has not moved
+// between them, but what this tool makes of a capture has -- a merge rule, a
+// kept field, a dropped category -- and among equal captures the registry
+// serves the highest revision. Bump it when a policy change should supersede
+// the builds already in every library.
+const policyRevision = 1
+
 // writeBundles packs each game into its own .atlas file, named by game,
 // capture day, and stamp. The directory is a registry, not a mirror: a new
 // capture lands beside the builds before it rather than over them, nothing
@@ -54,6 +61,7 @@ func writeGameBundle(
 		Format:        bundle.Format,
 		FormatVersion: bundle.FormatVersion,
 		Game:          bundle.Game{Slug: game.Slug, Title: game.Title},
+		Version:       bundle.Version{Revision: policyRevision},
 		TileGrid: bundle.TileGrid{
 			SourceZoom: grid.SourceZoom,
 			FirstTile:  grid.FirstTile,
@@ -208,6 +216,7 @@ type registryVersion struct {
 	File      string `json:"file"`
 	Stamp     string `json:"stamp"`
 	CreatedAt string `json:"createdAt"`
+	Revision  int    `json:"revision,omitempty"`
 	Size      int64  `json:"size"`
 	Maps      int    `json:"maps"`
 }
@@ -256,6 +265,7 @@ func writeRegistryIndex(bundleDir string) error {
 			File:      filepath.Base(path),
 			Stamp:     manifest.Version.Stamp,
 			CreatedAt: manifest.Version.CreatedAt,
+			Revision:  manifest.Version.Revision,
 			Size:      size,
 			Maps:      len(manifest.Maps),
 		})
@@ -266,6 +276,9 @@ func writeRegistryIndex(bundleDir string) error {
 		sort.Slice(entry.Versions, func(i, j int) bool {
 			if entry.Versions[i].CreatedAt != entry.Versions[j].CreatedAt {
 				return entry.Versions[i].CreatedAt > entry.Versions[j].CreatedAt
+			}
+			if entry.Versions[i].Revision != entry.Versions[j].Revision {
+				return entry.Versions[i].Revision > entry.Versions[j].Revision
 			}
 			return entry.Versions[i].Stamp > entry.Versions[j].Stamp
 		})

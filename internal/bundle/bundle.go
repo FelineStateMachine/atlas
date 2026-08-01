@@ -50,9 +50,14 @@ type Game struct {
 // Version distinguishes builds of the same game. The stamp is a content
 // fingerprint -- two bundles with equal stamps hold the same data -- and
 // CreatedAt orders them, so a newer bundle dropped beside an older one wins.
+// Revision orders builds of the same capture: the data has not moved, but
+// the policy that turns a capture into a bundle has, and the build under the
+// newer policy is the one that should serve. Bundles from before the field
+// existed read as revision zero and lose to any revised build.
 type Version struct {
 	Stamp     string `json:"stamp"`
 	CreatedAt string `json:"createdAt"`
+	Revision  int    `json:"revision,omitempty"`
 }
 
 // TileGrid is the window this game's maps are cut from: the zoom the source

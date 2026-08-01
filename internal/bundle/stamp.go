@@ -37,11 +37,15 @@ func HashBytes(data []byte) string {
 }
 
 // MoreRecent reports whether a should shadow b when both claim the same game.
-// Creation time decides; the stamp and then the path break ties, so the choice
-// is total and two scans of the same directory always agree.
+// Creation time decides; among builds of the same capture the newer policy
+// revision decides; the stamp and then the path break the remaining ties, so
+// the choice is total and two scans of the same directory always agree.
 func MoreRecent(a, b *Bundle) bool {
 	if a.Manifest.Version.CreatedAt != b.Manifest.Version.CreatedAt {
 		return a.Manifest.Version.CreatedAt > b.Manifest.Version.CreatedAt
+	}
+	if a.Manifest.Version.Revision != b.Manifest.Version.Revision {
+		return a.Manifest.Version.Revision > b.Manifest.Version.Revision
 	}
 	if a.Manifest.Version.Stamp != b.Manifest.Version.Stamp {
 		return a.Manifest.Version.Stamp > b.Manifest.Version.Stamp

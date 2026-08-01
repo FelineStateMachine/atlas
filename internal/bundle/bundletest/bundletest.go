@@ -22,6 +22,7 @@ type Spec struct {
 	Title     string
 	CreatedAt string
 	Stamp     string
+	Revision  int
 	Maps      []MapSpec
 }
 
@@ -60,7 +61,7 @@ func Build(t testing.TB, dir string, spec Spec) string {
 		Format:        bundle.Format,
 		FormatVersion: bundle.FormatVersion,
 		Game:          bundle.Game{Slug: spec.Slug, Title: spec.Title},
-		Version:       bundle.Version{Stamp: spec.Stamp, CreatedAt: spec.CreatedAt},
+		Version:       bundle.Version{Stamp: spec.Stamp, CreatedAt: spec.CreatedAt, Revision: spec.Revision},
 		TileGrid:      bundle.TileGrid{SourceZoom: 13, FirstTile: 4064, TileSize: 256, Size: 8192},
 	}
 	for _, m := range spec.Maps {
