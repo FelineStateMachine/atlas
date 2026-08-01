@@ -5,9 +5,10 @@
 // the state, the navigator, and the plan both renderers draw from, and it
 // no longer knows what a geohash is.
 import Feature from "ol/Feature.js";
+import MultiPolygon from "ol/geom/MultiPolygon.js";
 import Polygon from "ol/geom/Polygon.js";
 
-import { activeSystem } from "./cellsystems/index.js";
+import { activeSystem, clipRingX, surfaceExtent } from "./cellsystems/index.js";
 import { gridTheme, palette } from "./constants.js";
 import { closeDetail } from "./detail.js";
 import { elements } from "./dom.js";
@@ -276,11 +277,38 @@ export function addGridFeature(cell) {
 }
 
 // gridGeometry tiles one plan cell for the chart. A system's ring is a
-// closed loop already; today every ring stays within the surface, and the
-// wrap-and-pole cases arrive with the first system whose cells are not
-// rectangles of the picture.
+// closed, continuous loop; most rings lie within the surface and become a
+// plain polygon -- every geohash ring does, byte for byte as before. A
+// cell holding a pole circles it, so its loop closes along the pole's own
+// edge of the picture; and a ring that stayed continuous across the
+// antimeridian is drawn twice, clipped to the surface as it lies and
+// shifted a world over, so the one cell appears as its two pieces.
 function gridGeometry(cell) {
-  return new Polygon([cell.ring]);
+  const surface = surfaceExtent();
+  let ring = cell.ring;
+  if (cell.pole) {
+    const poleY = cell.pole === "north" ? surface[3] : surface[1];
+    const open = ring.slice(0, -1);
+    ring = [
+      ...open,
+      [open[open.length - 1][0], poleY],
+      [open[0][0], poleY],
+      open[0],
+    ];
+  }
+  const inside = ring.every(([x]) => x >= surface[0] && x <= surface[2]);
+  if (inside) return new Polygon([ring]);
+  const width = surface[2] - surface[0];
+  const pieces = [];
+  for (const shift of [0, -width, width]) {
+    const clipped = clipRingX(
+      ring.map(([x, y]) => [x + shift, y]),
+      surface[0],
+      surface[2],
+    );
+    if (clipped.length >= 4) pieces.push([clipped]);
+  }
+  return new MultiPolygon(pieces);
 }
 
 export function currentGridExtent() {

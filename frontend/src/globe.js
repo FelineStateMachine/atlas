@@ -333,21 +333,72 @@ function rebuildGlobeGrid() {
     grid.cell = null;
     return;
   }
+  const system = activeSystem();
   for (const cell of gridCellPlan()) {
-    const corners = cellCorners(cell.extent, mapping);
+    const ringLL = ringLatLng(cell.ring, mapping);
+    const corners = ringBounds(ringLL);
     const visual = gridCellVisual(cell, {
       subgridVisible: state.subgridVisible,
       labelled: gridLabelFits(cell, corners),
     });
     if (!visual) continue;
-    if (visual.fill) grid.group.add(cellFill(corners, visual.fill));
-    grid.group.add(cellBoundary(corners, visual.line));
+    if (visual.fill) {
+      const centerLL = pointLatLng(system.center(cell.hash), mapping);
+      grid.group.add(ringFill(ringLL, centerLL, visual.fill));
+    }
+    grid.group.add(cellBoundary(ringLL, visual.line));
     if (visual.label) grid.group.add(cellChip(visual.label, corners));
   }
   if (grid.cell !== null && grid.cell !== state.gridCell) {
     frameGridCell(mapping);
   }
   grid.cell = state.gridCell;
+}
+
+// ringLatLng lands a system's world-pixel ring on the sphere. The ring is
+// continuous by contract, so a loop that crossed the antimeridian simply
+// carries longitudes past 180 -- the trigonometry underneath is periodic
+// and drapes it where it belongs, which is why the globe never needs the
+// splitting the chart does.
+function ringLatLng(ring, mapping) {
+  return ring.map(([x, y]) => mapping.toLatLng(x, -y));
+}
+
+function pointLatLng(point, mapping) {
+  return mapping.toLatLng(point[0], -point[1]);
+}
+
+// densifyRing subdivides each ring segment by its span, returning the open
+// loop the fill fans from.
+function densifyRing(ringLL) {
+  const open = [];
+  for (let at = 0; at < ringLL.length - 1; at++) {
+    const [fromLat, fromLng] = ringLL[at];
+    const [toLat, toLng] = ringLL[at + 1];
+    const span = Math.max(Math.abs(toLat - fromLat), Math.abs(toLng - fromLng));
+    const steps = clamp(Math.ceil(span / 2), 1, 48);
+    for (let step = 0; step < steps; step++) {
+      const t = step / steps;
+      open.push([fromLat + (toLat - fromLat) * t, fromLng + (toLng - fromLng) * t]);
+    }
+  }
+  return open;
+}
+
+// ringBounds is the cell's frame in degrees, for the fit gate, the chip
+// anchor, and the camera.
+function ringBounds(ringLL) {
+  let north = -Infinity;
+  let south = Infinity;
+  let west = Infinity;
+  let east = -Infinity;
+  for (const [lat, lng] of ringLL) {
+    north = Math.max(north, lat);
+    south = Math.min(south, lat);
+    west = Math.min(west, lng);
+    east = Math.max(east, lng);
+  }
+  return { north, south, west, east };
 }
 
 // cellScreenPx estimates how many pixels a cell spans on screen: degrees of
@@ -379,52 +430,55 @@ function gridLabelFits(cell, corners) {
   return measureLabel(cell.hash, font) + 9 <= px.width && size + 6 <= px.height;
 }
 
-// cellFill lays a cell's tint or dim on the ground: a translucent quad just
-// off the detail tiles, under the boundary lines.
-function cellFill(corners, fill) {
-  const geometry = quadGeometry(corners, detailRadius + 0.12);
-  const material = new MeshBasicMaterial({
-    color: fill.color,
-    transparent: true,
-    opacity: fill.opacity,
-    depthWrite: false,
-  });
-  const mesh = new Mesh(geometry, material);
-  mesh.renderOrder = 1;
-  return mesh;
-}
-
-// quadGeometry drapes one lat/lng rectangle on the sphere, subdivided
-// enough to follow the curve: a flat chord across a wide cell sags below
-// the surface by more than the layer's clearance, and the ground pokes
-// through the fill in polka dots. Tessellation follows the span so the sag
-// stays a fraction of the clearance at any size.
-function quadGeometry(corners, radius) {
-  const positions = [];
+// ringFill lays a cell's tint or dim on the ground: a fan of triangles
+// from the cell's own centre out to its ring, each spoke subdivided so the
+// sheet follows the curve instead of sagging under it, just off the detail
+// tiles and under the boundary lines.
+function ringFill(ringLL, centerLL, fill) {
+  const radius = detailRadius + 0.12;
+  // The fan needs spokes as dense as the boundary's steps: with only the
+  // ring's own corners, the sheet between spokes sags below the ground and
+  // the fill opens into almond-shaped gaps.
+  const open = densifyRing(ringLL);
+  const bounds = ringBounds(ringLL);
+  const span = Math.max(bounds.east - bounds.west, bounds.north - bounds.south);
+  const rows = clamp(Math.ceil(span / 6), 2, 24);
+  const positions = [...surfacePoint(centerLL[0], centerLL[1], radius)];
   const indices = [];
-  const span = Math.max(
-    Math.abs(corners.east - corners.west),
-    Math.abs(corners.north - corners.south),
-  );
-  const steps = clamp(Math.ceil(span / 2), 6, 48);
-  for (let i = 0; i <= steps; i++) {
-    const lat = corners.north + ((corners.south - corners.north) * i) / steps;
-    for (let j = 0; j <= steps; j++) {
-      const lng = corners.west + ((corners.east - corners.west) * j) / steps;
-      positions.push(...surfacePoint(lat, lng, radius));
+  for (let row = 1; row <= rows; row++) {
+    for (const [lat, lng] of open) {
+      const t = row / rows;
+      positions.push(...surfacePoint(
+        centerLL[0] + (lat - centerLL[0]) * t,
+        centerLL[1] + (lng - centerLL[1]) * t,
+        radius,
+      ));
     }
   }
-  for (let i = 0; i < steps; i++) {
-    for (let j = 0; j < steps; j++) {
-      const corner = i * (steps + 1) + j;
-      indices.push(corner, corner + steps + 1, corner + 1);
-      indices.push(corner + 1, corner + steps + 1, corner + steps + 2);
+  const count = open.length;
+  const at = (row, index) => 1 + (row - 1) * count + (index % count);
+  for (let index = 0; index < count; index++) {
+    indices.push(0, at(1, index), at(1, index + 1));
+  }
+  for (let row = 1; row < rows; row++) {
+    for (let index = 0; index < count; index++) {
+      indices.push(at(row, index), at(row + 1, index), at(row, index + 1));
+      indices.push(at(row, index + 1), at(row + 1, index), at(row + 1, index + 1));
     }
   }
   const geometry = new BufferGeometry();
   geometry.setAttribute("position", new Float32BufferAttribute(positions, 3));
   geometry.setIndex(indices);
-  return geometry;
+  const material = new MeshBasicMaterial({
+    color: fill.color,
+    transparent: true,
+    opacity: fill.opacity,
+    depthWrite: false,
+    side: 2,
+  });
+  const mesh = new Mesh(geometry, material);
+  mesh.renderOrder = 1;
+  return mesh;
 }
 
 // rebuildGlobeLabels raises names over the pins while Z is held: the ones
@@ -510,37 +564,25 @@ function labelSprite(pin, stood) {
   return sprite;
 }
 
-// cellCorners lands a cell's chart extent on the sphere: latitudes and
-// longitudes of its frame, through the map's declared flattening.
-function cellCorners(extent, mapping) {
-  const [west, north] = mapping.toLatLng(extent[0], -extent[3]).reverse();
-  const [east, south] = mapping.toLatLng(extent[2], -extent[1]).reverse();
-  return { west, north, east, south };
-}
-
 // cellBoundary drapes a cell's frame at its token weight. WebGL's plain
 // lines are one pixel whatever they ask for, so the frame is a fat line --
 // Line2 -- whose width is spoken in the same pixels the chart strokes.
-function cellBoundary(corners, line) {
+// The ring arrives pre-tessellated by its system; each segment is further
+// subdivided by its own span so long geohash edges still follow the curve.
+function cellBoundary(ringLL, line) {
   const positions = [];
-  const span = Math.max(
-    Math.abs(corners.east - corners.west),
-    Math.abs(corners.north - corners.south),
-  );
-  const steps = clamp(Math.ceil(span / 2), 12, 48);
-  const point = (t, fromLat, fromLng, toLat, toLng) => [
-    fromLat + (toLat - fromLat) * t,
-    fromLng + (toLng - fromLng) * t,
-  ];
-  const edges = [
-    [corners.north, corners.west, corners.north, corners.east],
-    [corners.north, corners.east, corners.south, corners.east],
-    [corners.south, corners.east, corners.south, corners.west],
-    [corners.south, corners.west, corners.north, corners.west],
-  ];
-  for (const edge of edges) {
+  for (let at = 0; at < ringLL.length - 1; at++) {
+    const [fromLat, fromLng] = ringLL[at];
+    const [toLat, toLng] = ringLL[at + 1];
+    const span = Math.max(Math.abs(toLat - fromLat), Math.abs(toLng - fromLng));
+    const steps = clamp(Math.ceil(span / 2), 4, 48);
     for (let step = 0; step < steps; step++) {
-      positions.push(...surfacePoint(...point(step / steps, ...edge), detailRadius + 0.25));
+      const t = step / steps;
+      positions.push(...surfacePoint(
+        fromLat + (toLat - fromLat) * t,
+        fromLng + (toLng - fromLng) * t,
+        detailRadius + 0.25,
+      ));
     }
   }
   positions.push(...positions.slice(0, 3));
@@ -628,13 +670,11 @@ function frameGridCell(mapping) {
   const plan = gridCellPlan();
   const chosen = plan.find((cell) => cell.role === "scope" || cell.role === "leaf");
   if (!chosen) return;
-  const corners = cellCorners(chosen.extent, mapping);
-  const lat = (corners.north + corners.south) / 2;
-  const lng = (corners.west + corners.east) / 2;
-  const span = Math.max(
-    Math.abs(corners.east - corners.west),
-    Math.abs(corners.north - corners.south),
-  );
+  // The camera aims where the system says the cell's middle is -- a pole
+  // cap's middle is the pole, which no frame corner would have named.
+  const [lat, lng] = pointLatLng(activeSystem().center(chosen.hash), mapping);
+  const bounds = ringBounds(ringLatLng(chosen.ring, mapping));
+  const span = Math.max(bounds.east - bounds.west, bounds.north - bounds.south);
   const altitude = clamp(span / 45, nearestAltitude, farthestAltitude);
   globe.pointOfView({ lat, lng, altitude }, 400);
 }

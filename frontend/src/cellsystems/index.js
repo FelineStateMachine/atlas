@@ -71,3 +71,39 @@ export function applicableSystems(map) {
 export function activeSystem() {
   return cellSystems.find((system) => system.slug === state.gridSystem) || geohashSystem;
 }
+
+// clipRingX cuts a closed ring against two vertical edges -- the standard
+// Sutherland-Hodgman walk, one edge at a time. It exists for rings that
+// left the surface's x-range by staying continuous across the antimeridian:
+// the chart clips the unwrapped ring once as it lies and once shifted a
+// world over, and draws the pieces. Returns a closed ring, or [] when
+// nothing survives.
+export function clipRingX(ring, minimumX, maximumX) {
+  let points = ring[0] === ring[ring.length - 1] || samePoint(ring[0], ring[ring.length - 1])
+    ? ring.slice(0, -1)
+    : [...ring];
+  for (const [edge, keep] of [
+    [minimumX, ([x]) => x >= minimumX],
+    [maximumX, ([x]) => x <= maximumX],
+  ]) {
+    const output = [];
+    for (let at = 0; at < points.length; at++) {
+      const current = points[at];
+      const previous = points[(at + points.length - 1) % points.length];
+      const currentIn = keep(current);
+      const previousIn = keep(previous);
+      if (currentIn !== previousIn) {
+        const t = (edge - previous[0]) / (current[0] - previous[0]);
+        output.push([edge, previous[1] + t * (current[1] - previous[1])]);
+      }
+      if (currentIn) output.push(current);
+    }
+    points = output;
+    if (points.length === 0) return [];
+  }
+  return [...points, points[0]];
+}
+
+function samePoint(a, b) {
+  return a[0] === b[0] && a[1] === b[1];
+}

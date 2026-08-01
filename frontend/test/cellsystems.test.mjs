@@ -6,7 +6,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import { state } from "../src/state.js";
-import { surfaceExtent } from "../src/cellsystems/index.js";
+import { clipRingX, surfaceExtent } from "../src/cellsystems/index.js";
 import { geohashSystem, geohashCellAt } from "../src/cellsystems/geohash.js";
 
 function onSquareSurface() {
@@ -54,6 +54,32 @@ test("normalizeInput keeps what the alphabet keeps", () => {
   assert.equal(geohashSystem.normalizeInput("aM6iLo"), "m6");
   assert.equal(geohashSystem.normalizeInput("m6w9"), "m6w");
   assert.equal(geohashSystem.parseInput(""), "", "the root is a place");
+});
+
+test("clipRingX cuts a wrapped ring against the surface edges", () => {
+  // The clip may start its ring at any vertex; the shape is what matters.
+  const canonical = (ring) => {
+    const open = ring.slice(0, -1).map(([x, y]) => `${x},${y}`);
+    const start = open.indexOf([...open].sort()[0]);
+    return [...open.slice(start), ...open.slice(0, start)].join(" ");
+  };
+  // A square straddling the right edge at x=100: the piece as it lies.
+  const straddling = [[80, -10], [80, -30], [120, -30], [120, -10], [80, -10]];
+  assert.equal(
+    canonical(clipRingX(straddling, 0, 100)),
+    canonical([[80, -10], [80, -30], [100, -30], [100, -10], [80, -10]]),
+  );
+  // Shifted a world (100) left, the other piece appears at the left edge.
+  const shifted = straddling.map(([x, y]) => [x - 100, y]);
+  assert.equal(
+    canonical(clipRingX(shifted, 0, 100)),
+    canonical([[0, -10], [0, -30], [20, -30], [20, -10], [0, -10]]),
+  );
+  // A ring entirely outside survives as nothing.
+  assert.deepEqual(clipRingX(shifted.map(([x, y]) => [x - 200, y]), 0, 100), []);
+  // A ring entirely inside comes back whole, closed, in its own order.
+  const inside = [[10, -10], [10, -20], [20, -20], [20, -10], [10, -10]];
+  assert.deepEqual(clipRingX(inside, 0, 100), inside);
 });
 
 test("plan primitives stay stable", () => {
