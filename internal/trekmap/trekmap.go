@@ -256,6 +256,48 @@ func worldPixel(longitude, latitude float64) (x, y float64) {
 	return x, y
 }
 
+// standardIcons names a library glyph for each Gazetteer feature-type code,
+// in the set/name vocabulary of atlas.icon.std. The codes are the IAU's own
+// and hold across bodies, so the Moon's craters will wear the same rim the
+// day a capture arrives. The reading leans semantic -- a mons is a mountain,
+// a patera a volcano, a palus literally a marsh -- and falls back to shape
+// language where no glyph says the thing: rimmed circles for depressions,
+// squares for plains, triangles for relief. A code missing here is not an
+// error; its category keeps the viewer's initials until someone curates it,
+// and re-curating is one table edit and a re-translation of captures already
+// on disk.
+var standardIcons = map[string]string{
+	"AA": "maki/circle-stroked",   // crater: a rim
+	"CA": "maki/circle-stroked",   // catena: a chain of them
+	"CB": "maki/circle-stroked",   // cavus: a hollow
+	"AL": "maki/circle",           // albedo feature: a patch of tone
+	"MA": "maki/circle",           // macula: a dark spot
+	"MO": "maki/mountain",         // mons
+	"TH": "maki/mountain",         // tholus: a small domical mountain
+	"CO": "maki/triangle-stroked", // collis: small hills
+	"DO": "maki/triangle-stroked", // dorsum: a ridge
+	"RU": "maki/triangle",         // rupes: a scarp
+	"SC": "maki/triangle",         // scopulus: a lobate scarp
+	"PA": "maki/volcano",          // patera: an irregular volcanic crater
+	"CH": "maki/caution",          // chaos: broken terrain
+	"LA": "maki/caution",          // labes: a landslide
+	"CM": "maki/wetland",          // chasma: parallel-walled canyon, read as lines
+	"FO": "maki/wetland",          // fossa: a long narrow trench
+	"LB": "maki/wetland",          // labyrinthus: intersecting valleys
+	"SU": "maki/wetland",          // sulcus: subparallel furrows
+	"PE": "maki/wetland",          // palus: literally a marsh
+	"VA": "maki/water",            // vallis: a channel something carved
+	"SE": "maki/water",            // serpens: a sinuous feature
+	"FL": "maki/waterfall",        // fluctus: flow terrain
+	"PL": "maki/square-stroked",   // planitia: a low plain
+	"VS": "maki/square-stroked",   // vastitas: a vast one
+	"PM": "maki/square",           // planum: a plateau
+	"MN": "maki/square",           // mensa: a mesa
+	"TA": "maki/landuse",          // terra: extensive land
+	"LN": "maki/landuse",          // lingula: a tongue of plateau
+	"UN": "maki/beach",            // unda: dunes
+}
+
 // buildGroups arranges the Gazetteer's flat feature list the way the pipeline
 // expects: one category per feature type, all under one group. The type's
 // descriptor -- "Crater, craters" names the singular and the plural -- keeps
@@ -283,6 +325,10 @@ func buildGroups(capture *Capture, ids *mgdoc.IDSpace, scope string) ([]mgdoc.Gr
 		if err != nil {
 			return nil, err
 		}
+		attrs := map[string]string{semconv.KeyRenderAs: semconv.RenderAsPin}
+		if standard := standardIcons[byType[featureType][0].Code]; standard != "" {
+			attrs[semconv.KeyIconStd] = standard
+		}
 		category := mgdoc.Category{
 			ID:          categoryID,
 			Title:       name,
@@ -290,7 +336,7 @@ func buildGroups(capture *Capture, ids *mgdoc.IDSpace, scope string) ([]mgdoc.Gr
 			DisplayType: "markers",
 			Visible:     true,
 			Locations:   make([]mgdoc.Location, 0, len(byType[featureType])),
-			Attrs:       map[string]string{semconv.KeyRenderAs: semconv.RenderAsPin},
+			Attrs:       attrs,
 		}
 		for _, feature := range byType[featureType] {
 			locationID, err := ids.Claim("trek:feature:" + strconv.FormatInt(feature.ID, 10))

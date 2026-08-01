@@ -17,6 +17,7 @@ import (
 	"strings"
 
 	"github.com/FelineStateMachine/atlas/internal/bundle"
+	"github.com/FelineStateMachine/atlas/internal/icons"
 	"github.com/FelineStateMachine/atlas/internal/ignmap"
 	"github.com/FelineStateMachine/atlas/internal/pbmap"
 	"github.com/FelineStateMachine/atlas/internal/semconv"
@@ -413,6 +414,12 @@ func run(source, tileManifestPath, bundleDir string) error {
 	}
 	out.Games = merged
 
+	for index := range out.Games {
+		if err := resolveStandardIcons(&out.Games[index]); err != nil {
+			return fmt.Errorf("%s: %w", out.Games[index].Slug, err)
+		}
+	}
+
 	sort.Slice(out.Games, func(i, j int) bool { return out.Games[i].Title < out.Games[j].Title })
 	return writeBundles(out, tiles, filepath.Dir(tileManifestPath), bundleDir)
 }
@@ -521,6 +528,41 @@ func withAttr(attrs map[string]string, key, value string) map[string]string {
 	maps.Copy(out, attrs)
 	out[key] = value
 	return out
+}
+
+// resolveStandardIcons makes good on every atlas.icon.std declaration: the
+// named library glyph lands in the game's icon set under its provenance-
+// spelling name, and the category wears it exactly the way it would wear a
+// source's own artwork. It runs after composition so merged-in categories
+// resolve too, and only where a source's own icon has not already won the
+// slot. A declaration the library cannot answer fails the build: the
+// promise was made in a translator, and it is kept here or heard about.
+func resolveStandardIcons(game *catalogGame) error {
+	for mapIndex := range game.Maps {
+		m := &game.Maps[mapIndex]
+		for groupIndex := range m.Groups {
+			categories := m.Groups[groupIndex].Categories
+			for categoryIndex := range categories {
+				category := &categories[categoryIndex]
+				ref := category.Attrs[semconv.KeyIconStd]
+				if ref == "" || category.IconAsset != "" {
+					continue
+				}
+				data, asset, err := icons.Standard(ref)
+				if err != nil {
+					return fmt.Errorf("map %s category %q: %w", m.Slug, category.Title, err)
+				}
+				if game.Icons == nil {
+					game.Icons = make(map[string][]byte)
+				}
+				game.Icons[asset] = data
+				category.IconAsset = asset
+				category.IconPicture = false
+				category.Attrs = withAttr(category.Attrs, semconv.KeyIconKind, semconv.IconKindGlyph)
+			}
+		}
+	}
+	return nil
 }
 
 func sortGameMaps(gameSlug string, maps []catalogMap) {

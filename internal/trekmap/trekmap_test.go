@@ -8,6 +8,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/FelineStateMachine/atlas/internal/icons"
 	"github.com/FelineStateMachine/atlas/internal/mgdoc"
 )
 
@@ -268,6 +269,37 @@ func TestTranslateRejectsBadCaptures(t *testing.T) {
 		}
 		if _, err := Translate(doc); err == nil || !strings.Contains(err.Error(), test.mention) {
 			t.Fatalf("%s: %v", test.name, err)
+		}
+	}
+}
+
+// TestStandardIconsAreVendored holds the curation table to the library: a
+// promise the translator writes into a capture's translation must be one the
+// resolution pass can keep.
+func TestStandardIconsAreVendored(t *testing.T) {
+	for code, ref := range standardIcons {
+		if _, _, err := icons.Standard(ref); err != nil {
+			t.Errorf("code %s names %s: %v", code, ref, err)
+		}
+	}
+}
+
+func TestCategoriesDeclareTheirStandardIcons(t *testing.T) {
+	m := translate(t, fixture())
+	declared := map[string]string{}
+	for _, group := range m.Groups {
+		for _, category := range group.Categories {
+			declared[category.Title] = category.Attrs["atlas.icon.std"]
+		}
+	}
+	want := map[string]string{
+		"Crater":   "maki/circle-stroked",
+		"Mons":     "maki/mountain",
+		"Planitia": "maki/square-stroked",
+	}
+	for title, ref := range want {
+		if declared[title] != ref {
+			t.Errorf("%s declares %q, want %q", title, declared[title], ref)
 		}
 	}
 }
