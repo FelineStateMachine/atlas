@@ -46,6 +46,10 @@ export const elements = {
   mobileLegend: $("#mobile-legend"),
   fatal: $("#fatal-error"),
   fatalMessage: $("#fatal-message"),
+  emptyState: $("#empty-state"),
+  emptyPath: $("#empty-path"),
+  emptyOpen: $("#empty-open"),
+  addBundles: $("#add-bundles"),
 };
 
 export function populateSelect(select, items, labelKey, valueKey) {

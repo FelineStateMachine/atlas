@@ -5,6 +5,7 @@
 package main
 
 import (
+	"context"
 	"embed"
 	"fmt"
 	"log/slog"
@@ -13,10 +14,15 @@ import (
 	"path/filepath"
 
 	"github.com/FelineStateMachine/allons/local"
+	"github.com/FelineStateMachine/allons/local/events"
 	"github.com/FelineStateMachine/allons/wailsapp"
 	"github.com/FelineStateMachine/atlas/internal/bundle"
 	"github.com/wailsapp/wails/v2/pkg/options"
 )
+
+// catalogChangedTopic is the event the frontend refreshes its catalog on: a
+// bundle arrived, was replaced, or left, and the games on offer moved with it.
+const catalogChangedTopic = "atlas:catalog-changed"
 
 // Archive capture is deliberately not a generate step: it reaches out to
 // MapGenie and takes as long as the chosen depth demands. Run it by hand for
@@ -34,6 +40,10 @@ import (
 var assets embed.FS
 
 func main() {
+	// Created inside Routes, which the framework calls while opening the
+	// application, and used again at startup below; Open completes before the
+	// window exists, so the order holds.
+	var registry *bundle.Registry
 	err := wailsapp.Run(
 		local.Config{
 			AppID:     "dev.felinestatemachine.atlas",
@@ -42,15 +52,28 @@ func main() {
 			Bootstrap: local.CustomBootstrap("/"),
 			Sync:      local.SyncConfig{Autostart: local.AutostartOff},
 			Routes: func(app *local.App) http.Handler {
-				registry := bundle.NewRegistry(bundlesDir(app))
+				registry = bundle.NewRegistry(bundlesDir(app))
 				if err := registry.Rescan(); err != nil {
 					slog.Warn("atlas: scanning bundles", "error", err)
 				}
+				// Published through the bus so the frontend hears about the
+				// library changing the same way it would hear about anything
+				// else: the emitter is bound at startup, and events published
+				// before a window exists have no one to reach anyway.
+				registry.SetOnChange(func(changed []string) {
+					app.Events().Publish(catalogChangedTopic, events.Detail{Entities: changed})
+				})
 				return routes(assets, registry)
 			},
 		},
 		&options.App{
 			Title: "Atlas — Game Map Explorer",
+			OnStartup: func(wctx context.Context) {
+				captureWailsContext(wctx)
+				if err := registry.Watch(wctx); err != nil {
+					slog.Warn("atlas: watching bundles", "error", err)
+				}
+			},
 			// A map wants every pixel it can have, so the window opens filling
 			// the screen it lands on rather than at a size chosen here. Not
 			// fullscreen: the menu bar and dock stay, and the window is still a

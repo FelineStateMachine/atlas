@@ -1,6 +1,7 @@
 package main
 
 import (
+	"encoding/json"
 	"io"
 	"io/fs"
 	"net/http"
@@ -69,6 +70,26 @@ func routes(files fs.FS, registry *bundle.Registry) http.Handler {
 		w.Header().Set("Content-Length", strconv.FormatInt(size, 10))
 		w.Header().Set("Cache-Control", "private, max-age=31536000, immutable")
 		_, _ = io.Copy(w, entry)
+	})
+
+	// Adding a game from inside the application: a native picker, then the
+	// chosen files are validated and copied into the bundles directory, which
+	// is the same road a hand-dropped file takes.
+	mux.HandleFunc("POST /data/bundles/import", func(w http.ResponseWriter, r *http.Request) {
+		paths, ready := pickBundleFiles()
+		w.Header().Set("Content-Type", "application/json")
+		if !ready {
+			w.WriteHeader(http.StatusServiceUnavailable)
+			_ = json.NewEncoder(w).Encode(map[string]any{
+				"problems": []string{"the application window is not ready"},
+			})
+			return
+		}
+		installed, refused := registry.Install(paths)
+		_ = json.NewEncoder(w).Encode(map[string]any{
+			"imported": installed,
+			"problems": refused,
+		})
 	})
 
 	mux.HandleFunc("GET /", func(w http.ResponseWriter, r *http.Request) {

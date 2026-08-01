@@ -1,8 +1,10 @@
 package bundle
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
+	"io"
 	"log/slog"
 	"os"
 	"path/filepath"
@@ -11,6 +13,8 @@ import (
 	"sync"
 	"sync/atomic"
 	"time"
+
+	"github.com/fsnotify/fsnotify"
 )
 
 // BasePath is the URL prefix game content is served under. It appears in the
@@ -34,6 +38,11 @@ type Registry struct {
 	// rescan runs alone: two concurrent scans of one directory would race to
 	// swap snapshots and could close each other's bundles.
 	rescan sync.Mutex
+
+	// onChange, when set, is told which games a rescan added, replaced, or
+	// removed. Set it before watching begins; it is read under the rescan
+	// lock.
+	onChange func(changed []string)
 }
 
 // Snapshot is the registry's world at one moment: the winning bundle per
@@ -62,12 +71,20 @@ type catalogGame struct {
 // missing or empty is a catalog with no games, not an error.
 func NewRegistry(dir string) *Registry {
 	registry := &Registry{dir: dir}
-	registry.snap.Store(emptySnapshot())
+	registry.snap.Store(&Snapshot{Games: map[string]*Bundle{}, Catalog: composeCatalog(dir, nil)})
 	return registry
 }
 
 // Dir is the directory the registry scans.
 func (r *Registry) Dir() string { return r.dir }
+
+// SetOnChange registers the listener a rescan tells about arrivals, updates,
+// and departures. Call it before Watch.
+func (r *Registry) SetOnChange(fn func(changed []string)) {
+	r.rescan.Lock()
+	defer r.rescan.Unlock()
+	r.onChange = fn
+}
 
 // Snapshot returns the current world. The result is immutable; callers keep
 // it for the length of one request and load afresh for the next.
@@ -112,8 +129,24 @@ func (r *Registry) Rescan() error {
 			next.Games[loaded.Manifest.Game.Slug] = loaded
 		}
 	}
-	next.Catalog = composeCatalog(next.Games)
+	next.Catalog = composeCatalog(r.dir, next.Games)
 	r.snap.Store(next)
+
+	// What the rescan changed, by game: an arrival, a departure, or a winner
+	// whose version stamp moved.
+	var changed []string
+	for slug, winner := range next.Games {
+		before, had := previous.Games[slug]
+		if !had || before.Manifest.Version.Stamp != winner.Manifest.Version.Stamp {
+			changed = append(changed, slug)
+		}
+	}
+	for slug := range previous.Games {
+		if _, still := next.Games[slug]; !still {
+			changed = append(changed, slug)
+		}
+	}
+	sort.Strings(changed)
 
 	// Everything opened by this scan or held by the last snapshot that did
 	// not win a slug is retired together.
@@ -139,7 +172,141 @@ func (r *Registry) Rescan() error {
 			}
 		})
 	}
+	if len(changed) > 0 && r.onChange != nil {
+		r.onChange(changed)
+	}
 	return nil
+}
+
+// Watch rescans whenever the directory changes, until ctx ends. Events are
+// debounced: a download that arrives as a burst of writes costs one rescan,
+// and the rescan reads the directory whole, so no event is ever missed for
+// having been coalesced.
+func (r *Registry) Watch(ctx context.Context) error {
+	watcher, err := fsnotify.NewWatcher()
+	if err != nil {
+		return fmt.Errorf("watch %s: %w", r.dir, err)
+	}
+	if err := watcher.Add(r.dir); err != nil {
+		watcher.Close()
+		return fmt.Errorf("watch %s: %w", r.dir, err)
+	}
+	go func() {
+		defer watcher.Close()
+		debounce := time.NewTimer(0)
+		if !debounce.Stop() {
+			<-debounce.C
+		}
+		for {
+			select {
+			case <-ctx.Done():
+				return
+			case event, ok := <-watcher.Events:
+				if !ok {
+					return
+				}
+				// Only finished bundles matter: the importer and the bundler
+				// both assemble under other names and rename into place.
+				if strings.HasSuffix(event.Name, ".atlas") {
+					debounce.Reset(500 * time.Millisecond)
+				}
+			case err, ok := <-watcher.Errors:
+				if !ok {
+					return
+				}
+				slog.Warn("atlas: watching bundles", "error", err)
+			case <-debounce.C:
+				if err := r.Rescan(); err != nil {
+					slog.Warn("atlas: rescanning bundles", "error", err)
+				}
+			}
+		}
+	}()
+	return nil
+}
+
+// Release closes the open archive behind one game so its file can be renamed
+// over on platforms that lock open files. The snapshot still lists the game
+// until the next rescan; a request in that window is answered with a 404,
+// which the frontend already treats as its cue to refetch the catalog.
+func (r *Registry) Release(slug string) {
+	r.rescan.Lock()
+	defer r.rescan.Unlock()
+	if held := r.snap.Load().Games[slug]; held != nil {
+		held.Close()
+	}
+}
+
+// Install copies bundle files into the directory under their canonical
+// names -- <game-slug>.atlas -- validating each before it is let in, and
+// rescans once at the end. It reports the games installed and, separately,
+// what was wrong with anything refused: one bad file does not turn the rest
+// of a multi-selection away.
+func (r *Registry) Install(paths []string) (installed []string, refused []string) {
+	for _, path := range paths {
+		slug, err := r.installOne(path)
+		if err != nil {
+			refused = append(refused, err.Error())
+			continue
+		}
+		installed = append(installed, slug)
+	}
+	if len(installed) > 0 {
+		if err := r.Rescan(); err != nil {
+			refused = append(refused, err.Error())
+		}
+	}
+	return installed, refused
+}
+
+func (r *Registry) installOne(path string) (string, error) {
+	opened, err := Open(path)
+	if err != nil {
+		return "", err
+	}
+	defer opened.Close()
+	if err := opened.Validate(); err != nil {
+		return "", fmt.Errorf("%s: %w", filepath.Base(path), err)
+	}
+	slug := opened.Manifest.Game.Slug
+
+	target := filepath.Join(r.dir, slug+".atlas")
+	if same, err := filepath.Abs(path); err == nil {
+		if resolved, err := filepath.Abs(target); err == nil && same == resolved {
+			return slug, nil
+		}
+	}
+	source, err := os.Open(path)
+	if err != nil {
+		return "", err
+	}
+	defer source.Close()
+	staged, err := os.CreateTemp(r.dir, ".importing-*")
+	if err != nil {
+		return "", err
+	}
+	defer os.Remove(staged.Name())
+	if _, err := io.Copy(staged, source); err != nil {
+		staged.Close()
+		return "", fmt.Errorf("copy %s: %w", filepath.Base(path), err)
+	}
+	if err := staged.Close(); err != nil {
+		return "", err
+	}
+	if err := os.Chmod(staged.Name(), 0o644); err != nil {
+		return "", err
+	}
+	if err := os.Rename(staged.Name(), target); err != nil {
+		// Windows refuses to rename over a file that is open. Closing the
+		// game's archive first is what makes replacing an installed game
+		// possible there; the moment of unreadability ends at the rescan
+		// Install finishes with.
+		r.Release(slug)
+		if err := os.Rename(staged.Name(), target); err != nil {
+			return "", fmt.Errorf("install %s: %w", filepath.Base(path), err)
+		}
+	}
+	return slug, nil
 }
 
 // openOrCarry reuses the already-open bundle for a path whose size and
@@ -158,11 +325,7 @@ func openOrCarry(previous *Snapshot, path string) (*Bundle, error) {
 	return Open(path)
 }
 
-func emptySnapshot() *Snapshot {
-	return &Snapshot{Games: map[string]*Bundle{}, Catalog: composeCatalog(nil)}
-}
-
-func composeCatalog(games map[string]*Bundle) []byte {
+func composeCatalog(dir string, games map[string]*Bundle) []byte {
 	listed := make([]catalogGame, 0, len(games))
 	for slug, held := range games {
 		manifest := held.Manifest
@@ -176,9 +339,12 @@ func composeCatalog(games map[string]*Bundle) []byte {
 		})
 	}
 	sort.Slice(listed, func(i, j int) bool { return listed[i].Title < listed[j].Title })
+	// The bundles directory rides along so an empty library can tell the
+	// reader where a bundle goes, in the words of their own machine.
 	composed, err := json.Marshal(struct {
-		Games []catalogGame `json:"games"`
-	}{Games: listed})
+		Games      []catalogGame `json:"games"`
+		BundlesDir string        `json:"bundlesDir,omitempty"`
+	}{Games: listed, BundlesDir: dir})
 	if err != nil {
 		// Nothing in a validated manifest can fail to marshal; if something
 		// does, an empty catalog is a saner face than a panic.

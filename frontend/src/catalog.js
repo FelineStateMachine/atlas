@@ -5,9 +5,19 @@ import { legendSections } from "./legend.js";
 // its locations packed as parallel arrays. Nothing here is fetched until the
 // map is opened, so the catalog can grow without the wait growing with it.
 export async function loadMap(entry) {
+  const [detailResponse, packedResponse] = await Promise.all([
+    fetch(`${state.game.base}/maps/${entry.slug}.json`),
+    fetch(`${state.game.base}/maps/${entry.slug}.bin`),
+  ]);
+  // A refusal here is almost always a stamp that has gone stale: the bundle
+  // was replaced between the catalog fetch and this one. The caller refetches
+  // the catalog and arrives at the new build's URLs.
+  if (!detailResponse.ok || !packedResponse.ok) {
+    throw new Error(`map ${entry.slug} is not served under this catalog any more`);
+  }
   const [detail, packed] = await Promise.all([
-    fetch(`${state.game.base}/maps/${entry.slug}.json`).then((r) => r.json()),
-    fetch(`${state.game.base}/maps/${entry.slug}.bin`).then((r) => r.arrayBuffer()),
+    detailResponse.json(),
+    packedResponse.arrayBuffer(),
   ]);
   const categories = detail.groups.flatMap((group) => group.categories);
   unpackLocations(packed, categories);

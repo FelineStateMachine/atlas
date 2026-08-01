@@ -20,6 +20,7 @@ import {
 import { applyPinFilters, setLabelsHeld } from "./pins.js";
 import { jumpToZone, setZonesVisible, toggleZoneHighlight } from "./zones.js";
 import { foldDockByHand, revealDock } from "./search.js";
+import { importBundles } from "./library.js";
 import { closeDetail, revealPin } from "./detail.js";
 import {
   ascendGrid,
@@ -39,6 +40,8 @@ import { isEditableTarget } from "./util.js";
 export function bindUIEvents() {
   elements.game.addEventListener("change", () => { void selectGame(elements.game.value); });
   elements.map.addEventListener("change", () => { void selectMap(elements.map.value); });
+  elements.addBundles.addEventListener("click", () => { void importBundles(); });
+  elements.emptyOpen.addEventListener("click", () => { void importBundles(); });
   elements.variant.addEventListener("change", () => selectVariant(Number(elements.variant.value)));
 
   elements.legend.addEventListener("change", (event) => {

@@ -1,6 +1,7 @@
 import { elements } from "./dom.js";
 import { state } from "./state.js";
 import { viewMaxZoom } from "./navigation.js";
+import { refreshCatalog } from "./library.js";
 import { currentGridExtent, gridMaxDepth, pinInGridCell } from "./grid.js";
 
 export function exposeDiagnostics() {
@@ -73,6 +74,10 @@ export function exposeDiagnostics() {
     // Raster layers are reachable so a render fault can be narrowed to the
     // complete base or the deep detail riding on top of it.
     setLayerVisible: (name, visible) => state.layers[name]?.setVisible(visible),
+    // The library refresh normally rides the desktop event bridge; exposing
+    // it lets a plain browser -- the parity tour, a test -- drive the same
+    // reconciliation by hand.
+    refreshCatalog,
   };
   window.render_game_to_text = () => JSON.stringify({
     coordinateSystem: "ATLAS:PIXELS; origin top-left; x increases right; y decreases downward",

@@ -128,8 +128,31 @@ func TestCatalogIsEmptyRatherThanAbsentWithNoBundles(t *testing.T) {
 	if rec.Code != http.StatusOK {
 		t.Fatalf("status = %d", rec.Code)
 	}
-	if body := strings.TrimSpace(rec.Body.String()); body != `{"games":[]}` {
-		t.Errorf("catalog = %s, want an empty game list", body)
+	var catalog struct {
+		Games      []any  `json:"games"`
+		BundlesDir string `json:"bundlesDir"`
+	}
+	if err := json.Unmarshal(rec.Body.Bytes(), &catalog); err != nil {
+		t.Fatal(err)
+	}
+	if catalog.Games == nil || len(catalog.Games) != 0 {
+		t.Errorf("games = %v, want a present, empty list", catalog.Games)
+	}
+	// The empty state tells the reader where bundles go, in the words of
+	// their own machine.
+	if catalog.BundlesDir == "" {
+		t.Error("catalog names no bundles directory")
+	}
+}
+
+// Without a window there is no native picker to raise, and the request says
+// so rather than hanging or pretending.
+func TestImportWithoutAWindowIsRefused(t *testing.T) {
+	rec := httptest.NewRecorder()
+	routes(assets, fixtureRegistry(t)).ServeHTTP(rec,
+		httptest.NewRequest(http.MethodPost, "/data/bundles/import", nil))
+	if rec.Code != http.StatusServiceUnavailable {
+		t.Fatalf("status = %d, want %d", rec.Code, http.StatusServiceUnavailable)
 	}
 }
 

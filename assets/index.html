@@ -30,6 +30,10 @@
           <span>Layer</span>
           <select id="variant-select" aria-label="Map layer"></select>
         </label>
+        <button class="icon-button add-bundles" id="add-bundles" type="button"
+          aria-label="Add game bundles" title="Add .atlas game bundles">
+          <svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg>
+        </button>
       </div>
 
       <button class="icon-button mobile-legend" id="mobile-legend" type="button" aria-label="Toggle legend" aria-expanded="false">
@@ -178,8 +182,16 @@
     </aside>
   </div>
 
+  <div id="empty-state" class="empty-state" hidden>
+    <strong>No games installed yet</strong>
+    <p>Each game is a single <code>.atlas</code> file. Drop one into</p>
+    <p><code id="empty-path"></code></p>
+    <p>and it appears here on its own — or pick files to copy in:</p>
+    <button id="empty-open" type="button">Open .atlas files…</button>
+  </div>
+
   <div id="fatal-error" class="fatal-error" hidden>
-    <strong>Atlas could not open the embedded catalog.</strong>
+    <strong>Atlas could not start.</strong>
     <p id="fatal-message"></p>
   </div>
 </body>

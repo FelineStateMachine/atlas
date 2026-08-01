@@ -5,6 +5,7 @@ import { state } from "./state.js";
 import { elements, populateSelect } from "./dom.js";
 import { overzoomLevels } from "./constants.js";
 import { loadMap } from "./catalog.js";
+import { refreshCatalog } from "./library.js";
 import { readSession, saveSession, writeRoute } from "./session.js";
 import { createView, initializeMap, resolutions } from "./engine.js";
 import { renderOverview, setOverviewDocked } from "./overview.js";
@@ -47,7 +48,18 @@ export async function selectMap(slug) {
   // A map opened while another is still arriving must not be overtaken by it.
   const run = ++state.mapRun;
   elements.loading.hidden = false;
-  const loaded = await loadMap(entry);
+  let loaded;
+  try {
+    loaded = await loadMap(entry);
+  } catch {
+    // The bundle moved underneath the catalog: refetching the catalog brings
+    // the new build's URLs, and the refresh re-selects this map through them.
+    if (state.mapRun === run) {
+      elements.loading.hidden = true;
+      void refreshCatalog();
+    }
+    return;
+  }
   if (state.mapRun !== run) return;
 
   state.settling = true;

@@ -4,7 +4,9 @@ import (
 	"encoding/json"
 	"os"
 	"path/filepath"
+	"slices"
 	"testing"
+	"time"
 
 	"github.com/FelineStateMachine/atlas/internal/bundle"
 	"github.com/FelineStateMachine/atlas/internal/bundle/bundletest"
@@ -151,5 +153,101 @@ func TestRescanSeesArrivalsUpdatesAndDepartures(t *testing.T) {
 	}
 	if games := decodeCatalog(t, registry.Snapshot()); len(games) != 0 {
 		t.Fatalf("games = %v, want none after removal", games)
+	}
+}
+
+func TestRescanTellsItsListenerWhatChanged(t *testing.T) {
+	dir := t.TempDir()
+	registry := bundle.NewRegistry(dir)
+	var told [][]string
+	registry.SetOnChange(func(changed []string) { told = append(told, changed) })
+
+	// Arrival.
+	path := bundletest.Build(t, dir, bundletest.Spec{Slug: "game", CreatedAt: "2026-01-01T00:00:00Z"})
+	bundletest.Build(t, dir, bundletest.Spec{Slug: "other", CreatedAt: "2026-01-01T00:00:00Z"})
+	if err := registry.Rescan(); err != nil {
+		t.Fatal(err)
+	}
+	if len(told) != 1 || !slices.Equal(told[0], []string{"game", "other"}) {
+		t.Fatalf("arrivals told as %v, want [[game other]]", told)
+	}
+
+	// Nothing moved: nothing said.
+	if err := registry.Rescan(); err != nil {
+		t.Fatal(err)
+	}
+	if len(told) != 1 {
+		t.Fatalf("an unchanged rescan spoke: %v", told)
+	}
+
+	// A replacement and a departure, together.
+	replacement := bundletest.Build(t, t.TempDir(), bundletest.Spec{Slug: "game", CreatedAt: "2026-06-01T00:00:00Z"})
+	if err := os.Rename(replacement, path); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Remove(filepath.Join(dir, "other.atlas")); err != nil {
+		t.Fatal(err)
+	}
+	if err := registry.Rescan(); err != nil {
+		t.Fatal(err)
+	}
+	if len(told) != 2 || !slices.Equal(told[1], []string{"game", "other"}) {
+		t.Fatalf("changes told as %v, want the replaced and the departed", told)
+	}
+}
+
+func TestWatchSeesADroppedBundleOnItsOwn(t *testing.T) {
+	dir := t.TempDir()
+	registry := bundle.NewRegistry(dir)
+	if err := registry.Rescan(); err != nil {
+		t.Fatal(err)
+	}
+	if err := registry.Watch(t.Context()); err != nil {
+		t.Fatal(err)
+	}
+
+	// Assembled elsewhere and renamed in, the way the bundler and the
+	// importer both deliver.
+	staged := bundletest.Build(t, t.TempDir(), bundletest.Spec{Slug: "game"})
+	if err := os.Rename(staged, filepath.Join(dir, "game.atlas")); err != nil {
+		t.Fatal(err)
+	}
+
+	deadline := time.After(5 * time.Second)
+	for {
+		if _, ok := registry.Snapshot().Games["game"]; ok {
+			return
+		}
+		select {
+		case <-deadline:
+			t.Fatal("the watcher never noticed the bundle")
+		case <-time.After(25 * time.Millisecond):
+		}
+	}
+}
+
+func TestInstallCopiesTheSoundAndRefusesTheBroken(t *testing.T) {
+	source := t.TempDir()
+	sound := bundletest.Build(t, source, bundletest.Spec{Slug: "game", Title: "Game"})
+	broken := filepath.Join(source, "broken.atlas")
+	if err := os.WriteFile(broken, []byte("not a bundle"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	registry := bundle.NewRegistry(t.TempDir())
+	installed, refused := registry.Install([]string{sound, broken})
+	if !slices.Equal(installed, []string{"game"}) {
+		t.Fatalf("installed = %v, want [game]", installed)
+	}
+	if len(refused) != 1 {
+		t.Fatalf("refused = %v, want the one broken file", refused)
+	}
+	// The copy lands under the game's canonical name, whatever the source
+	// file was called, and the rescan has already made it servable.
+	if _, err := os.Stat(filepath.Join(registry.Dir(), "game.atlas")); err != nil {
+		t.Error(err)
+	}
+	if _, ok := registry.Snapshot().Games["game"]; !ok {
+		t.Error("the installed game is not being served")
 	}
 }
