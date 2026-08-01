@@ -62,6 +62,40 @@ photographic maps retain smooth interpolation.
 [SCRAPER_PROMPT.md](SCRAPER_PROMPT.md) contains a ready-to-use prompt for
 preserving MapGenie's text-display and zone fields in the upstream archive.
 
+## Capture sources
+
+Three crawlers fill the archive, all through `tools/crawl`:
+
+```sh
+go run ./tools/crawl -game skyrim                        # MapGenie
+go run ./tools/crawl -ign cyberpunk-2077/night-city      # IGN's native wikimaps
+go run ./tools/crawl -piggyback cyberpunk-2077/night-city # Piggyback (Cyberpunk only)
+```
+
+Each stores a content-addressed capture -- an unchanged re-crawl records no
+new version -- plus the tile pyramid and the category icons. MapGenie's
+icons resolve from an icon font, which the crawl now renders automatically
+once a game's maps are captured (`tools/icons/render-icons.mjs`, rerunnable
+by hand on a machine without node). The IGN mode refuses maps that merely
+embed MapGenie, and the Piggyback importer is deliberately game-specific:
+each Piggyback map projects through a transformation buried in its own
+scripts, only Cyberpunk's is verified, and an unverified game is refused
+rather than captured through the wrong lens.
+
+Sources are additive components of one game. `tools/generate` composes every
+capture of a game slug into a single bundle: pins of shared ground resolve
+one-to-one through an affine fitted on the places both sources name
+(projections differ between sources, so the shared names -- not coordinates
+-- are the basis of locality; a fit that will not close is refused), lesser
+rasters ride along as aligned variants, maps no other source draws join
+whole, and every map's payload carries its provenance: an origin account
+naming its source, and a ledger per donor of what matched, was added,
+adopted, held, or rejected. `tools/maturity` reports every build of every
+game along the axes this evolution is judged by, and `cmd/cartograph`
+(`go run ./cmd/cartograph`) serves a local workbench over the same
+collection: builds, ledgers, diffs, and the source registry with
+crawl/tiles/generate runnable from the page.
+
 ## Building the game bundles
 
 With `../gamemap` beside this repository:
@@ -131,10 +165,12 @@ manifest: game identity, version stamp, tile grid, map list), `maps/<slug>`
 payloads in three parts, `tiles/<pyramid>/z/x/y` rasters stored uncompressed
 for byte-range serving, and `icons/`. The format is Atlas's own and carries
 nothing specific to any capture source; `internal/bundle` owns reading,
-writing, and validation. Two bundles naming the same game slug are two
-versions of that game -- the newest by capture time wins, so updating a game
-is dropping in a newer file, and an older file dropped beside a newer one is
-simply shadowed. File names carry the version for people and for cheap
+writing, and validation. Provenance still travels: each map's payload names
+the source it came from and accounts for every other source folded into it.
+Two bundles naming the same game slug are two versions of that game -- the
+newest by capture time wins, ties broken by the build policy revision and
+then the stamp, so updating a game is dropping in a newer file, and an older
+file dropped beside a newer one is simply shadowed. File names carry the version for people and for cheap
 existence checks; ordering always comes from the manifest inside.
 
 ## Renderer architecture

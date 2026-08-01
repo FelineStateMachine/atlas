@@ -40,17 +40,28 @@ type pbPage struct {
 	typeLabels     map[string]string
 }
 
-// pbTransform is the transformation Piggyback's Cyberpunk map projects
-// through: game coordinates spanning ±8192 onto the unit tile at zoom zero.
-// It lives in the map's scripts rather than its data, so the crawler asserts
-// it instead of reading it; the capture records what was assumed, and a game
-// drawn to a different rule would need this looked up in its own scripts.
+// This is the Cyberpunk importer, and says so. Piggyback publishes guides
+// for many games, but each map's coordinate transformation lives in that
+// map's own scripts rather than its data: the crawler asserts Cyberpunk's --
+// game coordinates spanning ±8192 onto the unit tile at zoom zero -- and the
+// capture records what was assumed. Another Piggyback game would need its
+// transformation read out of its own scripts and verified; until someone
+// does that work, an unknown game is refused at the door rather than
+// captured through the wrong lens, where every pin would land somewhere
+// plausible and nothing would say it was wrong.
+const pbSupportedGame = "cyberpunk-2077"
+
 var pbTransform = pbmap.Transform{A: 0.015625, B: 128, C: -0.015625, D: 128}
 
 func runPB(ctx context.Context, fetcher *fetcher, o options) error {
 	gameSlug, mapSlug, ok := strings.Cut(o.piggyback, "/")
 	if !ok || gameSlug == "" || mapSlug == "" {
 		return errors.New("-piggyback wants gameSlug/mapSlug, as the address bar spells it")
+	}
+	if gameSlug != pbSupportedGame {
+		return fmt.Errorf("the Piggyback importer knows only %s: %s draws through a "+
+			"transformation this crawler has not verified, and a wrong one moves every pin",
+			pbSupportedGame, gameSlug)
 	}
 	pageURL := fmt.Sprintf("https://maps.piggyback.com/%s/maps/%s", gameSlug, mapSlug)
 

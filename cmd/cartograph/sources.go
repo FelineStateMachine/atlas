@@ -156,10 +156,12 @@ var sources = []Source{
 	crawlSource{
 		name: "Piggyback",
 		slug: "piggyback",
-		description: "The official guide house -- Cyberpunk 2077's first-party map, with prose on nearly every pin. " +
+		description: "The official guide house's Cyberpunk 2077 map, with prose on nearly every pin. " +
+			"A deliberately game-specific importer: each Piggyback map projects through a transformation " +
+			"buried in its own scripts, and only Cyberpunk's is verified -- other games are refused. " +
 			"Its CDN answers only requests carrying a Referer, and the free tier ceilings pyramids at zoom 7.",
 		flag:       "-piggyback",
-		hint:       "gameSlug/mapSlug, e.g. cyberpunk-2077/night-city",
+		hint:       "cyberpunk-2077/night-city (the one supported game)",
 		pair:       true,
 		components: fullSet,
 	},

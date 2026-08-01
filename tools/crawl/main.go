@@ -19,6 +19,7 @@ import (
 	"flag"
 	"fmt"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"sort"
 	"strconv"
@@ -134,7 +135,33 @@ func run(o options) error {
 			return fmt.Errorf("%s / %s: %w", game.Title, target.Title, err)
 		}
 	}
+	if !o.dryRun {
+		renderIcons(ctx, o, game)
+	}
 	return nil
+}
+
+// renderIcons resolves the game's icon font into the archive once its maps
+// are captured. MapGenie ships icons as a font behind a stylesheet, which the
+// Node script under tools/icons untangles; it is quick, idempotent, and was
+// forgotten by hand often enough that the crawl now runs it itself. A machine
+// without node is told what it is missing rather than failed: the tiles and
+// pins are already safely on disk, and icons can be rendered later.
+func renderIcons(ctx context.Context, o options, game *apiGameFull) {
+	script := filepath.Join("tools", "icons", "render-icons.mjs")
+	if _, err := os.Stat(script); err != nil {
+		fmt.Printf("   icons not rendered (no %s here); run it from the atlas checkout:\n"+
+			"   node %s --archive %s --game %s\n", script, script, o.archive, game.Slug)
+		return
+	}
+	command := exec.CommandContext(ctx, "node", script,
+		"--archive", o.archive, "--game", game.Slug)
+	command.Stdout = os.Stdout
+	command.Stderr = os.Stderr
+	if err := command.Run(); err != nil {
+		fmt.Printf("   icons not rendered: %v; run when ready:\n"+
+			"   node %s --archive %s --game %s\n", err, script, o.archive, game.Slug)
+	}
 }
 
 // crawlMap captures one map completely: its metadata snapshot, then its tiles.
