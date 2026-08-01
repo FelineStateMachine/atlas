@@ -115,7 +115,86 @@ type City struct {
 // init function there adding to this map curates privately what this table
 // curates publicly.
 var Cities = map[string]City{
-	"bend-or": bend,
+	"bend-or":          bend,
+	"redondo-beach-ca": redondoBeach,
+}
+
+// redondoBeach is the City of Redondo Beach, California -- the enrichment
+// proof city, chosen because it is the one city the Zoneomics developer
+// sandbox answers for, and it publishes its own ArcGIS hub to be enriched.
+// Its land-use layer is parcel-grained and carries the zoning code on every
+// polygon, so the zoning zones bucket by code and double as the basemap's
+// parcel texture. Field names were verified against the live services.
+var redondoBeach = City{
+	Slug:    "redondo-beach-ca",
+	Title:   "Redondo Beach, California",
+	HubBase: "https://city-of-redondo-beach-gis-redondobeachgis.hub.arcgis.com",
+	MaxZoom: 6,
+	BBox:    [4]float64{-118.4060, 33.8110, -118.3490, 33.8985},
+	Datasets: []Dataset{
+		{
+			Slug: "land-use", Title: "Zoning",
+			ItemID: "1d185d3b4bfd43eb9d78ff6c36d4062b", Layer: 3,
+			Geometry: "polygon",
+			Keep:     []string{"OBJECTID", "ZONINGCODE", "LANDUSECODE", "GENERALPLANCODE", "ZONEOVERLAY"},
+			ZoneOf: func(f Fields) ZoneKey {
+				code := strings.TrimSpace(f["ZONINGCODE"])
+				if code == "" {
+					return ZoneKey{}
+				}
+				return ZoneKey{Key: slugify(code), Title: code}
+			},
+			Zoneomics: true,
+			Role:      "parcel",
+		},
+		{
+			Slug: "general-plan", Title: "General Plan",
+			ItemID: "1d185d3b4bfd43eb9d78ff6c36d4062b", Layer: 6,
+			Geometry: "polygon",
+			Keep:     []string{"OBJECTID", "GENERALPLAN", "ZONECLASS", "ZONEOVERLAY"},
+			ZoneOf: func(f Fields) ZoneKey {
+				code := strings.TrimSpace(f["GENERALPLAN"])
+				if code == "" {
+					return ZoneKey{}
+				}
+				return ZoneKey{Key: slugify(code), Title: code, Subtitle: "General Plan"}
+			},
+		},
+		{
+			Slug: "council-districts", Title: "Council Districts",
+			ItemID: "51e571c695ca451999bd7c53097f7bd6", Layer: 0,
+			Geometry: "polygon",
+			Keep:     []string{"OBJECTID", "District", "CouncilMember"},
+			ZoneOf: func(f Fields) ZoneKey {
+				number := strings.TrimSpace(f["District"])
+				if number == "" {
+					return ZoneKey{}
+				}
+				return ZoneKey{Key: "district-" + slugify(number),
+					Title:    "Council District " + number,
+					Subtitle: strings.TrimSpace(f["CouncilMember"])}
+			},
+		},
+		{
+			Slug: "district-lines", Title: "Council District Boundaries",
+			ItemID: "12d292cd5f4c49838c0c812427ec7f2b", Layer: 0,
+			Geometry: "line",
+			Keep:     []string{"OBJECTID"},
+			Role:     "boundary",
+		},
+		{
+			Slug: "parks", Title: "Parks & Recreation",
+			ItemID: "6bd956cbe6134485a85a20b225a0e5f4", Layer: 1,
+			Geometry: "point",
+			Keep:     []string{"OBJECTID", "name", "address", "facility_size", "web_desc"},
+			Group:    "Recreation",
+			Icon:     "maki/park",
+			TitleOf:  func(f Fields) string { return f["name"] },
+			Describe: func(f Fields) string {
+				return join(" · ", f["address"], f["facility_size"], f["web_desc"])
+			},
+		},
+	},
 }
 
 // bend is the City of Bend, Oregon -- the curated proof city, chosen for a
