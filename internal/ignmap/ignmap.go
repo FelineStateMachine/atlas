@@ -16,11 +16,12 @@ package ignmap
 import (
 	"encoding/json"
 	"fmt"
-	"hash/fnv"
 	"math"
 	"sort"
 	"strconv"
 	"strings"
+
+	"github.com/FelineStateMachine/atlas/internal/mgdoc"
 )
 
 // Kind names IGN captures in a map's snapshot index, alongside the "map"
@@ -96,19 +97,9 @@ func (c *Capture) Normalize() {
 	sort.Slice(c.Markers, func(a, b int) bool { return c.Markers[a].ID < c.Markers[b].ID })
 }
 
-// The world every IGN map is translated into: a 32-tile square, 8192 pixels
-// across, whose tile pyramid starts at a single tile. Pins are stored as
-// latitude and longitude and projected by the viewer, so a marker's linear
-// position on the image becomes the synthetic coordinate that projects back
-// onto that exact pixel.
-const (
-	sourceZoom = 5
-	tileSize   = 256
-	worldSize  = 8192
-)
-
-// MaybeTranslate hands MapGenie snapshots through untouched and translates IGN
-// captures, so the tools that read snapshots stay one call away from either.
+// MaybeTranslate hands other sources' snapshots through untouched and
+// translates IGN captures, so the tools that read snapshots stay one call
+// away from either.
 func MaybeTranslate(kind string, doc []byte) ([]byte, error) {
 	if kind != Kind {
 		return doc, nil
@@ -136,13 +127,13 @@ func Translate(doc []byte) ([]byte, error) {
 	}
 	capture.Normalize()
 
-	ids := newIDSpace()
+	ids := mgdoc.NewIDSpace()
 	scope := capture.ObjectSlug + "/" + capture.MapSlug
-	mapID, err := ids.claim("ign:map:" + scope)
+	mapID, err := ids.Claim("ign:map:" + scope)
 	if err != nil {
 		return nil, err
 	}
-	gameID, err := ids.claim("ign:game:" + capture.ObjectSlug)
+	gameID, err := ids.Claim("ign:game:" + capture.ObjectSlug)
 	if err != nil {
 		return nil, err
 	}
@@ -152,14 +143,14 @@ func Translate(doc []byte) ([]byte, error) {
 		return nil, err
 	}
 
-	out := mgMap{
+	out := mgdoc.Map{
 		ID:               mapID,
 		Title:            mapTitle(&capture),
 		Slug:             capture.MapSlug,
-		InitialLatitude:  syntheticLatitude(-capture.Map.InitialLat * worldSize),
-		InitialLongitude: syntheticLongitude(capture.Map.InitialLng * worldSize),
-		Config:           mgConfig{TileSets: []mgTileSet{tileSet(&capture, scope)}},
-		Game: mgGame{
+		InitialLatitude:  mgdoc.SyntheticLatitude(-capture.Map.InitialLat * mgdoc.WorldSize),
+		InitialLongitude: mgdoc.SyntheticLongitude(capture.Map.InitialLng * mgdoc.WorldSize),
+		Config:           mgdoc.Config{TileSets: []mgdoc.TileSet{tileSet(&capture, scope)}},
+		Game: mgdoc.Game{
 			ID: gameID,
 			// The game keeps its plain slug, so captures of the same game from
 			// different sources build bundles that answer for one library entry
@@ -179,29 +170,37 @@ func mapTitle(capture *Capture) string {
 	if capture.MapTitle != "" {
 		return capture.MapTitle
 	}
-	return spellOut(capture.MapSlug)
+	return mgdoc.SpellOut(capture.MapSlug)
 }
 
 // tileSet describes the pyramid the crawler captured in the shape tools/tiles
 // expects. Bounds are declared for every level: a level without them would be
 // measured against the MapGenie window this map does not sit in.
-func tileSet(capture *Capture, scope string) mgTileSet {
-	set := mgTileSet{
+func tileSet(capture *Capture, scope string) mgdoc.TileSet {
+	set := mgdoc.TileSet{
 		Name:      "Default",
 		Path:      scope,
 		MinZoom:   0,
 		MaxZoom:   capture.Map.MaxZoom,
-		Extension: tileExtension(capture.Map.Tileset),
-		Bounds:    make(map[string]mgBound, capture.Map.MaxZoom+1),
+		Extension: TileExtension(capture.Map.Tileset),
+		Bounds:    make(map[string]mgdoc.Bound, capture.Map.MaxZoom+1),
 	}
 	for zoom := 0; zoom <= capture.Map.MaxZoom; zoom++ {
-		across := float64(int(1) << zoom)
-		set.Bounds[strconv.Itoa(zoom)] = mgBound{
-			X: mgRange{Min: 0, Max: lastTile(capture.Map.Width, across)},
-			Y: mgRange{Min: 0, Max: lastTile(capture.Map.Height, across)},
+		maxX, maxY := LevelExtent(capture.Map.Width, capture.Map.Height, zoom)
+		set.Bounds[strconv.Itoa(zoom)] = mgdoc.Bound{
+			X: mgdoc.Range{Min: 0, Max: maxX},
+			Y: mgdoc.Range{Min: 0, Max: maxY},
 		}
 	}
 	return set
+}
+
+// LevelExtent reports the last tile column and row holding any of the image at
+// a zoom. The crawler asks for exactly these tiles, and Translate declares
+// exactly these bounds, because they are the same call.
+func LevelExtent(width, height float64, zoom int) (maxX, maxY int) {
+	across := float64(int(1) << zoom)
+	return lastTile(width, across), lastTile(height, across)
 }
 
 func lastTile(extent, across float64) int {
@@ -212,7 +211,8 @@ func lastTile(extent, across float64) int {
 	return last
 }
 
-func tileExtension(template string) string {
+// TileExtension reads the image format off IGN's tile URL template.
+func TileExtension(template string) string {
 	if dot := strings.LastIndex(template, "."); dot >= 0 && dot < len(template)-1 {
 		return strings.ToLower(template[dot+1:])
 	}
@@ -224,7 +224,7 @@ func tileExtension(template string) string {
 // rest share one group. A type no marker uses is left out -- an empty category
 // would only dim the legend -- but it stays in the capture, so a marker
 // appearing under it later revives the category without a policy change.
-func buildGroups(capture *Capture, ids *idSpace, scope string) ([]mgGroup, error) {
+func buildGroups(capture *Capture, ids *mgdoc.IDSpace, scope string) ([]mgdoc.Group, error) {
 	markersByType := make(map[string][]Marker, len(capture.Types))
 	known := make(map[string]bool, len(capture.Types))
 	for _, t := range capture.Types {
@@ -240,35 +240,35 @@ func buildGroups(capture *Capture, ids *idSpace, scope string) ([]mgGroup, error
 		markersByType[marker.TypeSlug] = append(markersByType[marker.TypeSlug], marker)
 	}
 
-	grouped := make(map[string][]mgCategory)
+	grouped := make(map[string][]mgdoc.Category)
 	var order []string
 	for _, t := range capture.Types {
 		markers := markersByType[t.TypeSlug]
 		if len(markers) == 0 {
 			continue
 		}
-		categoryID, err := ids.claim("ign:type:" + scope + ":" + t.TypeSlug)
+		categoryID, err := ids.Claim("ign:type:" + scope + ":" + t.TypeSlug)
 		if err != nil {
 			return nil, err
 		}
-		category := mgCategory{
+		category := mgdoc.Category{
 			ID:          categoryID,
 			Title:       t.TypeName,
 			Icon:        t.TypeSlug,
 			DisplayType: "markers",
 			Visible:     true,
-			Locations:   make([]mgLocation, 0, len(markers)),
+			Locations:   make([]mgdoc.Location, 0, len(markers)),
 		}
 		for _, marker := range markers {
-			locationID, err := ids.claim("ign:marker:" + marker.ID)
+			locationID, err := ids.Claim("ign:marker:" + marker.ID)
 			if err != nil {
 				return nil, err
 			}
-			category.Locations = append(category.Locations, mgLocation{
+			category.Locations = append(category.Locations, mgdoc.Location{
 				ID:        locationID,
 				Title:     marker.MarkerName,
-				Latitude:  syntheticLatitude(-marker.Lat * worldSize),
-				Longitude: syntheticLongitude(marker.Lng * worldSize),
+				Latitude:  mgdoc.SyntheticLatitude(-marker.Lat * mgdoc.WorldSize),
+				Longitude: mgdoc.SyntheticLongitude(marker.Lng * mgdoc.WorldSize),
 			})
 		}
 		key := t.ParentTypeSlug
@@ -278,143 +278,19 @@ func buildGroups(capture *Capture, ids *idSpace, scope string) ([]mgGroup, error
 		grouped[key] = append(grouped[key], category)
 	}
 
-	groups := make([]mgGroup, 0, len(order))
+	groups := make([]mgdoc.Group, 0, len(order))
 	for _, key := range order {
 		title := "Markers"
 		seed := "ign:group:" + scope
 		if key != "" {
-			title = spellOut(key)
+			title = mgdoc.SpellOut(key)
 			seed += ":" + key
 		}
-		groupID, err := ids.claim(seed)
+		groupID, err := ids.Claim(seed)
 		if err != nil {
 			return nil, err
 		}
-		groups = append(groups, mgGroup{ID: groupID, Title: title, Categories: grouped[key]})
+		groups = append(groups, mgdoc.Group{ID: groupID, Title: title, Categories: grouped[key]})
 	}
 	return groups, nil
-}
-
-// spellOut turns a slug into a title, which is all the naming a group or an
-// unnamed map gets from IGN.
-func spellOut(slug string) string {
-	words := strings.Split(slug, "-")
-	for index, word := range words {
-		if word != "" {
-			words[index] = strings.ToUpper(word[:1]) + word[1:]
-		}
-	}
-	return strings.Join(words, " ")
-}
-
-// Synthetic coordinates invert the viewer's projection, so a marker's linear
-// position on IGN's image, run through the same spherical Mercator every other
-// map uses, lands on the same pixel it was captured at. The world here is the
-// map's own window -- a 32-tile square starting at tile zero -- which the
-// bundle carries as this map's grid.
-func syntheticLongitude(x float64) float64 {
-	worldTiles := math.Pow(2, sourceZoom)
-	xTile := x / tileSize
-	return (xTile/worldTiles)*360 - 180
-}
-
-func syntheticLatitude(y float64) float64 {
-	worldTiles := math.Pow(2, sourceZoom)
-	yTile := y / tileSize
-	return math.Atan(math.Sinh(math.Pi*(1-2*yTile/worldTiles))) * 180 / math.Pi
-}
-
-// idSpace hands out the numeric identifiers the pipeline expects, derived from
-// the stable names IGN publishes, so the same capture always numbers itself the
-// same way. Identifiers stay within a positive int31 -- the packed location
-// format and the viewer both read them as signed 32-bit -- and zero is avoided
-// because the viewer reads zero as absence. A collision between two names is
-// vanishingly unlikely at this scale and loudly fatal rather than silently
-// merging two pins.
-type idSpace struct {
-	seen map[int64]string
-}
-
-func newIDSpace() *idSpace {
-	return &idSpace{seen: make(map[int64]string)}
-}
-
-func (s *idSpace) claim(seed string) (int64, error) {
-	hash := fnv.New32a()
-	_, _ = hash.Write([]byte(seed))
-	id := int64(hash.Sum32() & 0x7fffffff)
-	if id == 0 {
-		id = 1
-	}
-	if holder, taken := s.seen[id]; taken {
-		return 0, fmt.Errorf("id collision: %q and %q both hash to %d", holder, seed, id)
-	}
-	s.seen[id] = seed
-	return id, nil
-}
-
-// The MapGenie shapes Translate emits: only the fields tools/tiles and
-// tools/generate actually read, spelled with the snake_case tags their own
-// decoders name.
-type mgMap struct {
-	ID               int64      `json:"id"`
-	Title            string     `json:"title"`
-	Slug             string     `json:"slug"`
-	InitialLatitude  float64    `json:"initial_latitude"`
-	InitialLongitude float64    `json:"initial_longitude"`
-	Config           mgConfig   `json:"config"`
-	Game             mgGame     `json:"game"`
-	Groups           []mgGroup  `json:"groups"`
-	Regions          []struct{} `json:"regions"`
-}
-
-type mgGame struct {
-	ID    int64  `json:"id"`
-	Title string `json:"title"`
-	Slug  string `json:"slug"`
-}
-
-type mgConfig struct {
-	TileSets []mgTileSet `json:"tile_sets"`
-}
-
-type mgTileSet struct {
-	Name      string             `json:"name"`
-	Path      string             `json:"path"`
-	MinZoom   int                `json:"min_zoom"`
-	MaxZoom   int                `json:"max_zoom"`
-	Extension string             `json:"extension"`
-	Bounds    map[string]mgBound `json:"bounds"`
-}
-
-type mgBound struct {
-	X mgRange `json:"x"`
-	Y mgRange `json:"y"`
-}
-
-type mgRange struct {
-	Min int `json:"min"`
-	Max int `json:"max"`
-}
-
-type mgGroup struct {
-	ID         int64        `json:"id"`
-	Title      string       `json:"title"`
-	Categories []mgCategory `json:"categories"`
-}
-
-type mgCategory struct {
-	ID          int64        `json:"id"`
-	Title       string       `json:"title"`
-	Icon        string       `json:"icon"`
-	DisplayType string       `json:"display_type"`
-	Visible     bool         `json:"visible"`
-	Locations   []mgLocation `json:"locations"`
-}
-
-type mgLocation struct {
-	ID        int64   `json:"id"`
-	Title     string  `json:"title"`
-	Latitude  float64 `json:"latitude"`
-	Longitude float64 `json:"longitude"`
 }

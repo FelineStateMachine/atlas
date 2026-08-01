@@ -3,10 +3,12 @@ package ignmap
 import (
 	"bytes"
 	"encoding/json"
-	"hash/fnv"
 	"math"
+	"strconv"
 	"strings"
 	"testing"
+
+	"github.com/FelineStateMachine/atlas/internal/mgdoc"
 )
 
 // fixture is a small capture exercising everything Translate decides: a type
@@ -39,7 +41,7 @@ func fixture() Capture {
 	}
 }
 
-func translate(t *testing.T, capture Capture) mgMap {
+func translate(t *testing.T, capture Capture) mgdoc.Map {
 	t.Helper()
 	doc, err := json.Marshal(capture)
 	if err != nil {
@@ -49,7 +51,7 @@ func translate(t *testing.T, capture Capture) mgMap {
 	if err != nil {
 		t.Fatal(err)
 	}
-	var m mgMap
+	var m mgdoc.Map
 	if err := json.Unmarshal(out, &m); err != nil {
 		t.Fatal(err)
 	}
@@ -99,7 +101,7 @@ func TestTranslateShape(t *testing.T) {
 		t.Fatalf("zoom range: %d..%d", set.MinZoom, set.MaxZoom)
 	}
 	for zoom := 0; zoom <= 5; zoom++ {
-		if _, ok := set.Bounds[itoa(zoom)]; !ok {
+		if _, ok := set.Bounds[strconv.Itoa(zoom)]; !ok {
 			t.Fatalf("no bounds declared for zoom %d", zoom)
 		}
 	}
@@ -140,16 +142,16 @@ func TestSyntheticCoordinatesRoundTrip(t *testing.T) {
 	m := translate(t, fixture())
 
 	project := func(latitude, longitude float64) (float64, float64) {
-		worldTiles := math.Pow(2, sourceZoom)
-		x := ((longitude + 180) / 360) * worldTiles * tileSize
-		y := (1 - math.Asinh(math.Tan(latitude*math.Pi/180))/math.Pi) / 2 * worldTiles * tileSize
+		worldTiles := math.Pow(2, mgdoc.SourceZoom)
+		x := ((longitude + 180) / 360) * worldTiles * mgdoc.TileSize
+		y := (1 - math.Asinh(math.Tan(latitude*math.Pi/180))/math.Pi) / 2 * worldTiles * mgdoc.TileSize
 		return x, y
 	}
 
 	byTitle := map[string][2]float64{
 		"Origin": {0, 0},
-		"Centre": {0.4411 * worldSize, 0.5 * worldSize},
-		"Corner": {0.8822243 * worldSize, worldSize},
+		"Centre": {0.4411 * mgdoc.WorldSize, 0.5 * mgdoc.WorldSize},
+		"Corner": {0.8822243 * mgdoc.WorldSize, mgdoc.WorldSize},
 	}
 	seen := 0
 	for _, group := range m.Groups {
@@ -191,7 +193,7 @@ func TestIdentifiersAreStable(t *testing.T) {
 	}
 }
 
-func locationIDs(m mgMap) map[string]int64 {
+func locationIDs(m mgdoc.Map) map[string]int64 {
 	out := make(map[string]int64)
 	for _, group := range m.Groups {
 		for _, category := range group.Categories {
@@ -201,17 +203,6 @@ func locationIDs(m mgMap) map[string]int64 {
 		}
 	}
 	return out
-}
-
-func TestIDCollisionIsFatal(t *testing.T) {
-	space := newIDSpace()
-	hash := fnv.New32a()
-	_, _ = hash.Write([]byte("some-seed"))
-	occupied := int64(hash.Sum32() & 0x7fffffff)
-	space.seen[occupied] = "already-here"
-	if _, err := space.claim("some-seed"); err == nil {
-		t.Fatal("claiming an occupied id did not fail")
-	}
 }
 
 func TestTranslateRejectsBadCaptures(t *testing.T) {
@@ -251,8 +242,4 @@ func TestMaybeTranslatePassesMapGenieThrough(t *testing.T) {
 	if !bytes.Equal(out, doc) {
 		t.Fatal("a MapGenie snapshot was rewritten")
 	}
-}
-
-func itoa(n int) string {
-	return string(rune('0' + n))
 }
