@@ -39,9 +39,11 @@ const Kind = "trek-map"
 const Source = "nasa-trek"
 
 // Capture is the canonical document the crawler stores: which body and mosaic
-// the raster is, and every named feature the Gazetteer publishes for the body.
-// Fields marshal in declaration order and Normalize sorts the features, so
-// unchanged data always hashes to the capture already archived.
+// the raster is, every sibling mosaic captured beside it, and every named
+// feature the Gazetteer publishes for the body. Fields marshal in declaration
+// order and Normalize sorts the lists, so unchanged data always hashes to the
+// capture already archived. Variants is newer than the field's first captures;
+// a capture without one is simply a body pictured a single way.
 type Capture struct {
 	Source   string    `json:"source"`
 	Body     string    `json:"body"`
@@ -49,6 +51,7 @@ type Capture struct {
 	MapSlug  string    `json:"mapSlug"`
 	MapTitle string    `json:"mapTitle"`
 	Map      MapConfig `json:"map"`
+	Variants []Variant `json:"variants,omitempty"`
 	Features []Feature `json:"features"`
 }
 
@@ -60,6 +63,17 @@ type MapConfig struct {
 	MaxZoom    int    `json:"maxZoom"`
 	Extension  string `json:"extension"`
 	LayerTitle string `json:"layerTitle"`
+}
+
+// Variant is a sibling mosaic of the same ground: another way of seeing the
+// body -- elevation beside photograph -- captured into the same window, so
+// the viewer offers it the way it offers a game's satellite layer beside its
+// atlas. Its pyramid is its own; siblings need not agree on depth.
+type Variant struct {
+	Layer     string `json:"layer"`
+	Title     string `json:"title"`
+	MaxZoom   int    `json:"maxZoom"`
+	Extension string `json:"extension"`
 }
 
 // Feature is one Gazetteer entry, as the feature list publishes it: the IAU's
@@ -81,6 +95,7 @@ type Feature struct {
 // before marshaling, so the Gazetteer listing its features differently does
 // not masquerade as a new version.
 func (c *Capture) Normalize() {
+	sort.Slice(c.Variants, func(a, b int) bool { return c.Variants[a].Layer < c.Variants[b].Layer })
 	sort.Slice(c.Features, func(a, b int) bool { return c.Features[a].ID < c.Features[b].ID })
 }
 
@@ -130,6 +145,16 @@ func Translate(doc []byte) ([]byte, error) {
 	if len(capture.Features) == 0 {
 		return nil, fmt.Errorf("capture carries no features")
 	}
+	taken := map[string]bool{capture.Layer: true}
+	for _, variant := range capture.Variants {
+		if variant.Layer == "" || variant.MaxZoom < 1 {
+			return nil, fmt.Errorf("variant %q declares no pyramid", variant.Layer)
+		}
+		if taken[variant.Layer] {
+			return nil, fmt.Errorf("layer %q is captured twice", variant.Layer)
+		}
+		taken[variant.Layer] = true
+	}
 	capture.Normalize()
 
 	ids := mgdoc.NewIDSpace()
@@ -148,6 +173,13 @@ func Translate(doc []byte) ([]byte, error) {
 		return nil, err
 	}
 
+	sets := []mgdoc.TileSet{tileSet(capture.Body, capture.Layer,
+		title(capture.Map.LayerTitle, "default"), capture.Map.Extension, capture.Map.MaxZoom)}
+	for _, variant := range capture.Variants {
+		sets = append(sets, tileSet(capture.Body, variant.Layer,
+			title(variant.Title, "default"), variant.Extension, variant.MaxZoom))
+	}
+
 	out := mgdoc.Map{
 		ID:    mapID,
 		Title: title(capture.MapTitle, capture.MapSlug),
@@ -157,7 +189,7 @@ func Translate(doc []byte) ([]byte, error) {
 		// sits in the square.
 		InitialLatitude:  mgdoc.SyntheticLatitude(mgdoc.WorldSize / 4),
 		InitialLongitude: mgdoc.SyntheticLongitude(mgdoc.WorldSize / 2),
-		Config:           mgdoc.Config{TileSets: []mgdoc.TileSet{tileSet(&capture)}},
+		Config:           mgdoc.Config{TileSets: sets},
 		Game: mgdoc.Game{
 			ID: gameID,
 			// A planet is a "game" to the pipeline, which is the point being
@@ -179,21 +211,22 @@ func title(given, slug string) string {
 	return mgdoc.SpellOut(slug)
 }
 
-// tileSet declares the pyramid in the shape tools/tiles expects. Bounds are
-// declared for every level down to zero: a level without them would be
-// measured against the MapGenie window this map does not sit in, and the
-// half-height windows are what tell the frame derivation where the planet
-// actually is.
-func tileSet(capture *Capture) mgdoc.TileSet {
+// tileSet declares one layer's pyramid in the shape tools/tiles expects.
+// Bounds are declared for every level down to zero: a level without them
+// would be measured against the MapGenie window this map does not sit in,
+// and the half-height windows are what tell the frame derivation where the
+// planet actually is. Every layer of a body shares that window whatever its
+// depth, which is what lets siblings ride one map as its variants.
+func tileSet(body, layer, name, ext string, maxZoom int) mgdoc.TileSet {
 	set := mgdoc.TileSet{
-		Name:      title(capture.Map.LayerTitle, "default"),
-		Path:      TileSetPath(capture.Body, capture.Layer),
+		Name:      name,
+		Path:      TileSetPath(body, layer),
 		MinZoom:   0,
-		MaxZoom:   capture.Map.MaxZoom,
-		Extension: extension(capture.Map.Extension),
-		Bounds:    make(map[string]mgdoc.Bound, capture.Map.MaxZoom+1),
+		MaxZoom:   maxZoom,
+		Extension: extension(ext),
+		Bounds:    make(map[string]mgdoc.Bound, maxZoom+1),
 	}
-	for zoom := 0; zoom <= capture.Map.MaxZoom; zoom++ {
+	for zoom := 0; zoom <= maxZoom; zoom++ {
 		maxX, maxY := LevelExtent(zoom)
 		set.Bounds[strconv.Itoa(zoom)] = mgdoc.Bound{
 			X: mgdoc.Range{Min: 0, Max: maxX},

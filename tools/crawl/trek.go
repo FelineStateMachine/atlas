@@ -41,14 +41,21 @@ const trekTiles = "https://trek.nasa.gov/tiles"
 const trekDefaultZoom = 6
 
 // trekBody is one body the importer knows: how Trek's paths spell it, which
-// global mosaic pictures it, and where the Gazetteer's feature list for it
-// lives.
+// global mosaic pictures it, the sibling mosaics captured beside that one,
+// and where the Gazetteer's feature list for it lives.
 type trekBody struct {
 	pathName   string
 	layer      string
 	layerTitle string
+	variants   []trekLayer
 	portal     string
 	gazetteer  string
+}
+
+// trekLayer names one verified sibling mosaic and how a person knows it.
+type trekLayer struct {
+	layer string
+	title string
 }
 
 var trekBodies = map[string]trekBody{
@@ -56,8 +63,13 @@ var trekBodies = map[string]trekBody{
 		pathName:   "Mars",
 		layer:      "Mars_Viking_MDIM21_ClrMosaic_global_232m",
 		layerTitle: "Viking MDIM 2.1",
-		portal:     "https://trek.nasa.gov/mars",
-		gazetteer:  "https://asc-planetarynames-data.s3.us-west-2.amazonaws.com/MARS_nomenclature_center_pts.zip",
+		variants: []trekLayer{
+			// The laser altimeter's colored shaded relief: the same ground as
+			// height instead of photograph, the other classic way Mars is seen.
+			{layer: "Mars_MGS_MOLA_ClrShade_merge_global_463m", title: "MOLA Elevation"},
+		},
+		portal:    "https://trek.nasa.gov/mars",
+		gazetteer: "https://asc-planetarynames-data.s3.us-west-2.amazonaws.com/MARS_nomenclature_center_pts.zip",
 	},
 }
 
@@ -74,16 +86,22 @@ func runTrek(ctx context.Context, fetcher *fetcher, o options) error {
 			strings.Join(bodies, ", "))
 	}
 
-	layerBase := trekTiles + "/" + body.pathName + "/EQ/" + body.layer
-	published, err := fetchTrekPyramid(ctx, fetcher, layerBase)
-	if err != nil {
-		return err
-	}
-	deepest := published
-	if o.maxZoom > 0 {
-		deepest = min(deepest, o.maxZoom)
-	} else {
-		deepest = min(deepest, trekDefaultZoom)
+	// Every mosaic of the body answers for its own tiling before anything is
+	// fetched, and takes its own depth: the default courtesy ceiling, under
+	// whatever each one actually publishes.
+	layers := append([]trekLayer{{layer: body.layer, title: body.layerTitle}}, body.variants...)
+	depths := make([]int, len(layers))
+	for at, entry := range layers {
+		published, err := fetchTrekPyramid(ctx, fetcher, trekLayerBase(body, entry.layer))
+		if err != nil {
+			return fmt.Errorf("%s: %w", entry.layer, err)
+		}
+		depths[at] = published
+		if o.maxZoom > 0 {
+			depths[at] = min(depths[at], o.maxZoom)
+		} else {
+			depths[at] = min(depths[at], trekDefaultZoom)
+		}
 	}
 
 	features, err := fetchGazetteer(ctx, fetcher, body.gazetteer)
@@ -98,11 +116,19 @@ func runTrek(ctx context.Context, fetcher *fetcher, o options) error {
 		MapSlug:  "global",
 		MapTitle: "Global",
 		Map: trekmap.MapConfig{
-			MaxZoom:    deepest,
+			MaxZoom:    depths[0],
 			Extension:  "jpg",
 			LayerTitle: body.layerTitle,
 		},
 		Features: features,
+	}
+	for at, entry := range layers[1:] {
+		capture.Variants = append(capture.Variants, trekmap.Variant{
+			Layer:     entry.layer,
+			Title:     entry.title,
+			MaxZoom:   depths[at+1],
+			Extension: "jpg",
+		})
 	}
 	capture.Normalize()
 	raw, err := json.MarshalIndent(capture, "", "  ")
@@ -129,8 +155,8 @@ func runTrek(ctx context.Context, fetcher *fetcher, o options) error {
 	mapDirectory := resolveMapDirectory(o.archive, gameDirectory, full)
 	mapDir := filepath.Join(o.archive, mapDirectory)
 
-	fmt.Printf("\n== NASA Trek %s / %s (%d features, pyramid z1-%d of %d published)\n",
-		game.Title, capture.MapTitle, len(capture.Features), deepest, published)
+	fmt.Printf("\n== NASA Trek %s / %s (%d features, %d layers)\n",
+		game.Title, capture.MapTitle, len(capture.Features), len(layers))
 
 	if o.dryRun {
 		fmt.Printf("   would write capture to %s\n", mapDir)
@@ -143,9 +169,17 @@ func runTrek(ctx context.Context, fetcher *fetcher, o options) error {
 		return err
 	}
 	index.mapID = mapID
-	stats, err := captureTrekTiles(ctx, fetcher, o, slug, body, layerBase, deepest, mapDir, index)
-	if err != nil {
-		return err
+	var stats captureStats
+	for at, entry := range layers {
+		taken, err := captureTrekTiles(ctx, fetcher, o, slug, body, entry.layer, depths[at], mapDir, index)
+		if err != nil {
+			return err
+		}
+		stats.fetched += taken.fetched
+		stats.skipped += taken.skipped
+		stats.absent += taken.absent
+		stats.failed += taken.failed
+		stats.bytes += taken.bytes
 	}
 	if o.dryRun {
 		return nil
@@ -221,25 +255,31 @@ func fetchTrekPyramid(ctx context.Context, f *fetcher, layerBase string) (int, e
 	return len(matrices), nil
 }
 
-// captureTrekTiles takes the pyramid level by level, whole: a global mosaic
-// has no empty space to prune around. Trek spells a tile as matrix/row/
-// column, one zoom below and with its axes named the other way round from
-// the pipeline's zoom/x/y -- so each level fetches under Trek's spelling and
-// records under the canonical one, which is the address every reader of the
-// archive derives the layer and its window from.
+// trekLayerBase is where one of the body's mosaics actually lives, in Trek's
+// own spelling of the body's name.
+func trekLayerBase(body trekBody, layer string) string {
+	return trekTiles + "/" + body.pathName + "/EQ/" + layer
+}
+
+// captureTrekTiles takes one layer's pyramid level by level, whole: a global
+// mosaic has no empty space to prune around. Trek spells a tile as matrix/
+// row/column, one zoom below and with its axes named the other way round
+// from the pipeline's zoom/x/y -- so each level fetches under Trek's
+// spelling and records under the canonical one, which is the address every
+// reader of the archive derives the layer and its window from.
 func captureTrekTiles(
 	ctx context.Context,
 	fetcher *fetcher,
 	o options,
 	slug string,
 	body trekBody,
-	layerBase string,
+	layer string,
 	deepest int,
 	mapDir string,
 	index *tileIndex,
 ) (captureStats, error) {
 	var stats captureStats
-	scope := trekmap.TileSetPath(slug, body.layer)
+	scope := trekmap.TileSetPath(slug, layer)
 	setID := index.tileSetID(scope)
 	fmt.Printf("   layer %q z1-%d\n", scope, deepest)
 
@@ -247,7 +287,7 @@ func captureTrekTiles(
 		maxX, maxY := trekmap.LevelExtent(zoom)
 		window := tileWindow{minX: 0, minY: 0, maxX: maxX, maxY: maxY}
 		record := trekTiles + "/" + scope + "/{z}/{x}/{y}.jpg"
-		fetch := layerBase + "/1.0.0/default/default028mm/" +
+		fetch := trekLayerBase(body, layer) + "/1.0.0/default/default028mm/" +
 			strconv.Itoa(zoom-1) + "/{y}/{x}.jpg"
 		results, err := fetchTemplateLevel(ctx, fetcher, o, record, fetch, "", setID, "jpg",
 			mapDir, zoom, window.tiles(), index)

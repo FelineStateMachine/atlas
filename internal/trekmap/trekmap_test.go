@@ -26,6 +26,10 @@ func fixture() Capture {
 			Extension:  "jpg",
 			LayerTitle: "Viking MDIM 2.1",
 		},
+		Variants: []Variant{
+			{Layer: "Mars_MGS_MOLA_ClrShade_merge_global_463m",
+				Title: "MOLA Elevation", MaxZoom: 6, Extension: "jpg"},
+		},
 		Features: []Feature{
 			{ID: 4453, Name: "Olympus Mons", Type: "Mons, montes", Code: "MO",
 				Latitude: 18.6528, Longitude: 226.1975, DiameterKM: 610.13,
@@ -86,7 +90,7 @@ func TestTranslateShape(t *testing.T) {
 		t.Fatalf("game identity: %q %q", m.Game.Slug, m.Game.Title)
 	}
 
-	if len(m.Config.TileSets) != 1 {
+	if len(m.Config.TileSets) != 2 {
 		t.Fatalf("tile sets: %d", len(m.Config.TileSets))
 	}
 	set := m.Config.TileSets[0]
@@ -99,19 +103,28 @@ func TestTranslateShape(t *testing.T) {
 	if set.MinZoom != 0 || set.MaxZoom != 6 {
 		t.Fatalf("zoom range: %d..%d", set.MinZoom, set.MaxZoom)
 	}
+	// The sibling mosaic rides the same map as a second layer in the same
+	// window, under its own name and path.
+	sibling := m.Config.TileSets[1]
+	if sibling.Name != "MOLA Elevation" ||
+		sibling.Path != "mars/EQ/Mars_MGS_MOLA_ClrShade_merge_global_463m" {
+		t.Fatalf("variant tile set: %+v", sibling)
+	}
 	// The planet fills the width of the world square and the top half of its
-	// height, at every level of the pyramid.
-	for zoom := 0; zoom <= 6; zoom++ {
-		bounds, ok := set.Bounds[strconv.Itoa(zoom)]
-		if !ok {
-			t.Fatalf("no bounds declared for zoom %d", zoom)
-		}
-		wantX, wantY := 1<<zoom-1, 1<<zoom/2-1
-		if zoom == 0 {
-			wantX, wantY = 0, 0
-		}
-		if bounds.X.Min != 0 || bounds.Y.Min != 0 || bounds.X.Max != wantX || bounds.Y.Max != wantY {
-			t.Fatalf("zoom %d bounds: %+v", zoom, bounds)
+	// height, at every level of both pyramids.
+	for _, layer := range m.Config.TileSets {
+		for zoom := 0; zoom <= layer.MaxZoom; zoom++ {
+			bounds, ok := layer.Bounds[strconv.Itoa(zoom)]
+			if !ok {
+				t.Fatalf("%s declares no bounds for zoom %d", layer.Name, zoom)
+			}
+			wantX, wantY := 1<<zoom-1, 1<<zoom/2-1
+			if zoom == 0 {
+				wantX, wantY = 0, 0
+			}
+			if bounds.X.Min != 0 || bounds.Y.Min != 0 || bounds.X.Max != wantX || bounds.Y.Max != wantY {
+				t.Fatalf("%s zoom %d bounds: %+v", layer.Name, zoom, bounds)
+			}
 		}
 	}
 
@@ -243,6 +256,8 @@ func TestTranslateRejectsBadCaptures(t *testing.T) {
 		{"latitude off the planet", func(c *Capture) { c.Features[0].Latitude = 91 }, "latitude"},
 		{"longitude off the planet", func(c *Capture) { c.Features[0].Longitude = -5 }, "longitude"},
 		{"doubled feature", func(c *Capture) { c.Features[1].ID = c.Features[0].ID }, "collision"},
+		{"doubled layer", func(c *Capture) { c.Variants[0].Layer = c.Layer }, "twice"},
+		{"depthless variant", func(c *Capture) { c.Variants[0].MaxZoom = 0 }, "pyramid"},
 	}
 	for _, test := range cases {
 		capture := fixture()
