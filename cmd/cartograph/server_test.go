@@ -24,7 +24,7 @@ func testServer(t *testing.T) (*server, string) {
 			Merged: fixtureMerged(),
 		}},
 	})
-	return newServer(&library{dir: dir}), dir
+	return newServer(&library{dir: dir}, &workshop{bundles: dir}), dir
 }
 
 func newTestSite(t *testing.T, s *server) *httptest.Server {
@@ -84,5 +84,19 @@ func TestPages(t *testing.T) {
 	}
 	if status, _ := get(t, ts, "/static/style.css"); status != http.StatusOK {
 		t.Errorf("stylesheet answered %d", status)
+	}
+
+	status, body = get(t, ts, "/sources")
+	if status != http.StatusOK {
+		t.Fatalf("sources page answered %d", status)
+	}
+	for _, want := range []string{
+		"MapGenie", "IGN Wiki", "Piggyback", "Referer",
+		"raster", "icons", "locations", "metadata",
+		"Rebuild pyramids", "Recompose bundles",
+	} {
+		if !strings.Contains(body, want) {
+			t.Errorf("sources page misses %q", want)
+		}
 	}
 }
