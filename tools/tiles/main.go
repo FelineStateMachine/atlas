@@ -30,6 +30,7 @@ import (
 	"github.com/FelineStateMachine/atlas/internal/ignmap"
 	"github.com/FelineStateMachine/atlas/internal/mgdoc"
 	"github.com/FelineStateMachine/atlas/internal/pbmap"
+	"github.com/FelineStateMachine/atlas/internal/trekmap"
 )
 
 const (
@@ -541,6 +542,9 @@ func inspectMap(mapDir string) ([]tilePlan, string, string, error) {
 		return nil, "", "", err
 	}
 	if doc, err = pbmap.MaybeTranslate(latest.Kind, doc); err != nil {
+		return nil, "", "", err
+	}
+	if doc, err = trekmap.MaybeTranslate(latest.Kind, doc); err != nil {
 		return nil, "", "", err
 	}
 	var raw rawMap

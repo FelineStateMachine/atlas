@@ -64,6 +64,7 @@ type options struct {
 	mapTarget   string
 	ign         string
 	piggyback   string
+	trek        string
 	maxZoom     int
 	list        bool
 	dryRun      bool
@@ -78,6 +79,7 @@ func parseOptions() options {
 	flag.StringVar(&o.mapTarget, "map", "", "map slug or id (default: every map of the game)")
 	flag.StringVar(&o.ign, "ign", "", "IGN wikimap as objectSlug/mapSlug, e.g. cyberpunk-2077/night-city")
 	flag.StringVar(&o.piggyback, "piggyback", "", "Piggyback map as gameSlug/mapSlug, e.g. cyberpunk-2077/night-city")
+	flag.StringVar(&o.trek, "trek", "", "planetary body from NASA Trek and the IAU Gazetteer, e.g. mars")
 	flag.IntVar(&o.maxZoom, "max-zoom", 0, "deepest zoom to capture (default: the layer's own maximum)")
 	flag.BoolVar(&o.list, "list", false, "list games, or the maps of -game, and exit")
 	flag.BoolVar(&o.dryRun, "dry-run", false, "report what would be fetched without writing anything")
@@ -99,6 +101,9 @@ func run(o options) error {
 	}
 	if o.piggyback != "" {
 		return runPB(ctx, fetcher, o)
+	}
+	if o.trek != "" {
+		return runTrek(ctx, fetcher, o)
 	}
 
 	games, err := listGames(ctx, fetcher)

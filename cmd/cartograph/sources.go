@@ -165,6 +165,21 @@ var sources = []Source{
 		pair:       true,
 		components: fullSet,
 	},
+	crawlSource{
+		name: "NASA Trek",
+		slug: "nasa-trek",
+		description: "Planetary maps, proving the format was never about games: NASA Trek's " +
+			"global mosaics for the raster, the IAU Gazetteer of Planetary Nomenclature for " +
+			"the pins -- every named feature with its place, size, and the origin of its name. " +
+			"All public domain. A curated importer: each body names one verified global " +
+			"mosaic, and only Mars is curated so far. No icon artwork; the viewer's fallback " +
+			"glyphs stand in.",
+		flag: "-trek",
+		hint: "body, e.g. mars (the one curated body)",
+		components: ComponentSet{
+			ComponentRaster, ComponentLocations, ComponentMetadata,
+		},
+	},
 }
 
 // sourceBySlug finds one registered source.

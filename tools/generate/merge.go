@@ -80,6 +80,8 @@ func sourceDisplayLabel(source string) string {
 		return "IGN Wiki"
 	case "piggyback":
 		return "Piggyback"
+	case "nasa-trek":
+		return "NASA Trek"
 	}
 	return source
 }

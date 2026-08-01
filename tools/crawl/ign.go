@@ -351,7 +351,7 @@ func captureIGNTiles(
 	for zoom := 0; zoom <= deepest; zoom++ {
 		maxX, maxY := ignmap.LevelExtent(capture.Map.Width, capture.Map.Height, zoom)
 		window := tileWindow{minX: 0, minY: 0, maxX: maxX, maxY: maxY}
-		results, err := fetchTemplateLevel(ctx, fetcher, o, template, "", setID, extension,
+		results, err := fetchTemplateLevel(ctx, fetcher, o, template, "", "", setID, extension,
 			mapDir, zoom, window.tiles(), index)
 		if err != nil {
 			return stats, err
@@ -374,11 +374,18 @@ func captureIGNTiles(
 // {z}/{x}/{y} template, in whatever punctuation the source spells the tokens.
 // The hashes of held tiles are recorded alongside fetched ones, so a resumed
 // crawl sees the same picture of the level a fresh one would.
+//
+// A source that spells its addresses differently from the pipeline -- Trek
+// names the row before the column, one zoom down -- passes a second template
+// naming where the bytes actually live; the first template stays the address
+// of record, the one resume checks and every reader of the archive derives
+// the layer from. An empty fetchTemplate means the record address is the
+// fetch address, which is every other source.
 func fetchTemplateLevel(
 	ctx context.Context,
 	fetcher *fetcher,
 	o options,
-	template, referer string,
+	template, fetchTemplate, referer string,
 	setID int64,
 	extension, mapDir string,
 	zoom int,
@@ -392,16 +399,19 @@ func fetchTemplateLevel(
 	var failure error
 	gate := make(chan struct{}, o.concurrency)
 
-	replacer := func(x, y int) string {
+	replacer := func(template string, x, y int) string {
 		return strings.NewReplacer(
 			"{z}", strconv.Itoa(zoom),
 			"{x}", strconv.Itoa(x),
 			"{y}", strconv.Itoa(y),
 		).Replace(template)
 	}
+	if fetchTemplate == "" {
+		fetchTemplate = template
+	}
 
 	for _, coordinate := range wanted {
-		url := replacer(coordinate[0], coordinate[1])
+		url := replacer(template, coordinate[0], coordinate[1])
 		path := filepath.Join(mapDir, "tiles",
 			"set-"+strconv.FormatInt(setID, 10),
 			strconv.Itoa(zoom), strconv.Itoa(coordinate[0]),
@@ -427,11 +437,11 @@ func fetchTemplateLevel(
 
 		group.Add(1)
 		gate <- struct{}{}
-		go func(coordinate [2]int, url, path string) {
+		go func(coordinate [2]int, url, fetchURL, path string) {
 			defer group.Done()
 			defer func() { <-gate }()
 
-			body, contentType, err := fetcher.getReferred(ctx, url, referer)
+			body, contentType, err := fetcher.getReferred(ctx, fetchURL, referer)
 			mu.Lock()
 			defer mu.Unlock()
 			if err != nil {
@@ -469,7 +479,7 @@ func fetchTemplateLevel(
 			result.fetched++
 			result.bytes += int64(len(body))
 			result.hashes[coordinate] = hash
-		}(coordinate, url, path)
+		}(coordinate, url, replacer(fetchTemplate, coordinate[0], coordinate[1]), path)
 	}
 	group.Wait()
 	return result, failure

@@ -6,19 +6,27 @@ import (
 )
 
 func TestRegistry(t *testing.T) {
-	if len(sources) != 3 {
-		t.Fatalf("registry holds %d sources, want 3", len(sources))
+	if len(sources) != 4 {
+		t.Fatalf("registry holds %d sources, want 4", len(sources))
 	}
-	for _, slug := range []string{"mapgenie", "ign-wiki", "piggyback"} {
+	for _, slug := range []string{"mapgenie", "ign-wiki", "piggyback", "nasa-trek"} {
 		src, ok := sourceBySlug(slug)
 		if !ok {
 			t.Fatalf("registry misses %s", slug)
 		}
-		// All three publish complete maps; they differ in quality per
-		// component, never in kind.
-		for _, component := range []Component{
+		// Every source publishes a complete map save for icons, which Trek
+		// alone leaves to the viewer's fallback glyphs; the game sources
+		// differ in quality per component, never in kind.
+		wanted := []Component{
 			ComponentRaster, ComponentIcons, ComponentLocations, ComponentMetadata,
-		} {
+		}
+		if slug == "nasa-trek" {
+			wanted = []Component{ComponentRaster, ComponentLocations, ComponentMetadata}
+			if src.Components().Has(ComponentIcons) {
+				t.Errorf("%s claims icons it does not fetch", slug)
+			}
+		}
+		for _, component := range wanted {
 			if !src.Components().Has(component) {
 				t.Errorf("%s misses component %s", slug, component)
 			}
@@ -41,6 +49,7 @@ func TestFetchArgs(t *testing.T) {
 		{"mapgenie", "cyberpunk-2077", []string{"-game", "cyberpunk-2077"}},
 		{"ign-wiki", "cyberpunk-2077/night-city", []string{"-ign", "cyberpunk-2077/night-city"}},
 		{"piggyback", "cyberpunk-2077/night-city", []string{"-piggyback", "cyberpunk-2077/night-city"}},
+		{"nasa-trek", "mars", []string{"-trek", "mars"}},
 	}
 	for _, at := range good {
 		src, _ := sourceBySlug(at.source)
@@ -67,6 +76,7 @@ func TestFetchArgs(t *testing.T) {
 		{"piggyback", "/night-city"}, // no empty half
 		{"piggyback", "night-city/"},
 		{"piggyback", "Night-City/x"}, // slugs are lowercase
+		{"nasa-trek", "mars/global"},  // a body is one slug
 	}
 	for _, at := range bad {
 		src, _ := sourceBySlug(at.source)

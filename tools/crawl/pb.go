@@ -524,7 +524,7 @@ func capturePBTiles(
 		if len(wanted) == 0 {
 			break
 		}
-		results, err := fetchTemplateLevel(ctx, fetcher, o, page.tileServer, referer,
+		results, err := fetchTemplateLevel(ctx, fetcher, o, page.tileServer, "", referer,
 			setID, extension, mapDir, zoom, wanted, index)
 		if err != nil {
 			return stats, nil, err
