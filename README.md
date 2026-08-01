@@ -100,6 +100,30 @@ go generate .
 Neither the binary nor a bundle has any runtime dependency on `../gamemap`,
 npm, or the network.
 
+## Where everything lives
+
+Atlas keeps its game library and its build caches in fixed places:
+
+- **The library** — installed `.atlas` bundles, read and watched by the
+  running application, written by `go generate` and by the in-app importer:
+  `bundles/` under the application data directory. That is
+  `~/Library/Application Support/dev.felinestatemachine.atlas` on macOS,
+  `%AppData%\dev.felinestatemachine.atlas` on Windows, and
+  `~/.config/dev.felinestatemachine.atlas` on Linux (`os.UserConfigDir`,
+  the same convention the framework resolves). `index.json` beside the
+  bundles lists every build of every game, newest first.
+- **The tile cache** — `build/tiles` in this repository, ignored by git.
+  `tools/tiles` derives pyramids into it and stamps each one over its
+  sources, so regeneration re-derives only what changed; deleting the
+  directory costs a full re-derivation from `../gamemap`.
+- **Session state** — last game, camera, and panel arrangement live in the
+  WebView's localStorage under the same application identity; the packaged
+  data never mixes with it.
+
+Nothing else is cached anywhere: a bundle in the library is served straight
+out of its zip, and deleting the application data directory resets Atlas
+completely.
+
 ## The .atlas format
 
 A `.atlas` file is a zip archive holding one game: `atlas.json` (the
