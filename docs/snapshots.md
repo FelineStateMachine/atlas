@@ -13,6 +13,10 @@ in a repository of their own, so every employee works off the same enriched
 
 1. Crawls the city into the `fmg-archive` committed on the state branch.
    Captures are content-addressed: an unchanged city registers nothing.
+   Beside the city's own hub, every crawl queries the USGS national
+   hydrography services on `hydro.nationalmap.gov` for the city's window —
+   watersheds, subwatersheds, named streams, waterbodies — so a runner
+   with an egress allowlist needs that host beside the hub's.
 2. Composes the bundle. Its filename embeds the capture day and a content
    stamp over everything inside.
 3. Gates: if that exact filename is already a release asset, the run ends —

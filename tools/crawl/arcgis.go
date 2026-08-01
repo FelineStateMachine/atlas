@@ -7,7 +7,11 @@
 // This is the curated-cities importer, and says so. Each city in the
 // arcgismap table names verified dataset identities, field names, and a
 // bounding box; an unknown city is refused at the door rather than captured
-// through unverified curation.
+// through unverified curation. Beside the city's hub, every crawl asks the
+// USGS national services for the city's window -- the national enrichment
+// in arcgismap's National table, fetched through the MapServer query path
+// in mapserver.go -- so the capture holds the city and its watershed
+// context as one document.
 //
 // Versioning is the mode's whole reason. Each crawl day registers its own
 // map directory, so the archive keeps every day the data moved and the
