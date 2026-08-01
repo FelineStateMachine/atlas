@@ -21,6 +21,7 @@ import (
 	"sort"
 
 	"github.com/FelineStateMachine/atlas/internal/blend"
+	"github.com/FelineStateMachine/atlas/internal/semconv"
 )
 
 // Resolution distances, in world pixels of an 8192-pixel square. A confirmed
@@ -35,10 +36,12 @@ const (
 	nearbyFloorPx    = 48
 )
 
-// categoryEquivalents maps one source's category slugs onto another's where
-// the concepts are known to be the same thing. Slugs equal after
-// normalization pair automatically; everything else stays source-specific
-// rather than being guessed together.
+// categoryEquivalents names the shared concept where two sources spell one
+// category differently, per game. It is applied by speakConventions, which
+// writes the shared name onto each category as atlas.category.key -- so the
+// payloads themselves carry the merge identity, and the merge below reads
+// only the attribute. Slugs equal after normalization pair automatically;
+// everything else stays source-specific rather than being guessed together.
 var categoryEquivalents = map[string]map[string]string{
 	"cyberpunk-2077": {
 		"ripper-doc":     "ripperdoc",
@@ -51,32 +54,86 @@ var categoryEquivalents = map[string]map[string]string{
 	},
 }
 
+// categoryKey is a category's merge identity: the declared shared name when
+// the payload carries one, its icon key otherwise -- which is today's
+// behavior, named.
+func categoryKey(icon string, attrs map[string]string) string {
+	if key := attrs[semconv.KeyCategoryKey]; key != "" {
+		return key
+	}
+	return icon
+}
+
+// attributeMergePolicy says, attribute by attribute, which side of a matched
+// pin wins. servingWins is the default for anything unlisted; donorFillsEmpty
+// is the enrichment rule the description pioneered -- the serving side keeps
+// what it has and takes only what it lacks. Every take is ledgered by key,
+// so the payload accounts for its own composition.
+type attrRule int
+
+const (
+	servingWins attrRule = iota
+	donorFillsEmpty
+)
+
+var attributeMergePolicy = map[string]attrRule{
+	semconv.KeyNoteText: donorFillsEmpty,
+	semconv.KeyGeoLat:   donorFillsEmpty,
+	semconv.KeyGeoLon:   donorFillsEmpty,
+	semconv.KeyIconStd:  donorFillsEmpty,
+}
+
 // mergedSource is one source's account of its merge, carried in the map's
 // payload: the alignment it stood on, what became of every donor pin, and
 // the ledger a later pass -- or a curious reader -- can audit the decisions
 // by.
 type mergedSource struct {
 	Source string `json:"source"`
+	// Slug is the source's canonical name, the one the workbench's registry
+	// speaks, so ledgers and plugin cards agree without translation.
+	Slug string `json:"slug,omitempty"`
 	// Origin marks the account of the source the map itself came from, so a
 	// single-source map still says where it is from and a composed map's
 	// unledgered pins have somewhere to answer to. DonorPins on an origin
 	// account is simply the map's own count at composition.
-	Origin    bool         `json:"origin,omitempty"`
-	DonorPins int          `json:"donorPins"`
-	Matched   []mergedPair `json:"matched,omitempty"`
-	Added     int          `json:"added"`
-	Adopted   []adoptedPin `json:"adopted,omitempty"`
-	Held      []heldPin    `json:"held,omitempty"`
-	Rejected  []heldPin    `json:"rejected,omitempty"`
-	Alignment string       `json:"alignment,omitempty"`
+	Origin    bool           `json:"origin,omitempty"`
+	DonorPins int            `json:"donorPins"`
+	Matched   []mergedPair   `json:"matched,omitempty"`
+	Added     int            `json:"added"`
+	Adopted   []adoptedPin   `json:"adopted,omitempty"`
+	Held      []heldPin      `json:"held,omitempty"`
+	Rejected  []heldPin      `json:"rejected,omitempty"`
+	Enriched  []categoryTake `json:"enrichedCategories,omitempty"`
+	Alignment string         `json:"alignment,omitempty"`
 }
 
-// sourceDisplayLabel is how a crawler's name reads on a card or a ledger.
-func sourceDisplayLabel(source string) string {
+// categoryTake records one attribute a serving category took from the
+// donor's counterpart: which category, which key.
+type categoryTake struct {
+	Category string `json:"cat"`
+	Key      string `json:"k"`
+}
+
+// canonicalSourceSlug maps what the archive records -- crawler tags, with
+// emptiness meaning the founding source -- onto the slugs the workbench
+// registry declares, which are the one vocabulary sources are named in.
+func canonicalSourceSlug(source string) string {
 	switch source {
 	case "", "mapgenie":
-		return "MapGenie"
+		return "mapgenie"
 	case "ign":
+		return "ign-wiki"
+	}
+	return source
+}
+
+// sourceDisplayLabel is how a source's canonical slug reads on a card or a
+// ledger.
+func sourceDisplayLabel(source string) string {
+	switch canonicalSourceSlug(source) {
+	case "mapgenie":
+		return "MapGenie"
+	case "ign-wiki":
 		return "IGN Wiki"
 	case "piggyback":
 		return "Piggyback"
@@ -87,14 +144,17 @@ func sourceDisplayLabel(source string) string {
 }
 
 // mergedPair records one place both sources pin: the donor pin, the serving
-// pin it resolved to, and how far apart the alignment put them.
+// pin it resolved to, how far apart the alignment put them, and every
+// attribute the serving pin took from the donor, by key.
 type mergedPair struct {
 	Donor      int64 `json:"d"`
 	Winner     int64 `json:"w"`
 	DistancePx int   `json:"px"`
 	// Enriched marks a pair whose serving pin had nothing to say and took
-	// the donor's description.
-	Enriched bool `json:"e,omitempty"`
+	// the donor's description: derived from Took, kept for readers of the
+	// older spelling.
+	Enriched bool     `json:"e,omitempty"`
+	Took     []string `json:"took,omitempty"`
 }
 
 // adoptedPin records a donor-only pin that joined one of the serving map's
@@ -301,7 +361,11 @@ func mergeMap(
 	}
 
 	sourceLabel := sourceLabelOf(donor, donorGame)
-	merge := &mergedSource{Source: sourceLabel, Alignment: report.String()}
+	merge := &mergedSource{
+		Source:    sourceLabel,
+		Slug:      sourceSlugOf(donor),
+		Alignment: report.String(),
+	}
 
 	// A nameless neighbour matters out to where the alignment's own noise
 	// reaches: two sources place the same shop apart by their residuals, so
@@ -311,23 +375,32 @@ func mergeMap(
 	// What the serving map already holds, by name, token, and place.
 	index := indexWinner(winner, winnerGrid)
 
-	equivalents := categoryEquivalents[winnerGame.Slug]
-
 	// A donor pin that stays distinct joins the serving category its own
 	// category maps onto, and the ledger records the adoption; only concepts
 	// the serving map does not have at all keep their donor categories, so
 	// the source-named group holds nothing but what is truly source-specific.
+	// Categories meet under their declared merge identity -- the
+	// atlas.category.key their payloads carry, their icon key otherwise --
+	// so the equivalence curation lives in the payloads, not here.
 	var keptCategories []catalogCategory
 	for _, group := range donor.Groups {
 		for _, category := range group.Categories {
 			kept := category
 			kept.Locations = nil
-			donorKey := category.Icon
-			mappedKey := donorKey
-			if equivalent, ok := equivalents[donorKey]; ok {
-				mappedKey = equivalent
-			}
+			mappedKey := categoryKey(category.Icon, category.Attrs)
 			adoptive := index.categories[mappedKey]
+			// Attribute-level resolution at the category: a serving category
+			// with no artwork of any kind takes the donor's standard-icon
+			// declaration, and the ledger says so.
+			if adoptive != nil && attributeMergePolicy[semconv.KeyIconStd] == donorFillsEmpty &&
+				adoptive.IconAsset == "" && adoptive.Attrs[semconv.KeyIconStd] == "" &&
+				category.Attrs[semconv.KeyIconStd] != "" {
+				adoptive.Attrs = withAttr(adoptive.Attrs, semconv.KeyIconStd,
+					category.Attrs[semconv.KeyIconStd])
+				merge.Enriched = append(merge.Enriched, categoryTake{
+					Category: mappedKey, Key: semconv.KeyIconStd,
+				})
+			}
 			for _, location := range category.Locations {
 				merge.DonorPins++
 				x, y := affine.Apply(
@@ -343,11 +416,27 @@ func mergeMap(
 						Winner:     outcome.match.ID,
 						DistancePx: int(outcome.distance + 0.5),
 					}
-					// Field-level: a serving pin with nothing to say takes
-					// the donor's words rather than silencing them.
-					if outcome.match.Description == "" && location.Description != "" {
+					// Attribute-level: the policy table says, key by key,
+					// what a serving pin takes from its donor, and every
+					// take is ledgered. The description travels under its
+					// policy name, and a pin's true coordinates fill in the
+					// same way words do: only where the serving side has
+					// none of its own.
+					if attributeMergePolicy[semconv.KeyNoteText] == donorFillsEmpty &&
+						outcome.match.Description == "" && location.Description != "" {
 						outcome.match.Description = location.Description
 						pair.Enriched = true
+						pair.Took = append(pair.Took, semconv.KeyNoteText)
+					}
+					for _, key := range []string{semconv.KeyGeoLat, semconv.KeyGeoLon} {
+						if attributeMergePolicy[key] != donorFillsEmpty {
+							continue
+						}
+						if location.Attrs[key] == "" || outcome.match.Attrs[key] != "" {
+							continue
+						}
+						outcome.match.Attrs = withAttr(outcome.match.Attrs, key, location.Attrs[key])
+						pair.Took = append(pair.Took, key)
 					}
 					merge.Matched = append(merge.Matched, pair)
 				case pinHeld:
@@ -449,8 +538,9 @@ func indexWinner(winner *catalogMap, grid tileGrid) *winnerIndex {
 	for groupIndex := range winner.Groups {
 		for categoryIndex := range winner.Groups[groupIndex].Categories {
 			category := &winner.Groups[groupIndex].Categories[categoryIndex]
-			if _, held := index.categories[category.Icon]; !held {
-				index.categories[category.Icon] = category
+			key := categoryKey(category.Icon, category.Attrs)
+			if _, held := index.categories[key]; !held {
+				index.categories[key] = category
 			}
 			for locationIndex := range category.Locations {
 				location := &category.Locations[locationIndex]
@@ -458,7 +548,7 @@ func indexWinner(winner *catalogMap, grid tileGrid) *winnerIndex {
 				index.byName[name] = append(index.byName[name], len(index.pins))
 				index.pins = append(index.pins, placedPin{
 					location: location,
-					category: category.Icon,
+					category: key,
 					x:        projectX(location.Longitude, grid),
 					y:        projectY(location.Latitude, grid),
 					tokens:   tokensOf(name),
@@ -655,6 +745,18 @@ func sourceLabelOf(donor *catalogMap, donorGame *catalogGame) string {
 	return donorGame.Title
 }
 
+// sourceSlugOf reads the canonical slug off the donor's origin account. A
+// map without one -- there should be none, every map opens its account at
+// composition -- simply contributes no slug rather than a guessed one.
+func sourceSlugOf(donor *catalogMap) string {
+	for _, account := range donor.Merged {
+		if account.Origin {
+			return account.Slug
+		}
+	}
+	return ""
+}
+
 func slugifyLabel(label string) string {
 	out := make([]rune, 0, len(label))
 	for _, r := range label {
@@ -729,6 +831,28 @@ func mergeGate(merge *mergedSource, winner *catalogMap) error {
 				pair.Winner, first, pair.Donor)
 		}
 		claimed[pair.Winner] = pair.Donor
+		// Every take answers to the policy table and the registry: a key
+		// nobody registered has no business in a ledger, and the older
+		// enriched flag must say exactly what the takes say.
+		tookNote := false
+		for _, key := range pair.Took {
+			if key == semconv.KeyNoteText {
+				tookNote = true
+				continue
+			}
+			if entity, known := semconv.EntityOf(key); !known || entity != semconv.EntityLocation {
+				return fmt.Errorf("pair %d took %q, which no pin may carry", pair.Donor, key)
+			}
+		}
+		if pair.Enriched != tookNote {
+			return fmt.Errorf("pair %d says enriched=%t but its takes say %t",
+				pair.Donor, pair.Enriched, tookNote)
+		}
+	}
+	for _, take := range merge.Enriched {
+		if entity, known := semconv.EntityOf(take.Key); !known || entity != semconv.EntityCategory {
+			return fmt.Errorf("category %q took %q, which no category may carry", take.Category, take.Key)
+		}
 	}
 	seen := make(map[int64]string)
 	counted := 0

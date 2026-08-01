@@ -454,10 +454,14 @@ func buildGame(
 		}
 		// Every map opens its account with where it came from, merged with
 		// anything or not: provenance is part of the map, not a side effect
-		// of composition.
+		// of composition. The account carries both spellings of the source:
+		// the label a person reads and the canonical slug the workbench's
+		// registry names it by, so a ledger line and a plugin card point at
+		// each other without a translation table.
 		for index := range pieces {
 			pieces[index].Merged = []mergedSource{{
 				Source:    sourceDisplayLabel(ref.Source),
+				Slug:      canonicalSourceSlug(ref.Source),
 				Origin:    true,
 				DonorPins: pieces[index].PinCount,
 			}}
@@ -498,6 +502,15 @@ func speakConventions(game *catalogGame) error {
 				if _, declared := category.Attrs[semconv.KeyRenderAs]; !declared {
 					category.Attrs = withAttr(category.Attrs, semconv.KeyRenderAs,
 						semconv.RenderAs(nil, category.DisplayType))
+				}
+				// Where two sources are known to spell one concept two ways,
+				// the shared name rides the category itself, so the merge
+				// reads identity off the payload rather than a table of its
+				// own.
+				if shared := categoryEquivalents[game.Slug][category.Icon]; shared != "" {
+					if _, declared := category.Attrs[semconv.KeyCategoryKey]; !declared {
+						category.Attrs = withAttr(category.Attrs, semconv.KeyCategoryKey, shared)
+					}
 				}
 				if category.IconAsset != "" {
 					kind := semconv.IconKindGlyph
