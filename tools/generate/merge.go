@@ -56,14 +56,32 @@ var categoryEquivalents = map[string]map[string]string{
 // the ledger a later pass -- or a curious reader -- can audit the decisions
 // by.
 type mergedSource struct {
-	Source    string       `json:"source"`
+	Source string `json:"source"`
+	// Origin marks the account of the source the map itself came from, so a
+	// single-source map still says where it is from and a composed map's
+	// unledgered pins have somewhere to answer to. DonorPins on an origin
+	// account is simply the map's own count at composition.
+	Origin    bool         `json:"origin,omitempty"`
 	DonorPins int          `json:"donorPins"`
 	Matched   []mergedPair `json:"matched,omitempty"`
 	Added     int          `json:"added"`
 	Adopted   []adoptedPin `json:"adopted,omitempty"`
 	Held      []heldPin    `json:"held,omitempty"`
 	Rejected  []heldPin    `json:"rejected,omitempty"`
-	Alignment string       `json:"alignment"`
+	Alignment string       `json:"alignment,omitempty"`
+}
+
+// sourceDisplayLabel is how a crawler's name reads on a card or a ledger.
+func sourceDisplayLabel(source string) string {
+	switch source {
+	case "", "mapgenie":
+		return "MapGenie"
+	case "ign":
+		return "IGN Wiki"
+	case "piggyback":
+		return "Piggyback"
+	}
+	return source
 }
 
 // mergedPair records one place both sources pin: the donor pin, the serving
@@ -162,8 +180,18 @@ func mergeGame(winner, donor *catalogGame, shared tileGrid) error {
 		donorMap := &donor.Maps[index]
 		target := winnerMaps[donorMap.Slug]
 		if target == nil {
-			// A map the game has never drawn is a whole contribution: it
-			// joins the game as this source captured it, icons and all.
+			// Sources do not divide the world the same way: one source's
+			// separate map may be ground another source draws inside a
+			// larger sheet, in its own projection. A shared slug is only
+			// the cheapest evidence of shared ground -- the real test is
+			// whether the places both name determine a transformation, so
+			// before a map is taken as new, it is tried against every map
+			// the game already draws.
+			target = overlappingMap(winner, donorMap, shared)
+		}
+		if target == nil {
+			// Nothing the game draws pictures this ground: the map joins
+			// whole, as this source captured it, icons and all.
 			if err := contributeMap(winner, donor, donorMap); err != nil {
 				return err
 			}
@@ -181,6 +209,35 @@ func mergeGame(winner, donor *catalogGame, shared tileGrid) error {
 		}
 	}
 	return nil
+}
+
+// overlappingMap finds the winner map that pictures the same ground as a
+// donor map under another slug, if any does: the one whose named places fit
+// the donor's through an affine that closes. The fit is the compatibility
+// test the differing projections make necessary -- coordinates cannot be
+// compared, but the places can.
+func overlappingMap(winner *catalogGame, donorMap *catalogMap, shared tileGrid) *catalogMap {
+	donorAnchors := anchorsOfMap(donorMap, gridOf(donorMap, shared))
+	var best *catalogMap
+	bestAnchors := 0
+	for index := range winner.Maps {
+		candidate := &winner.Maps[index]
+		if candidate.Parent != "" {
+			continue
+		}
+		_, report, err := blend.Fit(donorAnchors, anchorsOfMap(candidate, gridOf(candidate, shared)))
+		if err != nil {
+			continue
+		}
+		if report.Anchors > bestAnchors {
+			best, bestAnchors = candidate, report.Anchors
+		}
+	}
+	if best != nil {
+		fmt.Printf("merge %s: %s pictures ground %s already draws (%d shared names)\n",
+			winner.Slug, donorMap.Slug, best.Slug, bestAnchors)
+	}
+	return best
 }
 
 // contributeMap carries one source's map into the composed game untouched:
@@ -583,6 +640,11 @@ func mergedGroupID(winner *catalogMap) int64 {
 }
 
 func sourceLabelOf(donor *catalogMap, donorGame *catalogGame) string {
+	for _, account := range donor.Merged {
+		if account.Origin {
+			return account.Source
+		}
+	}
 	for _, v := range donor.Variants {
 		if v.Name != "" && v.Name != "Default" {
 			return v.Name

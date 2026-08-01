@@ -64,11 +64,13 @@ export function showPin(pin, focus = false) {
 
 // pinSource reads a pin's provenance out of the map's merge account: a pin in
 // a source-titled group or adopted into a native category came from that
-// source, and a pin another source matched is corroborated by it. The index
-// is built once per map and thrown away with it.
+// source, a pin another source matched is the origin's word corroborated, and
+// every other pin is the origin's alone. The index is built once per map and
+// thrown away with it.
 function pinSource(pin) {
   const merged = state.map?.merged;
   if (!merged?.length) return "";
+  const origin = merged.find((account) => account.origin)?.source || "";
   if (state.pinSourceIndex?.map !== state.map) {
     const byID = new Map();
     for (const account of merged) {
@@ -76,15 +78,16 @@ function pinSource(pin) {
         byID.set(adopted.d, account.source);
       }
       for (const pair of account.matched || []) {
-        byID.set(pair.w, `confirmed by ${account.source}`);
+        const confirmed = `confirmed by ${account.source}`;
+        byID.set(pair.w, origin ? `${origin} · ${confirmed}` : confirmed);
       }
     }
     state.pinSourceIndex = { map: state.map, byID };
   }
   for (const account of merged) {
-    if (pin.group.title === account.source) return account.source;
+    if (!account.origin && pin.group.title === account.source) return account.source;
   }
-  return state.pinSourceIndex.byID.get(pin.location.id) || "";
+  return state.pinSourceIndex.byID.get(pin.location.id) || origin;
 }
 
 // The words belonging to a pin are fetched the first time one is opened, so a

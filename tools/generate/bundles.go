@@ -21,7 +21,8 @@ import (
 //
 //	1  first revisioned builds
 //	2  merge resolution: subset names, adoption, one-to-one matches
-const policyRevision = 2
+//	3  origin provenance on every map; overlap merges across map slugs
+const policyRevision = 3
 
 // writeBundles packs each game into its own .atlas file, named by game,
 // capture day, and stamp. The directory is a registry, not a mirror: a new

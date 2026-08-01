@@ -28,6 +28,9 @@ type archiveGame struct {
 	Directory string `json:"directory"`
 	ID        int64  `json:"id"`
 	Title     string `json:"title"`
+	// Source names the crawler that filled this directory. Older archives
+	// predate the field; an empty value is MapGenie, the original source.
+	Source string `json:"source"`
 }
 
 type snapshotIndex struct {
@@ -424,6 +427,16 @@ func buildGame(
 		}
 		if game.Slug == "" {
 			game.Slug = gameSlug
+		}
+		// Every map opens its account with where it came from, merged with
+		// anything or not: provenance is part of the map, not a side effect
+		// of composition.
+		for index := range pieces {
+			pieces[index].Merged = []mergedSource{{
+				Source:    sourceDisplayLabel(ref.Source),
+				Origin:    true,
+				DonorPins: pieces[index].PinCount,
+			}}
 		}
 		game.Maps = append(game.Maps, pieces...)
 	}

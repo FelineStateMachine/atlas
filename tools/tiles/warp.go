@@ -13,49 +13,59 @@ import (
 	"image"
 	"image/color"
 	"math"
+	"path/filepath"
 	"sort"
 	"strconv"
 
 	"github.com/FelineStateMachine/atlas/internal/blend"
 )
 
-// planWarps finds every map captured by more than one source and plans the
-// lesser layers' resampling into the finest one's world. Plans arrive after
-// asset paths are settled, so the warped names stay stable and unique.
+// planWarps finds every game captured by more than one source and plans the
+// lesser layers' resampling into the finest one's world. Sources do not have
+// to agree on how the world divides into maps: whether two captures picture
+// the same ground is decided by the fit itself, which refuses pairs that
+// share too few named places to align. Plans arrive after asset paths are
+// settled, so the warped names stay stable and unique.
 func planWarps(pending []pendingPlan) []pendingPlan {
-	// One representative layer per capture: a map directory is one source's
-	// account of one map, and its deepest layer is the picture worth
-	// aligning. Further layers of the same capture are alternate art of the
-	// same world, already aligned by their shared window.
+	// One representative layer per map directory: its deepest layer is the
+	// picture worth aligning; further layers of the same map are alternate
+	// art of the same world, already aligned by their shared window. A
+	// capture is the game directory above the maps -- one source's whole
+	// account of the game -- and only maps of different captures are ever
+	// paired: a single source already divided its world deliberately.
 	deepestByDir := make(map[string]int)
+	capturesByGame := make(map[string]map[string]bool)
 	for index, entry := range pending {
 		held, ok := deepestByDir[entry.plan.MapDir]
 		if !ok || worldDepth(entry.plan) > worldDepth(pending[held].plan) {
 			deepestByDir[entry.plan.MapDir] = index
 		}
+		slug := entry.plan.GameSlug
+		if capturesByGame[slug] == nil {
+			capturesByGame[slug] = make(map[string]bool)
+		}
+		capturesByGame[slug][captureDir(entry.plan)] = true
 	}
-	byMap := make(map[[2]string][]int)
-	var order [][2]string
+	byGame := make(map[string][]int)
+	var order []string
 	for _, index := range deepestByDir {
-		key := [2]string{pending[index].plan.GameSlug, pending[index].plan.MapSlug}
-		if _, seen := byMap[key]; !seen {
-			order = append(order, key)
-		}
-		byMap[key] = append(byMap[key], index)
-	}
-	sort.Slice(order, func(a, b int) bool {
-		if order[a][0] != order[b][0] {
-			return order[a][0] < order[b][0]
-		}
-		return order[a][1] < order[b][1]
-	})
-
-	var warps []pendingPlan
-	for _, key := range order {
-		group := byMap[key]
-		if len(group) < 2 {
+		slug := pending[index].plan.GameSlug
+		if len(capturesByGame[slug]) < 2 {
 			continue
 		}
+		if _, seen := byGame[slug]; !seen {
+			order = append(order, slug)
+		}
+		byGame[slug] = append(byGame[slug], index)
+	}
+	sort.Strings(order)
+
+	var warps []pendingPlan
+	for _, slug := range order {
+		group := byGame[slug]
+		sort.Slice(group, func(a, b int) bool {
+			return pending[group[a]].plan.MapDir < pending[group[b]].plan.MapDir
+		})
 		base := group[0]
 		for _, candidate := range group[1:] {
 			if worldDepth(pending[candidate].plan) > worldDepth(pending[base].plan) {
@@ -63,7 +73,7 @@ func planWarps(pending []pendingPlan) []pendingPlan {
 			}
 		}
 		for _, donor := range group {
-			if donor == base {
+			if donor == base || captureDir(pending[donor].plan) == captureDir(pending[base].plan) {
 				continue
 			}
 			warp, ok := planWarp(&pending[base].plan, &pending[donor].plan, pending[donor].gameTitle)
@@ -73,6 +83,12 @@ func planWarps(pending []pendingPlan) []pendingPlan {
 		}
 	}
 	return warps
+}
+
+// captureDir names one source's whole account of a game: the directory the
+// map directories sit inside.
+func captureDir(plan tilePlan) string {
+	return filepath.Dir(filepath.Dir(plan.MapDir))
 }
 
 // worldDepth is the finest resolution a layer draws its world at, in pixels
