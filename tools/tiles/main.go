@@ -308,7 +308,12 @@ func run(source, output string, force bool) error {
 	var carried int
 	derived := make(map[string]bool)
 
-	out := manifest{TileSize: tileSize, Size: worldSize}
+	type pendingPlan struct {
+		gameTitle string
+		title     string
+		plan      tilePlan
+	}
+	var pending []pendingPlan
 	for _, game := range index.Games {
 		mapDirs, err := filepath.Glob(filepath.Join(source, game.Directory, "maps", "*"))
 		if err != nil {
@@ -332,26 +337,50 @@ func run(source, output string, force bool) error {
 				continue
 			}
 			for _, plan := range plans {
-				stamp := planStamp(plan)
-				if kept, ok := carry(built, plan, stamp, output, force); ok {
-					// The window is read from the archive rather than derived
-					// from the pyramid, so it is answered from the plan even
-					// for a layer nothing has changed under.
-					kept.Grid = plan.Frame.grid()
-					out.Variants = append(out.Variants, kept)
-					carried++
-					continue
-				}
-				fmt.Printf("tile %s / %s / %s\n", game.Title, title, plan.SourcePath)
-				entry, err := buildPyramid(temp, plan)
-				if err != nil {
-					return fmt.Errorf("%s / %s: %w", title, plan.SourcePath, err)
-				}
-				entry.Stamp = stamp
-				out.Variants = append(out.Variants, entry)
-				derived[plan.AssetPath] = true
+				pending = append(pending, pendingPlan{gameTitle: game.Title, title: title, plan: plan})
 			}
 		}
+	}
+
+	// Two sources capturing the same game name the same directory for the
+	// same map. Every collider takes its layer path into its name -- all of
+	// them, so the outcome does not depend on the order the archive lists
+	// its games in.
+	byAssetPath := make(map[string][]int, len(pending))
+	for index := range pending {
+		byAssetPath[pending[index].plan.AssetPath] = append(
+			byAssetPath[pending[index].plan.AssetPath], index)
+	}
+	for _, colliders := range byAssetPath {
+		if len(colliders) < 2 {
+			continue
+		}
+		for _, at := range colliders {
+			pending[at].plan.AssetPath += "__" + slugify(pending[at].plan.SourcePath)
+		}
+	}
+
+	out := manifest{TileSize: tileSize, Size: worldSize}
+	for _, entry := range pending {
+		plan := entry.plan
+		stamp := planStamp(plan)
+		if kept, ok := carry(built, plan, stamp, output, force); ok {
+			// The window is read from the archive rather than derived
+			// from the pyramid, so it is answered from the plan even
+			// for a layer nothing has changed under.
+			kept.Grid = plan.Frame.grid()
+			out.Variants = append(out.Variants, kept)
+			carried++
+			continue
+		}
+		fmt.Printf("tile %s / %s / %s\n", entry.gameTitle, entry.title, plan.SourcePath)
+		variant, err := buildPyramid(temp, plan)
+		if err != nil {
+			return fmt.Errorf("%s / %s: %w", entry.title, plan.SourcePath, err)
+		}
+		variant.Stamp = stamp
+		out.Variants = append(out.Variants, variant)
+		derived[plan.AssetPath] = true
 	}
 	sort.Slice(out.Variants, func(i, j int) bool {
 		return out.Variants[i].SourcePath < out.Variants[j].SourcePath
