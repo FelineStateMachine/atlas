@@ -29,6 +29,7 @@ breaks; new keys arrive as `experimental` and earn `stable`.
 | `atlas.geometry.radius_km` | world | decimal string | experimental | The body's mean radius. |
 | `atlas.geo.lat` | location | decimal degrees | experimental | True planetary latitude as published (planetocentric). Provenance and card material; rendering derives from the map-level mapping. |
 | `atlas.geo.lon` | location | decimal degrees | experimental | True planetary longitude as published (east-positive). |
+| `atlas.stroke.width_px` | zone | positive decimal (world px) | experimental | The ground width of a zone whose features are lines: a trail is a line and a weight, and the weight lets a reader draw the path as one continuous stroke. |
 | `atlas.category.key` | category | slug | experimental | A category's merge identity across sources. Absent, the icon key stands in. |
 
 ## Policy names (never written to a payload)

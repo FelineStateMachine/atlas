@@ -357,12 +357,18 @@ export function zoneScrimStyle() {
   return state.zonesVisible ? zoneScrimFill : null;
 }
 
-export function zoneStyle(feature) {
+export function zoneStyle(feature, resolution) {
   if (!state.zonesVisible) return null;
   const zone = feature.get("zone");
   const child = feature.get("child");
   const highlighted = state.highlightedZones.has(zone.id);
   const dimmed = zoneContextDimmed(zone.id);
+  // A path zone carries its ground width: the stroke is the zone, drawn at
+  // the width the world gives it rather than a width the screen does.
+  const groundWidth = Number(zone.attrs?.["atlas.stroke.width_px"]) || 0;
+  if (groundWidth > 0 && feature.getGeometry()?.getType() === "MultiLineString") {
+    return pathZoneStyle(zone, feature.get("color"), groundWidth / resolution, highlighted, dimmed);
+  }
   const key = `zone:${zone.id}:${child ? 1 : 0}:${highlighted ? 1 : dimmed ? 2 : 0}`;
   if (state.styleCache.has(key)) return state.styleCache.get(key);
   const color = feature.get("color");
@@ -411,6 +417,53 @@ export function zoneStyle(feature) {
   ];
   state.styleCache.set(key, highlightedStyles);
   return highlightedStyles;
+}
+
+// pathZoneStyle draws a line zone as the one stroke it is: a translucent
+// band at ground width with round joins, and a thin centerline so the path
+// reads at any zoom. Widths depend on the view's resolution, so these styles
+// are built per call rather than cached; a world holds few path zones.
+function pathZoneStyle(zone, color, width, highlighted, dimmed) {
+  const band = Math.max(width, 1.5);
+  if (highlighted) {
+    return [
+      new Style({
+        stroke: new Stroke({
+          color: "rgba(255,255,255,0.94)",
+          width: band + 4,
+          lineCap: "round",
+          lineJoin: "round",
+        }),
+        zIndex: 9000,
+      }),
+      new Style({
+        stroke: new Stroke({
+          color: hexToRGBA(color, 0.9),
+          width: band,
+          lineCap: "round",
+          lineJoin: "round",
+        }),
+        zIndex: 9001,
+      }),
+    ];
+  }
+  return [
+    new Style({
+      stroke: new Stroke({
+        color: hexToRGBA(color, dimmed ? 0.14 : 0.3),
+        width: band,
+        lineCap: "round",
+        lineJoin: "round",
+      }),
+    }),
+    new Style({
+      stroke: new Stroke({
+        color: hexToRGBA(color, dimmed ? 0.4 : 0.8),
+        width: Math.min(1.6, band),
+        lineDash: [7, 5],
+      }),
+    }),
+  ];
 }
 
 export function zoneTitleStyle(feature) {

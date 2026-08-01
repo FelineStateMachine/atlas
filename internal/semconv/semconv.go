@@ -37,6 +37,7 @@ type Entity string
 const (
 	EntityBundle   Entity = "bundle"
 	EntityWorld    Entity = "world"
+	EntityZone     Entity = "zone"
 	EntityCategory Entity = "category"
 	EntityLocation Entity = "location"
 )
@@ -115,6 +116,12 @@ const (
 	KeyGeoLat = "atlas.geo.lat"
 	KeyGeoLon = "atlas.geo.lon"
 
+	// StrokeWidthPx is the ground width of a zone whose features are lines
+	// rather than areas, in world pixels: a trail is a line and a weight,
+	// and declaring the weight lets a reader draw the path as one
+	// continuous stroke instead of an area faked around it.
+	KeyStrokeWidthPx = "atlas.stroke.width_px"
+
 	// CategoryKey is a category's merge identity: the slug categories from
 	// different sources meet under when they mean the same concept. Absent,
 	// the icon key stands in, which is today's behavior named.
@@ -181,6 +188,14 @@ func decimal(value string) error {
 	return nil
 }
 
+func positiveDecimal(value string) error {
+	parsed, err := strconv.ParseFloat(value, 64)
+	if err != nil || parsed <= 0 {
+		return fmt.Errorf("%q is not a positive number", value)
+	}
+	return nil
+}
+
 func setName(value string) error {
 	set, name, found := strings.Cut(value, "/")
 	if !found || set == "" || name == "" {
@@ -224,6 +239,7 @@ var registry = map[string]definition{
 	KeyGeometryRadiusKM:    {EntityWorld, Experimental, decimal},
 	KeyGeoLat:              {EntityLocation, Experimental, decimal},
 	KeyGeoLon:              {EntityLocation, Experimental, decimal},
+	KeyStrokeWidthPx:       {EntityZone, Experimental, positiveDecimal},
 	KeyCategoryKey:         {EntityCategory, Experimental, slug},
 }
 

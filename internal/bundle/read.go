@@ -139,6 +139,9 @@ type payloadPeek struct {
 			Attrs       map[string]string `json:"attrs"`
 		} `json:"categories"`
 	} `json:"groups"`
+	Zones []struct {
+		Attrs map[string]string `json:"attrs"`
+	} `json:"zones"`
 	Attrs map[string]string `json:"attrs"`
 }
 
@@ -251,6 +254,11 @@ func validateConventions(slug string, peek payloadPeek, text []byte) error {
 		if _, err := semconv.ParseEquirect(
 			peek.Attrs[semconv.KeyGeometryEquirectPx],
 			peek.Attrs[semconv.KeyGeometryEquirectDeg]); err != nil {
+			return fmt.Errorf("world %s: %w", slug, err)
+		}
+	}
+	for _, zone := range peek.Zones {
+		if err := semconv.Validate(semconv.EntityZone, zone.Attrs); err != nil {
 			return fmt.Errorf("world %s: %w", slug, err)
 		}
 	}

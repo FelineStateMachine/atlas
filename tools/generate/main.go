@@ -104,13 +104,14 @@ type rawLocation struct {
 }
 
 type rawRegion struct {
-	ID             int64           `json:"id"`
-	Title          string          `json:"title"`
-	Subtitle       string          `json:"subtitle"`
-	ParentRegionID *int64          `json:"parent_region_id"`
-	CenterX        json.RawMessage `json:"center_x"`
-	CenterY        json.RawMessage `json:"center_y"`
-	Features       []rawFeature    `json:"features"`
+	ID             int64             `json:"id"`
+	Title          string            `json:"title"`
+	Subtitle       string            `json:"subtitle"`
+	ParentRegionID *int64            `json:"parent_region_id"`
+	CenterX        json.RawMessage   `json:"center_x"`
+	CenterY        json.RawMessage   `json:"center_y"`
+	Features       []rawFeature      `json:"features"`
+	Attrs          map[string]string `json:"atlas_attrs"`
 }
 
 type rawFeature struct {
@@ -301,13 +302,14 @@ type catalogLink struct {
 }
 
 type zone struct {
-	ID             int64       `json:"id"`
-	Title          string      `json:"title"`
-	Subtitle       string      `json:"subtitle,omitempty"`
-	ParentRegionID *int64      `json:"parentRegionId,omitempty"`
-	Center         *coordinate `json:"center,omitempty"`
-	Shard          int64       `json:"shard,omitempty"`
-	Features       []geometry  `json:"features"`
+	ID             int64             `json:"id"`
+	Title          string            `json:"title"`
+	Subtitle       string            `json:"subtitle,omitempty"`
+	ParentRegionID *int64            `json:"parentRegionId,omitempty"`
+	Center         *coordinate       `json:"center,omitempty"`
+	Shard          int64             `json:"shard,omitempty"`
+	Features       []geometry        `json:"features"`
+	Attrs          map[string]string `json:"attrs,omitempty"`
 }
 
 var errWorldNotReady = errors.New("world is not ready for embedding")
@@ -503,6 +505,11 @@ func speakConventions(game *catalogVolume) error {
 		}
 		if err := semconv.Validate(semconv.EntityWorld, m.Attrs); err != nil {
 			return fmt.Errorf("world %s: %w", m.Slug, err)
+		}
+		for zoneIndex := range m.Zones {
+			if err := semconv.Validate(semconv.EntityZone, m.Zones[zoneIndex].Attrs); err != nil {
+				return fmt.Errorf("world %s zone %q: %w", m.Slug, m.Zones[zoneIndex].Title, err)
+			}
 		}
 		for groupIndex := range m.Groups {
 			categories := m.Groups[groupIndex].Categories
@@ -795,6 +802,7 @@ func buildWorld(
 			Title:          rawRegion.Title,
 			Subtitle:       rawRegion.Subtitle,
 			ParentRegionID: rawRegion.ParentRegionID,
+			Attrs:          rawRegion.Attrs,
 		}
 		centerX, hasX, err := optionalNumber(rawRegion.CenterX)
 		if err != nil {

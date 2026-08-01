@@ -78,10 +78,11 @@ type Dataset struct {
 	TitleOf  func(Fields) string
 	Describe func(Fields) string
 
-	// Zones. RibbonWidth turns a line dataset's features into clickable
-	// ground, in world pixels of the 8192 square.
+	// Zones. StrokeWidth is the ground width a line dataset's zones are
+	// drawn and clicked at, in world pixels of the 8192 square: the path
+	// stays the line it is, and the viewer strokes it.
 	ZoneOf      func(Fields) ZoneKey
-	RibbonWidth float64
+	StrokeWidth float64
 
 	// Basemap. Emphasis scales a stroke per feature -- an arterial wider
 	// than a lane -- and absent means every feature draws alike.
@@ -196,7 +197,7 @@ var bend = City{
 				return ZoneKey{Key: slugify(f["Trail_Name"]), Title: f["Trail_Name"],
 					Subtitle: title(f["Park"], "Trail")}
 			},
-			RibbonWidth: 12,
+			StrokeWidth: 12,
 			Role:        "trail",
 		},
 		{
@@ -690,6 +691,13 @@ func buildRegions(capture *Capture, pairs []pairing, ids *mgdoc.IDSpace) ([]mgdo
 					Title:    scrub(key.Title),
 					Subtitle: scrub(title(key.Subtitle, curated.Title)),
 				}
+				// A zone made of lines declares its ground width, so a
+				// reader can draw the path as the one stroke it is.
+				if curated.Geometry == "line" && curated.StrokeWidth > 0 {
+					zone.Attrs = map[string]string{
+						semconv.KeyStrokeWidthPx: strconv.FormatFloat(curated.StrokeWidth, 'f', -1, 64),
+					}
+				}
 				buckets[key.Key] = zone
 				order = append(order, key.Key)
 			}
@@ -711,9 +719,10 @@ func buildRegions(capture *Capture, pairs []pairing, ids *mgdoc.IDSpace) ([]mgdo
 	return regions, nil
 }
 
-// zoneGeometry lands one feature's ground in the world as a MultiPolygon of
-// synthetic coordinates: rings project position by position, lines widen
-// into one quad per segment.
+// zoneGeometry lands one feature's ground in the world in synthetic
+// coordinates: rings project position by position into a MultiPolygon, and
+// lines stay the MultiLineString they are -- the zone's declared stroke
+// width says how wide the viewer draws them.
 func zoneGeometry(window Window, curated *Dataset, feature Feature) (*mgdoc.Geometry, error) {
 	var polygons [][][][]float64
 	switch feature.Geometry.Type {
@@ -737,12 +746,30 @@ func zoneGeometry(window Window, curated *Dataset, feature Feature) (*mgdoc.Geom
 			}
 		}
 	case GeometryLines:
-		if curated.RibbonWidth <= 0 {
-			return nil, fmt.Errorf("%s zones lines without a ribbon width", curated.Slug)
+		if curated.StrokeWidth <= 0 {
+			return nil, fmt.Errorf("%s zones lines without a stroke width", curated.Slug)
 		}
+		var lines [][][]float64
 		for _, line := range feature.Geometry.Lines {
-			polygons = append(polygons, ribbon(window, line, curated.RibbonWidth)...)
+			projected := make([][]float64, 0, len(line))
+			for _, position := range line {
+				if len(position) < 2 {
+					continue
+				}
+				projected = append(projected, synthetic(window, position[0], position[1]))
+			}
+			if len(projected) >= 2 {
+				lines = append(lines, projected)
+			}
 		}
+		if len(lines) == 0 {
+			return nil, nil
+		}
+		coordinates, err := json.Marshal(lines)
+		if err != nil {
+			return nil, err
+		}
+		return &mgdoc.Geometry{Type: "MultiLineString", Coordinates: coordinates}, nil
 	default:
 		return nil, fmt.Errorf("%s feature %d has no ground to zone", curated.Slug, feature.ID)
 	}
@@ -760,44 +787,6 @@ func zoneGeometry(window Window, curated *Dataset, feature Feature) (*mgdoc.Geom
 // the synthetic coordinates a zone ring speaks.
 func synthetic(window Window, lon, lat float64) []float64 {
 	x, y := window.WorldPixel(lon, lat)
-	return []float64{mgdoc.SyntheticLongitude(x), mgdoc.SyntheticLatitude(y)}
-}
-
-// ribbon widens a polyline into one closed quad per segment, in world
-// pixels, each spelled as a single-ring polygon of synthetic coordinates.
-// Quads at a joint overlap rather than join; a zone's translucent fill
-// wears that as a slightly darker elbow, which is the price of not writing
-// a polygon clipper for ground that is really a line.
-func ribbon(window Window, line [][]float64, width float64) [][][][]float64 {
-	var quads [][][][]float64
-	half := width / 2
-	for at := 0; at+1 < len(line); at++ {
-		from, to := line[at], line[at+1]
-		if len(from) < 2 || len(to) < 2 {
-			continue
-		}
-		x0, y0 := window.WorldPixel(from[0], from[1])
-		x1, y1 := window.WorldPixel(to[0], to[1])
-		dx, dy := x1-x0, y1-y0
-		length := math.Hypot(dx, dy)
-		if length == 0 {
-			continue
-		}
-		// The unit normal, scaled to half the ribbon.
-		nx, ny := -dy/length*half, dx/length*half
-		ring := [][]float64{
-			syntheticXY(x0+nx, y0+ny),
-			syntheticXY(x1+nx, y1+ny),
-			syntheticXY(x1-nx, y1-ny),
-			syntheticXY(x0-nx, y0-ny),
-			syntheticXY(x0+nx, y0+ny),
-		}
-		quads = append(quads, [][][]float64{ring})
-	}
-	return quads
-}
-
-func syntheticXY(x, y float64) []float64 {
 	return []float64{mgdoc.SyntheticLongitude(x), mgdoc.SyntheticLatitude(y)}
 }
 

@@ -307,7 +307,7 @@ type mapPayload struct {
 		SourceZoom int `json:"sourceZoom"`
 		FirstTile  int `json:"firstTile"`
 	} `json:"grid"`
-	Variants []struct {
+	Lenses []struct {
 		Name    string   `json:"name"`
 		Tiles   string   `json:"tiles"`
 		Formats []string `json:"formats"`
@@ -320,7 +320,7 @@ type mapPayload struct {
 		Surface *struct {
 			X, Y, Width, Height int
 		} `json:"surface"`
-	} `json:"variants"`
+	} `json:"lenses"`
 	Groups []struct {
 		Categories []struct {
 			Title       string `json:"title"`
@@ -334,7 +334,7 @@ type mapPayload struct {
 
 func readBuiltPayload(t *testing.T, held *bundle.Bundle, slug string) mapPayload {
 	t.Helper()
-	raw, err := held.ReadEntry("maps/" + slug + ".json")
+	raw, err := held.ReadEntry("worlds/" + slug + ".json")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -347,7 +347,7 @@ func readBuiltPayload(t *testing.T, held *bundle.Bundle, slug string) mapPayload
 
 func readBuiltLocations(t *testing.T, held *bundle.Bundle, slug string) []bundle.Location {
 	t.Helper()
-	raw, err := held.ReadEntry("maps/" + slug + ".bin")
+	raw, err := held.ReadEntry("worlds/" + slug + ".bin")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -402,8 +402,8 @@ func TestLayeredMapLocationsNameTheirLayer(t *testing.T) {
 	totk := builtGame(t, games, "zelda-tears-of-the-kingdom")
 	hyrule := builtMapSlug(t, totk, "Hyrule")
 	payload := readBuiltPayload(t, totk, hyrule)
-	layers := make(map[int64]string, len(payload.Variants))
-	for _, variant := range payload.Variants {
+	layers := make(map[int64]string, len(payload.Lenses))
+	for _, variant := range payload.Lenses {
 		if variant.Shard == 0 {
 			t.Fatalf("Tears of the Kingdom layer %q names no shard", variant.Name)
 		}
@@ -435,7 +435,7 @@ func TestSheetPiecesCarryTheirGroundSeparately(t *testing.T) {
 	games := builtBundles(t)
 	vegas := builtGame(t, games, "fallout-new-vegas")
 	mccarran := builtMapSlug(t, vegas, "Mojave Wasteland — Camp McCarran")
-	for _, variant := range readBuiltPayload(t, vegas, mccarran).Variants {
+	for _, variant := range readBuiltPayload(t, vegas, mccarran).Lenses {
 		if variant.Bounds == nil || variant.Surface == nil {
 			t.Fatalf("Camp McCarran layer %q has bounds %v and surface %v, wanting both",
 				variant.Name, variant.Bounds, variant.Surface)
@@ -466,7 +466,7 @@ func TestSheetPiecesCarryTheirGroundSeparately(t *testing.T) {
 	} {
 		held := builtGame(t, games, place.game)
 		slug := builtMapSlug(t, held, place.title)
-		for _, variant := range readBuiltPayload(t, held, slug).Variants {
+		for _, variant := range readBuiltPayload(t, held, slug).Lenses {
 			if variant.Surface == nil || variant.Surface.Width <= 0 || variant.Surface.Height <= 0 {
 				t.Errorf("%s / %s layer %q measures no ground", place.game, place.title, variant.Name)
 				continue
@@ -486,7 +486,7 @@ func TestSheetPiecesCarryTheirGroundSeparately(t *testing.T) {
 	// Tunic is drawn inside a solid border filling a full-world window, so its
 	// ground has to be a fraction of what it is cut from.
 	tunic := builtGame(t, games, "tunic")
-	for _, variant := range readBuiltPayload(t, tunic, builtMapSlug(t, tunic, "World")).Variants {
+	for _, variant := range readBuiltPayload(t, tunic, builtMapSlug(t, tunic, "World")).Lenses {
 		if variant.Surface.Width > 6000 || variant.Surface.Height > 6000 {
 			t.Errorf("Tunic ground is %dx%d, so the border is still being divided up",
 				variant.Surface.Width, variant.Surface.Height)
@@ -529,7 +529,7 @@ func TestBuiltBundlesCarryTextLabelsAndZones(t *testing.T) {
 		t.Errorf("Forza Japan zones = %d, want 10", len(japan.Zones))
 	}
 	var bounded int
-	for _, variant := range japan.Variants {
+	for _, variant := range japan.Lenses {
 		if variant.Bounds != nil && variant.Bounds.Width == 4096 && variant.Bounds.Height == 4096 {
 			bounded++
 		}
@@ -557,7 +557,7 @@ func TestAMapCutFromItsOwnWindowPlacesItsPins(t *testing.T) {
 		t.Errorf("window = zoom %d at tile %d, want zoom 6 at tile 0",
 			payload.Grid.SourceZoom, payload.Grid.FirstTile)
 	}
-	bounds := payload.Variants[0].Bounds
+	bounds := payload.Lenses[0].Bounds
 	if bounds == nil {
 		t.Fatal("the first layer has no bounds")
 	}

@@ -229,30 +229,58 @@ func TestTranslateShapesTheDocument(t *testing.T) {
 	if trail.Subtitle != "Riley Ranch Nature Reserve" || len(trail.Features) != 1 {
 		t.Fatalf("trail zone is %+v", trail)
 	}
-	var ribbonCoords [][][][]float64
-	if err := json.Unmarshal(trail.Features[0].Geometry.Coordinates, &ribbonCoords); err != nil {
+	// A line zone stays the line it is, and declares the width it is drawn at.
+	if err := semconv.Validate(semconv.EntityZone, trail.Attrs); err != nil {
+		t.Fatalf("trail attrs: %v", err)
+	}
+	if trail.Attrs[semconv.KeyStrokeWidthPx] != "12" {
+		t.Fatalf("trail declares width %q", trail.Attrs[semconv.KeyStrokeWidthPx])
+	}
+	if trail.Features[0].Geometry.Type != "MultiLineString" {
+		t.Fatalf("trail geometry is %q", trail.Features[0].Geometry.Type)
+	}
+	var lineCoords [][][]float64
+	if err := json.Unmarshal(trail.Features[0].Geometry.Coordinates, &lineCoords); err != nil {
 		t.Fatal(err)
 	}
-	if len(ribbonCoords) != 1 || len(ribbonCoords[0][0]) != 5 {
-		t.Fatalf("one segment should ribbon into one closed quad, got %v", ribbonCoords)
+	if len(lineCoords) != 1 || len(lineCoords[0]) != 2 {
+		t.Fatalf("the two-point trail should stay one two-point line, got %v", lineCoords)
+	}
+	if out.Regions[1].Attrs != nil {
+		t.Fatalf("a polygon zone declares no stroke, got %v", out.Regions[1].Attrs)
 	}
 
 	// Every zone position must project back inside the world square.
-	for _, region := range out.Regions {
-		for _, feature := range region.Features {
-			var polygons [][][][]float64
-			if err := json.Unmarshal(feature.Geometry.Coordinates, &polygons); err != nil {
+	positions := func(geometry mgdoc.Geometry) [][]float64 {
+		var out [][]float64
+		if geometry.Type == "MultiLineString" {
+			var lines [][][]float64
+			if err := json.Unmarshal(geometry.Coordinates, &lines); err != nil {
 				t.Fatal(err)
 			}
-			for _, polygon := range polygons {
-				for _, ring := range polygon {
-					for _, position := range ring {
-						x := mgdoc.ProjectX(position[0], mgdoc.SourceZoom, 0)
-						y := mgdoc.ProjectY(position[1], mgdoc.SourceZoom, 0)
-						if x < -1 || x > mgdoc.WorldSize+1 || y < -1 || y > mgdoc.WorldSize+1 {
-							t.Fatalf("zone %q position projects to (%v,%v)", region.Title, x, y)
-						}
-					}
+			for _, line := range lines {
+				out = append(out, line...)
+			}
+			return out
+		}
+		var polygons [][][][]float64
+		if err := json.Unmarshal(geometry.Coordinates, &polygons); err != nil {
+			t.Fatal(err)
+		}
+		for _, polygon := range polygons {
+			for _, ring := range polygon {
+				out = append(out, ring...)
+			}
+		}
+		return out
+	}
+	for _, region := range out.Regions {
+		for _, feature := range region.Features {
+			for _, position := range positions(feature.Geometry) {
+				x := mgdoc.ProjectX(position[0], mgdoc.SourceZoom, 0)
+				y := mgdoc.ProjectY(position[1], mgdoc.SourceZoom, 0)
+				if x < -1 || x > mgdoc.WorldSize+1 || y < -1 || y > mgdoc.WorldSize+1 {
+					t.Fatalf("zone %q position projects to (%v,%v)", region.Title, x, y)
 				}
 			}
 		}
@@ -425,7 +453,7 @@ func TestCuratedTableIsSound(t *testing.T) {
 			if isPoint && dataset.ZoneOf != nil {
 				t.Fatalf("dataset %q zones points", dataset.Slug)
 			}
-			if dataset.Geometry == "line" && dataset.ZoneOf != nil && dataset.RibbonWidth <= 0 {
+			if dataset.Geometry == "line" && dataset.ZoneOf != nil && dataset.StrokeWidth <= 0 {
 				t.Fatalf("dataset %q zones lines without a ribbon", dataset.Slug)
 			}
 		}

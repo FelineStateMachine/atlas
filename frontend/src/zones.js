@@ -1,6 +1,7 @@
 import Feature from "ol/Feature.js";
 import { createEmpty, extend, getCenter } from "ol/extent.js";
 import Point from "ol/geom/Point.js";
+import MultiLineString from "ol/geom/MultiLineString.js";
 import MultiPolygon from "ol/geom/MultiPolygon.js";
 import Polygon from "ol/geom/Polygon.js";
 
@@ -82,6 +83,9 @@ export function renderZoneScrim() {
   ], true)];
   for (const zoneID of state.highlightedZones) {
     for (const geometry of state.zoneRecords.get(zoneID)?.geometries || []) {
+      // A line zone has no ring to cut from the scrim: the highlighted path
+      // draws above it instead, at its own weight.
+      if (geometry.getType() === "MultiLineString") continue;
       const polygons = geometry.getType() === "MultiPolygon"
         ? geometry.getPolygons()
         : [geometry];
@@ -222,6 +226,11 @@ export function projectZoneGeometry(rawGeometry) {
     return new MultiPolygon(
       rawGeometry.coordinates.map((polygon) => polygon.map((ring) => ring.map(point))),
     );
+  }
+  // A path zone is a line and a weight: the geometry stays the line, and the
+  // zone's declared stroke width says how wide it is drawn and clicked.
+  if (rawGeometry.type === "MultiLineString") {
+    return new MultiLineString(rawGeometry.coordinates.map((line) => line.map(point)));
   }
   return null;
 }

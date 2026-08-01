@@ -50,20 +50,23 @@ type Map struct {
 // to name leave the slice empty rather than absent, which is the shape a real
 // MapGenie capture spells.
 type Region struct {
-	ID             int64           `json:"id"`
-	Title          string          `json:"title"`
-	Subtitle       string          `json:"subtitle,omitempty"`
-	ParentRegionID *int64          `json:"parent_region_id,omitempty"`
-	CenterX        *float64        `json:"center_x,omitempty"`
-	CenterY        *float64        `json:"center_y,omitempty"`
-	Features       []RegionFeature `json:"features,omitempty"`
+	ID             int64             `json:"id"`
+	Title          string            `json:"title"`
+	Subtitle       string            `json:"subtitle,omitempty"`
+	ParentRegionID *int64            `json:"parent_region_id,omitempty"`
+	CenterX        *float64          `json:"center_x,omitempty"`
+	CenterY        *float64          `json:"center_y,omitempty"`
+	Features       []RegionFeature   `json:"features,omitempty"`
+	Attrs          map[string]string `json:"atlas_attrs,omitempty"`
 }
 
 type RegionFeature struct {
 	Geometry Geometry `json:"geometry"`
 }
 
-// Geometry is the GeoJSON slice of a region feature: Polygon or MultiPolygon,
+// Geometry is the GeoJSON slice of a region feature: Polygon or MultiPolygon
+// for ground, MultiLineString for a path -- a region that is really a line
+// declares its width as an attribute rather than pretending to be an area --
 // coordinates kept raw because the generator passes them through verbatim.
 type Geometry struct {
 	Type        string          `json:"type"`
