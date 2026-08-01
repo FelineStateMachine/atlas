@@ -6,6 +6,8 @@ import (
 	"sort"
 	"sync"
 	"time"
+
+	"github.com/FelineStateMachine/atlas/internal/measure"
 )
 
 // library reads the bundles directory whole on every ask and answers with
@@ -76,21 +78,9 @@ func (l *library) games() (games []*game, skipped []string, err error) {
 	}
 
 	for _, held := range byGame {
-		// The registry's own order: newest capture first, then the newer
-		// policy revision, then stamp, then path -- total, so two scans of
-		// one directory always agree.
+		// The registry's own order, spelled once in internal/measure.
 		sort.Slice(held.Builds, func(a, b int) bool {
-			left, right := held.Builds[a], held.Builds[b]
-			if left.CreatedAt != right.CreatedAt {
-				return left.CreatedAt > right.CreatedAt
-			}
-			if left.Revision != right.Revision {
-				return left.Revision > right.Revision
-			}
-			if left.Stamp != right.Stamp {
-				return left.Stamp > right.Stamp
-			}
-			return left.Path > right.Path
+			return measure.Newer(held.Builds[a], held.Builds[b])
 		})
 		held.Title = held.Serving().GameTitle
 	}

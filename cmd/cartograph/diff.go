@@ -74,6 +74,13 @@ func diffBuilds(a, b *build, pinsA, pinsB map[string]map[int64]string) *buildDif
 			axisCount("layers", a.Variants, b.Variants),
 			axisCount("icons carried", a.IconsCarried, b.IconsCarried),
 			axisShare("icon coverage", a.IconsCarried, a.IconsWanted, b.IconsCarried, b.IconsWanted),
+			// The conventions axes: what vocabulary each build declares and
+			// how much of it its payloads actually speak.
+			axisCount("conventions", a.Conventions, b.Conventions),
+			axisShare("render declared", a.RenderDeclared, a.Categories, b.RenderDeclared, b.Categories),
+			axisCount("standard icons", a.StdIcons, b.StdIcons),
+			axisCount("geo pins", a.GeoPins, b.GeoPins),
+			axisCount("unknown attributes", a.UnknownAttrs, b.UnknownAttrs),
 		},
 	}
 
