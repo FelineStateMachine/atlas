@@ -216,6 +216,7 @@ func mergeMap(
 				outcome := resolvePin(location, x, y, index, mappedKey, nearbyRadius)
 				switch outcome.kind {
 				case pinMatched:
+					index.claimed[outcome.match] = location.ID
 					pair := mergedPair{
 						Donor:      location.ID,
 						Winner:     outcome.match.ID,
@@ -304,6 +305,10 @@ type winnerIndex struct {
 	byName     map[string][]int
 	categories map[string]*catalogCategory
 	ids        map[int64]string
+	// claimed maps each serving pin already matched to the donor that
+	// matched it. A place is one place: the next donor bearing the same name
+	// must find its own, or say why it cannot.
+	claimed map[*catalogLocation]int64
 }
 
 type placedPin struct {
@@ -318,6 +323,7 @@ func indexWinner(winner *catalogMap, grid tileGrid) *winnerIndex {
 		byName:     make(map[string][]int),
 		categories: make(map[string]*catalogCategory),
 		ids:        make(map[int64]string),
+		claimed:    make(map[*catalogLocation]int64),
 	}
 	for groupIndex := range winner.Groups {
 		for categoryIndex := range winner.Groups[groupIndex].Categories {
@@ -376,7 +382,17 @@ func resolvePin(
 
 	var nearest *placedPin
 	nearestDistance := math.Inf(1)
+	alreadyClaimed := false
 	consider := func(pin *placedPin, distance float64) {
+		// A serving pin another donor already resolved to is one place, not
+		// two: it cannot be matched again, but its nearness is remembered so
+		// the refusal can say what stood in the way.
+		if _, taken := index.claimed[pin.location]; taken {
+			if distance <= matchRadiusPx {
+				alreadyClaimed = true
+			}
+			return
+		}
 		if distance < nearestDistance {
 			nearest, nearestDistance = pin, distance
 		}
@@ -408,6 +424,9 @@ func resolvePin(
 				"named like %q %.0fpx away; too far to merge, too near to double",
 				nearest.location.Title, nearestDistance)}
 		}
+	}
+	if alreadyClaimed {
+		return pinOutcome{kind: pinHeld, reason: "every nearby pin of this name is already matched"}
 	}
 	if _, shared := index.categories[mappedKey]; shared {
 		for at := range index.pins {
@@ -568,13 +587,22 @@ func enrichedCount(merge *mergedSource) int {
 	return count
 }
 
-// mergeGate is the merge's own audit: every donor pin accounted for, no
-// identifier doubled, nothing the serving map held made worse. It fails the
-// build rather than writing a bundle that quietly lost something.
+// mergeGate is the merge's own audit: every donor pin accounted for, every
+// match one-to-one, no identifier doubled, nothing the serving map held made
+// worse. It fails the build rather than writing a bundle that quietly lost
+// something -- or quietly agreed too much.
 func mergeGate(merge *mergedSource, winner *catalogMap) error {
 	accounted := len(merge.Matched) + merge.Added + len(merge.Held) + len(merge.Rejected)
 	if accounted != merge.DonorPins {
 		return fmt.Errorf("merge accounts for %d of %d donor pins", accounted, merge.DonorPins)
+	}
+	claimed := make(map[int64]int64)
+	for _, pair := range merge.Matched {
+		if first, taken := claimed[pair.Winner]; taken {
+			return fmt.Errorf("serving pin %d matched by donors %d and %d; a place is one place",
+				pair.Winner, first, pair.Donor)
+		}
+		claimed[pair.Winner] = pair.Donor
 	}
 	seen := make(map[int64]string)
 	counted := 0

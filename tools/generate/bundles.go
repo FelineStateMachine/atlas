@@ -18,7 +18,10 @@ import (
 // kept field, a dropped category -- and among equal captures the registry
 // serves the highest revision. Bump it when a policy change should supersede
 // the builds already in every library.
-const policyRevision = 1
+//
+//	1  first revisioned builds
+//	2  merge resolution: subset names, adoption, one-to-one matches
+const policyRevision = 2
 
 // writeBundles packs each game into its own .atlas file, named by game,
 // capture day, and stamp. The directory is a registry, not a mirror: a new

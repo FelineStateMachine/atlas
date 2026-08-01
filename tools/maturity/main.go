@@ -37,6 +37,18 @@ type mapDetail struct {
 			} `json:"locations"`
 		} `json:"categories"`
 	} `json:"groups"`
+	Merged []struct {
+		Source    string `json:"source"`
+		DonorPins int    `json:"donorPins"`
+		Matched   []struct {
+			DistancePx int `json:"px"`
+		} `json:"matched"`
+		Added     int        `json:"added"`
+		Adopted   []struct{} `json:"adopted"`
+		Held      []struct{} `json:"held"`
+		Rejected  []struct{} `json:"rejected"`
+		Alignment string     `json:"alignment"`
+	} `json:"merged"`
 	Zones []struct {
 		Features []struct {
 			Coordinates json.RawMessage `json:"coordinates"`
@@ -70,6 +82,21 @@ type measure struct {
 	Variants     int
 	IconsCarried int
 	IconsWanted  int
+	Merges       []mergeLine
+}
+
+// mergeLine is one source's agreement account within a build, so two builds'
+// lines sit above one another and a policy change reads as the numbers that
+// moved.
+type mergeLine struct {
+	Source        string
+	DonorPins     int
+	Matched       int
+	MedianMatchPx int
+	Added         int
+	Adopted       int
+	Held          int
+	Rejected      int
 }
 
 func main() {
@@ -144,6 +171,11 @@ func run(dir string) error {
 				m.Categories, m.Groups, m.TextSets, m.Zones, m.Vertices, m.Variants)
 			fmt.Printf("    icons        %5d of %d marker categories carry one (%s)\n",
 				m.IconsCarried, m.IconsWanted, percent(m.IconsCarried, m.IconsWanted))
+			for _, line := range m.Merges {
+				fmt.Printf("    merge        %s: %d donor pins · %d matched (median %dpx) · %d added (%d adopted) · %d held · %d rejected\n",
+					line.Source, line.DonorPins, line.Matched, line.MedianMatchPx,
+					line.Added, line.Adopted, line.Held, line.Rejected)
+			}
 		}
 	}
 	return nil
@@ -225,6 +257,27 @@ func measureBundle(path string) (string, string, measure, error) {
 					m.IconsCarried++
 				}
 			}
+		}
+		for _, merged := range detail.Merged {
+			distances := make([]int, 0, len(merged.Matched))
+			for _, pair := range merged.Matched {
+				distances = append(distances, pair.DistancePx)
+			}
+			sort.Ints(distances)
+			median := 0
+			if len(distances) > 0 {
+				median = distances[len(distances)/2]
+			}
+			m.Merges = append(m.Merges, mergeLine{
+				Source:        merged.Source,
+				DonorPins:     merged.DonorPins,
+				Matched:       len(merged.Matched),
+				MedianMatchPx: median,
+				Added:         merged.Added,
+				Adopted:       len(merged.Adopted),
+				Held:          len(merged.Held),
+				Rejected:      len(merged.Rejected),
+			})
 		}
 	}
 	sort.Ints(lengths)
