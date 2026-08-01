@@ -241,6 +241,7 @@ async function enterGlobe() {
         updateDetailTiles();
         rebuildGlobeLabels();
         regridWhenFitChanges();
+        cullHiddenLabels();
       });
     document.addEventListener("atlas:selection", syncSelection);
     document.addEventListener("atlas:filters", syncFilters);
@@ -353,6 +354,9 @@ function rebuildGlobeGrid() {
     frameGridCell(mapping);
   }
   grid.cell = state.gridCell;
+  // Chips are born visible; a rebuild with the camera already elsewhere
+  // must not leave far-side chips shining through the planet.
+  cullHiddenLabels();
 }
 
 // ringLatLng lands a system's world-pixel ring on the sphere. The ring is
@@ -522,6 +526,31 @@ function rebuildGlobeLabels() {
   for (const { pin, stood } of nearby.slice(0, labelBudget)) {
     labels.group.add(labelSprite(pin, stood));
   }
+  cullHiddenLabels();
+}
+
+// cullHiddenLabels enforces the horizon that the label sprites' materials
+// no longer test for: a card whose anchor has slipped past the planet's
+// silhouette goes invisible instead of shining through it. A point at the
+// limb sits where the cosine of its angle from the camera's axis equals
+// radius over distance; anything beyond that is the far side.
+function cullHiddenLabels() {
+  if (!globe) return;
+  const camera = globe.camera().position;
+  const distance = camera.length() || 1;
+  const horizon = globeRadius / distance;
+  for (const group of [grid.group, labels.group]) {
+    if (!group) continue;
+    for (const child of group.children) {
+      if (!child.isSprite) continue;
+      const anchor = child.position;
+      const reach = anchor.length() || 1;
+      const facing =
+        (anchor.x * camera.x + anchor.y * camera.y + anchor.z * camera.z) /
+        (reach * distance);
+      child.visible = facing > horizon;
+    }
+  }
 }
 
 // angularDistance is the great-circle separation in degrees, which is what
@@ -553,6 +582,10 @@ function labelSprite(pin, stood) {
   context.fillStyle = "#e6ebf0";
   context.fillText(title, width / 2, 21);
   const material = new SpriteMaterial({
+    // No depth test: a screen-sized card anchored on the ground loses its
+    // lower half to the planet's own curve at any glancing angle. The
+    // horizon is enforced by hand in cullHiddenLabels instead.
+    depthTest: false,
     depthWrite: false,
     sizeAttenuation: false,
     transparent: true,
@@ -563,6 +596,7 @@ function labelSprite(pin, stood) {
   });
   const sprite = new Sprite(material);
   sprite.position.set(...surfacePoint(stood.lat, stood.lng, detailRadius + 0.4));
+  sprite.renderOrder = 4;
   const height = 0.028;
   sprite.scale.set((height * width) / 40, height, 1);
   // Anchored at its bottom edge -- the far end of center's 0..1 contract --
@@ -645,6 +679,8 @@ function cellChip(label, corners) {
   context.globalAlpha = 1;
 
   const material = new SpriteMaterial({
+    // Same bargain as the name cards: no depth test, horizon by hand.
+    depthTest: false,
     depthWrite: false,
     transparent: true,
     sizeAttenuation: false,

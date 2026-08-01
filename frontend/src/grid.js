@@ -337,13 +337,16 @@ function gridGeometry(cell) {
   const surface = surfaceExtent();
   let ring = cell.ring;
   if (cell.pole) {
+    // The whole loop, closing point included: a pole cell's walk ends a
+    // world over from where it began, and the closure is what spans the
+    // last tessellation step. Dropping it left a sliver of ground the
+    // polygon never covered, one step wide, at the walk's own longitude.
     const poleY = cell.pole === "north" ? surface[3] : surface[1];
-    const open = ring.slice(0, -1);
     ring = [
-      ...open,
-      [open[open.length - 1][0], poleY],
-      [open[0][0], poleY],
-      open[0],
+      ...ring,
+      [ring[ring.length - 1][0], poleY],
+      [ring[0][0], poleY],
+      ring[0],
     ];
   }
   const inside = ring.every(([x]) => x >= surface[0] && x <= surface[2]);
