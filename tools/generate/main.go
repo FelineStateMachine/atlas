@@ -224,6 +224,11 @@ type tileVariantManifest struct {
 	Interpolate bool                      `json:"interpolate"`
 	Background  string                    `json:"background"`
 	Coverage    map[string]*levelCoverage `json:"coverage"`
+	// Name and AlignedWith mark a pyramid another source's raster was
+	// resampled into this map's world from: it attaches as an additional
+	// variant of whichever map draws the layer AlignedWith names.
+	Name        string `json:"name"`
+	AlignedWith string `json:"alignedWith"`
 }
 
 type catalogGroup struct {
@@ -351,7 +356,12 @@ func run(source, tileManifestPath, bundleDir string) error {
 		return err
 	}
 	tilesByPath := make(map[string]tileVariantManifest, len(tiles.Variants))
+	alignedWith := make(map[string][]tileVariantManifest)
 	for _, variant := range tiles.Variants {
+		if variant.AlignedWith != "" {
+			alignedWith[variant.AlignedWith] = append(alignedWith[variant.AlignedWith], variant)
+			continue
+		}
 		tilesByPath[variant.SourcePath] = variant
 	}
 
@@ -364,7 +374,7 @@ func run(source, tileManifestPath, bundleDir string) error {
 		},
 	}
 	for _, gameRef := range index.Games {
-		game, err := buildGame(archiveRoot, tilesByPath, gameRef, out.TileGrid)
+		game, err := buildGame(archiveRoot, tilesByPath, alignedWith, gameRef, out.TileGrid)
 		if err != nil {
 			return fmt.Errorf("%s: %w", gameRef.Title, err)
 		}
@@ -380,6 +390,7 @@ func run(source, tileManifestPath, bundleDir string) error {
 func buildGame(
 	archiveRoot string,
 	tilesByPath map[string]tileVariantManifest,
+	alignedWith map[string][]tileVariantManifest,
 	ref archiveGame,
 	grid tileGrid,
 ) (catalogGame, error) {
@@ -394,7 +405,7 @@ func buildGame(
 		if err != nil || !info.IsDir() {
 			continue
 		}
-		pieces, gameSlug, err := buildMap(mapDir, tilesByPath, grid)
+		pieces, gameSlug, err := buildMap(mapDir, tilesByPath, alignedWith, grid)
 		if err != nil {
 			if errors.Is(err, errMapNotReady) {
 				continue
@@ -456,6 +467,7 @@ func sortGameMaps(gameSlug string, maps []catalogMap) {
 func buildMap(
 	mapDir string,
 	tilesByPath map[string]tileVariantManifest,
+	alignedWith map[string][]tileVariantManifest,
 	grid tileGrid,
 ) ([]catalogMap, string, error) {
 	var snapshots []snapshotIndex
@@ -540,6 +552,29 @@ func buildMap(
 			Background:  tiles.Background,
 			Coverage:    tiles.Coverage,
 		})
+	}
+	// Another source's raster, resampled into this map's world, arrives as
+	// one more way to see the same ground. It was rendered in this map's
+	// window, so it passes the same agreement every native layer passes.
+	for _, set := range raw.Config.TileSets {
+		for _, aligned := range alignedWith[set.Path] {
+			if aligned.Grid.SourceZoom != grid.SourceZoom || aligned.Grid.FirstTile != grid.FirstTile {
+				return nil, "", fmt.Errorf("aligned layer %s was rendered in a different window", aligned.SourcePath)
+			}
+			m.Variants = append(m.Variants, variant{
+				Name:        aligned.Name,
+				Tiles:       aligned.AssetPath,
+				MinZoom:     aligned.MinZoom,
+				MaxZoom:     aligned.MaxZoom,
+				FullZoom:    aligned.FullZoom,
+				SourceZoom:  aligned.SourceZoom,
+				Formats:     aligned.Formats,
+				Bounds:      aligned.Bounds,
+				Interpolate: aligned.Interpolate,
+				Background:  aligned.Background,
+				Coverage:    aligned.Coverage,
+			})
+		}
 	}
 	for _, rawGroup := range raw.Groups {
 		group := catalogGroup{ID: rawGroup.ID, Title: rawGroup.Title}

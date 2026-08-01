@@ -26,7 +26,9 @@ import (
 	// none, so levels derived from them are written as JPEG or PNG.
 	_ "golang.org/x/image/webp"
 
+	"github.com/FelineStateMachine/atlas/internal/blend"
 	"github.com/FelineStateMachine/atlas/internal/ignmap"
+	"github.com/FelineStateMachine/atlas/internal/mgdoc"
 	"github.com/FelineStateMachine/atlas/internal/pbmap"
 )
 
@@ -111,10 +113,26 @@ type snapshotIndex struct {
 }
 
 type rawMap struct {
-	Title  string    `json:"title"`
-	Slug   string    `json:"slug"`
-	Config rawConfig `json:"config"`
-	Game   rawGame   `json:"game"`
+	Title  string     `json:"title"`
+	Slug   string     `json:"slug"`
+	Config rawConfig  `json:"config"`
+	Game   rawGame    `json:"game"`
+	Groups []rawGroup `json:"groups"`
+}
+
+type rawGroup struct {
+	Categories []struct {
+		Locations []rawLocation `json:"locations"`
+	} `json:"categories"`
+}
+
+// rawLocation reads only what alignment needs: a name and a place. The
+// coordinates arrive as numbers from translated captures and as either
+// numbers or quoted strings from MapGenie's own snapshots.
+type rawLocation struct {
+	Title     string          `json:"title"`
+	Latitude  json.RawMessage `json:"latitude"`
+	Longitude json.RawMessage `json:"longitude"`
 }
 
 type rawGame struct {
@@ -174,6 +192,32 @@ type tilePlan struct {
 	MaxSourceZoom   int
 	SourcePath      string
 	PreferredFormat string
+	// The map this layer pictures, and the places its capture pins on it.
+	// Two sources capturing the same game and map are pictures of the same
+	// ground, and the shared names among their anchors are what align them.
+	GameSlug string
+	MapSlug  string
+	SetName  string
+	Anchors  []blend.Anchor
+	// Warp, when set, makes this a derived plan: the donor layer resampled
+	// into another layer's world so both rasters answer to one grid.
+	Warp *warpSpec
+}
+
+// warpSpec says how a donor layer lands in a base layer's world.
+type warpSpec struct {
+	Donor      *tilePlan
+	Base       *tilePlan
+	Affine     blend.Affine
+	TargetZoom int // local zoom in the base frame the warp renders at
+}
+
+// pendingPlan is one layer waiting to be derived, with the names its
+// progress is reported under.
+type pendingPlan struct {
+	gameTitle string
+	title     string
+	plan      tilePlan
 }
 
 type manifest struct {
@@ -205,6 +249,12 @@ type variantManifest struct {
 	// tiles and the tool that reduced them -- so a later run can tell that
 	// nothing has moved and keep what it already built.
 	Stamp string `json:"stamp,omitempty"`
+	// Name and AlignedWith mark a warped variant: a donor layer resampled
+	// into the world of the layer AlignedWith names, offered to the catalog
+	// as an additional way to see that map. Ordinary layers leave both empty
+	// and take their name from their map's own configuration.
+	Name        string `json:"name,omitempty"`
+	AlignedWith string `json:"alignedWith,omitempty"`
 }
 
 type gridSpec struct {
@@ -308,11 +358,6 @@ func run(source, output string, force bool) error {
 	var carried int
 	derived := make(map[string]bool)
 
-	type pendingPlan struct {
-		gameTitle string
-		title     string
-		plan      tilePlan
-	}
 	var pending []pendingPlan
 	for _, game := range index.Games {
 		mapDirs, err := filepath.Glob(filepath.Join(source, game.Directory, "maps", "*"))
@@ -360,6 +405,8 @@ func run(source, output string, force bool) error {
 		}
 	}
 
+	pending = append(pending, planWarps(pending)...)
+
 	out := manifest{TileSize: tileSize, Size: worldSize}
 	for _, entry := range pending {
 		plan := entry.plan
@@ -368,13 +415,23 @@ func run(source, output string, force bool) error {
 			// The window is read from the archive rather than derived
 			// from the pyramid, so it is answered from the plan even
 			// for a layer nothing has changed under.
-			kept.Grid = plan.Frame.grid()
+			if plan.Warp == nil {
+				kept.Grid = plan.Frame.grid()
+			} else {
+				kept.Grid = plan.Warp.Base.Frame.grid()
+			}
 			out.Variants = append(out.Variants, kept)
 			carried++
 			continue
 		}
 		fmt.Printf("tile %s / %s / %s\n", entry.gameTitle, entry.title, plan.SourcePath)
-		variant, err := buildPyramid(temp, plan)
+		var variant variantManifest
+		var err error
+		if plan.Warp == nil {
+			variant, err = buildPyramid(temp, plan)
+		} else {
+			variant, err = buildWarpedPyramid(temp, plan)
+		}
 		if err != nil {
 			return fmt.Errorf("%s / %s: %w", entry.title, plan.SourcePath, err)
 		}
@@ -567,9 +624,52 @@ func inspectMap(mapDir string) ([]tilePlan, string, string, error) {
 			MaxSourceZoom:   maxSourceZoom,
 			PreferredFormat: normalizeFormat(set.Extension),
 			SourcePath:      set.Path,
+			GameSlug:        raw.Game.Slug,
+			MapSlug:         raw.Slug,
+			SetName:         set.Name,
+			Anchors:         anchorsOf(raw, frame.grid()),
 		})
 	}
 	return plans, raw.Title, "", nil
+}
+
+// anchorsOf lands every named location in the layer's own world pixels.
+// These are the places alignment stands on when another source pictures the
+// same map.
+func anchorsOf(raw rawMap, grid gridSpec) []blend.Anchor {
+	var anchors []blend.Anchor
+	for _, group := range raw.Groups {
+		for _, category := range group.Categories {
+			for _, location := range category.Locations {
+				latitude, ok := numberValue(location.Latitude)
+				if !ok {
+					continue
+				}
+				longitude, ok := numberValue(location.Longitude)
+				if !ok {
+					continue
+				}
+				anchors = append(anchors, blend.Anchor{
+					Title: location.Title,
+					X:     mgdoc.ProjectX(longitude, grid.SourceZoom, grid.FirstTile),
+					Y:     mgdoc.ProjectY(latitude, grid.SourceZoom, grid.FirstTile),
+				})
+			}
+		}
+	}
+	return anchors
+}
+
+// numberValue reads the coordinate spellings the snapshots hold: a number,
+// or the same number in quotes.
+func numberValue(raw json.RawMessage) (float64, bool) {
+	trimmed := strings.TrimSpace(string(raw))
+	trimmed = strings.Trim(trimmed, `"`)
+	if trimmed == "" || trimmed == "null" {
+		return 0, false
+	}
+	value, err := strconv.ParseFloat(trimmed, 64)
+	return value, err == nil
 }
 
 // readLevel collects every cached tile of one source level. It reports whether

@@ -23,7 +23,7 @@ import (
 // where the content bounds land has to invalidate every pyramid, and a stamp
 // that only watched the archive would quietly keep serving the old derivation.
 //
-//go:embed main.go stamp.go
+//go:embed main.go stamp.go warp.go
 var toolSource embed.FS
 
 var toolStamp = sync.OnceValue(func() string {
@@ -63,6 +63,17 @@ func planStamp(plan tilePlan) string {
 	if plan.Bounds != nil {
 		fmt.Fprintf(sum, "bounds\x00%d\x00%d\x00%d\x00%d\x00",
 			plan.Bounds.X, plan.Bounds.Y, plan.Bounds.Width, plan.Bounds.Height)
+	}
+	// A warped pyramid is derived from its alignment as much as from its
+	// tiles: the same donor resampled through a different transformation is
+	// a different picture.
+	if plan.Warp != nil {
+		fmt.Fprintf(sum, "warp\x00%s\x00%d\x00%d\x00%d\x00",
+			plan.Warp.Base.SourcePath, plan.Warp.TargetZoom,
+			plan.Warp.Base.Frame.BaseZoom, plan.Warp.Base.Frame.BaseTile)
+		affine := plan.Warp.Affine
+		fmt.Fprintf(sum, "%.9f\x00%.9f\x00%.9f\x00%.9f\x00%.9f\x00%.9f\x00",
+			affine.AX, affine.BX, affine.CX, affine.AY, affine.BY, affine.CY)
 	}
 
 	zooms := make([]int, 0, len(plan.Levels))

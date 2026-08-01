@@ -108,6 +108,23 @@ func SyntheticLatitude(y float64) float64 {
 	return math.Atan(math.Sinh(math.Pi*(1-2*yTile/worldTiles))) * 180 / math.Pi
 }
 
+// ProjectX and ProjectY are the viewer's projection, parameterised by the
+// window a map is cut from: the inverse of the synthetic coordinates above
+// for the shared window, and of MapGenie's own for every other. They exist
+// here so anything comparing two sources' pins can land both in pixels
+// without carrying its own copy of the formula.
+func ProjectX(longitude float64, sourceZoom, firstTile int) float64 {
+	worldTiles := math.Pow(2, float64(sourceZoom))
+	xTile := ((longitude + 180) / 360) * worldTiles
+	return (xTile - float64(firstTile)) * TileSize
+}
+
+func ProjectY(latitude float64, sourceZoom, firstTile int) float64 {
+	worldTiles := math.Pow(2, float64(sourceZoom))
+	yTile := (1 - math.Asinh(math.Tan(latitude*math.Pi/180))/math.Pi) / 2 * worldTiles
+	return (yTile - float64(firstTile)) * TileSize
+}
+
 // IDSpace hands out the numeric identifiers the pipeline expects, derived
 // from the stable names a source publishes, so the same capture always
 // numbers itself the same way. Identifiers stay within a positive int31 --

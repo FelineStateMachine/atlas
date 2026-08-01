@@ -178,7 +178,10 @@ func mapTitle(capture *Capture) string {
 // measured against the MapGenie window this map does not sit in.
 func tileSet(capture *Capture, scope string) mgdoc.TileSet {
 	set := mgdoc.TileSet{
-		Name:      "Default",
+		// The name rides into the legend's layer picker -- and, when this
+		// raster is resampled into a finer source's map, it names the
+		// variant there too, so it says where the picture came from.
+		Name:      "IGN Wiki",
 		Path:      scope,
 		MinZoom:   0,
 		MaxZoom:   capture.Map.MaxZoom,

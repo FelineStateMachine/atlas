@@ -90,6 +90,7 @@ func TestBuildGameSkipsMapWithoutSnapshotIndex(t *testing.T) {
 	game, err := buildGame(
 		archiveRoot,
 		nil,
+		nil,
 		archiveGame{
 			Directory: "games/pokemon-red-blue-yellow-246",
 			ID:        246,
