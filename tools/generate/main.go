@@ -293,6 +293,7 @@ var preferredMapOrder = map[string][]string{
 // says so once; a single map that differs from its game overrides it.
 var iconOutsetByGame = map[string]string{
 	"clair-obscur-expedition-33": "dark",
+	"cyberpunk-2077":             "dark", // Night City's neon-on-black art, either source
 	"fallout-new-vegas":          "dark", // pale Pip-Boy rasters throughout
 	"fallout76":                  "dark", // a parchment survey map, pale throughout
 	"la-noire":                   "dark",
