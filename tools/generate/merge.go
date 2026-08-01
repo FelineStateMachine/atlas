@@ -31,7 +31,7 @@ import (
 const (
 	matchRadiusPx    = 160
 	separateRadiusPx = 320
-	nearbyRadiusPx   = 48
+	nearbyFloorPx    = 48
 )
 
 // categoryEquivalents maps one source's category slugs onto another's where
@@ -59,6 +59,7 @@ type mergedSource struct {
 	DonorPins int          `json:"donorPins"`
 	Matched   []mergedPair `json:"matched,omitempty"`
 	Added     int          `json:"added"`
+	Adopted   []adoptedPin `json:"adopted,omitempty"`
 	Held      []heldPin    `json:"held,omitempty"`
 	Rejected  []heldPin    `json:"rejected,omitempty"`
 	Alignment string       `json:"alignment"`
@@ -73,6 +74,13 @@ type mergedPair struct {
 	// Enriched marks a pair whose serving pin had nothing to say and took
 	// the donor's description.
 	Enriched bool `json:"e,omitempty"`
+}
+
+// adoptedPin records a donor-only pin that joined one of the serving map's
+// own categories: provenance for a pin the legend does not single out.
+type adoptedPin struct {
+	Donor int64  `json:"d"`
+	Into  string `json:"into"`
 }
 
 // heldPin is a donor pin the merge did not carry, with the reason.
@@ -174,34 +182,20 @@ func mergeMap(
 	sourceLabel := sourceLabelOf(donor, donorGame)
 	merge := &mergedSource{Source: sourceLabel, Alignment: report.String()}
 
-	// What the serving map already holds, by name and by place.
-	winnerByName := make(map[string][]*catalogLocation)
-	var winnerPlaced []placedPin
-	winnerIDs := make(map[int64]string)
-	winnerCategoryByKey := make(map[string]bool)
-	for groupIndex := range winner.Groups {
-		for categoryIndex := range winner.Groups[groupIndex].Categories {
-			category := &winner.Groups[groupIndex].Categories[categoryIndex]
-			winnerCategoryByKey[category.Icon] = true
-			for locationIndex := range category.Locations {
-				location := &category.Locations[locationIndex]
-				name := blend.NormalizeTitle(location.Title)
-				winnerByName[name] = append(winnerByName[name], location)
-				winnerPlaced = append(winnerPlaced, placedPin{
-					location: location,
-					category: category.Icon,
-					x:        projectX(location.Longitude, winnerGrid),
-					y:        projectY(location.Latitude, winnerGrid),
-				})
-				winnerIDs[location.ID] = location.Title
-			}
-		}
-	}
+	// A nameless neighbour matters out to where the alignment's own noise
+	// reaches: two sources place the same shop apart by their residuals, so
+	// the radius listens to the fit rather than assuming precision.
+	nearbyRadius := math.Max(nearbyFloorPx, 2*report.P90Px)
+
+	// What the serving map already holds, by name, token, and place.
+	index := indexWinner(winner, winnerGrid)
 
 	equivalents := categoryEquivalents[winnerGame.Slug]
 
-	// Donor categories survive with the pins that stay distinct; everything
-	// else lands in the ledger.
+	// A donor pin that stays distinct joins the serving category its own
+	// category maps onto, and the ledger records the adoption; only concepts
+	// the serving map does not have at all keep their donor categories, so
+	// the source-named group holds nothing but what is truly source-specific.
 	var keptCategories []catalogCategory
 	for _, group := range donor.Groups {
 		for _, category := range group.Categories {
@@ -212,13 +206,14 @@ func mergeMap(
 			if equivalent, ok := equivalents[donorKey]; ok {
 				mappedKey = equivalent
 			}
+			adoptive := index.categories[mappedKey]
 			for _, location := range category.Locations {
 				merge.DonorPins++
 				x, y := affine.Apply(
 					projectX(location.Longitude, donorGrid),
 					projectY(location.Latitude, donorGrid),
 				)
-				outcome := resolvePin(location, x, y, winnerByName, winnerPlaced, mappedKey, winnerCategoryByKey[mappedKey])
+				outcome := resolvePin(location, x, y, index, mappedKey, nearbyRadius)
 				switch outcome.kind {
 				case pinMatched:
 					pair := mergedPair{
@@ -245,18 +240,25 @@ func mergeMap(
 						})
 						continue
 					}
-					if holder, taken := winnerIDs[location.ID]; taken {
+					if holder, taken := index.ids[location.ID]; taken {
 						return fmt.Errorf("pin id %d (%s) collides with serving pin %q",
 							location.ID, location.Title, holder)
 					}
-					winnerIDs[location.ID] = location.Title
+					index.ids[location.ID] = location.Title
 					moved := location
 					moved.Longitude = unprojectLongitude(x, winnerGrid)
 					moved.Latitude = unprojectLatitude(y, winnerGrid)
 					moved.RegionID = nil
 					moved.Shard = 0
-					kept.Locations = append(kept.Locations, moved)
 					merge.Added++
+					if adoptive != nil {
+						adoptive.Locations = append(adoptive.Locations, moved)
+						merge.Adopted = append(merge.Adopted, adoptedPin{
+							Donor: location.ID, Into: mappedKey,
+						})
+					} else {
+						kept.Locations = append(kept.Locations, moved)
+					}
 				}
 			}
 			if len(kept.Locations) == 0 {
@@ -294,10 +296,51 @@ func mergeMap(
 	return nil
 }
 
+// winnerIndex is everything the serving map holds, arranged for resolution:
+// each pin with its place, name, and name tokens; the categories by key; and
+// the identifiers already spoken for.
+type winnerIndex struct {
+	pins       []placedPin
+	byName     map[string][]int
+	categories map[string]*catalogCategory
+	ids        map[int64]string
+}
+
 type placedPin struct {
 	location *catalogLocation
 	category string
 	x, y     float64
+	tokens   map[string]bool
+}
+
+func indexWinner(winner *catalogMap, grid tileGrid) *winnerIndex {
+	index := &winnerIndex{
+		byName:     make(map[string][]int),
+		categories: make(map[string]*catalogCategory),
+		ids:        make(map[int64]string),
+	}
+	for groupIndex := range winner.Groups {
+		for categoryIndex := range winner.Groups[groupIndex].Categories {
+			category := &winner.Groups[groupIndex].Categories[categoryIndex]
+			if _, held := index.categories[category.Icon]; !held {
+				index.categories[category.Icon] = category
+			}
+			for locationIndex := range category.Locations {
+				location := &category.Locations[locationIndex]
+				name := blend.NormalizeTitle(location.Title)
+				index.byName[name] = append(index.byName[name], len(index.pins))
+				index.pins = append(index.pins, placedPin{
+					location: location,
+					category: category.Icon,
+					x:        projectX(location.Longitude, grid),
+					y:        projectY(location.Latitude, grid),
+					tokens:   tokensOf(name),
+				})
+				index.ids[location.ID] = location.Title
+			}
+		}
+	}
+	return index
 }
 
 type pinOutcome struct {
@@ -315,62 +358,111 @@ const (
 
 // resolvePin decides what one donor pin is, against everything the serving
 // map holds. The same name near where the alignment predicts is the same
-// place; the same name far beyond it is a different place bearing it; the
-// stretch between is left undecided. A nameless neighbour inside the same
-// mapped category is likewise held rather than guessed -- proximity alone
-// never merges -- and only a pin resembling nothing at all is added.
+// place, and so is a name one source spells inside the other's -- "Northside
+// Apartment" inside "Northside, Watson Apartment" -- when the pins share a
+// category. The same name far beyond the radius is a different place bearing
+// it; the stretch between is left undecided. A nameless neighbour inside the
+// same mapped category is likewise held rather than guessed -- proximity
+// alone never merges -- and only a pin resembling nothing at all is added.
 func resolvePin(
 	donor catalogLocation,
 	x, y float64,
-	byName map[string][]*catalogLocation,
-	placed []placedPin,
+	index *winnerIndex,
 	mappedKey string,
-	categoryShared bool,
+	nearbyRadius float64,
 ) pinOutcome {
 	name := blend.NormalizeTitle(donor.Title)
-	if name != "" {
-		var nearest *catalogLocation
-		nearestDistance := 0.0
-		for _, candidate := range byName[name] {
-			distance := pinDistance(x, y, candidate, placed)
-			if nearest == nil || distance < nearestDistance {
-				nearest, nearestDistance = candidate, distance
-			}
+	donorTokens := tokensOf(name)
+
+	var nearest *placedPin
+	nearestDistance := math.Inf(1)
+	consider := func(pin *placedPin, distance float64) {
+		if distance < nearestDistance {
+			nearest, nearestDistance = pin, distance
 		}
-		if nearest != nil {
-			switch {
-			case nearestDistance <= matchRadiusPx:
-				return pinOutcome{kind: pinMatched, match: nearest, distance: nearestDistance}
-			case nearestDistance <= separateRadiusPx:
-				return pinOutcome{kind: pinHeld, reason: fmt.Sprintf(
-					"same name %.0fpx away; too far to merge, too near to double", nearestDistance)}
+	}
+	if name != "" {
+		for _, at := range index.byName[name] {
+			pin := &index.pins[at]
+			consider(pin, math.Hypot(pin.x-x, pin.y-y))
+		}
+		// One source's name written inside the other's counts only with the
+		// category agreeing: a bare "Apartment" must not roam the map for a
+		// long-named cousin.
+		if nearest == nil && len(donorTokens) >= 2 {
+			for at := range index.pins {
+				pin := &index.pins[at]
+				if pin.category != mappedKey || !tokenSubset(donorTokens, pin.tokens) {
+					continue
+				}
+				consider(pin, math.Hypot(pin.x-x, pin.y-y))
 			}
 		}
 	}
-	if categoryShared {
-		for _, candidate := range placed {
-			if candidate.category != mappedKey {
+	if nearest != nil {
+		switch {
+		case nearestDistance <= matchRadiusPx:
+			return pinOutcome{kind: pinMatched, match: nearest.location, distance: nearestDistance}
+		case nearestDistance <= separateRadiusPx:
+			return pinOutcome{kind: pinHeld, reason: fmt.Sprintf(
+				"named like %q %.0fpx away; too far to merge, too near to double",
+				nearest.location.Title, nearestDistance)}
+		}
+	}
+	if _, shared := index.categories[mappedKey]; shared {
+		for at := range index.pins {
+			pin := &index.pins[at]
+			if pin.category != mappedKey {
 				continue
 			}
-			dx, dy := candidate.x-x, candidate.y-y
-			if dx*dx+dy*dy <= nearbyRadiusPx*nearbyRadiusPx {
+			if math.Hypot(pin.x-x, pin.y-y) <= nearbyRadius {
 				return pinOutcome{kind: pinHeld, reason: fmt.Sprintf(
-					"beside %q in the same category; names disagree", candidate.location.Title)}
+					"beside %q in the same category; names disagree", pin.location.Title)}
 			}
 		}
 	}
 	return pinOutcome{kind: pinDistinct}
 }
 
-// pinDistance finds how far a point sits from a serving pin. The placed list
-// is small enough to scan; identity is by pointer.
-func pinDistance(x, y float64, location *catalogLocation, placed []placedPin) float64 {
-	for _, candidate := range placed {
-		if candidate.location == location {
-			return math.Hypot(candidate.x-x, candidate.y-y)
+// tokenSubset reports whether one name is spelled entirely inside the other,
+// either way round. The shorter side must carry at least two words: a single
+// word inside a longer name -- every "Apartment" inside every apartment --
+// says nothing.
+func tokenSubset(a, b map[string]bool) bool {
+	small, big := a, b
+	if len(small) > len(big) {
+		small, big = big, small
+	}
+	if len(small) < 2 {
+		return false
+	}
+	for token := range small {
+		if !big[token] {
+			return false
 		}
 	}
-	return math.Inf(1)
+	return true
+}
+
+func tokensOf(normalized string) map[string]bool {
+	tokens := make(map[string]bool)
+	start := -1
+	for at, r := range normalized {
+		if r != ' ' {
+			if start < 0 {
+				start = at
+			}
+			continue
+		}
+		if start >= 0 {
+			tokens[normalized[start:at]] = true
+			start = -1
+		}
+	}
+	if start >= 0 {
+		tokens[normalized[start:]] = true
+	}
+	return tokens
 }
 
 // carryIcon brings a merged category's icon across from the donor's archive
