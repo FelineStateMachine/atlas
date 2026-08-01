@@ -338,6 +338,7 @@ var iconOutsetByVolume = map[string]string{
 	"fallout-new-vegas":          "dark", // pale Pip-Boy rasters throughout
 	"fallout76":                  "dark", // a parchment survey map, pale throughout
 	"la-noire":                   "dark",
+	"mars":                       "dark", // Viking's pale ochre and MOLA's bright relief wash out a light rim
 	"sonic-frontiers":            "dark",
 }
 
