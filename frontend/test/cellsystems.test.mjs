@@ -196,11 +196,21 @@ test("s2 rings close, stay continuous, and know the poles", () => {
   const ring = s2System.ring("47a1cb");
   assert.ok(ring.length > 8, "edges arrive tessellated");
   assert.deepEqual(ring[0], ring[ring.length - 1], "the ring closes");
-  for (let at = 1; at < ring.length; at++) {
-    assert.ok(
-      Math.abs(ring[at][0] - ring[at - 1][0]) < 4096,
-      "no seam-sized jumps: the loop is continuous",
-    );
+  // Continuity holds through the closing segment, and for the pole faces
+  // whose loops accumulate a whole world of longitude: the closure joins
+  // in the frame the walk ended in, a world over from where it began.
+  for (const id of ["47a1cb", "5", "b"]) {
+    const loop = s2System.ring(id);
+    for (let at = 1; at < loop.length; at++) {
+      assert.ok(
+        Math.abs(loop[at][0] - loop[at - 1][0]) < 4096,
+        `${id}: no seam-sized jumps, the loop is continuous`,
+      );
+    }
+    const drift = Math.abs(loop[0][0] - loop[loop.length - 1][0]) % 8192;
+    assert.ok(drift < 1e-6 || Math.abs(drift - 8192) < 1e-6,
+      `${id}: the closure lands on the opening point, some frame over`);
+    assert.equal(loop[0][1], loop[loop.length - 1][1], `${id}: same latitude row`);
   }
   // Face 2 (token 5) holds the north pole; face 5 (token b) the south.
   assert.equal(s2System.poleContained("5"), "north");

@@ -177,7 +177,16 @@ export const s2System = {
       if (delta > width / 2) points[at][0] -= width;
       else if (delta < -width / 2) points[at][0] += width;
     }
-    points.push([...points[0]]);
+    // The closing point joins the loop in the frame the walk ended in, not
+    // the one it began in: a pole cell's loop accumulates a whole world of
+    // longitude, and closing back to the original frame would hand the
+    // adapters a segment sweeping the entire planet -- a phantom edge the
+    // boundary draws and the fill fans spokes to.
+    const closing = [...points[0]];
+    const delta = closing[0] - points[points.length - 1][0];
+    if (delta > width / 2) closing[0] -= width;
+    else if (delta < -width / 2) closing[0] += width;
+    points.push(closing);
     return points;
   },
 
