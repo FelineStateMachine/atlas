@@ -1,8 +1,8 @@
 # Scheduled city snapshots
 
 A city's `.atlas` can build itself on a schedule: crawl the city's ArcGIS
-hub (and, with a key, the Zoneomics rules behind its zoning), exit quietly
-when nothing changed, and publish a new versioned bundle when something did.
+hub, exit quietly when nothing changed, and publish a new versioned bundle
+when something did.
 The reusable workflow lives in this repository
 (`.github/workflows/snapshot.yml`); this repository's own scheduler runs it
 weekly over the public proof cities. A city IT team runs the same workflow
@@ -59,26 +59,3 @@ private city's curation never has to be published. Employees fetch
 `https://github.com/<org>/<repo>/releases/download/snapshot-<city>/<city>-latest.atlas`
 and drop it into their Atlas bundles directory — or IT mirrors it onto a
 share the app watches.
-
-## Zoneomics, plainly
-
-Zoning-rule enrichment comes from **zone reports you export from your own
-Zoneomics subscription** — the attribute/value CSVs the platform produces,
-one per zoning district. Place them on the state branch under
-`zoneomics/<city-slug>/` and every snapshot joins them to the city's zoning
-zones by zone code; each district's card then carries its purpose,
-permitted and prohibited uses, and dimensional standards, offline.
-
-- No API and no scraping: the API prices single-point reports and the
-  public code pages bar automated access, so neither fits correlating a
-  whole town. Files you exported under your own subscription are the
-  honest channel, and a snapshot run needs no key and no wire.
-- Reports are *point* reports: below the district rules they describe the
-  queried parcel — its owner's name, address, valuation. The importer
-  drops those rows unconditionally; they never enter a capture.
-- Enrichment is all-or-nothing per capture: an unreadable report fails the
-  run rather than silently minting a version that lost its rules.
-- **Before an organization circulates enriched bundles internally, confirm
-  that its Zoneomics subscription permits embedding and internal
-  redistribution of exported report content.** Without reports, snapshots
-  are pure open data with no strings attached.

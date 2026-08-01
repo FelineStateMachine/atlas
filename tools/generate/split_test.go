@@ -11,14 +11,14 @@ import (
 func TestBuildPayloadDefersZoneProse(t *testing.T) {
 	world := catalogWorld{
 		Zones: []zone{
-			{ID: 71, Title: "PF", Description: "Public facilities.\n\nData: Zoneomics"},
+			{ID: 71, Title: "PF", Description: "Public facilities district."},
 			{ID: 72, Title: "RS"},
 		},
 	}
 	detail, _, text := buildPayload(world)
 
 	entry, told := text["71"]
-	if !told || entry.Description != "Public facilities.\n\nData: Zoneomics" {
+	if !told || entry.Description != "Public facilities district." {
 		t.Fatalf("zone text = %+v, %v", entry, told)
 	}
 	if _, told := text["72"]; told {

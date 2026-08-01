@@ -66,15 +66,7 @@ jobs:
 
       - name: Crawl
         working-directory: atlas
-        run: |
-          # Zone reports exported from a Zoneomics subscription live beside
-          # the archive on the state branch, one directory per city; a
-          # directory's presence is the opt-in.
-          FLAGS=""
-          if [ -d "../state/zoneomics/${{ inputs.city }}" ]; then
-            FLAGS="-zoneomics ../state/zoneomics/${{ inputs.city }}"
-          fi
-          go run ./tools/crawl -archive ../state/fmg-archive -arcgis "${{ inputs.city }}" $FLAGS
+        run: go run ./tools/crawl -archive ../state/fmg-archive -arcgis "${{ inputs.city }}"
 
       - name: Compose
         working-directory: atlas
