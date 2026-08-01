@@ -20,7 +20,7 @@ export function exposeDiagnostics() {
     domNodes: document.querySelectorAll("*").length,
     canvases: document.querySelectorAll("canvas").length,
     rasterCacheSize: 64,
-    pinLabelsVisible: state.pinLabelsVisible,
+    labelsHeld: state.labelsHeld,
     hoveredPin: state.hoveredPin?.location.title || null,
     selectedPin: state.selectedPin?.location.title || null,
     fitZoom: state.fitZoom,
@@ -41,6 +41,7 @@ export function exposeDiagnostics() {
       visibleCountText: elements.visibleCount.textContent,
       overviewDocked: state.overviewDocked,
       dockFolded: state.dockFolded,
+      dockDismissed: state.dockDismissed,
       subgridVisible: state.subgridVisible,
     },
     zones: {

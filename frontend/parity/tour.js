@@ -41,6 +41,12 @@ function keydown(key, options = {}) {
   }));
 }
 
+function keyup(key, options = {}) {
+  window.dispatchEvent(new KeyboardEvent("keyup", {
+    key, bubbles: true, cancelable: true, ...options,
+  }));
+}
+
 function viewportKeydown(key) {
   tourQuery("#map").dispatchEvent(new KeyboardEvent("keydown", {
     key, bubbles: true, cancelable: true,
@@ -163,7 +169,7 @@ async function tour() {
   // Label and chrome shortcuts.
   keydown("z");
   await record("labels-on");
-  keydown("z");
+  keyup("z");
   await record("labels-off");
   keydown("b", { metaKey: true });
   await record("sidebar-collapsed");

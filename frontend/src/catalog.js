@@ -13,6 +13,7 @@ export async function loadMap(entry) {
   unpackLocations(packed, categories);
   return {
     ...entry,
+    grid: detail.grid,
     variants: detail.variants,
     groups: detail.groups,
     zones: detail.zones || [],

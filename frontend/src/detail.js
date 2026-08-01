@@ -1,9 +1,10 @@
 import { mapText } from "./catalog.js";
 import { elements } from "./dom.js";
+import { geohashAt } from "./grid.js";
 import { syncLegendCheckboxes, syncSectionSwitches } from "./legend.js";
 import { viewMaxZoom } from "./navigation.js";
 import { applyPinFilters, refreshPrioritySource } from "./pins.js";
-import { renderSearchResults } from "./search.js";
+import { renderSearchResults, revealDock } from "./search.js";
 import { state } from "./state.js";
 import { applyCategoryVisual, applyCategoryGlyph, initials } from "./theme.js";
 import { cleanDescription } from "./util.js";
@@ -32,9 +33,18 @@ export function showPin(pin, focus = false) {
   elements.detailID.textContent = String(pin.location.id);
   elements.detailCoordinates.textContent =
     `${pin.location.lat.toFixed(6)}, ${pin.location.lng.toFixed(6)}`;
+  // A latitude of this map's own is hard to hold in the head and harder to
+  // compare, so the pin also names the cell it stands in -- the same three
+  // characters the grid draws and the navigator takes, which say where a place
+  // is by saying which part of the map it is in. A pin off the ground the grid
+  // divides has no cell to name, and says nothing rather than the nearest one.
+  const cell = geohashAt(pin.coordinate);
+  elements.detailCell.textContent = cell;
+  elements.detailCellField.hidden = !cell;
   applyCategoryVisual(elements.detailDot, pin.category);
   applyCategoryGlyph(elements.detailDot, pin.category, initials(pin.category.title));
   elements.detail.hidden = false;
+  revealDock();
   renderSearchResults();
   if (focus) {
     const view = state.engine.getView();

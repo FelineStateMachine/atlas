@@ -74,7 +74,11 @@ export async function selectMap(id) {
   // Where the corner of the screen is wanted is a preference about the game
   // rather than about one of its maps, so it carries across them.
   setOverviewDocked(Boolean(state.restore?.overviewDocked), false);
-  setDockFolded(Boolean(state.restore?.dockFolded), false);
+  // A map opens on the map: the panel is away until a pin or a search gives it
+  // something to hold. A game that remembers otherwise is a reader who has
+  // already said where they want it.
+  setDockFolded(state.restore ? Boolean(state.restore.dockFolded) : true, false);
+  state.dockDismissed = Boolean(state.restore?.dockDismissed);
   state.search = "";
   elements.search.value = "";
   elements.dock.hidden = false;
@@ -83,6 +87,12 @@ export async function selectMap(id) {
   renderZones();
   buildPins();
   selectVariant(restore ? clamp(restore.variant, 0, state.map.variants.length - 1) : 0, true);
+  // The remembered arrangement has been spent. Kept, it would be read again by
+  // the next thing that asks: a variant swap would drop the reader back where
+  // the session opened, and switching to another game would hand that game the
+  // dock and overview this one was left with instead of its own -- selectGame
+  // only reads a game's session when nothing is held here.
+  state.restore = null;
   elements.sidebar.classList.remove("is-open");
   elements.mobileLegend.setAttribute("aria-expanded", "false");
   writeRoute();
@@ -178,7 +188,11 @@ export function selectVariant(index, resetView = false) {
   }
   state.overviewKey = "";
   renderOverview();
-  const resume = state.restore?.map === state.map.slug ? state.restore : null;
+  // Only a map being opened has a view to restore. A variant is a different
+  // picture of the ground the reader is already looking at -- spring for
+  // summer, one layer of a split map for another -- so the swap is made
+  // underneath them and everything else, the view included, stays as it is.
+  const resume = resetView && state.restore?.map === state.map.slug ? state.restore : null;
   // Zones and pins are built before a variant is chosen, so on a split map the
   // first render shows every layer at once. Comparing against what was actually
   // rendered catches that as well as a later switch between layers.

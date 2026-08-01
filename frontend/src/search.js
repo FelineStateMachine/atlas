@@ -55,6 +55,25 @@ export function renderSearchResults() {
   }
   elements.searchResults.replaceChildren(fragment);
   updateDockReadout(eligible.length);
+  updateDockRail();
+}
+
+// Folded, the dock is a rail with one word on it, and that word read the same
+// whether or not a location was open: the map had a pin picked out and the
+// only panel saying which one was the one just put away. The rail carries the
+// name until the pin is closed, so folding the panel costs the view of the map
+// and nothing else.
+const railNameLimit = 28;
+
+export function updateDockRail() {
+  const title = state.selectedPin?.location.title || "";
+  // The rail runs the height of the window, and a long name would run past the
+  // bottom of it. Cut it where the reader can still recognise the place.
+  const shown = title.length > railNameLimit
+    ? `${title.slice(0, railNameLimit - 1).trimEnd()}…`
+    : title;
+  elements.dockRailName.textContent = shown ? ` · ${shown}` : "";
+  elements.dockRailName.hidden = !shown;
 }
 
 function updateDockReadout(count) {
@@ -69,6 +88,25 @@ function updateDockReadout(count) {
   } else {
     elements.dockFlag.hidden = true;
   }
+}
+
+// The panel starts out of the way, because the map is the reason the window is
+// open, and comes out by itself the first time it has something to say -- a pin
+// opened, or a search with results in it. Once, and only until the reader has
+// answered the question by putting it away: after that it stays where they put
+// it and the map is theirs.
+export function revealDock() {
+  if (!state.dockFolded || state.dockDismissed) return;
+  setDockFolded(false);
+}
+
+// The reader working the control themselves is what settles it. Folding it by
+// hand is the answer that stops it opening again; unfolding by hand withdraws
+// that answer, so a panel put away and brought back is once more a panel that
+// keeps up with what is selected.
+export function foldDockByHand(folded) {
+  state.dockDismissed = folded;
+  setDockFolded(folded);
 }
 
 // Put away rather than closed: the rail keeps the count's place and the way

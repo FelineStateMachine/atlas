@@ -13,7 +13,7 @@ export const state = {
   pinByID: new Map(),
   selectedPin: null,
   hoveredPin: null,
-  pinLabelsVisible: false,
+  labelsHeld: false,
   gridEnabled: false,
   // Whether the cells are drawn, which is a separate question from whether one
   // of them is holding the map to a place.
@@ -33,7 +33,10 @@ export const state = {
   overviewKey: "",
   overviewPointer: null,
   overviewDocked: false,
-  dockFolded: false,
+  dockFolded: true,
+  // Whether the reader has put the panel away themselves. Until they have, it
+  // comes out on its own the first time there is something in it to read.
+  dockDismissed: false,
   renderedShard: 0,
   mapRun: 0,
   textByMap: new Map(),

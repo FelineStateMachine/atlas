@@ -6,6 +6,14 @@
   padding: 8px 18px 8px 12px;
 }
 
+/* Named rather than left to fall where the row's children happen to put it.
+   Zones has nothing to solo and so no middle control, and its switch was
+   sitting in the gutter the others keep for one -- a column short of every
+   switch below it. */
+.layer-header .layer-switch {
+  grid-column: 3;
+}
+
 .layer-title {
   display: flex;
   min-width: 0;

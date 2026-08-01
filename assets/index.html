@@ -135,7 +135,7 @@
 
           <div class="map-hint" id="map-hint">
             <span>Drag to pan</span><i></i><span>Scroll to zoom</span><i></i>
-            <span id="labels-hint">Z · labels off</span><i></i>
+            <span id="labels-hint">Z · hold for labels</span><i></i>
             <span id="grid-hint">G · grid off</span>
           </div>
         </div>
@@ -144,15 +144,16 @@
     </main>
 
     <aside id="dock" class="dock" hidden>
-      <div class="dock-readout">
+      <button id="dock-fold" class="dock-readout" type="button" aria-expanded="true"
+        aria-label="Put the panel away" title="Put the panel away">
         <span id="dock-count"></span>
         <span id="dock-flag" class="dock-flag" hidden></span>
-        <button id="dock-fold" class="dock-fold" type="button" aria-expanded="true"
-          aria-label="Put the panel away" title="Put the panel away">
-          <svg viewBox="0 0 16 16" aria-hidden="true"><path d="m6 3 5 5-5 5"/></svg>
-        </button>
-      </div>
-      <span class="dock-rail-label" aria-hidden="true">Locations</span>
+        <span class="dock-fold" aria-hidden="true">
+          <svg viewBox="0 0 16 16"><path d="m6 3 5 5-5 5"/></svg>
+        </span>
+      </button>
+      <span class="dock-rail-label" aria-hidden="true">Locations<span id="dock-rail-name"
+          class="dock-rail-name" hidden></span></span>
       <div class="dock-body">
         <div id="dock-results" class="dock-results"></div>
         <article id="pin-detail" class="pin-detail" hidden>
@@ -170,6 +171,7 @@
           <dl>
             <div><dt>Location ID</dt><dd id="detail-id"></dd></div>
             <div><dt>Coordinates</dt><dd id="detail-coordinates"></dd></div>
+            <div id="detail-cell-field"><dt>Grid cell</dt><dd id="detail-cell"></dd></div>
           </dl>
         </article>
       </div>

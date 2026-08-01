@@ -223,6 +223,47 @@ export function gridMaxDepth() {
   return geohashMaxDepth;
 }
 
+// The reverse of geohashExtent: the same halvings, choosing at each one the
+// side the point is on. What comes back is the cell the grid would draw around
+// it, so it is a place the reader can type into the navigator and go to.
+//
+// Worked out when it is asked for rather than written into the catalog: the
+// grid divides the ground a variant covers, and a map offered as layers gives
+// each layer its own, so the same pin is in different cells depending on which
+// one is open. A hash stored beside a location could only be right for one.
+export function geohashAt(coordinate, depth = gridMaxDepth()) {
+  const extent = [...gridExtent()];
+  const [x, y] = coordinate;
+  if (x < extent[0] || x > extent[2] || y < extent[1] || y > extent[3]) return "";
+  let splitX = true;
+  let hash = "";
+  for (let level = 0; level < depth; level++) {
+    let value = 0;
+    for (const mask of [16, 8, 4, 2, 1]) {
+      if (splitX) {
+        const middle = (extent[0] + extent[2]) / 2;
+        if (x >= middle) {
+          value |= mask;
+          extent[0] = middle;
+        } else {
+          extent[2] = middle;
+        }
+      } else {
+        const middle = (extent[1] + extent[3]) / 2;
+        if (y >= middle) {
+          value |= mask;
+          extent[1] = middle;
+        } else {
+          extent[3] = middle;
+        }
+      }
+      splitX = !splitX;
+    }
+    hash += geohashAlphabet[value];
+  }
+  return hash;
+}
+
 export function pinInGridCell(pin) {
   if (!state.gridEnabled || !state.gridPrefix) return false;
   const extent = currentGridExtent();

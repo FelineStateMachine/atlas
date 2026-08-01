@@ -17,9 +17,9 @@ import {
   syncSectionSwitches,
   toggleSection,
 } from "./legend.js";
-import { applyPinFilters } from "./pins.js";
+import { applyPinFilters, setLabelsHeld } from "./pins.js";
 import { jumpToZone, setZonesVisible, toggleZoneHighlight } from "./zones.js";
-import { setDockFolded } from "./search.js";
+import { foldDockByHand, revealDock } from "./search.js";
 import { closeDetail, revealPin } from "./detail.js";
 import {
   ascendGrid,
@@ -124,9 +124,12 @@ export function bindUIEvents() {
     state.search = elements.search.value.trim().toLocaleLowerCase();
     // applyPinFilters refreshes the dock list along with the canvas.
     applyPinFilters();
+    // What a search finds is listed in the panel, so a search asked with the
+    // panel away is a question with the answer out of sight.
+    if (state.search) revealDock();
   });
   elements.dockFold.addEventListener("click", () => {
-    setDockFolded(!state.dockFolded);
+    foldDockByHand(!state.dockFolded);
   });
   elements.searchResults.addEventListener("click", (event) => {
     const result = event.target.closest("[data-location]");
@@ -212,7 +215,7 @@ export function bindUIEvents() {
     // answers the same shortcut editors give their secondary sidebar.
     if ((event.metaKey || event.ctrlKey) && event.altKey && event.code === "KeyB") {
       event.preventDefault();
-      if (!elements.dock.hidden) setDockFolded(!state.dockFolded);
+      if (!elements.dock.hidden) foldDockByHand(!state.dockFolded);
       return;
     }
     // ⌘B on a Mac, Ctrl+B elsewhere: the usual shortcut for putting a sidebar
@@ -223,13 +226,20 @@ export function bindUIEvents() {
       return;
     }
     if (handleGridKey(event)) return;
+    // A key held down repeats, and every repeat after the first says what the
+    // first one already said.
     if (event.key.toLocaleLowerCase() === "z") {
       event.preventDefault();
-      state.pinLabelsVisible = !state.pinLabelsVisible;
-      elements.labelsHint.textContent = `Z · labels ${state.pinLabelsVisible ? "on" : "off"}`;
-      state.layers.pinLabels.changed();
+      if (!event.repeat) setLabelsHeld(true);
     }
   });
+  window.addEventListener("keyup", (event) => {
+    if (event.key.toLocaleLowerCase() === "z") setLabelsHeld(false);
+  });
+  // A window that loses focus with the key down never hears it come back up,
+  // so ⌘-Tab away while reading the names and they would still be there on the
+  // way back, with nothing holding them.
+  window.addEventListener("blur", () => setLabelsHeld(false));
   window.addEventListener("hashchange", () => {
     const route = readRoute();
     if (route.game === state.game?.slug && route.map === state.map?.slug) return;

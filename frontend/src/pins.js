@@ -2,6 +2,7 @@ import Feature from "ol/Feature.js";
 import Point from "ol/geom/Point.js";
 
 import { closeDetail } from "./detail.js";
+import { elements } from "./dom.js";
 import { pinInGridCell } from "./grid.js";
 import { renderSearchResults } from "./search.js";
 import { updateVisibleCount } from "./navigation.js";
@@ -111,6 +112,18 @@ export function setHoveredPin(pin) {
   refreshPrioritySource();
   state.layers.pins.changed();
   state.layers.priority.changed();
+}
+
+// Z is held rather than switched: the reader wants every name for as long as
+// they are looking for one, and then wants the map back. Holding it says both
+// in one gesture, so there is no state left on by mistake and no zoom to reach
+// first -- letting go returns the map to whatever it was drawing before.
+export function setLabelsHeld(held) {
+  if (state.labelsHeld === held) return;
+  state.labelsHeld = held;
+  elements.labelsHint.textContent = held ? "Z · labels shown" : "Z · hold for labels";
+  state.layers.pinLabels.changed();
+  state.layers.text.changed();
 }
 
 export function isPriorityPin(pin) {

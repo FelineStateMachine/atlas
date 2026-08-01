@@ -41,9 +41,12 @@ export function zonePinFeatureStyle(feature) {
   return markerStyles(pin, false);
 }
 
+// Held, so the zoom has no say in it. What the reader asked for is every name
+// on the map at once, and a rule that waited for the deepest zoom answered it
+// with the names of the few places already on screen.
 export function pinLabelFeatureStyle(feature) {
   const pin = feature.get("pin");
-  if (!pin || pinIsHidden(pin) || !state.pinLabelsVisible || !atMaximumNativeZoom()) return null;
+  if (!pin || pinIsHidden(pin) || !state.labelsHeld) return null;
   return markerLabelStyle(pin);
 }
 
@@ -51,6 +54,10 @@ export function textFeatureStyle(feature) {
   const pin = feature.get("pin");
   if (!pin || pinIsHidden(pin) || pin.insideHighlightedZone || isPriorityPin(pin)) return null;
   if (atMaximumNativeZoom()) return null;
+  // A text pin is its own label, so the key that shows every name shows these
+  // too -- otherwise the crowded categories, the ones held back the longest,
+  // would be the ones it never reached.
+  if (state.labelsHeld) return textStyles(pin, false);
   const minimumZoom = state.fitZoom + Math.log2(textDetailRatio(pin.category));
   if ((state.engine.getView().getZoom() || 0) < minimumZoom) return null;
   return textStyles(pin, false);

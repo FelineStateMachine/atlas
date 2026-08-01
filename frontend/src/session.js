@@ -21,6 +21,7 @@ export function saveSession() {
       collapsed: [...state.collapsedSections],
       overviewDocked: state.overviewDocked,
       dockFolded: state.dockFolded,
+      dockDismissed: state.dockDismissed,
     };
     localStorage.setItem(sessionKey, JSON.stringify(stored));
   } catch {

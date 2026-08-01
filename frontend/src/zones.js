@@ -226,8 +226,13 @@ export function projectZoneGeometry(rawGeometry) {
   return null;
 }
 
+// A pin arrives as a latitude and longitude in the source tile grid, which is
+// not the same grid for every game: most maps are cut from a 32-tile square at
+// zoom 13, and a map cut from a window of its own carries where that window
+// sits. Both describe the same world square, so everything downstream of this
+// -- the view, the overview, the geohash grid -- works in units either way.
 export function project(latitude, longitude) {
-  const grid = state.catalog.tileGrid;
+  const grid = mapTileGrid();
   const worldTiles = 2 ** grid.sourceZoom;
   const xTile = ((longitude + 180) / 360) * worldTiles;
   const latitudeRadians = latitude * Math.PI / 180;
@@ -236,4 +241,10 @@ export function project(latitude, longitude) {
     (xTile - grid.firstTile) * grid.tileSize,
     -(yTile - grid.firstTile) * grid.tileSize,
   ];
+}
+
+export function mapTileGrid() {
+  const shared = state.catalog.tileGrid;
+  const own = state.map?.grid;
+  return own ? { ...shared, ...own } : shared;
 }
