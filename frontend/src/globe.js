@@ -72,6 +72,10 @@ const detail = { group: null, tiles: new Map(), key: "", variant: "" };
 // The geohash grid drawn on the sphere: cell boundaries and their letters,
 // rebuilt from the same plan the chart tiles its cells from.
 const grid = { group: null, prefix: null };
+// The names held up while Z is down: label sprites over the pins nearest
+// the camera, rebuilt as the view settles and dropped on release.
+const labels = { group: null, key: "" };
+const labelBudget = 180;
 // The pins the standing sprites were built from. The renderer creates
 // sprites lazily on its own tick, so nothing here may assume they exist
 // the moment the data is handed over -- each sprite is born already
@@ -97,6 +101,8 @@ export function syncGlobe() {
     detail.group = null;
     grid.group = null;
     grid.prefix = null;
+    labels.group = null;
+    labels.key = "";
     globe._destructor();
     globe = null;
     texturedFor = "";
@@ -223,15 +229,18 @@ async function enterGlobe() {
       .onZoom(() => {
         document.dispatchEvent(new Event("atlas:globe-camera"));
         updateDetailTiles();
+        rebuildGlobeLabels();
       });
     document.addEventListener("atlas:selection", syncSelection);
     document.addEventListener("atlas:filters", syncFilters);
     // A grid change moves both the boundaries and which pins are held to
-    // the chosen cell.
+    // the chosen cell -- and which names Z is holding up.
     document.addEventListener("atlas:grid", () => {
       rebuildGlobeGrid();
       syncFilters();
+      rebuildGlobeLabels();
     });
+    document.addEventListener("atlas:labels", rebuildGlobeLabels);
     // A cell chosen on the sphere is chosen the way the chart chooses it:
     // the point pressed names its next-deeper cell through the same
     // reverse-halving the navigator types.
@@ -253,6 +262,11 @@ async function enterGlobe() {
     globe.scene().add(detail.group);
     grid.group = new Group();
     globe.scene().add(grid.group);
+    labels.group = new Group();
+    globe.scene().add(labels.group);
+    // A window on the globe's working parts for the parity harness and a
+    // plain browser: counts, never control.
+    window.__atlasGlobe = { detail, grid, labels, sprites };
   }
   resizeGlobe();
 
@@ -286,6 +300,7 @@ async function enterGlobe() {
   restyleSelection();
   updateDetailTiles();
   rebuildGlobeGrid();
+  rebuildGlobeLabels();
   document.dispatchEvent(new Event("atlas:globe-camera"));
 }
 
@@ -318,6 +333,89 @@ function rebuildGlobeGrid() {
     frameGridCell(mapping);
   }
   grid.prefix = state.gridPrefix;
+}
+
+// rebuildGlobeLabels raises names over the pins while Z is held: the ones
+// nearest what the camera faces, within a budget -- a planet of two
+// thousand names at once is noise, and the chart's own flood is bounded by
+// its window the same way. Rebuilt as the camera settles, dropped on
+// release.
+function rebuildGlobeLabels() {
+  if (!globe || !labels.group) return;
+  const wanted = state.globeActive && state.labelsHeld;
+  const pov = wanted ? globe.pointOfView() : null;
+  const key = wanted
+    ? `${Math.round(pov.lat)}:${Math.round(pov.lng)}:${pov.altitude.toFixed(2)}:${state.gridPrefix}`
+    : "";
+  if (key === labels.key) return;
+  labels.key = key;
+  for (const child of [...labels.group.children]) {
+    labels.group.remove(child);
+    child.material?.map?.dispose();
+    child.material?.dispose();
+  }
+  if (!wanted) return;
+
+  const nearby = [];
+  for (const [pin, sprite] of sprites) {
+    if (!sprite.visible) continue;
+    const stood = placed.get(pin);
+    if (!stood) continue;
+    const distance = angularDistance(pov, stood);
+    if (distance > 85) continue;
+    nearby.push({ pin, stood, distance });
+  }
+  nearby.sort((a, b) => a.distance - b.distance);
+  for (const { pin, stood } of nearby.slice(0, labelBudget)) {
+    labels.group.add(labelSprite(pin, stood));
+  }
+}
+
+// angularDistance is the great-circle separation in degrees, which is what
+// "near what the camera faces" means on a sphere.
+function angularDistance(a, b) {
+  const rad = Math.PI / 180;
+  const inner =
+    Math.sin(a.lat * rad) * Math.sin(b.lat * rad) +
+    Math.cos(a.lat * rad) * Math.cos(b.lat * rad) * Math.cos((a.lng - b.lng) * rad);
+  return (Math.acos(clamp(inner, -1, 1)) * 180) / Math.PI;
+}
+
+// labelSprite writes one pin's name on a small card floated above its
+// marker, screen-sized like the marker itself.
+function labelSprite(pin, stood) {
+  const title = pin.location.title;
+  const canvas = document.createElement("canvas");
+  const context = canvas.getContext("2d");
+  const font = "600 26px Inter, system-ui, sans-serif";
+  context.font = font;
+  const width = Math.ceil(context.measureText(title).width) + 24;
+  canvas.width = width;
+  canvas.height = 40;
+  context.font = font;
+  context.textAlign = "center";
+  context.textBaseline = "middle";
+  context.fillStyle = "rgba(10, 13, 17, 0.78)";
+  context.fillRect(0, 0, width, 40);
+  context.fillStyle = "#e6ebf0";
+  context.fillText(title, width / 2, 21);
+  const material = new SpriteMaterial({
+    depthWrite: false,
+    sizeAttenuation: false,
+    transparent: true,
+  });
+  new TextureLoader().load(canvas.toDataURL("image/png"), (texture) => {
+    material.map = texture;
+    material.needsUpdate = true;
+  });
+  const sprite = new Sprite(material);
+  sprite.position.set(...surfacePoint(stood.lat, stood.lng, detailRadius + 0.4));
+  const height = 0.028;
+  sprite.scale.set((height * width) / 40, height, 1);
+  // Anchored at its bottom edge -- the far end of center's 0..1 contract --
+  // the card floats above the marker instead of covering it.
+  sprite.center.set(0.5, 0);
+  return sprite;
 }
 
 // cellCorners lands a cell's chart extent on the sphere: latitudes and

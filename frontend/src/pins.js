@@ -128,6 +128,9 @@ export function setLabelsHeld(held) {
   elements.labelsHint.textContent = held ? "Z · labels shown" : "Z · hold for labels";
   state.layers.pinLabels.changed();
   state.layers.text.changed();
+  // Anything else writing names beside its pins -- the globe -- holds and
+  // releases them the same moment the chart does.
+  document.dispatchEvent(new Event("atlas:labels"));
 }
 
 export function isPriorityPin(pin) {

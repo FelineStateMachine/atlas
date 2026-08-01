@@ -253,15 +253,21 @@ export function isAnnotationLayer(layer) {
     layer === state.layers.zoneText;
 }
 
-export function createView(maxZoom) {
+// createView holds the camera to the map rather than to the world square
+// it is cut from: a map narrower or shorter than the square -- a wikimap's
+// margin, a planet's 2:1 sheet -- centers in the pane when the whole of it
+// is on screen, instead of hugging the square's top corner across the dead
+// half nothing is drawn in.
+export function createView(maxZoom, extent = null) {
   const size = state.game.tileGrid.size;
+  const held = extent || [0, -size, size, 0];
   return new View({
     projection: state.projection,
-    center: [size / 2, -size / 2],
+    center: [(held[0] + held[2]) / 2, (held[1] + held[3]) / 2],
     resolutions: resolutions(maxZoom),
     minZoom: 0,
     maxZoom,
-    extent: [0, -size, size, 0],
+    extent: held,
     constrainResolution: false,
     smoothResolutionConstraint: false,
     showFullExtent: true,

@@ -184,6 +184,13 @@ export function bindUIEvents() {
       setSubgridVisible(!state.subgridVisible);
       return;
     }
+    // The backquote flips panes from inside the field the way space works
+    // the subgrid from it: no hash will ever spell either character.
+    if (event.key === "`") {
+      event.preventDefault();
+      if (!elements.globeToggle.hidden) toggleGlobe();
+      return;
+    }
     if (event.key !== "Escape") return;
     event.preventDefault();
     event.stopPropagation();

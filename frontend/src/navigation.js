@@ -126,10 +126,15 @@ export function selectVariant(index, resetView = false) {
   const carried = resetView ? null : carryViewAcrossShards(priorVariant, variant);
   const maxViewZoom = viewMaxZoom(variant);
   elements.variant.value = String(state.map.variants.indexOf(state.variant));
-  if (resetView) state.engine.setView(createView(maxViewZoom));
+  if (resetView) state.engine.setView(createView(maxViewZoom, activeExtent()));
   else {
-    state.engine.getView().setMinZoom(variant.minZoom);
-    state.engine.getView().setMaxZoom(maxViewZoom);
+    // The view is rebuilt around the new variant's own window -- shards do
+    // not share one -- but keeps the place the reader was carried to.
+    const previous = state.engine.getView();
+    const held = createView(maxViewZoom, activeExtent());
+    held.setCenter(previous.getCenter());
+    held.setZoom(previous.getZoom() || 0);
+    state.engine.setView(held);
   }
 
   const tileRun = ++state.tileRun;
