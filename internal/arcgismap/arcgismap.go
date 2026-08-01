@@ -547,7 +547,7 @@ func Translate(doc []byte) ([]byte, error) {
 	if err != nil {
 		return nil, err
 	}
-	regions, err := buildRegions(&capture, byOrder, ids)
+	regions, err := buildRegions(&capture, byOrder, ids, buildHydroIndex(&capture))
 	if err != nil {
 		return nil, err
 	}
@@ -758,8 +758,10 @@ const zoneLimit = 256
 // buildRegions folds the polygon and line datasets into zones: every
 // feature whose ZoneOf names a bucket lands its ground in that bucket's
 // region, and line features widen into ribbon polygons first, because a
-// zone is ground and a line has none.
-func buildRegions(capture *Capture, pairs []pairing, ids *mgdoc.IDSpace) ([]mgdoc.Region, error) {
+// zone is ground and a line has none. Zones of the city's own datasets --
+// never the national ones -- learn their subwatershed from the hydro
+// index when their features agree on one.
+func buildRegions(capture *Capture, pairs []pairing, ids *mgdoc.IDSpace, hydro *hydroIndex) ([]mgdoc.Region, error) {
 	regions := []mgdoc.Region{}
 	for _, pair := range pairs {
 		curated, data := pair.curated, pair.data
@@ -767,11 +769,20 @@ func buildRegions(capture *Capture, pairs []pairing, ids *mgdoc.IDSpace) ([]mgdo
 			continue
 		}
 		buckets := make(map[string]*mgdoc.Region)
+		claims := make(map[string]*hydroClaims)
 		var order []string
 		for _, feature := range data.Features {
 			key := curated.ZoneOf(feature.Fields)
 			if key.Key == "" {
 				continue
+			}
+			if hydro != nil && curated.Server == "" {
+				claim, tracked := claims[key.Key]
+				if !tracked {
+					claim = &hydroClaims{}
+					claims[key.Key] = claim
+				}
+				claim.observe(hydro, feature.Geometry)
 			}
 			zone, made := buckets[key.Key]
 			if !made {
@@ -807,9 +818,13 @@ func buildRegions(capture *Capture, pairs []pairing, ids *mgdoc.IDSpace) ([]mgdo
 		}
 		sort.Strings(order)
 		for _, key := range order {
-			if len(buckets[key].Features) > 0 {
-				regions = append(regions, *buckets[key])
+			if len(buckets[key].Features) == 0 {
+				continue
 			}
+			if claim := claims[key]; claim != nil {
+				claim.apply(hydro, buckets[key])
+			}
+			regions = append(regions, *buckets[key])
 		}
 	}
 	return regions, nil
