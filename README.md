@@ -43,6 +43,19 @@ Wails requires a desktop build tag even when it is invoked through `go run`.
 Atlas supplies the additional macOS `UniformTypeIdentifiers` linker flag
 itself, so no shell environment setup is needed.
 
+## Released builds
+
+Tagged releases carry portable builds for Windows (x64), macOS (Apple
+Silicon), and Linux (x64); each reads `.atlas` bundles from the library
+directory above. Two platform notes:
+
+- **macOS**: the app is unsigned. After unzipping, clear the quarantine
+  with `xattr -dr com.apple.quarantine Atlas.app`, or approve it under
+  System Settings → Privacy & Security → "Open Anyway".
+- **Linux**: the binary links GTK 3 and WebKitGTK 4.1 at runtime
+  (`libgtk-3-0`, `libwebkit2gtk-4.1-0`) — present on Ubuntu 24.04+,
+  Debian 13, and recent Fedora.
+
 The app supports scroll/pinch zoom, drag panning, pin search, map and tile-set
 selection, compact category toggles, group-level show/hide controls, floating
 `display_type: "text"` labels, optional region polygons and names, and pin
