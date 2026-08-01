@@ -27,6 +27,13 @@ func testServer(t *testing.T) (*server, string) {
 	return newServer(&library{dir: dir}), dir
 }
 
+func newTestSite(t *testing.T, s *server) *httptest.Server {
+	t.Helper()
+	ts := httptest.NewServer(s.routes())
+	t.Cleanup(ts.Close)
+	return ts
+}
+
 func get(t *testing.T, ts *httptest.Server, path string) (int, string) {
 	t.Helper()
 	response, err := ts.Client().Get(ts.URL + path)
@@ -43,8 +50,7 @@ func get(t *testing.T, ts *httptest.Server, path string) (int, string) {
 
 func TestPages(t *testing.T) {
 	server, _ := testServer(t)
-	ts := httptest.NewServer(server.routes())
-	defer ts.Close()
+	ts := newTestSite(t, server)
 
 	status, body := get(t, ts, "/")
 	if status != http.StatusOK {

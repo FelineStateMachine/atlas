@@ -19,7 +19,7 @@ type server struct {
 
 func newServer(lib *library) *server {
 	pages := make(map[string]*template.Template)
-	for _, name := range []string{"collection", "game"} {
+	for _, name := range []string{"collection", "game", "diff"} {
 		pages[name] = template.Must(template.ParseFS(uiFS, "ui/layout.tmpl", "ui/"+name+".tmpl"))
 	}
 	return &server{library: lib, pages: pages}
@@ -29,6 +29,7 @@ func (s *server) routes() http.Handler {
 	mux := http.NewServeMux()
 	mux.HandleFunc("GET /{$}", s.handleCollection)
 	mux.HandleFunc("GET /game/{slug}", s.handleGame)
+	mux.HandleFunc("GET /game/{slug}/diff", s.handleDiff)
 	mux.HandleFunc("GET /static/style.css", staticFile("ui/style.css", "text/css; charset=utf-8"))
 	return mux
 }
@@ -73,6 +74,37 @@ func (s *server) handleGame(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	s.render(w, "game", struct{ Game *game }{Game: held})
+}
+
+// handleDiff compares two builds of one game, named by file. The packed pins
+// are read here, on demand, because only a comparison ever needs them whole.
+func (s *server) handleDiff(w http.ResponseWriter, r *http.Request) {
+	held, err := s.library.gameBySlug(r.PathValue("slug"))
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	if held == nil {
+		http.NotFound(w, r)
+		return
+	}
+	from, to := held.Build(r.FormValue("a")), held.Build(r.FormValue("b"))
+	if from == nil || to == nil {
+		http.Error(w, "pick two builds of this game", http.StatusBadRequest)
+		return
+	}
+	pinsA, err := loadPins(from.Path, from.MapSlugs)
+	if err == nil {
+		var pinsB map[string]map[int64]string
+		if pinsB, err = loadPins(to.Path, to.MapSlugs); err == nil {
+			s.render(w, "diff", struct {
+				Game *game
+				Diff *buildDiff
+			}{Game: held, Diff: diffBuilds(from, to, pinsA, pinsB)})
+			return
+		}
+	}
+	http.Error(w, err.Error(), http.StatusInternalServerError)
 }
 
 func staticFile(name, contentType string) http.HandlerFunc {

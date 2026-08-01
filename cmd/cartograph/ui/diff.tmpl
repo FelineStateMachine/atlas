@@ -1,0 +1,58 @@
+{{define "title"}}Cartograph · {{.Game.Title}} · diff{{end}}
+{{define "content"}}
+<section class="page-head">
+  <h1>{{.Game.Title}} <span class="dim">what moved</span></h1>
+  <p class="dim"><a href="/game/{{.Game.Slug}}">{{.Game.Slug}}</a> · {{.Diff.A.File}} → {{.Diff.B.File}}</p>
+</section>
+
+<section class="card">
+  <h2>Axes</h2>
+  <table>
+    <thead><tr><th>measure</th><th class="num">{{.Diff.A.ShortStamp}}</th><th class="num">{{.Diff.B.ShortStamp}}</th><th class="num">Δ</th></tr></thead>
+    <tbody>
+    {{range .Diff.Axes}}
+      <tr>
+        <td>{{.Name}}</td><td class="num">{{.A}}</td><td class="num">{{.B}}</td>
+        <td class="num {{if gt .Sign 0}}delta-up{{else if lt .Sign 0}}delta-down{{else}}delta-flat{{end}}">{{.Delta}}</td>
+      </tr>
+    {{end}}
+    </tbody>
+  </table>
+</section>
+
+<div class="columns">
+<section class="card">
+  <h2>Pins added <span class="dim">{{len .Diff.Added}}</span></h2>
+  {{if .Diff.Added}}
+  <table>
+    <thead><tr><th>map</th><th class="num">id</th><th>title</th></tr></thead>
+    <tbody>{{range .Diff.Added}}<tr><td>{{.Map}}</td><td class="num">{{.ID}}</td><td>{{.Title}}</td></tr>{{end}}</tbody>
+  </table>
+  {{else}}<p class="dim">None.</p>{{end}}
+</section>
+<section class="card">
+  <h2>Pins removed <span class="dim">{{len .Diff.Removed}}</span></h2>
+  {{if .Diff.Removed}}
+  <table>
+    <thead><tr><th>map</th><th class="num">id</th><th>title</th></tr></thead>
+    <tbody>{{range .Diff.Removed}}<tr><td>{{.Map}}</td><td class="num">{{.ID}}</td><td>{{.Title}}</td></tr>{{end}}</tbody>
+  </table>
+  {{else}}<p class="dim">None.</p>{{end}}
+</section>
+</div>
+
+<section class="card">
+  <h2>Matched-pair stability</h2>
+  {{if .Diff.Pairs}}
+  <p class="dim">A pair is the same pair only when donor and winner both agree; a match that changed winners reads as one lost, one gained.</p>
+  <table>
+    <thead><tr><th>map</th><th>source</th><th class="num">kept</th><th class="num">gained</th><th class="num">lost</th></tr></thead>
+    <tbody>
+    {{range .Diff.Pairs}}
+      <tr><td>{{.Map}}</td><td>{{.Source}}</td><td class="num">{{.Kept}}</td><td class="num">{{.Gained}}</td><td class="num">{{.Lost}}</td></tr>
+    {{end}}
+    </tbody>
+  </table>
+  {{else}}<p class="dim">Neither build carries a merge ledger.</p>{{end}}
+</section>
+{{end}}

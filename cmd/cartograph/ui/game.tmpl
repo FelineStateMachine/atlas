@@ -4,6 +4,19 @@
   <h1>{{.Game.Title}} <span class="dim">{{.Game.Slug}}</span></h1>
   <p class="dim">{{len .Game.Builds}} builds, newest first — the first is the one the reader serves.</p>
 </section>
+{{if gt (len .Game.Builds) 1}}
+<form class="compare" action="/game/{{.Game.Slug}}/diff" method="get">
+  <label>compare</label>
+  <select name="a">
+    {{range $at, $b := .Game.Builds}}<option value="{{$b.File}}"{{if eq $at 1}} selected{{end}}>{{$b.File}}</option>{{end}}
+  </select>
+  <label>against</label>
+  <select name="b">
+    {{range $at, $b := .Game.Builds}}<option value="{{$b.File}}"{{if eq $at 0}} selected{{end}}>{{$b.File}}</option>{{end}}
+  </select>
+  <button>What moved</button>
+</form>
+{{end}}
 {{range $at, $b := .Game.Builds}}
 <section class="build{{if eq $at 0}} serving{{end}}">
   <h2>{{$b.File}}{{if eq $at 0}} <span class="tag">serving</span>{{end}}</h2>
