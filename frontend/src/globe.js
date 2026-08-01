@@ -241,6 +241,7 @@ async function enterGlobe() {
         updateDetailTiles();
         rebuildGlobeLabels();
         regridWhenFitChanges();
+        cullHiddenLabels();
       });
     document.addEventListener("atlas:selection", syncSelection);
     document.addEventListener("atlas:filters", syncFilters);
@@ -353,6 +354,9 @@ function rebuildGlobeGrid() {
     frameGridCell(mapping);
   }
   grid.cell = state.gridCell;
+  // Chips are born visible; a rebuild with the camera already elsewhere
+  // must not leave far-side chips shining through the planet.
+  cullHiddenLabels();
 }
 
 // ringLatLng lands a system's world-pixel ring on the sphere. The ring is
@@ -433,7 +437,12 @@ function gridLabelFits(cell, corners) {
 // ringFill lays a cell's tint or dim on the ground: a fan of triangles
 // from the cell's own centre out to its ring, each spoke subdivided so the
 // sheet follows the curve instead of sagging under it, just off the detail
-// tiles and under the boundary lines.
+// tiles and under the boundary lines. The spokes are walked on the sphere
+// itself -- chord-lerp between the centre's vector and each ring vector,
+// re-projected to the surface -- never in lat/lng, where an unwrapped ring
+// and a wrapped centre sit hundreds of degrees apart and a pole cell's
+// centre has no honest longitude at all; either smears the sheet around
+// the planet.
 function ringFill(ringLL, centerLL, fill) {
   const radius = detailRadius + 0.12;
   // The fan needs spokes as dense as the boundary's steps: with only the
@@ -443,16 +452,18 @@ function ringFill(ringLL, centerLL, fill) {
   const bounds = ringBounds(ringLL);
   const span = Math.max(bounds.east - bounds.west, bounds.north - bounds.south);
   const rows = clamp(Math.ceil(span / 6), 2, 24);
-  const positions = [...surfacePoint(centerLL[0], centerLL[1], radius)];
+  const center = surfacePoint(centerLL[0], centerLL[1], radius);
+  const edges = open.map(([lat, lng]) => surfacePoint(lat, lng, radius));
+  const positions = [...center];
   const indices = [];
   for (let row = 1; row <= rows; row++) {
-    for (const [lat, lng] of open) {
-      const t = row / rows;
-      positions.push(...surfacePoint(
-        centerLL[0] + (lat - centerLL[0]) * t,
-        centerLL[1] + (lng - centerLL[1]) * t,
-        radius,
-      ));
+    const t = row / rows;
+    for (const edge of edges) {
+      const x = center[0] + (edge[0] - center[0]) * t;
+      const y = center[1] + (edge[1] - center[1]) * t;
+      const z = center[2] + (edge[2] - center[2]) * t;
+      const lift = radius / (Math.hypot(x, y, z) || 1);
+      positions.push(x * lift, y * lift, z * lift);
     }
   }
   const count = open.length;
@@ -491,7 +502,7 @@ function rebuildGlobeLabels() {
   const wanted = state.globeActive && state.labelsHeld;
   const pov = wanted ? globe.pointOfView() : null;
   const key = wanted
-    ? `${Math.round(pov.lat)}:${Math.round(pov.lng)}:${pov.altitude.toFixed(2)}:${state.gridCell}`
+    ? `${Math.round(pov.lat)}:${Math.round(pov.lng)}:${pov.altitude.toFixed(2)}:${state.gridSystem}:${state.gridCell}`
     : "";
   if (key === labels.key) return;
   labels.key = key;
@@ -514,6 +525,31 @@ function rebuildGlobeLabels() {
   nearby.sort((a, b) => a.distance - b.distance);
   for (const { pin, stood } of nearby.slice(0, labelBudget)) {
     labels.group.add(labelSprite(pin, stood));
+  }
+  cullHiddenLabels();
+}
+
+// cullHiddenLabels enforces the horizon that the label sprites' materials
+// no longer test for: a card whose anchor has slipped past the planet's
+// silhouette goes invisible instead of shining through it. A point at the
+// limb sits where the cosine of its angle from the camera's axis equals
+// radius over distance; anything beyond that is the far side.
+function cullHiddenLabels() {
+  if (!globe) return;
+  const camera = globe.camera().position;
+  const distance = camera.length() || 1;
+  const horizon = globeRadius / distance;
+  for (const group of [grid.group, labels.group]) {
+    if (!group) continue;
+    for (const child of group.children) {
+      if (!child.isSprite) continue;
+      const anchor = child.position;
+      const reach = anchor.length() || 1;
+      const facing =
+        (anchor.x * camera.x + anchor.y * camera.y + anchor.z * camera.z) /
+        (reach * distance);
+      child.visible = facing > horizon;
+    }
   }
 }
 
@@ -546,6 +582,10 @@ function labelSprite(pin, stood) {
   context.fillStyle = "#e6ebf0";
   context.fillText(title, width / 2, 21);
   const material = new SpriteMaterial({
+    // No depth test: a screen-sized card anchored on the ground loses its
+    // lower half to the planet's own curve at any glancing angle. The
+    // horizon is enforced by hand in cullHiddenLabels instead.
+    depthTest: false,
     depthWrite: false,
     sizeAttenuation: false,
     transparent: true,
@@ -556,6 +596,7 @@ function labelSprite(pin, stood) {
   });
   const sprite = new Sprite(material);
   sprite.position.set(...surfacePoint(stood.lat, stood.lng, detailRadius + 0.4));
+  sprite.renderOrder = 4;
   const height = 0.028;
   sprite.scale.set((height * width) / 40, height, 1);
   // Anchored at its bottom edge -- the far end of center's 0..1 contract --
@@ -638,6 +679,8 @@ function cellChip(label, corners) {
   context.globalAlpha = 1;
 
   const material = new SpriteMaterial({
+    // Same bargain as the name cards: no depth test, horizon by hand.
+    depthTest: false,
     depthWrite: false,
     transparent: true,
     sizeAttenuation: false,
@@ -943,7 +986,7 @@ export function resizeGlobe() {
 function regridWhenFitChanges() {
   if (!globe || !state.globeActive || !state.gridEnabled) return;
   const pov = globe.pointOfView();
-  const key = `${state.gridCell}:${Math.round(zoomForAltitude(pov.altitude) * 2)}`;
+  const key = `${state.gridSystem}:${state.gridCell}:${Math.round(zoomForAltitude(pov.altitude) * 2)}`;
   if (key === grid.fitKey) return;
   grid.fitKey = key;
   rebuildGlobeGrid();

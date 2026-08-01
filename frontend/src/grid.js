@@ -8,7 +8,13 @@ import Feature from "ol/Feature.js";
 import MultiPolygon from "ol/geom/MultiPolygon.js";
 import Polygon from "ol/geom/Polygon.js";
 
-import { activeSystem, clipRingX, surfaceExtent } from "./cellsystems/index.js";
+import {
+  activeSystem,
+  applicableSystems,
+  clipRingX,
+  equivalentCell,
+  surfaceExtent,
+} from "./cellsystems/index.js";
 import { gridTheme, palette } from "./constants.js";
 import { closeDetail } from "./detail.js";
 import { elements } from "./dom.js";
@@ -124,6 +130,7 @@ export function renderGrid() {
   state.sources.gridContext.clear();
   elements.gridNavigator.hidden = !state.gridEnabled;
   updateGridHint();
+  syncGridSystemControl();
   if (state.gridEnabled && state.lens) {
     const system = activeSystem();
     elements.gridInput.maxLength = system.inputLength(state.world);
@@ -138,6 +145,49 @@ export function renderGrid() {
   // Anything else drawing the grid -- the globe -- redraws from the same
   // plan the same moment the chart does.
   document.dispatchEvent(new Event("atlas:grid"));
+}
+
+// syncGridSystemControl keeps the navigator honest about which systems can
+// divide this map: one small button wearing the current system's mark,
+// cycling to the next on click -- and nothing at all when geohash is the
+// only voice. The full name lives on the field label beside it.
+function syncGridSystemControl() {
+  const systems = applicableSystems(state.world);
+  const active = activeSystem();
+  elements.gridSystemName.textContent = active.name;
+  elements.gridSystem.hidden = systems.length < 2;
+  if (systems.length < 2) return;
+  const next = systems[(systems.indexOf(active) + 1) % systems.length];
+  elements.gridSystem.textContent = active.short;
+  elements.gridSystem.title = `Dividing by ${active.name} · ⌘G for ${next.name}`;
+  elements.gridSystem.setAttribute("aria-label",
+    `Cell system: ${active.name}. Switch to ${next.name}`);
+}
+
+// cycleGridSystem steps to the next system that can divide this map.
+export function cycleGridSystem() {
+  const systems = applicableSystems(state.world);
+  if (systems.length < 2) return;
+  const at = systems.indexOf(activeSystem());
+  setGridSystem(systems[(at + 1) % systems.length].slug);
+}
+
+// setGridSystem changes which system divides the map. A chosen place
+// survives the change: the new hierarchy's cell over the old cell's center
+// at the nearest precision, so switching dividers re-addresses the ground
+// under the reader rather than sending them back to the root. The view
+// stays put -- the new cell covers roughly the ground already on screen.
+export function setGridSystem(slug) {
+  if (slug === state.gridSystem) return;
+  const from = activeSystem();
+  const held = state.gridCell;
+  state.gridSystem = slug;
+  state.gridCell = held ? equivalentCell(from, activeSystem(), held, state.world) : "";
+  renderGrid();
+  refreshPrioritySource();
+  state.layers.pins.changed();
+  state.layers.text.changed();
+  state.layers.priority.changed();
 }
 
 // gridCellColor is the accent a cell wears everywhere it is drawn, chosen
@@ -287,13 +337,16 @@ function gridGeometry(cell) {
   const surface = surfaceExtent();
   let ring = cell.ring;
   if (cell.pole) {
+    // The whole loop, closing point included: a pole cell's walk ends a
+    // world over from where it began, and the closure is what spans the
+    // last tessellation step. Dropping it left a sliver of ground the
+    // polygon never covered, one step wide, at the walk's own longitude.
     const poleY = cell.pole === "north" ? surface[3] : surface[1];
-    const open = ring.slice(0, -1);
     ring = [
-      ...open,
-      [open[open.length - 1][0], poleY],
-      [open[0][0], poleY],
-      open[0],
+      ...ring,
+      [ring[ring.length - 1][0], poleY],
+      [ring[0][0], poleY],
+      ring[0],
     ];
   }
   const inside = ring.every(([x]) => x >= surface[0] && x <= surface[2]);

@@ -260,7 +260,9 @@ export function gridStyle(feature, resolution) {
   });
   if (!visual) return null;
 
-  const key = `grid:${cell.hash}:${cell.role}:${cell.contextDistance}:` +
+  // The system is part of the key: "1" names a geohash cell and an S2 face,
+  // and the two are drawn nowhere near each other.
+  const key = `grid:${state.gridSystem}:${cell.hash}:${cell.role}:${cell.contextDistance}:` +
     `${labelled ? 1 : 0}:${visual.bare ? 1 : 0}`;
   if (state.styleCache.has(key)) return state.styleCache.get(key);
 
@@ -284,8 +286,9 @@ export function gridStyle(feature, resolution) {
       ? [visual.label.prefix, gridLabelFont(500, size), visual.label.final, gridLabelFont(900, size)]
       : visual.label.final;
     const inset = gridTheme.labelInsetPx * resolution;
-    styles.push(new Style({
-      geometry: new Point([cell.extent[2] - inset, cell.extent[1] + inset]),
+    const corner = chipVertex(feature.getGeometry());
+    if (corner) styles.push(new Style({
+      geometry: new Point([corner[0] - inset, corner[1] + inset]),
       text: new Text({
         text: chunks,
         font: gridLabelFont(900, size),
@@ -301,6 +304,25 @@ export function gridStyle(feature, resolution) {
   }
   state.styleCache.set(key, styles);
   return styles;
+}
+
+// chipVertex finds where the chip belongs: the bottom-right-most vertex of
+// the cell as it is actually drawn -- clipped to the surface, closed along
+// a pole, curved however the system curves. For a rectangle that is exactly
+// the bounding-box corner, so geohash chips sit where they always have; for
+// a cell whose bounding box wanders off its own ground -- an S2 face
+// unwrapped past the seam -- the chip stays on the cell it names.
+function chipVertex(geometry) {
+  const polygons = geometry.getType() === "MultiPolygon"
+    ? geometry.getCoordinates()
+    : [geometry.getCoordinates()];
+  let corner = null;
+  for (const polygon of polygons) {
+    for (const [x, y] of polygon[0] || []) {
+      if (!corner || x - y > corner[0] - corner[1]) corner = [x, y];
+    }
+  }
+  return corner;
 }
 
 // A hash names the cell it sits in, so a label wider than its cell names the

@@ -10,6 +10,7 @@
   "dependencies": {
     "globe.gl": "2.46.1",
     "ol": "10.10.0",
+    "s2js": "1.44.0",
     "three": "0.185.1"
   },
   "devDependencies": {

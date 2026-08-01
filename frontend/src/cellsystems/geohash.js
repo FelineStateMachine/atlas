@@ -82,6 +82,7 @@ function containsBox(id) {
 export const geohashSystem = {
   slug: "geohash",
   name: "Geohash",
+  short: "G",
 
   appliesTo() {
     return true;

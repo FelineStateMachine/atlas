@@ -27,6 +27,7 @@ import {
   ascendGrid,
   handleGridKey,
   selectGridCell,
+  cycleGridSystem,
   setSubgridVisible,
 } from "./grid.js";
 import { readRoute } from "./session.js";
@@ -160,6 +161,7 @@ export function bindUIEvents() {
   $("#zoom-out").addEventListener("click", () =>
     state.globeActive ? changeGlobeZoom(-1) : changeZoom(-1));
   elements.gridBack.addEventListener("click", ascendGrid);
+  elements.gridSystem.addEventListener("click", cycleGridSystem);
   elements.gridInput.addEventListener("input", () => {
     // The system says what the field keeps of a keystroke and when the
     // text has become a place: geohash goes somewhere on every character,
@@ -218,6 +220,14 @@ export function bindUIEvents() {
     if ((event.metaKey || event.ctrlKey) && event.key.toLocaleLowerCase() === "r") {
       event.preventDefault();
       location.reload();
+      return;
+    }
+    // ⌘G cycles which cell system divides the map, carrying the chosen
+    // place across at like precision. Above the editable-target guard: the
+    // switch is most wanted mid-thought, right from the token field.
+    if ((event.metaKey || event.ctrlKey) && event.key.toLocaleLowerCase() === "g") {
+      event.preventDefault();
+      cycleGridSystem();
       return;
     }
     if (isEditableTarget(event.target)) return;

@@ -1,6 +1,7 @@
 import { worldText } from "./catalog.js";
-import { elements } from "./dom.js";
+import { applicableSystems } from "./cellsystems/index.js";
 import { geohashCellAt } from "./cellsystems/geohash.js";
+import { elements } from "./dom.js";
 import { syncLegendCheckboxes, syncSectionSwitches } from "./legend.js";
 import { viewMaxZoom } from "./navigation.js";
 import { applyPinFilters, refreshPrioritySource } from "./pins.js";
@@ -44,6 +45,25 @@ export function showPin(pin, focus = false) {
   const cell = geohashCellAt(pin.coordinate);
   elements.detailCell.textContent = cell;
   elements.detailCellField.hidden = !cell;
+  // Every other system that can divide this map speaks for the point in
+  // its own address, each layer owning the attribute it mints: one row
+  // per system, after the geohash row the markup already keeps.
+  for (const stray of elements.detail.querySelectorAll("[data-cell-system-row]")) {
+    stray.remove();
+  }
+  for (const system of applicableSystems(state.world)) {
+    if (system.slug === "geohash") continue;
+    const row = system.locate(pin.coordinate, state.world);
+    if (!row) continue;
+    const field = document.createElement("div");
+    field.dataset.cellSystemRow = system.slug;
+    const term = document.createElement("dt");
+    term.textContent = row.label;
+    const value = document.createElement("dd");
+    value.textContent = row.value;
+    field.append(term, value);
+    elements.detailCellField.after(field);
+  }
   // A map composed from several sources says where a pin came from. The
   // payload's merge account names every contribution; a pin it does not name
   // is the map's own, and says nothing rather than guessing.
