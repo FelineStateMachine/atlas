@@ -15,6 +15,7 @@ package main
 // captures, not an edit.
 
 import (
+	"bytes"
 	"fmt"
 	"math"
 	"sort"
@@ -90,10 +91,14 @@ type heldPin struct {
 	Reason string `json:"why"`
 }
 
-// mergeAcrossSources folds every game slug's catalog entries into one served
-// account: the newest capture absorbs the others' pins, and every source
-// still emits its own bundle untouched, so nothing is lost however the merge
-// policy evolves.
+// mergeAcrossSources composes every game slug's catalog entries into one
+// bundle. Each source contributed what it had -- a map the game already
+// draws, a map the game has never seen, icons, pins -- and the composition
+// takes each contribution on its own terms: pins of a shared map resolve
+// into it, a map without a counterpart joins the game whole, and the one
+// bundle written per slug is the game as every source together knows it.
+// The captures stay untouched in the archive, so recomposing under a better
+// policy never needs anything recrawled.
 func mergeAcrossSources(games []catalogGame, shared tileGrid) ([]catalogGame, error) {
 	bySlug := make(map[string][]int)
 	var order []string
@@ -105,6 +110,7 @@ func mergeAcrossSources(games []catalogGame, shared tileGrid) ([]catalogGame, er
 	}
 	sort.Strings(order)
 
+	absorbed := make(map[int]bool)
 	for _, slug := range order {
 		group := bySlug[slug]
 		if len(group) < 2 {
@@ -123,9 +129,18 @@ func mergeAcrossSources(games []catalogGame, shared tileGrid) ([]catalogGame, er
 			if err := mergeGame(&games[winner], &games[donor], shared); err != nil {
 				return nil, fmt.Errorf("merge %s: %w", slug, err)
 			}
+			absorbed[donor] = true
+		}
+		sortGameMaps(games[winner].Slug, games[winner].Maps)
+	}
+
+	composed := make([]catalogGame, 0, len(games))
+	for index, game := range games {
+		if !absorbed[index] {
+			composed = append(composed, game)
 		}
 	}
-	return games, nil
+	return composed, nil
 }
 
 func newestCapture(game catalogGame) string {
@@ -147,8 +162,13 @@ func mergeGame(winner, donor *catalogGame, shared tileGrid) error {
 		donorMap := &donor.Maps[index]
 		target := winnerMaps[donorMap.Slug]
 		if target == nil {
-			fmt.Printf("merge %s: %s has no counterpart in the serving capture; its pins stay in their own bundle\n",
-				winner.Slug, donorMap.Slug)
+			// A map the game has never drawn is a whole contribution: it
+			// joins the game as this source captured it, icons and all.
+			if err := contributeMap(winner, donor, donorMap); err != nil {
+				return err
+			}
+			fmt.Printf("merge %s: %s joins whole from %s\n",
+				winner.Slug, donorMap.Slug, sourceLabelOf(donorMap, donor))
 			continue
 		}
 		if target.Parent != "" || donorMap.Parent != "" {
@@ -160,6 +180,48 @@ func mergeGame(winner, donor *catalogGame, shared tileGrid) error {
 			return err
 		}
 	}
+	return nil
+}
+
+// contributeMap carries one source's map into the composed game untouched:
+// its layers, pins, and zones as captured, and its icons brought across --
+// under their own names where those are free or already hold the same bytes,
+// under source-prefixed names where the composed game spells something else
+// with them.
+func contributeMap(winner, donor *catalogGame, donorMap *catalogMap) error {
+	contributed := *donorMap
+	sourceTag := slugifyLabel(sourceLabelOf(donorMap, donor))
+	renamed := make(map[string]string)
+	for groupIndex := range contributed.Groups {
+		categories := contributed.Groups[groupIndex].Categories
+		for categoryIndex := range categories {
+			category := &categories[categoryIndex]
+			if category.IconAsset == "" {
+				continue
+			}
+			data, held := donor.Icons[category.IconAsset]
+			if !held {
+				category.IconAsset = ""
+				category.IconPicture = false
+				continue
+			}
+			name := category.IconAsset
+			if replacement, seen := renamed[name]; seen {
+				category.IconAsset = replacement
+				continue
+			}
+			if winner.Icons == nil {
+				winner.Icons = make(map[string][]byte)
+			}
+			if existing, taken := winner.Icons[name]; taken && !bytes.Equal(existing, data) {
+				name = sourceTag + "--" + name
+			}
+			winner.Icons[name] = data
+			renamed[category.IconAsset] = name
+			category.IconAsset = name
+		}
+	}
+	winner.Maps = append(winner.Maps, contributed)
 	return nil
 }
 
