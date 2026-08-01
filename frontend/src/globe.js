@@ -14,6 +14,8 @@ import {
   BufferGeometry,
   Float32BufferAttribute,
   Group,
+  LineBasicMaterial,
+  LineLoop,
   Mesh,
   MeshBasicMaterial,
   Sprite,
@@ -25,6 +27,7 @@ import {
 import { overzoomLevels } from "./constants.js";
 import { showPin } from "./detail.js";
 import { elements } from "./dom.js";
+import { geohashAt, gridCellPlan, pinInGridCell, selectGridPrefix } from "./grid.js";
 import { equirectMapping, mapSurface } from "./semconv.js";
 import { state } from "./state.js";
 import { markerIconKey } from "./styles.js";
@@ -46,6 +49,10 @@ const globeRadius = 100;
 const detailRadius = globeRadius + 0.2;
 const detailSegments = 8;
 const detailTileBudget = 96;
+// Screen-relative sprite sizes: with attenuation off, scale is a fraction
+// of the viewport rather than a length on the sphere.
+const spriteSize = 0.045;
+const spriteSelectedSize = 0.08;
 
 function surfacePoint(lat, lng, radius) {
   const phi = ((90 - lat) * Math.PI) / 180;
@@ -62,6 +69,9 @@ let texturedFor = "";
 // The detail layer: pyramid tiles standing just off the base skin wherever
 // the camera is close enough to want them, keyed by level/column/row.
 const detail = { group: null, tiles: new Map(), key: "", variant: "" };
+// The geohash grid drawn on the sphere: cell boundaries and their letters,
+// rebuilt from the same plan the chart tiles its cells from.
+const grid = { group: null, prefix: null };
 // The pins the standing sprites were built from. The renderer creates
 // sprites lazily on its own tick, so nothing here may assume they exist
 // the moment the data is handed over -- each sprite is born already
@@ -85,6 +95,8 @@ export function syncGlobe() {
   if (!offered && globe) {
     clearDetailTiles();
     detail.group = null;
+    grid.group = null;
+    grid.prefix = null;
     globe._destructor();
     globe = null;
     texturedFor = "";
@@ -106,13 +118,36 @@ export function toggleGlobe() {
 const wholeDiscAltitude = 2.5;
 const wholeChartZoom = 2;
 
+// The camera keeps a respectful distance: never through the skin -- a
+// camera inside the sphere sees the world inside out and its altitude goes
+// negative, which once poisoned every conversion downstream -- and never so
+// far the planet is a dot.
+const nearestAltitude = 0.08;
+const farthestAltitude = 4;
+
 function altitudeForZoom(zoom) {
-  return clamp(wholeDiscAltitude / 2 ** (zoom - wholeChartZoom), 0.08, 4);
+  const safe = Number.isFinite(zoom) ? zoom : wholeChartZoom;
+  return clamp(wholeDiscAltitude / 2 ** (safe - wholeChartZoom), nearestAltitude, farthestAltitude);
 }
 
 function zoomForAltitude(altitude) {
+  const safe = Number.isFinite(altitude) ? Math.max(altitude, nearestAltitude / 2) : wholeDiscAltitude;
   const ceiling = (state.variant?.maxZoom ?? wholeChartZoom) + overzoomLevels;
-  return clamp(wholeChartZoom + Math.log2(wholeDiscAltitude / altitude), 0, ceiling);
+  return clamp(wholeChartZoom + Math.log2(wholeDiscAltitude / safe), 0, ceiling);
+}
+
+// changeGlobeZoom is the zoom buttons' reading on the sphere: one press is
+// one halving or doubling of the distance, inside the same bounds the
+// wheel is held to.
+export function changeGlobeZoom(delta) {
+  if (!globe || !state.globeActive) return;
+  const pov = globe.pointOfView();
+  const altitude = clamp(
+    (Number.isFinite(pov.altitude) ? pov.altitude : wholeDiscAltitude) / 2 ** delta,
+    nearestAltitude,
+    farthestAltitude,
+  );
+  globe.pointOfView({ altitude }, 180);
 }
 
 function leaveGlobe() {
@@ -125,9 +160,13 @@ function leaveGlobe() {
   if (globe && state.globeActive && mapping && view) {
     const pov = globe.pointOfView();
     const [worldX, worldY] = mapping.toWorld(pov.lat, pov.lng);
-    view.cancelAnimations();
-    view.setCenter([worldX, -worldY]);
-    view.setZoom(zoomForAltitude(pov.altitude));
+    // Nothing unfinite may reach the chart's view: a broken number here
+    // once blacked out both panes with no way back.
+    if (Number.isFinite(worldX) && Number.isFinite(worldY)) {
+      view.cancelAnimations();
+      view.setCenter([worldX, -worldY]);
+      view.setZoom(zoomForAltitude(pov.altitude));
+    }
   }
   state.globeActive = false;
   elements.globe.hidden = true;
@@ -187,8 +226,33 @@ async function enterGlobe() {
       });
     document.addEventListener("atlas:selection", syncSelection);
     document.addEventListener("atlas:filters", syncFilters);
+    // A grid change moves both the boundaries and which pins are held to
+    // the chosen cell.
+    document.addEventListener("atlas:grid", () => {
+      rebuildGlobeGrid();
+      syncFilters();
+    });
+    // A cell chosen on the sphere is chosen the way the chart chooses it:
+    // the point pressed names its next-deeper cell through the same
+    // reverse-halving the navigator types.
+    globe.onGlobeClick(({ lat, lng }) => {
+      if (!state.gridEnabled) return;
+      const held = equirectMapping(state.map);
+      if (!held) return;
+      const [worldX, worldY] = held.toWorld(lat, lng);
+      const hash = geohashAt([worldX, -worldY], state.gridPrefix.length + 1);
+      if (hash) selectGridPrefix(hash);
+    });
+    // The camera stays outside the skin: closer than the nearest altitude
+    // the world turns inside out, and the numbers it produces poison every
+    // pane they touch.
+    const controls = globe.controls();
+    controls.minDistance = globeRadius * (1 + nearestAltitude);
+    controls.maxDistance = globeRadius * (1 + farthestAltitude);
     detail.group = new Group();
     globe.scene().add(detail.group);
+    grid.group = new Group();
+    globe.scene().add(grid.group);
   }
   resizeGlobe();
 
@@ -196,9 +260,11 @@ async function enterGlobe() {
   // chart was: the flip keeps the reader's place in both directions.
   const view = state.engine?.getView();
   const center = view?.getCenter();
-  if (center) {
+  if (center && Number.isFinite(center[0]) && Number.isFinite(center[1])) {
     const [lat, lng] = mapping.toLatLng(center[0], -center[1]);
-    globe.pointOfView({ lat, lng, altitude: altitudeForZoom(view.getZoom() ?? wholeChartZoom) });
+    globe.pointOfView({ lat, lng, altitude: altitudeForZoom(view.getZoom()) });
+  } else {
+    globe.pointOfView({ lat: 10, lng: 0, altitude: wholeDiscAltitude });
   }
 
   const variant = state.variant || state.map.variants[0];
@@ -219,7 +285,124 @@ async function enterGlobe() {
   syncFilters();
   restyleSelection();
   updateDetailTiles();
+  rebuildGlobeGrid();
   document.dispatchEvent(new Event("atlas:globe-camera"));
+}
+
+// rebuildGlobeGrid redraws the geohash cells on the sphere from the same
+// plan the chart tiles them from: the chosen cell outlined, its subdivision
+// lettered, ancestors' neighbors dimmed. Descending into a cell also turns
+// the globe to frame it, the way the chart fits its view.
+function rebuildGlobeGrid() {
+  if (!globe || !grid.group) return;
+  for (const child of [...grid.group.children]) {
+    grid.group.remove(child);
+    child.geometry?.dispose();
+    child.material?.map?.dispose();
+    child.material?.dispose();
+  }
+  const mapping = state.globeActive ? equirectMapping(state.map) : null;
+  if (!mapping || !state.gridEnabled) {
+    grid.prefix = null;
+    return;
+  }
+  for (const cell of gridCellPlan()) {
+    if (!state.subgridVisible && cell.role === "child") continue;
+    const corners = cellCorners(cell.extent, mapping);
+    grid.group.add(cellBoundary(corners, cell.role));
+    if (cell.role === "child" || cell.role === "leaf") {
+      grid.group.add(cellLetter(cell, corners));
+    }
+  }
+  if (grid.prefix !== null && grid.prefix !== state.gridPrefix) {
+    frameGridCell(mapping);
+  }
+  grid.prefix = state.gridPrefix;
+}
+
+// cellCorners lands a cell's chart extent on the sphere: latitudes and
+// longitudes of its frame, through the map's declared flattening.
+function cellCorners(extent, mapping) {
+  const [west, north] = mapping.toLatLng(extent[0], -extent[3]).reverse();
+  const [east, south] = mapping.toLatLng(extent[2], -extent[1]).reverse();
+  return { west, north, east, south };
+}
+
+function cellBoundary(corners, role) {
+  const positions = [];
+  const steps = 12;
+  const edge = (fromLat, fromLng, toLat, toLng) => {
+    for (let step = 0; step < steps; step++) {
+      const t = step / steps;
+      positions.push(...surfacePoint(
+        fromLat + (toLat - fromLat) * t,
+        fromLng + (toLng - fromLng) * t,
+        detailRadius + 0.25,
+      ));
+    }
+  };
+  edge(corners.north, corners.west, corners.north, corners.east);
+  edge(corners.north, corners.east, corners.south, corners.east);
+  edge(corners.south, corners.east, corners.south, corners.west);
+  edge(corners.south, corners.west, corners.north, corners.west);
+  const geometry = new BufferGeometry();
+  geometry.setAttribute("position", new Float32BufferAttribute(positions, 3));
+  const faded = role === "neighbor";
+  const material = new LineBasicMaterial({
+    color: role === "scope" || role === "leaf" ? 0x3aa5c9 : 0xd8dee6,
+    transparent: true,
+    opacity: faded ? 0.12 : role === "child" ? 0.4 : 0.9,
+    depthWrite: false,
+  });
+  return new LineLoop(geometry, material);
+}
+
+// cellLetter stands a cell's name at its centre, sized to the cell, the
+// same letters the chart writes and the navigator takes.
+function cellLetter(cell, corners) {
+  const canvas = document.createElement("canvas");
+  canvas.width = 96;
+  canvas.height = 96;
+  const context = canvas.getContext("2d");
+  context.font = "700 44px "
+    + "ui-monospace, SFMono-Regular, Menlo, monospace";
+  context.textAlign = "center";
+  context.textBaseline = "middle";
+  context.lineWidth = 8;
+  context.strokeStyle = "rgba(8, 12, 16, 0.85)";
+  const label = cell.hash.slice(-1) || cell.hash;
+  context.strokeText(label, 48, 50);
+  context.fillStyle = "#d8dee6";
+  context.fillText(label, 48, 50);
+  const material = new SpriteMaterial({ depthWrite: false, transparent: true, opacity: 0.85 });
+  new TextureLoader().load(canvas.toDataURL("image/png"), (texture) => {
+    material.map = texture;
+    material.needsUpdate = true;
+  });
+  const sprite = new Sprite(material);
+  const lat = (corners.north + corners.south) / 2;
+  const lng = (corners.west + corners.east) / 2;
+  sprite.position.set(...surfacePoint(lat, lng, detailRadius + 0.3));
+  const size = clamp(Math.abs(corners.east - corners.west) * 0.35, 1.2, 14);
+  sprite.scale.set(size, size, 1);
+  return sprite;
+}
+
+// frameGridCell turns the globe to hold the chosen cell, the way the chart
+// fits its view when the navigator descends.
+function frameGridCell(mapping) {
+  const plan = gridCellPlan();
+  const chosen = plan.find((cell) => cell.role === "scope" || cell.role === "leaf");
+  if (!chosen) return;
+  const corners = cellCorners(chosen.extent, mapping);
+  const lat = (corners.north + corners.south) / 2;
+  const lng = (corners.west + corners.east) / 2;
+  const span = Math.max(
+    Math.abs(corners.east - corners.west),
+    Math.abs(corners.north - corners.south),
+  );
+  const altitude = clamp(span / 45, nearestAltitude, farthestAltitude);
+  globe.pointOfView({ lat, lng, altitude }, 400);
 }
 
 // updateDetailTiles keeps the pyramid under the camera: past the base
@@ -358,7 +541,7 @@ function restyleSelection() {
   for (const [pin, sprite] of sprites) {
     const selected = pin === state.selectedPin;
     sprite.material = material(pin.category, selected);
-    const size = selected ? 9 : 5;
+    const size = selected ? spriteSelectedSize : spriteSize;
     sprite.scale.set(size, size, 1);
   }
   // Altitude rides the accessor, so re-declaring it reseats the two that
@@ -380,12 +563,21 @@ function syncSelection() {
   }
 }
 
+// pinShown is the one visibility rule the sphere holds a pin to: the
+// legend's and search's filters, and the chosen geohash cell, exactly as
+// the chart holds them.
+function pinShown(pin) {
+  if (pin.filteredHidden || state.hiddenCategories.has(pin.category.id)) return false;
+  if (state.gridEnabled && state.gridPrefix && !pinInGridCell(pin)) return false;
+  return true;
+}
+
 // syncFilters shows and hides sprites as the legend and the search decide,
 // the same visibility the chart draws from.
 function syncFilters() {
   if (!globe || !state.globeActive) return;
   for (const [pin, sprite] of sprites) {
-    sprite.visible = !pin.filteredHidden && !state.hiddenCategories.has(pin.category.id);
+    sprite.visible = pinShown(pin);
   }
 }
 
@@ -394,11 +586,11 @@ function syncFilters() {
 // reads the same on the sphere as on the sheet.
 function spriteFor(pin) {
   const sprite = new Sprite(material(pin.category, pin === state.selectedPin));
-  const size = pin === state.selectedPin ? 9 : 5;
+  const size = pin === state.selectedPin ? spriteSelectedSize : spriteSize;
   sprite.scale.set(size, size, 1);
   // Born dressed: the renderer creates sprites on its own tick, after any
   // sweep that ran at hand-over, so the filters must already be worn.
-  sprite.visible = !pin.filteredHidden && !state.hiddenCategories.has(pin.category.id);
+  sprite.visible = pinShown(pin);
   sprites.set(pin, sprite);
   return sprite;
 }
@@ -411,7 +603,10 @@ function material(category, selected) {
   const key = `${markerIconKey(category)}:${selected ? "ringed" : "plain"}`;
   let held = materials.get(key);
   if (held) return held;
-  held = new SpriteMaterial({ depthWrite: false });
+  // Pins keep one size on screen however close the camera is, the way the
+  // chart draws its markers -- world-sized sprites become dinner plates at
+  // low altitude.
+  held = new SpriteMaterial({ depthWrite: false, sizeAttenuation: false });
   materials.set(key, held);
   const icon = state.markerIcons.get(markerIconKey(category));
   const finish = (image) => {

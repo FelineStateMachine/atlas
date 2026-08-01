@@ -81,6 +81,7 @@ export function setSubgridVisible(visible) {
   elements.subgridToggle.setAttribute("aria-label",
     visible ? "Hide the subgrid" : "Show the subgrid");
   updateGridHint();
+  document.dispatchEvent(new Event("atlas:grid"));
 }
 
 export function updateGridHint() {
@@ -133,40 +134,55 @@ export function renderGrid() {
   state.sources.gridContext.clear();
   elements.gridNavigator.hidden = !state.gridEnabled;
   updateGridHint();
-  if (!state.gridEnabled || !state.variant) return;
-
-  const maximum = gridMaxDepth();
-  elements.gridInput.maxLength = maximum;
-  elements.gridInput.value = state.gridPrefix;
-  elements.gridBack.title = state.gridPrefix ? "Back one geohash level" : "Close geohash grid";
-
-  renderGridContext();
-  if (state.gridPrefix.length >= maximum) {
-    addGridFeature(state.gridPrefix, currentGridExtent(), "leaf");
-    return;
+  if (state.gridEnabled && state.variant) {
+    const maximum = gridMaxDepth();
+    elements.gridInput.maxLength = maximum;
+    elements.gridInput.value = state.gridPrefix;
+    elements.gridBack.title = state.gridPrefix ? "Back one geohash level" : "Close geohash grid";
+    for (const cell of gridCellPlan()) {
+      addGridFeature(cell.hash, cell.extent, cell.role, cell.contextDistance);
+    }
   }
-  // The cell the reader is inside, outlined rather than tiled. It is the one
-  // part of the grid that survives putting the grid away: what is on screen is
-  // still a chosen place, and a boundary says so where a bare map does not.
-  if (state.gridPrefix) {
-    addGridFeature(state.gridPrefix, currentGridExtent(), "scope");
-  }
-  for (const character of geohashAlphabet) {
-    const hash = state.gridPrefix + character;
-    addGridFeature(hash, geohashExtent(hash), "child");
-  }
+  // Anything else drawing the grid -- the globe -- redraws from the same
+  // plan the same moment the chart does.
+  document.dispatchEvent(new Event("atlas:grid"));
 }
 
-export function renderGridContext() {
+// gridCellPlan is the one account of which cells the grid shows: the chosen
+// cell outlined, its subdivision, and the dimmed neighbors of every
+// ancestor. The chart tiles it as polygons and the globe drapes it as
+// boundaries, both reading this.
+export function gridCellPlan() {
+  const cells = [];
   for (let depth = 0; depth < state.gridPrefix.length; depth++) {
     const parent = state.gridPrefix.slice(0, depth);
     const selected = state.gridPrefix.slice(0, depth + 1);
     for (const character of geohashAlphabet) {
       const hash = parent + character;
       if (hash === selected) continue;
-      addGridFeature(hash, geohashExtent(hash), "neighbor", state.gridPrefix.length - depth);
+      cells.push({
+        hash,
+        extent: geohashExtent(hash),
+        role: "neighbor",
+        contextDistance: state.gridPrefix.length - depth,
+      });
     }
   }
+  if (state.gridPrefix.length >= gridMaxDepth()) {
+    cells.push({ hash: state.gridPrefix, extent: currentGridExtent(), role: "leaf", contextDistance: 0 });
+    return cells;
+  }
+  // The cell the reader is inside, outlined rather than tiled. It is the one
+  // part of the grid that survives putting the grid away: what is on screen is
+  // still a chosen place, and a boundary says so where a bare map does not.
+  if (state.gridPrefix) {
+    cells.push({ hash: state.gridPrefix, extent: currentGridExtent(), role: "scope", contextDistance: 0 });
+  }
+  for (const character of geohashAlphabet) {
+    const hash = state.gridPrefix + character;
+    cells.push({ hash, extent: geohashExtent(hash), role: "child", contextDistance: 0 });
+  }
+  return cells;
 }
 
 export function addGridFeature(hash, extent, role, contextDistance = 0) {

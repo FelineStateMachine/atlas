@@ -108,32 +108,33 @@
           <small>Loading visible embedded tiles…</small>
         </div>
 
-        <div class="zoom-controls" aria-label="Map controls">
-          <button id="zoom-in" type="button" aria-label="Zoom in">+</button>
-          <button id="zoom-out" type="button" aria-label="Zoom out">−</button>
-        </div>
-
-        <div id="grid-navigator" class="grid-navigator" hidden>
-          <button id="grid-back" type="button" aria-label="Back one geohash level">←</button>
-          <label>
-            <span>Geohash</span>
-            <input id="grid-input" type="text" inputmode="text" autocomplete="off"
-              autocapitalize="none" spellcheck="false" aria-label="Geohash">
-          </label>
-          <button id="subgrid-toggle" class="subgrid-toggle" type="button" aria-pressed="true"
-            aria-label="Hide the subgrid" title="Space · show or hide the subgrid">
-            <svg viewBox="0 0 16 16" aria-hidden="true">
-              <path d="M2.5 2.5h11v11h-11z"/>
-              <path d="M6.2 2.5v11M9.8 2.5v11M2.5 6.2h11M2.5 9.8h11"/>
-              <path class="subgrid-toggle-slash" d="m2.6 13.4 10.8-10.8"/>
-            </svg>
-          </button>
-        </div>
-
       </div>
 
-      <!-- The corner floats over whichever pane is showing -- the chart or
-           the globe -- so the overview stays a companion to both. -->
+      <!-- The controls float over whichever pane is showing -- the chart or
+           the globe -- so zooming, the geohash navigator, and the overview
+           stay companions to both. -->
+      <div class="zoom-controls" aria-label="Map controls">
+        <button id="zoom-in" type="button" aria-label="Zoom in">+</button>
+        <button id="zoom-out" type="button" aria-label="Zoom out">−</button>
+      </div>
+
+      <div id="grid-navigator" class="grid-navigator" hidden>
+        <button id="grid-back" type="button" aria-label="Back one geohash level">←</button>
+        <label>
+          <span>Geohash</span>
+          <input id="grid-input" type="text" inputmode="text" autocomplete="off"
+            autocapitalize="none" spellcheck="false" aria-label="Geohash">
+        </label>
+        <button id="subgrid-toggle" class="subgrid-toggle" type="button" aria-pressed="true"
+          aria-label="Hide the subgrid" title="Space · show or hide the subgrid">
+          <svg viewBox="0 0 16 16" aria-hidden="true">
+            <path d="M2.5 2.5h11v11h-11z"/>
+            <path d="M6.2 2.5v11M9.8 2.5v11M2.5 6.2h11M2.5 9.8h11"/>
+            <path class="subgrid-toggle-slash" d="m2.6 13.4 10.8-10.8"/>
+          </svg>
+        </button>
+      </div>
+
       <div class="map-corner">
         <div id="overview-shelf" class="overview-shelf" hidden>
           <button id="overview-dock" class="overview-dock" type="button" aria-expanded="true"

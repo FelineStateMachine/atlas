@@ -18,7 +18,7 @@ import {
   toggleSection,
 } from "./legend.js";
 import { applyPinFilters, setLabelsHeld } from "./pins.js";
-import { refreshGlobe, resizeGlobe, toggleGlobe } from "./globe.js";
+import { changeGlobeZoom, refreshGlobe, resizeGlobe, toggleGlobe } from "./globe.js";
 import { jumpToZone, setZonesVisible, toggleZoneHighlight } from "./zones.js";
 import { foldDockByHand, revealDock } from "./search.js";
 import { importBundles } from "./library.js";
@@ -154,8 +154,12 @@ export function bindUIEvents() {
   });
 
   $("#close-detail").addEventListener("click", closeDetail);
-  $("#zoom-in").addEventListener("click", () => changeZoom(1));
-  $("#zoom-out").addEventListener("click", () => changeZoom(-1));
+  // One pair of buttons, whichever pane is showing: the chart steps its
+  // zoom, the globe halves or doubles its distance.
+  $("#zoom-in").addEventListener("click", () =>
+    state.globeActive ? changeGlobeZoom(1) : changeZoom(1));
+  $("#zoom-out").addEventListener("click", () =>
+    state.globeActive ? changeGlobeZoom(-1) : changeZoom(-1));
   elements.gridBack.addEventListener("click", ascendGrid);
   elements.gridInput.addEventListener("input", () => {
     const maximum = gridMaxDepth();
