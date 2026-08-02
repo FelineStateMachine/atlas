@@ -80,6 +80,12 @@ comes back identical: the world payload with its whole merge ledger, the packed
 locations, the deferred prose, all 38 icons, both pyramids' 17,507 tiles, and the
 archive's entry order, byte for byte.
 
+Measured against the reference build itself, that comes to: **17,549 archive
+entries, in identical order, of which exactly one differs** — `atlas.json`, in
+two fields of one object. Not the tile grid, not the volume, not a world's
+counts or its capture time; `version.revision` and the `version.stamp` that
+follows from it. The two files are the same length to the byte.
+
 Its stamp cannot be identical, and the reason is a rule rather than a defect.
 Issue #5 §5.3 requires an enrich write to bump the build revision past the
 serving build's so the registry fold deterministically serves the enriched build;

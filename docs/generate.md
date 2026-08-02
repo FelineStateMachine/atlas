@@ -1035,6 +1035,8 @@ empty registry to the fixture. Every part is byte-identical — the world payloa
 including its whole merge ledger, the packed locations, the deferred prose, all
 38 icons, both pyramids' 17,507 tiles, and the archive's entry order — except
 the manifest, whose `version` object carries the enriched build's revision.
+Against the reference build itself that is 17,549 entries in identical order, of
+which exactly one differs, in two fields of one object.
 
 That one difference is the `enriched-build-revision` waiver and it is a
 consequence, not a divergence: §5.3 of issue #5 requires an enrich write to bump
