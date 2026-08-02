@@ -40,6 +40,15 @@ type App struct {
 	static fs.FS
 	events *hub
 	mux    *http.ServeMux
+
+	// worlds and texts hold what a world costs to stand up: a payload
+	// decoded, every location unpacked, every ring projected. That is work
+	// worth doing once per build rather than once per keystroke of a
+	// search, and the keys carry the build's stamp, so a new build is a new
+	// entry and nothing is ever stale. They are memory, not state: two Apps
+	// over one host still answer the same, only slower.
+	worlds *worldCache
+	texts  *textCache
 }
 
 // Options is what a host tells the application about itself.
@@ -55,7 +64,10 @@ type Options struct {
 
 // New wires the application over a host.
 func New(env hostenv.Hostenv, opts Options) *App {
-	a := &App{env: env, static: opts.Static, events: newHub(), mux: http.NewServeMux()}
+	a := &App{
+		env: env, static: opts.Static, events: newHub(), mux: http.NewServeMux(),
+		worlds: newWorldCache(), texts: newTextCache(),
+	}
 	a.routes()
 	return a
 }
@@ -72,12 +84,21 @@ func (a *App) routes() {
 
 	// The app plane.
 	a.mux.HandleFunc("GET /{$}", a.handleHome)
+	a.mux.HandleFunc("GET /open", a.handleOpen)
 	a.mux.HandleFunc("GET /v/{volume}/{world}", a.handleExplorer)
 	a.mux.HandleFunc("GET /fragments/detail/{id}", a.handleDetail)
 	a.mux.HandleFunc("POST /session/{concern}", a.handleSession)
 	a.mux.HandleFunc("POST /bundles/import", a.handleImport)
 	a.mux.HandleFunc("GET /events", a.handleEvents)
 	a.mux.HandleFunc("GET /static/{path...}", a.handleStatic)
+
+	// The application's own chrome: the stylesheet system and the
+	// hypermedia runtime, embedded in the binary. It is a separate mount
+	// from /static on purpose -- /static is whatever tree a host handed
+	// over, and the application is required to work when a host handed over
+	// nothing (issue #5 §3.2), which it cannot do if its own chrome lives
+	// there.
+	a.mux.HandleFunc("GET /assets/{path...}", a.handleAsset)
 }
 
 // library is the volumes serving right now, as one request sees them. It is

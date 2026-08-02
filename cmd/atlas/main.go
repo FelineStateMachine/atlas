@@ -3,6 +3,8 @@
 //
 //	atlas compose     build a volume from archived captures and derived tiles
 //	atlas translate   read archived captures and print the interchange document
+//	atlas serve -bundles DIR      # the headless application host
+//	atlas dev   -bundles DIR      # the same, reading its chrome from the working copy
 //
 // More subcommands arrive with the lanes that own them -- crawl, tiles, enrich,
 // measure, workbench, serve, dev. Each lives in its own file and appears here as
@@ -40,6 +42,7 @@ type command struct {
 func commands() []command {
 	return []command{
 		composeCommand(),
+		devCommand(),
 		serveCommand(),
 		translateCommand(),
 	}

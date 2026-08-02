@@ -344,7 +344,7 @@ func TestSessionConcerns(t *testing.T) {
 		{
 			concern: "lens",
 			form:    url.Values{"lens": {"satellite"}},
-			targets: []string{"#atlas-topbar", "#atlas-viewport-state"},
+			targets: []string{"#atlas-topbar", "#atlas-overview", "#atlas-viewport-state"},
 			check: func(t *testing.T, s app.Session) {
 				if s.Lens != "satellite" {
 					t.Errorf("lens = %q", s.Lens)
@@ -366,7 +366,10 @@ func TestSessionConcerns(t *testing.T) {
 			form:    url.Values{"section": {"quests"}, "open": {"0"}},
 			targets: []string{"#atlas-legend"},
 			check: func(t *testing.T, s app.Session) {
-				if len(s.Collapsed) != 1 || s.Collapsed[0] != "quests" {
+				// A fresh record is arranged before the concern runs, and
+				// the arrangement folds the viewer's own Zones section, so
+				// what this asserts is that the named section joined it.
+				if !contains(s.Collapsed, "quests") {
 					t.Errorf("collapsed = %v", s.Collapsed)
 				}
 			},
@@ -382,12 +385,46 @@ func TestSessionConcerns(t *testing.T) {
 			},
 		},
 		{
+			// Isolating is a move on the hide set rather than a state of
+			// its own, and the chip is derived from what is hidden. With
+			// nothing named, the chip's own way out -- show everything --
+			// is what the route means.
 			concern: "solo",
-			form:    url.Values{"domain": {"hydro"}, "on": {"1"}},
-			targets: []string{"#atlas-topbar", "#atlas-legend", "#atlas-viewport-state"},
+			form:    url.Values{},
+			targets: []string{"#atlas-legend", "#atlas-dock", "#atlas-viewport-state"},
 			check: func(t *testing.T, s app.Session) {
-				if len(s.Solo) != 1 || s.Solo[0] != "hydro" {
-					t.Errorf("solo = %v", s.Solo)
+				if len(s.Hidden) != 0 {
+					t.Errorf("hidden = %v", s.Hidden)
+				}
+			},
+		},
+		{
+			concern: "expand",
+			form:    url.Values{"collection": {"7"}, "open": {"1"}},
+			targets: []string{"#atlas-legend"},
+			check: func(t *testing.T, s app.Session) {
+				if len(s.Expanded) != 1 || s.Expanded[0] != "7" {
+					t.Errorf("expanded = %v", s.Expanded)
+				}
+			},
+		},
+		{
+			concern: "highlight",
+			form:    url.Values{"feature": {"31"}},
+			targets: []string{"#atlas-legend", "#atlas-dock", "#atlas-viewport-state"},
+			check: func(t *testing.T, s app.Session) {
+				if len(s.Highlighted) != 1 || s.Highlighted[0] != "31" {
+					t.Errorf("highlighted = %v", s.Highlighted)
+				}
+			},
+		},
+		{
+			concern: "overview",
+			form:    url.Values{"docked": {"1"}},
+			targets: []string{"#atlas-overview"},
+			check: func(t *testing.T, s app.Session) {
+				if !s.Overview.Docked {
+					t.Error("the overview did not dock")
 				}
 			},
 		},
@@ -414,7 +451,7 @@ func TestSessionConcerns(t *testing.T) {
 		{
 			concern: "select",
 			form:    url.Values{"feature": {"1849"}},
-			targets: []string{"#atlas-detail", "#atlas-dock", "#atlas-viewport-state"},
+			targets: []string{"#atlas-legend", "#atlas-dock", "#atlas-detail", "#atlas-viewport-state"},
 			check: func(t *testing.T, s app.Session) {
 				if s.Selected != "1849" || !s.Detail.Open {
 					t.Errorf("selection = %q, detail = %+v", s.Selected, s.Detail)
@@ -436,7 +473,7 @@ func TestSessionConcerns(t *testing.T) {
 			form:    url.Values{"open": {"1"}},
 			targets: []string{"#atlas-shell"},
 			check: func(t *testing.T, s app.Session) {
-				if !s.Sidebar.Open {
+				if s.Sidebar.Collapsed {
 					t.Error("the sidebar did not open")
 				}
 			},
@@ -546,12 +583,27 @@ func TestDetailFragment(t *testing.T) {
 	if got.Code != http.StatusOK {
 		t.Fatalf("the detail fragment answered %d", got.Code)
 	}
-	if !strings.Contains(got.Body.String(), `data-feature="1849"`) {
-		t.Errorf("the fragment is not about the feature asked for:\n%s", got.Body)
+	// This volume's payload holds no features, so the card is empty -- which
+	// is how a closed card is spelled (see assets/css/chrome.css). What the
+	// fragment must always carry is its own container, because the region is
+	// swapped into it by id.
+	if !strings.Contains(got.Body.String(), `id="atlas-detail"`) {
+		t.Errorf("the fragment carries no card container:\n%s", got.Body)
 	}
 	if got := get(t, handler, "/fragments/detail/1849", nil); got.Code != http.StatusBadRequest {
 		t.Errorf("a fragment naming no volume answered %d", got.Code)
 	}
+}
+
+// contains is the membership question a handful of checks above ask of a
+// sorted set.
+func contains(set []string, member string) bool {
+	for _, held := range set {
+		if held == member {
+			return true
+		}
+	}
+	return false
 }
 
 func TestStaticWithoutASeam(t *testing.T) {

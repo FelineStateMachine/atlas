@@ -1,3 +1,23 @@
-{{/* overview — the corner map: the whole world, and where the camera is. */}}
-{{define "overview"}}<div class="overview">{{with .Volume}}<span class="overview-world">{{.World.Title}}</span>{{end}}</div>
+{{/*
+  overview — the corner locator: whether it is put away, and the surface the
+  seam draws the world and the camera rectangle onto.
+
+  The canvas is the seam's, so the shelf carries hx-morph-skip-children: a
+  swap may move the shelf's own attributes -- docked or not -- and never
+  reaches inside to the surface, because a re-render that dropped the canvas
+  would cost a redraw of the whole world to say one boolean.
+*/}}
+{{define "overview"}}<div id="atlas-overview" class="overview-shelf{{if .Overview.Docked}} is-docked{{end}}"{{if not .Volume}} hidden{{end}}>
+  <button type="button" class="overview-dock" id="overview-dock"
+          aria-expanded="{{if .Overview.Docked}}false{{else}}true{{end}}"
+          aria-label="{{.Overview.Label}}" title="{{.Overview.Label}}"
+          hx-post="/session/overview"
+          hx-vals='{"docked":"{{if .Overview.Docked}}0{{else}}1{{end}}"}'>
+    <svg viewBox="0 0 16 16" aria-hidden="true"><path d="m6 3 5 5-5 5"/></svg>
+  </button>
+  <div class="overview" id="overview" aria-label="Map overview" hx-morph-skip-children>
+    <canvas id="overview-canvas"></canvas>
+    <div class="overview-viewport" id="overview-viewport"></div>
+  </div>
+</div>
 {{end}}

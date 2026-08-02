@@ -20,11 +20,10 @@ import (
 // The envelope, which is contract and is stable ahead of the templates:
 //
 //	event: catalog
-//	data: <hx-partial target="#atlas-topbar" swap="innerMorph">…</hx-partial>
-//	data: <hx-partial target="#atlas-library" swap="innerMorph">…</hx-partial>
+//	data: <hx-partial hx-target="#atlas-topbar" hx-swap="innerMorph">…</hx-partial>
 //
 //	event: refresh
-//	data: <hx-partial target="#atlas-shell" swap="innerMorph" src="/v/tunic/world"></hx-partial>
+//	data: <hx-partial hx-target="#atlas-shell" hx-swap="innerMorph" hx-get="/v/tunic/world"></hx-partial>
 //
 // Two event names and no more. `catalog` says the library's composition moved
 // and carries the regions that list it. `refresh` is the one directive: the
@@ -136,8 +135,8 @@ func (a *App) announce(changed []string) {
 			world = manifest.Worlds[0].Slug
 		}
 		where := partialTargets["shell"]
-		directive := []byte("<hx-partial target=\"" + where.target + "\" swap=\"" + where.swap +
-			"\" src=\"/v/" + slug + "/" + world + "\"></hx-partial>")
+		directive := []byte("<hx-partial hx-target=\"" + where.target + "\" hx-swap=\"" + where.swap +
+			"\" hx-get=\"/v/" + slug + "/" + world + "\"></hx-partial>")
 		a.events.publish(message{name: eventRefresh, body: directive, volume: slug})
 	}
 	slog.Info("library changed", logging.Op("events"),

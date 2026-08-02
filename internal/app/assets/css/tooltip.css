@@ -1,0 +1,37 @@
+/* The name of a control arrives only once the pointer has settled on it, so a
+   legend of icons stays learnable without the words being present all the time.
+   It opens to the left because the list beside it scrolls and would clip
+   anything that reached past its edge. */
+[data-label] {
+  position: relative;
+}
+
+[data-label]::after {
+  position: absolute;
+  z-index: 12;
+  top: 50%;
+  right: calc(100% + 6px);
+  padding: 4px 7px;
+  border: 1px solid var(--line-strong);
+  border-radius: 4px;
+  opacity: 0;
+  background: rgba(15, 16, 20, 0.97);
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.4);
+  color: var(--text);
+  content: attr(data-label);
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0;
+  text-transform: none;
+  transform: translateY(-50%);
+  transition: opacity 90ms ease;
+  pointer-events: none;
+  white-space: nowrap;
+}
+
+[data-label]:hover::after,
+[data-label]:focus-visible::after {
+  opacity: 1;
+  transition-delay: 520ms;
+}
+

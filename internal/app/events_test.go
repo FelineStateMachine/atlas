@@ -127,7 +127,7 @@ func TestImportAnnouncesWhatArrived(t *testing.T) {
 	if name != "refresh" {
 		t.Fatalf("the mars stream's second event was %q, want refresh", name)
 	}
-	if !strings.Contains(data, `src="/v/mars/overworld"`) {
+	if !strings.Contains(data, `hx-get="/v/mars/overworld"`) {
 		t.Errorf("the refresh directive does not say where to refetch from:\n%s", data)
 	}
 
