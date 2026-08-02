@@ -1,6 +1,7 @@
 package compose
 
 import (
+	"encoding/json"
 	"strconv"
 
 	"github.com/FelineStateMachine/atlas/format/bundle"
@@ -30,12 +31,17 @@ type worldPayload struct {
 	Collections []wireCollection `json:"collections"`
 	// Attrs is the world speaking the shared conventions.
 	Attrs map[string]string `json:"attrs,omitempty"`
-	// Merged is the world's provenance. A single-source build carries exactly
-	// one entry, the origin account: where this ground came from, and what it
-	// held when it got here. Cross-source composition is the enrich lane's
-	// work, and the ledger fields it adds extend origin in place, after Added,
-	// so an origin account's bytes never move.
-	Merged []origin `json:"merged,omitempty"`
+	// Merged is the world's provenance: one account per contributor, the
+	// world's own origin account first.
+	//
+	// A single-source build carries exactly one entry, which composition writes
+	// itself from the origin struct below. Cross-source composition is the
+	// enrich lane's work and its ledger vocabulary is the enrich lane's to
+	// define, so the accounts travel here already serialized: composition
+	// splices in what it was handed, verbatim, and never learns what a matched
+	// pair or a held feature is. That is what keeps the origin account's bytes
+	// exactly where they were while the ledger beside it grows.
+	Merged []json.RawMessage `json:"merged,omitempty"`
 }
 
 type worldGrid struct {

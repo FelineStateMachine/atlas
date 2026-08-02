@@ -23,6 +23,7 @@
 package compose
 
 import (
+	"encoding/json"
 	"fmt"
 	"log/slog"
 	"sort"
@@ -60,6 +61,17 @@ type Options struct {
 	Tiles *tiles.Set
 	// Curation is the editorial data the composition consults.
 	Curation curation.Tables
+	// Ledger is a world's whole provenance, by world slug, where the caller has
+	// one to hand. It is how the enrich lane's accounts reach a payload without
+	// either lane importing the other: the accounts arrive already serialized
+	// and composition writes them as they are. A world the caller says nothing
+	// about gets the single origin account composition opens itself.
+	Ledger map[string][]json.RawMessage
+	// Revision is the build revision the manifest carries. Zero is this lane's
+	// own PolicyRevision, which is what a plain single-source build writes; the
+	// enrich lane hands its own, which is how an enriched build of one capture
+	// deterministically outranks the plain build beside it.
+	Revision int
 	// BundleDir is the registry the finished bundle is installed into. Empty
 	// composes and validates without writing anything, which is what a check
 	// run wants.
@@ -102,7 +114,7 @@ type composedWorld struct {
 	Pyramids    []tiles.Pyramid
 	Collections []composedCollection
 	Attrs       map[string]string
-	Merged      []origin
+	Merged      []json.RawMessage
 }
 
 // composedCollection is a document collection with what composition knows added
@@ -301,14 +313,25 @@ func resolveWorld(source doc.World, o Options, shared worldGrid, log *slog.Logge
 	}
 	for index := range pieces {
 		markSurfaces(&pieces[index], grid)
-		// Every world opens its account with where it came from, split or not:
-		// provenance is part of a world, not a side effect of composition.
-		pieces[index].Merged = []origin{{
-			Source:        o.Document.Source.Label,
-			Slug:          o.Document.Source.Name,
-			Origin:        true,
-			DonorFeatures: tally(pieces[index].Collections),
-		}}
+		// Every world opens its account with where it came from, split or
+		// not: provenance is part of a world, not a side effect of
+		// composition. A caller with a whole ledger to hand — the enrich
+		// lane's ⊕ — supplies it by world slug, already serialized, and it
+		// is written as it is.
+		if ledger, held := o.Ledger[pieces[index].Slug]; held && len(ledger) > 0 {
+			pieces[index].Merged = ledger
+		} else {
+			account, err := json.Marshal(origin{
+				Source:        o.Document.Source.Label,
+				Slug:          o.Document.Source.Name,
+				Origin:        true,
+				DonorFeatures: tally(pieces[index].Collections),
+			})
+			if err != nil {
+				return nil, fmt.Errorf("marshal origin account: %w", err)
+			}
+			pieces[index].Merged = []json.RawMessage{account}
+		}
 		log.Debug("world composed", logging.World(pieces[index].Slug),
 			"lenses", len(pieces[index].Lenses),
 			"collections", len(pieces[index].Collections))

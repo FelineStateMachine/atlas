@@ -4,12 +4,14 @@
 //	atlas compose     build a volume from archived captures and derived tiles
 //	atlas crawl       fetch what a publisher serves into the capture archive
 //	atlas tiles       derive raster pyramids from archived captures
+//	atlas enrich      fold every reading of a volume together and build it
+//	atlas measure     score every build in a registry
 //	atlas translate   read archived captures and print the interchange document
 //	atlas serve -bundles DIR      # the headless application host
 //	atlas dev   -bundles DIR      # the same, reading its chrome from the working copy
 //
-// More subcommands arrive with the lanes that own them -- enrich,
-// measure, workbench, serve, dev. Each lives in its own file and appears here as
+// More subcommands arrive with the lanes that own them -- workbench.
+// Each lives in its own file and appears here as
 // one line of the table below, so two people adding two subcommands do not
 // collide over this file.
 //
@@ -46,6 +48,8 @@ func commands() []command {
 		composeCommand(),
 		crawlCommand(),
 		devCommand(),
+		enrichCommand(),
+		measureCommand(),
 		serveCommand(),
 		tilesCommand(),
 		translateCommand(),
