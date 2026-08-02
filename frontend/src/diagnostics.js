@@ -4,6 +4,7 @@ import { state } from "./state.js";
 import { viewMaxZoom } from "./navigation.js";
 import { refreshCatalog } from "./library.js";
 import { currentGridExtent, gridMaxLevel, pinInGridCell } from "./grid.js";
+import { drawnFeatureCount, listableFeatures } from "./visibility.js";
 
 export function exposeDiagnostics() {
   const snapshot = () => ({
@@ -61,6 +62,21 @@ export function exposeDiagnostics() {
         .filter(Boolean),
       focusedPins: state.features.filter((pin) => !pin.filteredHidden &&
         pin.passesZoneFilters).length,
+    },
+    // The three places one filter has to land at once, side by side so a diff
+    // can see them disagree. The first two are the model's own count of what
+    // the map is drawing; the last two are what the footer and the dock
+    // actually say. A surface that forgot to recount after a filter moved
+    // shows up here as text out of step with the numbers beside it -- which is
+    // the whole of what the tour's sync check reads.
+    sync: {
+      drawn: drawnFeatureCount(),
+      listable: listableFeatures().length,
+      footerText: elements.visibleCount.textContent,
+      dockText: elements.dockCount.textContent,
+      dockFlag: elements.dockFlag.hidden ? null : elements.dockFlag.textContent,
+      dockRows: elements.searchResults.querySelectorAll(".search-result").length,
+      searching: Boolean(state.search),
     },
     grid: {
       enabled: state.gridEnabled,

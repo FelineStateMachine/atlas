@@ -64,6 +64,67 @@ function type(selector, value) {
   input.dispatchEvent(new Event("input", { bubbles: true }));
 }
 
+// One filter, three surfaces: the canvas draws it, the footer counts it, the
+// dock lists it. A diff between two builds catches them drifting apart from
+// each other; these checks catch a single build where they never agreed in the
+// first place -- a filter that landed on the map and left the panel beside it
+// offering features that are no longer out there. Read straight off the
+// rendered text, so a surface that forgot to recount fails here even though
+// the model behind it is right.
+const countPattern = /^([\d,]+) of ([\d,]+) features? in view$/;
+const dockPattern = /^([\d,]+) features?$/;
+const readCount = (text) => Number(text.replace(/,/g, ""));
+
+function checkSync(name, snapshot) {
+  const sync = snapshot.sync;
+  const problems = [];
+  const complain = (message) => problems.push(`${name}: ${message}`);
+
+  if (sync.footerText === "No features shown") {
+    if (sync.drawn !== 0) complain(`footer says nothing is shown while ${sync.drawn} features draw`);
+  } else {
+    const footer = countPattern.exec(sync.footerText);
+    if (!footer) complain(`footer text "${sync.footerText}" is not a count`);
+    else {
+      const inView = readCount(footer[1]);
+      const shown = readCount(footer[2]);
+      if (shown !== sync.drawn) {
+        complain(`footer counts ${shown} features shown, the map draws ${sync.drawn}`);
+      }
+      if (inView > shown) complain(`footer has ${inView} of ${shown} in view`);
+    }
+  }
+
+  const dock = dockPattern.exec(sync.dockText);
+  if (!dock) complain(`dock text "${sync.dockText}" is not a count`);
+  else if (readCount(dock[1]) !== sync.listable) {
+    complain(`dock counts ${readCount(dock[1])} features, ${sync.listable} are listable`);
+  }
+  // The list itself is capped; the count above it never is.
+  const expectedRows = Math.min(sync.listable, 100);
+  if (sync.dockRows !== expectedRows) {
+    complain(`dock shows ${sync.dockRows} rows for ${sync.listable} listable features`);
+  }
+  if (sync.listable > sync.drawn) {
+    complain(`dock can list ${sync.listable} features from a map drawing ${sync.drawn}`);
+  }
+  return problems;
+}
+
+// Where the camera stands, to the precision worth comparing: a returning
+// animation lands on the coordinate it was given, and floating point noise
+// past a pixel is not a difference anyone can see.
+function cameraOf(snapshot) {
+  return {
+    center: (snapshot.center || []).map((value) => Math.round(value)),
+    zoom: Number((snapshot.zoom || 0).toFixed(3)),
+  };
+}
+
+function sameCamera(a, b) {
+  return JSON.stringify(cameraOf(a)) === JSON.stringify(cameraOf(b));
+}
+
 function badge(text, failed = false) {
   let element = tourQuery("#parity-badge");
   if (!element) {
@@ -80,9 +141,16 @@ function badge(text, failed = false) {
 
 async function tour() {
   const steps = [];
+  const problems = [];
+  const snapshotOf = (name) => steps.find((step) => step.name === name)?.snapshot;
   const record = async (name) => {
     await settle();
-    steps.push({ name, snapshot: JSON.parse(window.render_game_to_text()) });
+    const snapshot = JSON.parse(window.render_game_to_text());
+    steps.push({ name, snapshot });
+    // Every step is a filter check: whatever the tour just did, the map, the
+    // footer and the dock have to be telling the same story afterwards.
+    problems.push(...checkSync(name, snapshot));
+    return snapshot;
   };
 
   // Start from a virgin session on the first game so every run of the tour
@@ -223,6 +291,52 @@ async function tour() {
     await record("and-cleared");
   }
 
+  // The legend, the map and the dock under one filter. Highlighting ground
+  // culls every location standing outside it, and the panel beside the map has
+  // to lose exactly what the canvas lost: the count in its header used to go
+  // on quoting the whole map while one pin stood on it. Then the camera's
+  // round trip -- a row in the list is a detour, and closing the card gives
+  // back the view the jump borrowed.
+  const syncZone = tourQuery(".zone-index-item");
+  if (syncZone) {
+    syncZone.dispatchEvent(new MouseEvent("contextmenu", { bubbles: true, cancelable: true }));
+    await record("filter-highlight-dock");
+    const before = await record("filter-dock-before-jump");
+    // The last row rather than the first: the tour has already flown to the
+    // first zone in the index, and a jump to where the camera is standing
+    // would prove nothing about coming back from one.
+    const rows = [...document.querySelectorAll("#dock-results .search-result")];
+    const row = rows[rows.length - 1];
+    if (row) {
+      row.click();
+      const jumped = await record("dock-jumped");
+      const moved = !sameCamera(before, jumped);
+      tourQuery("#close-detail").click();
+      const returned = await record("dock-returned");
+      if (moved && !sameCamera(before, returned)) {
+        problems.push("dock-returned: closing the card left the camera where the jump put it");
+      }
+    }
+    // A hand on the map retires the way back: the card closes on the view the
+    // reader steered to, not the one the jump came from.
+    const steered = [...document.querySelectorAll("#dock-results .search-result")].pop();
+    if (steered) {
+      steered.click();
+      await record("dock-jumped-again");
+      tourQuery("#zoom-in").click();
+      const chosen = await record("dock-steered");
+      tourQuery("#close-detail").click();
+      const kept = await record("dock-kept-view");
+      if (!sameCamera(chosen, kept)) {
+        problems.push("dock-kept-view: closing the card overrode a view the reader steered to");
+      }
+      tourQuery("#zoom-out").click();
+      await record("dock-steer-undone");
+    }
+    syncZone.dispatchEvent(new MouseEvent("contextmenu", { bubbles: true, cancelable: true }));
+    await record("filter-highlight-cleared");
+  }
+
   // The geohash grid: open, descend one character, hide the subgrid,
   // ascend, close.
   keydown("g");
@@ -287,7 +401,7 @@ async function tour() {
   }
 
   localStorage.clear();
-  return { viewport: [window.innerWidth, window.innerHeight], steps };
+  return { viewport: [window.innerWidth, window.innerHeight], problems, steps };
 }
 
 let touring = false;
@@ -305,6 +419,14 @@ async function runTour() {
     });
     const path = (await response.text()).trim();
     if (!response.ok) throw new Error(`saving failed: ${response.status} ${path}`);
+    // The log is written either way -- a failing check is worth reading in
+    // full -- but a tour that found the surfaces out of step has not passed,
+    // and the badge is what says so to whatever is driving.
+    if (result.problems.length) {
+      for (const problem of result.problems) console.error("parity sync", problem);
+      badge(`parity tour failed: ${result.problems.length} sync problems`, true);
+      return;
+    }
     badge(`parity tour complete ✓ ${result.steps.length} steps`);
     console.log("parity tour saved to", path);
   } catch (error) {

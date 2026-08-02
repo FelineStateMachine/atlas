@@ -100,7 +100,21 @@ try {
     }, null, { timeout: 480000 });
     return await page.evaluate(() => document.querySelector("#parity-badge").textContent);
   }`);
-  if (!badge.includes("complete")) throw new Error(`tour did not complete:\n${badge}`);
+  // A tour that finished but found the map, the footer and the dock telling
+  // different stories fails here, with the mismatches read out of the log it
+  // still wrote.
+  // The badge's own words, not merely the word "complete": the CLI's output
+  // wraps the value returned to us, and matching loosely let a tour that
+  // finished red be reported green.
+  if (!badge.includes("parity tour complete")) {
+    const failed = readdirSync(parityDir)
+      .filter((name) => name.startsWith("tour-") && name.endsWith(".json"))
+      .map((name) => join(parityDir, name))
+      .filter((path) => statSync(path).mtimeMs >= launchedAt)
+      .sort((a, b) => statSync(b).mtimeMs - statSync(a).mtimeMs)[0];
+    const found = failed ? JSON.parse(readFileSync(failed, "utf8")).problems || [] : [];
+    throw new Error([`tour did not complete:\n${badge}`, ...found].join("\n  "));
+  }
 
   // The tour posted its log to /parity/result, which writes a timestamped
   // file; the one belonging to this run is the one born after the launch.
