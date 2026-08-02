@@ -1,0 +1,277 @@
+{
+  "build": {
+    "Path": "",
+    "File": "fallout-new-vegas-20260730-e6cd7eb1936e.atlas",
+    "VolumeSlug": "fallout-new-vegas",
+    "VolumeTitle": "Fallout: New Vegas",
+    "Stamp": "e6cd7eb1936e58cb428d91226538de1726c0200853ac49afb64e336c54894a09",
+    "CreatedAt": "2026-07-30T15:04:13.819Z",
+    "Revision": 9,
+    "MapSlugs": [
+      "mojave-wasteland",
+      "mojave-wasteland-camp-forlorn-hope",
+      "mojave-wasteland-camp-mccarran",
+      "mojave-wasteland-freeside",
+      "mojave-wasteland-north-vegas-square",
+      "mojave-wasteland-south-vegas-ruins",
+      "mojave-wasteland-the-fort",
+      "mojave-wasteland-the-strip",
+      "mojave-wasteland-westside",
+      "big-mt",
+      "sierra-madre",
+      "the-divide",
+      "zion-canyon"
+    ],
+    "Pins": 2635,
+    "Described": 2592,
+    "MedianLength": 140,
+    "TileCount": 2651,
+    "RasterBytes": 21483752,
+    "Depth": 5,
+    "DepthTiles": 1812,
+    "Categories": 258,
+    "Groups": 72,
+    "TextSets": 0,
+    "Zones": 0,
+    "Vertices": 0,
+    "Lenses": 13,
+    "IconsCarried": 254,
+    "IconsWanted": 258,
+    "Conventions": 2,
+    "RenderDeclared": 258,
+    "StdIcons": 0,
+    "GeoPins": 0,
+    "Geometry": "plane-default",
+    "UnknownAttrs": 0,
+    "Merges": [
+      {
+        "Map": "mojave-wasteland",
+        "Source": "MapGenie",
+        "DonorPins": 1257,
+        "DonorFeatures": {
+          "point": 1257,
+          "path": 0,
+          "area": 0
+        },
+        "Matched": null,
+        "Added": 0,
+        "AddedShapes": 0,
+        "Adopted": null,
+        "Held": null,
+        "Rejected": null,
+        "Alignment": ""
+      },
+      {
+        "Map": "mojave-wasteland-camp-forlorn-hope",
+        "Source": "MapGenie",
+        "DonorPins": 34,
+        "DonorFeatures": {
+          "point": 34,
+          "path": 0,
+          "area": 0
+        },
+        "Matched": null,
+        "Added": 0,
+        "AddedShapes": 0,
+        "Adopted": null,
+        "Held": null,
+        "Rejected": null,
+        "Alignment": ""
+      },
+      {
+        "Map": "mojave-wasteland-camp-mccarran",
+        "Source": "MapGenie",
+        "DonorPins": 77,
+        "DonorFeatures": {
+          "point": 77,
+          "path": 0,
+          "area": 0
+        },
+        "Matched": null,
+        "Added": 0,
+        "AddedShapes": 0,
+        "Adopted": null,
+        "Held": null,
+        "Rejected": null,
+        "Alignment": ""
+      },
+      {
+        "Map": "mojave-wasteland-freeside",
+        "Source": "MapGenie",
+        "DonorPins": 119,
+        "DonorFeatures": {
+          "point": 119,
+          "path": 0,
+          "area": 0
+        },
+        "Matched": null,
+        "Added": 0,
+        "AddedShapes": 0,
+        "Adopted": null,
+        "Held": null,
+        "Rejected": null,
+        "Alignment": ""
+      },
+      {
+        "Map": "mojave-wasteland-north-vegas-square",
+        "Source": "MapGenie",
+        "DonorPins": 38,
+        "DonorFeatures": {
+          "point": 38,
+          "path": 0,
+          "area": 0
+        },
+        "Matched": null,
+        "Added": 0,
+        "AddedShapes": 0,
+        "Adopted": null,
+        "Held": null,
+        "Rejected": null,
+        "Alignment": ""
+      },
+      {
+        "Map": "mojave-wasteland-south-vegas-ruins",
+        "Source": "MapGenie",
+        "DonorPins": 33,
+        "DonorFeatures": {
+          "point": 33,
+          "path": 0,
+          "area": 0
+        },
+        "Matched": null,
+        "Added": 0,
+        "AddedShapes": 0,
+        "Adopted": null,
+        "Held": null,
+        "Rejected": null,
+        "Alignment": ""
+      },
+      {
+        "Map": "mojave-wasteland-the-fort",
+        "Source": "MapGenie",
+        "DonorPins": 25,
+        "DonorFeatures": {
+          "point": 25,
+          "path": 0,
+          "area": 0
+        },
+        "Matched": null,
+        "Added": 0,
+        "AddedShapes": 0,
+        "Adopted": null,
+        "Held": null,
+        "Rejected": null,
+        "Alignment": ""
+      },
+      {
+        "Map": "mojave-wasteland-the-strip",
+        "Source": "MapGenie",
+        "DonorPins": 181,
+        "DonorFeatures": {
+          "point": 181,
+          "path": 0,
+          "area": 0
+        },
+        "Matched": null,
+        "Added": 0,
+        "AddedShapes": 0,
+        "Adopted": null,
+        "Held": null,
+        "Rejected": null,
+        "Alignment": ""
+      },
+      {
+        "Map": "mojave-wasteland-westside",
+        "Source": "MapGenie",
+        "DonorPins": 33,
+        "DonorFeatures": {
+          "point": 33,
+          "path": 0,
+          "area": 0
+        },
+        "Matched": null,
+        "Added": 0,
+        "AddedShapes": 0,
+        "Adopted": null,
+        "Held": null,
+        "Rejected": null,
+        "Alignment": ""
+      },
+      {
+        "Map": "big-mt",
+        "Source": "MapGenie",
+        "DonorPins": 214,
+        "DonorFeatures": {
+          "point": 214,
+          "path": 0,
+          "area": 0
+        },
+        "Matched": null,
+        "Added": 0,
+        "AddedShapes": 0,
+        "Adopted": null,
+        "Held": null,
+        "Rejected": null,
+        "Alignment": ""
+      },
+      {
+        "Map": "sierra-madre",
+        "Source": "MapGenie",
+        "DonorPins": 233,
+        "DonorFeatures": {
+          "point": 233,
+          "path": 0,
+          "area": 0
+        },
+        "Matched": null,
+        "Added": 0,
+        "AddedShapes": 0,
+        "Adopted": null,
+        "Held": null,
+        "Rejected": null,
+        "Alignment": ""
+      },
+      {
+        "Map": "the-divide",
+        "Source": "MapGenie",
+        "DonorPins": 210,
+        "DonorFeatures": {
+          "point": 210,
+          "path": 0,
+          "area": 0
+        },
+        "Matched": null,
+        "Added": 0,
+        "AddedShapes": 0,
+        "Adopted": null,
+        "Held": null,
+        "Rejected": null,
+        "Alignment": ""
+      },
+      {
+        "Map": "zion-canyon",
+        "Source": "MapGenie",
+        "DonorPins": 181,
+        "DonorFeatures": {
+          "point": 181,
+          "path": 0,
+          "area": 0
+        },
+        "Matched": null,
+        "Added": 0,
+        "AddedShapes": 0,
+        "Adopted": null,
+        "Held": null,
+        "Rejected": null,
+        "Alignment": ""
+      }
+    ]
+  },
+  "derived": {
+    "describedPct": "98%",
+    "iconPct": "98%",
+    "renderPct": "100%",
+    "rasterMB": "21.5",
+    "shortStamp": "e6cd7eb1936e"
+  }
+}
