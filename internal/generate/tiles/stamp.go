@@ -26,7 +26,7 @@ import (
 // than "these bytes are these bytes". golden/format/STAMPS.md carries what that
 // costs and what is proven instead.
 //
-//go:embed plan.go stamp.go derive.go
+//go:embed plan.go stamp.go derive.go warp.go
 var toolSource embed.FS
 
 // ToolStamp is the hash of the deriving code itself, computed once. It is

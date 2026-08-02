@@ -336,17 +336,49 @@ func TestCollectionsWithNoCounterpartKeepTheirOwn(t *testing.T) {
 	if kept.Group != "IGN Wiki" {
 		t.Errorf("the contributed collection files under %q; the legend should say where it came from", kept.Group)
 	}
-	if kept.Icon != "ign-wiki--tarot" {
-		t.Errorf("artwork came across as %q; it must not be able to displace the volume's own", kept.Icon)
+	// The key a collection names its artwork by stays the donor's own: nothing
+	// in the serving volume is called "tarot", so there is nothing to
+	// displace. The file the bytes land in is tagged all the same, because a
+	// contribution may never write into the serving volume's icons directory
+	// under a name that volume might itself use.
+	if kept.Icon != "tarot" {
+		t.Errorf("artwork came across under %q; the donor's own name was free", kept.Icon)
 	}
 	carried := false
 	for _, icon := range merged.Icons {
-		if icon.Key == "ign-wiki--tarot" && icon.File == "ign-wiki--tarot.svg" {
+		if icon.Key == "tarot" && icon.File == "ign-wiki--tarot.svg" {
 			carried = true
 		}
 	}
 	if !carried {
 		t.Errorf("the artwork itself did not travel: %+v", merged.Icons)
+	}
+}
+
+// TestArtworkThatWouldDisplaceTakesTheSourcesName is the other half of that
+// rule: a donor whose artwork key is already spoken for by different bytes
+// answers to a tagged name instead, so a contributed collection can never
+// repoint one the serving reading drew.
+func TestArtworkThatWouldDisplaceTakesTheSourcesName(t *testing.T) {
+	serving := reading(piggyback, "2026-08-01T05:00:00Z", 1)
+	serving.Icons = []enrich.Icon{{Key: "tarot", File: "tarot.png", Data: []byte("serving")}}
+	donor := reading(ign, "2026-08-01T04:00:00Z", 2, enrich.Collection{
+		ID: 91, Title: "Tarot Graffiti", Kind: enrich.KindPoint, Icon: "tarot",
+		Features: []enrich.Feature{place(9101, "The Fool", 3000, 3000)},
+	})
+	donor.Icons = []enrich.Icon{{Key: "tarot", File: "tarot.svg", Data: []byte("<svg/>")}}
+	merged, _, _ := fold(t, serving, donor)
+
+	for _, collection := range merged.Worlds[0].Collections {
+		if collection.ID == 91 && collection.Icon != "ign-wiki--tarot" {
+			t.Errorf("contributed artwork came across as %q, over the serving volume's own",
+				collection.Icon)
+		}
+	}
+	for _, icon := range merged.Icons {
+		if icon.Key == "tarot" && string(icon.Data) != "serving" {
+			t.Error("the serving volume's own artwork was replaced by the donor's")
+		}
 	}
 }
 

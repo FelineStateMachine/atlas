@@ -25,6 +25,8 @@ import (
 	"encoding/json"
 	"fmt"
 	"strings"
+
+	"github.com/FelineStateMachine/atlas/internal/generate/doc"
 )
 
 //go:embed curation.json
@@ -184,4 +186,37 @@ func (t Tables) Shard(volume, world string) ShardMode { return t.shard[volume+"/
 // sources under, keyed by the collection's artwork key, or the empty string.
 func (t Tables) CollectionEquivalent(volume, iconKey string) string {
 	return t.equivalents[volume][iconKey]
+}
+
+// Declare writes the curated merge identity onto a freshly translated
+// document's collections, so a collection knows what it meets other sources
+// under before anything tries to meet them.
+//
+// It is separate from composition's own late declaration for one reason, and
+// the reason is order. Composition speaks the conventions over a volume that is
+// otherwise finished; a cross-source merge happens before that and reads
+// identity off the collection. A document whose equivalence had not been
+// declared yet would be merged on artwork keys alone -- which is the honest
+// fallback for a source nobody has curated, and quietly the wrong answer for
+// one that has been.
+//
+// Nothing here overwrites what a source said: a collection that already names
+// its own identity keeps it.
+func (t Tables) Declare(d *doc.Document) {
+	equivalents := t.equivalents[d.Volume.Slug]
+	if len(equivalents) == 0 {
+		return
+	}
+	for worldIndex := range d.Worlds {
+		world := &d.Worlds[worldIndex]
+		for index := range world.Collections {
+			collection := &world.Collections[index]
+			if collection.Kind != doc.KindPoint || collection.Key != "" {
+				continue
+			}
+			if shared := equivalents[collection.Icon]; shared != "" {
+				collection.Key = shared
+			}
+		}
+	}
 }

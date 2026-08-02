@@ -60,10 +60,15 @@ var ErrNotReady = archive.ErrNotReady
 // nothing is registered for.
 var ErrUnknownSource = errors.New("no source is registered for this volume")
 
-// For finds the source registered under a name.
+// For finds the source registered under a name, or under the name the legacy
+// archive files its captures as. Both are asked because the archive is older
+// than Atlas's own naming and is read as it stands: a volume filed under a
+// publisher's abbreviation still answers to the source Atlas calls by its own
+// name.
 func For(name string) (Source, error) {
 	for _, source := range All() {
-		if source.Describe().Name == name {
+		about := source.Describe()
+		if about.Name == name || about.ArchivedAs == name {
 			return source, nil
 		}
 	}

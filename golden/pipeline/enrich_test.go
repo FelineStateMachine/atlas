@@ -3,6 +3,7 @@ package pipeline
 import (
 	"encoding/json"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"strconv"
 	"strings"
@@ -10,6 +11,7 @@ import (
 
 	"github.com/FelineStateMachine/atlas/format/bundle"
 	"github.com/FelineStateMachine/atlas/format/semconv"
+	"github.com/FelineStateMachine/atlas/golden/capture/canon"
 	"github.com/FelineStateMachine/atlas/internal/enrich"
 	enrichcuration "github.com/FelineStateMachine/atlas/internal/enrich/curation"
 	"github.com/FelineStateMachine/atlas/internal/enrich/enrichers"
@@ -461,17 +463,29 @@ func TestEnrichmentRaisesTheScore(t *testing.T) {
 // rebuilt from its archived captures by generate ⊕ enrich, held against the
 // composed fixture.
 //
-// It cannot run yet. The merged fixture is composed from a Piggyback capture
-// and an IGN capture, and the sources that read those two are landing on
-// another branch; until they do, no document can be produced for either. What
-// this lane's half of that gate does today is above: the merge's judgement is
-// held to the fixture's ledger through the translator fixtures, which needs no
-// archive at all.
+// It runs the shipped command rather than a reassembly of it. The ⊕ is
+// `atlas enrich` -- translate every reading of the volume, adapt each into the
+// enrich lane's model, run the curated queue over the one that serves, adapt the
+// result back and compose it -- and a gate that re-implemented that sequence in
+// its own words would be measuring a second implementation nobody ships. So this
+// starts the binary, points it at the archive and the derived tile set, and
+// holds what lands in an empty registry against every extraction the reference
+// build was captured into.
 //
-// Activation: this test runs when internal/generate/sources answers to
-// "piggyback" and "ign", and when the archive and the derived tile set are
-// present (ATLAS_ARCHIVE_DIR, ATLAS_TILES_INDEX). The orchestrator wires it
-// into golden/harness's generate-enrich suite at that point.
+// # What must agree, and what cannot
+//
+// Canonical content is mandatory and unwaived: the world payload, the packed
+// locations, the deferred prose, the icon set, the tile inventory of both
+// pyramids, and the archive's entry order. Those are what the volume *is*.
+//
+// The manifest agrees on everything except `version`, and that difference is
+// the `enriched-build-revision` waiver rather than a content difference. The
+// reference merged inside composition and wrote the plain policy revision; the
+// clean room's enrich write bumps the revision past the serving build's so the
+// registry fold deterministically serves the enriched build (issue #5 §5.3), and
+// a revision rides the manifest, the manifest rides the stamp, and the stamp
+// rides the file name. Each of the three is reported here by name, so the cost
+// stays legible instead of being implied by a waiver id.
 func TestGenerateEnrichReproducesMergedBundle(t *testing.T) {
 	missing := missingSources("piggyback", "ign")
 	if len(missing) > 0 {
@@ -482,8 +496,173 @@ func TestGenerateEnrichReproducesMergedBundle(t *testing.T) {
 			"already held to this fixture's ledger by TestMergeReproducesFixtureLedger",
 			strings.Join(missing, " and "), plural(len(missing)))
 	}
-	t.Skip("the sources have landed: the orchestrator has dispatched the wiring — " +
-		"compose the merged fixture through cmd/atlas's enrich path and compare it to " + mergedFixtureDir)
+	built := enrichFixture(t, "cyberpunk-2077")
+	fixture := readVolumeFixture(t, "cyberpunk-2077")
+	dir := mergedFixtureDir
+
+	t.Run("part hashes", func(t *testing.T) {
+		for _, name := range sortedKeys(fixture.PartHashes) {
+			data, err := built.reader.ReadEntry(name)
+			if err != nil {
+				t.Fatalf("read %s: %v", name, err)
+			}
+			got := bundle.HashBytes(data)
+			if name == bundle.ManifestName {
+				// The one stamped part the revision reaches. Its content is
+				// compared field by field below.
+				if got != fixture.PartHashes[name] {
+					t.Logf("%s: hash %s, fixture %s — the waived revision (%s)",
+						name, got, fixture.PartHashes[name], revisionWaiver)
+				}
+				continue
+			}
+			if got != fixture.PartHashes[name] {
+				t.Errorf("%s: hash %s, fixture %s", name, got, fixture.PartHashes[name])
+			}
+		}
+	})
+
+	t.Run("manifest", func(t *testing.T) { compareMergedManifest(t, built, dir) })
+
+	t.Run("world payloads", func(t *testing.T) {
+		for _, entry := range built.reader.Manifest.Worlds {
+			compareCanon(t, built,
+				bundle.WorldEntryName(entry.Slug, bundle.WorldSuffix),
+				filepath.Join(dir, "worlds", entry.Slug+".payload.json"))
+			compareCanon(t, built,
+				bundle.WorldEntryName(entry.Slug, bundle.TextSuffix),
+				filepath.Join(dir, "worlds", entry.Slug+".text.json"))
+			compareLocations(t, built, dir, entry.Slug)
+		}
+	})
+
+	t.Run("icons", func(t *testing.T) { compareIcons(t, built, dir) })
+
+	t.Run("tile inventory", func(t *testing.T) { compareTiles(t, built, dir, fixture) })
+
+	t.Run("entry order", func(t *testing.T) {
+		if got := hashOf(built.reader.Names()); got != fixture.EntryOrder.SHA256 {
+			t.Errorf("entry order %s, fixture %s", got, fixture.EntryOrder.SHA256)
+		}
+	})
+
+	// The stamp, reported honestly. Identity is unreachable for an enriched
+	// build by construction, so what is asserted is that the divergence is
+	// exactly the one the waiver describes and nothing more: the capture time
+	// is unmoved, the revision is the enrich lane's bump of the fixture's own,
+	// and the file is named after the stamp that follows from them.
+	t.Run("stamp", func(t *testing.T) {
+		got := built.reader.Manifest.Version
+		if got.CreatedAt != fixture.CreatedAt {
+			t.Errorf("createdAt %q, fixture %q — a build's creation time is "+
+				"capture-derived and enrichment must not move it", got.CreatedAt, fixture.CreatedAt)
+		}
+		want, err := enrich.BuildRevision(fixture.Revision)
+		if err != nil {
+			t.Fatalf("build revision: %v", err)
+		}
+		if got.Revision != want {
+			t.Errorf("revision %d; the fixture's %d enriched is %d",
+				got.Revision, fixture.Revision, want)
+		}
+		if got.Stamp == fixture.Stamp {
+			t.Errorf("an enriched build stamped identically to the plain build "+
+				"beside it (%s), so nothing would win the registry fold", got.Stamp)
+		}
+		if built.file == fixture.File {
+			t.Errorf("the enriched build took the plain build's file name %s", built.file)
+		}
+		t.Logf("WAIVED %s: stamp %s (fixture %s), revision %d (fixture %d), file %s",
+			revisionWaiver, got.Stamp[:12], fixture.Stamp[:12],
+			got.Revision, fixture.Revision, built.file)
+	})
+}
+
+// revisionWaiver names the entry in golden/waivers.json this test reports
+// against, so a reader of a failure can find the reason without grepping.
+const revisionWaiver = "enriched-build-revision"
+
+// enrichFixture runs `atlas enrich` over the archive for one volume and opens
+// what it installed.
+//
+// The subprocess is the point: `runEnrich` is the ⊕, and the gate's claim is
+// about the pipeline a person runs, not about a sequence of library calls a
+// test arranged in the same order.
+func enrichFixture(t *testing.T, volume string) composedBundle {
+	t.Helper()
+	registry := t.TempDir()
+	command := exec.Command("go", "run", "github.com/FelineStateMachine/atlas/cmd/atlas",
+		"enrich",
+		"-archive", archiveDir(t),
+		"-tiles", tileIndex(t),
+		"-bundles", registry,
+		"-log-level", "warn",
+		volume)
+	output, err := command.CombinedOutput()
+	if err != nil {
+		t.Fatalf("atlas enrich %s: %v\n%s", volume, err, output)
+	}
+
+	entries, err := filepath.Glob(filepath.Join(registry, "*.atlas"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(entries) != 1 {
+		t.Fatalf("atlas enrich installed %d bundles into an empty registry\n%s",
+			len(entries), output)
+	}
+	reader, err := bundle.Open(entries[0])
+	if err != nil {
+		t.Fatalf("open %s: %v", entries[0], err)
+	}
+	t.Cleanup(func() { reader.Close() })
+	if err := reader.Validate(); err != nil {
+		t.Fatalf("validate %s: %v", entries[0], err)
+	}
+	info, err := os.Stat(entries[0])
+	if err != nil {
+		t.Fatal(err)
+	}
+	return composedBundle{
+		reader: reader,
+		file:   filepath.Base(entries[0]),
+		sha256: hashFile(t, entries[0]),
+		bytes:  info.Size(),
+	}
+}
+
+// compareMergedManifest holds the built manifest to the fixture's, field by
+// field, with `version` set aside: the whole of the enriched build's difference
+// lives in that one object, and the stamp subtest above accounts for it. Setting
+// it aside rather than skipping the manifest is what keeps every other field --
+// the tile grid, the volume identity, each world's counts and capture time --
+// checked byte for byte.
+func compareMergedManifest(t *testing.T, built composedBundle, dir string) {
+	t.Helper()
+	raw, err := built.reader.ReadEntry(bundle.ManifestName)
+	if err != nil {
+		t.Fatalf("read %s: %v", bundle.ManifestName, err)
+	}
+	got := withoutVersion(t, raw)
+	want := withoutVersion(t, readFile(t, filepath.Join(dir, "manifest.json")))
+	if got != want {
+		t.Errorf("manifest differs from %s/manifest.json outside version\n%s",
+			dir, firstDifference(want, got))
+	}
+}
+
+func withoutVersion(t *testing.T, raw []byte) string {
+	t.Helper()
+	var value map[string]any
+	if err := json.Unmarshal(raw, &value); err != nil {
+		t.Fatalf("decode manifest: %v", err)
+	}
+	delete(value, "version")
+	out, err := canon.Value(value)
+	if err != nil {
+		t.Fatalf("canonicalize manifest: %v", err)
+	}
+	return string(out)
 }
 
 func plural(n int) string {

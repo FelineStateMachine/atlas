@@ -73,6 +73,16 @@ serialized, spliced in verbatim. Composition never learns what a matched pair or
 a held feature is, which is what lets the ledger vocabulary below belong wholly
 to this lane.
 
+**The seam has a second half, upstream.** A warped lens — one source's raster
+resampled into another's world — is derived by `atlas tiles`, in the generate
+lane, and its one input the archive does not hold is the alignment this lane
+fits. So `cmd/atlas/warp.go` fits it here and hands the deriver six numbers,
+exactly as `adapt.go` hands the queue a volume. Nothing is written twice: the
+deriver needs a fitted transformation, not the ability to fit one, and it is the
+*same* fit the merge folds features by — which is why a warped raster and the
+features drawn on it can never disagree about where the ground is. See
+`docs/generate.md` §4.4.
+
 ---
 
 ## 2. Winning the registry fold
@@ -254,9 +264,9 @@ has run there is no way to find out what the world arrived with.
 {
   "source": "IGN Wiki", "slug": "ign-wiki",
   "donorFeatures": { "point": 368, "path": 0, "area": 0 },
-  "added": 37,
   "matched": [ { "d": 2123771580, "w": 1452480306, "px": 20,
                  "e": true, "took": ["atlas.note.text"] } ],
+  "added": 37,
   "adopted": [ { "d": 2041587856, "into": "clothing-vendor" } ],
   "held":    [ { "d": 1775561692, "t": "Arroyo Clothes Shop",
                  "why": "beside \"Clothing Vendor\" in the same category; names disagree" } ],
@@ -264,6 +274,11 @@ has run there is no way to find out what the world arrived with.
   "alignment": "99 anchors, median 26.0px, p90 52.0px, worst 67.4px"
 }
 ```
+
+The key order above is the wire order and it is frozen. An account rides a world
+payload, a world payload is a stamped part, and re-spelling one restamps every
+build in every library — so the order is part of the format's surface rather than
+a Go struct's declaration order that happens not to matter.
 
 The held and rejected reasons are **data, not messages about code**: they are
 written into every merged bundle already published, and a reader comparing two
@@ -327,14 +342,26 @@ same collection is **held** — proximity alone never merges. A feature the
 alignment puts outside the world square is **rejected**. Everything left is
 **added**: into the serving collection where the two spell the same concept
 (**adopted**), and otherwise under a collection of its own, filed under a group
-named for its source, with its artwork carried across under a source-prefixed
-key so it cannot displace the volume's own.
+named for its source.
+
+**Carried artwork** travels under two names on two rules, because they answer
+different questions. The *file* the bytes land in always takes the source's tag
+when a contribution goes into a ground the serving reading already draws: a
+donor's picture may never be written where the serving volume keeps its own. The
+*key* a collection names its artwork by stays the donor's own — there is nothing
+to displace unless the serving volume already names different artwork with it,
+and only then is the key tagged too.
 
 Collections meet under their **merge identity**: the `atlas.collection.key` the
 payload carries, then the key the source gave the collection, then its artwork
-key. The curated equivalents that produce that attribute live in the generate
-lane's curation, so the merge reads identity off the payload rather than a table
-of its own.
+key. The curated equivalents that produce it live in the generate lane's
+curation, and curation speaks them over a reading *before* it is folded into
+another — `curation.Tables.Declare`, called by the ⊕ right after translation.
+Composition declares the same thing later for a document that never passed
+through the enrich lane, but later is too late for a merge: a document whose
+equivalence had not been declared yet would be merged on artwork keys alone,
+which is the honest fallback for a source nobody has curated and quietly the
+wrong answer for one that has been.
 
 **Per-key attribute policy.** Serving-wins is the default: what the serving
 reading says stands. The keys listed under `merge.attributes.donorFillsEmpty` in
@@ -553,12 +580,18 @@ what makes running this over a whole archive cheap. `-evidence DIR` resolves as
 | the seam is a copy, not a decision | `cmd/atlas`: a document adapted and adapted back is byte-identical |
 | the queue curation declares and the enrichers the binary offers are the same set | `golden/pipeline` |
 
-The whole `generate ⊕ enrich` reproduction of the merged bundle waits on the
-sources that read its two captures; the test is written, names its activation
-condition, and skips until then.
+| the whole `generate ⊕ enrich` reproduction of the merged bundle | `golden/pipeline`: runs `atlas enrich` over the archived Piggyback and IGN captures into an empty registry and holds what lands there to the committed extractions — the world payload with its whole ledger, the packed locations, the prose, all 38 icons, both pyramids' 17,507 tiles, and the archive's entry order, byte for byte |
+
+The last row is the gate `golden/harness` calls `generate-enrich`, and it runs
+the shipped command rather than a test's own reassembly of the pipeline: the ⊕ is
+`atlas enrich`, and a gate that arranged the same library calls in the same order
+would be measuring a second implementation nobody ships.
 
 One divergence from the goldens is declared in `golden/waivers.json`: an
 enriched build's manifest revision, and therefore its stamp and file name,
 cannot equal the reference tree's, because the reference merged inside
 composition at the plain revision and §2 above requires the enrich write to bump
-past it. Canonical content is unaffected.
+past it. Canonical content is unaffected, and the gate asserts the shape of the
+difference — capture time unmoved, revision exactly this lane's bump of the
+fixture's own, stamp and file name following from it — so a second, unrelated
+divergence could not hide inside the first.

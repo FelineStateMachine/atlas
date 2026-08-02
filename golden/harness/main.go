@@ -47,6 +47,12 @@ type suite struct {
 	// to know where to look.
 	entrypoint string
 
+	// scope is what a ready suite does *not* judge, printed under its result on
+	// every run. A gate that answers for four of five fixtures is a different
+	// gate from one that answers for all five, and the difference belongs on
+	// the scoreboard rather than in a paragraph somebody has to go and find.
+	scope string
+
 	// argv is the command, run from the repository root.
 	argv []string
 
@@ -67,9 +73,18 @@ func suites() []suite {
 		{
 			name:       "generate-enrich",
 			milestone:  "M2+M3",
-			awaiting:   "the pipeline lanes: generate ⊕ enrich must reproduce the composed bundle fixtures, merge included",
+			awaiting:   "",
 			entrypoint: "golden/pipeline/reproduce_test.go",
 			argv:       []string{"go", "test", "./golden/pipeline/..."},
+			scope: "five of six bundle fixtures: tunic, fallout-new-vegas, " +
+				"zelda-tears-of-the-kingdom and mars single-source, cyberpunk-2077 merged. " +
+				"bend-or awaits the offline basemap rasterizer — its archive is an input " +
+				"again and its translator has landed, but a city has no tile server and " +
+				"nothing yet renders its deepest level from the vectors its open data " +
+				"publishes (docs/generate.md §4.5, golden/format/STAMPS.md). Reproduction " +
+				"needs the capture archive and the derived tile set, which are not in git; " +
+				"a checkout without them skips and says so.",
+			ready: true,
 		},
 		{
 			// Captured from the current tree, and re-run against whichever
@@ -202,6 +217,9 @@ func main() {
 		r, note := run(s, chosen(*selected, s.name))
 		counts[r]++
 		fmt.Printf("  %-4s  %-16s  %s\n", r, s.name, note)
+		if r != skip && s.scope != "" {
+			fmt.Printf("        %-16s  scope: %s\n", "", wrap(s.scope, 62, 26))
+		}
 	}
 
 	waivers, err := readWaivers()
@@ -295,6 +313,28 @@ func reportWaivers(waivers []waiver) int {
 		fmt.Printf("  WAIVED  %-16s  %s: %s\n", id, subject, w.Reason)
 	}
 	return unexplained
+}
+
+// wrap folds a scope note onto lines of about width columns, indented under the
+// first. A scope note is prose and gets read; a scope note printed as one
+// four-hundred-column line does not.
+func wrap(text string, width, indent int) string {
+	var out strings.Builder
+	column := 0
+	for index, word := range strings.Fields(text) {
+		switch {
+		case index == 0:
+		case column+1+len(word) > width:
+			out.WriteString("\n" + strings.Repeat(" ", indent))
+			column = 0
+		default:
+			out.WriteString(" ")
+			column++
+		}
+		out.WriteString(word)
+		column += len(word)
+	}
+	return out.String()
 }
 
 func lastLine(out string) string {

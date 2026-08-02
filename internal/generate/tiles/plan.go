@@ -115,9 +115,44 @@ type Warp struct {
 
 // Affine is the transformation a warp resamples through: x' = AX*x + BX*y + CX,
 // y' = AY*x + BY*y + CY.
+//
+// Fitting one is not this lane's work -- it stands on the names two readings
+// share, which is the enrich lane's alignment (issue #5 §5.3), and a warp
+// receives the fitted six numbers as an input. What lives here is only the
+// arithmetic of using one, which a resampler cannot do without and which is not
+// alignment: applying it, inverting it, and asking how far it stretches.
 type Affine struct {
 	AX, BX, CX float64
 	AY, BY, CY float64
+}
+
+// Apply sends a donor-space point into the base picture's space.
+func (a Affine) Apply(x, y float64) (float64, float64) {
+	return a.AX*x + a.BX*y + a.CX, a.AY*x + a.BY*y + a.CY
+}
+
+// Invert solves the transformation the other way, which is the direction a
+// resampler reads in: every base pixel asks where in the donor it came from.
+// The false result is a degenerate transformation, through which nothing may be
+// resampled.
+func (a Affine) Invert() (Affine, bool) {
+	determinant := a.AX*a.BY - a.BX*a.AY
+	if math.Abs(determinant) < 1e-12 {
+		return Affine{}, false
+	}
+	out := Affine{
+		AX: a.BY / determinant, BX: -a.BX / determinant,
+		AY: -a.AY / determinant, BY: a.AX / determinant,
+	}
+	out.CX = -(out.AX*a.CX + out.BX*a.CY)
+	out.CY = -(out.AY*a.CX + out.BY*a.CY)
+	return out, true
+}
+
+// Scale reports how many base pixels one donor pixel spans, averaged over the
+// axes. It is what decides how deep a warp is worth rendering.
+func (a Affine) Scale() float64 {
+	return (math.Hypot(a.AX, a.AY) + math.Hypot(a.BX, a.BY)) / 2
 }
 
 // ErrNoFrame marks a lens the deriver cannot plan: one whose source declared no

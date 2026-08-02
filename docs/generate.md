@@ -528,7 +528,7 @@ somebody else's server is having a bad afternoon.
 The game sources' captures are archived and their endpoints are somebody else's
 editorial work, so their crawlers are kept complete and are not run against live
 endpoints. The ArcGIS/USGS crawler is the one that may run, because its data is
-public — it lands with the offline basemap renderer it feeds (§4.4), since what
+public — it lands with the offline basemap renderer it feeds (§4.5), since what
 that renders is exactly what that crawl fetches.
 
 The IGN crawler carries this lane's most consequential gate. Some IGN wikimap
@@ -657,18 +657,83 @@ from the archive byte for byte, along with its zoom range, window, formats,
 bounds, background and coverage bitsets. `golden/format/STAMPS.md` carries the
 accounting.
 
-### 4.4 What the deriver does not do yet
+### 4.4 Warped variants
 
-Two of the contract's clauses are declared but not built, and both are named
-where they would be used rather than left to be discovered:
+When two sources picture one ground, one raster is usually the finer — a
+publisher's own map beside a wiki's rasterized in-game rendering — and a registry
+that simply served the finer one would throw the other away. Instead the lesser
+raster is **resampled into the finer one's world** and offered as one more
+picture of the same ground. Nothing is discarded, both rasters answer to one
+grid, and every feature lands on either.
 
-- **Warp variants.** The plan carries a `Warp` — a donor picture resampled
-  through an affine into another picture's world, so two sources' rasters answer
-  to one grid — and the stamp covers it, because the same donor through a
-  different transformation is a different picture. Fitting the affine is
-  alignment work: it stands on the names two sources share, and it is the same
-  machinery cross-source merge stands on. It lands with the enrich lane's `merge`
-  enricher rather than being written twice. `Derive` refuses a warp plan by name.
+Three decisions make a warp, and they happen in this order.
+
+**Names are settled first.** Two sources capturing one volume name the same
+ground the same thing, so their pyramids would land in one directory.
+`tiles.Settle` gives *every* colliding plan its publisher's own path as a
+suffix — all of them, never just the later one — so which pyramid is called what
+does not depend on the order an archive listed its captures in. Cyberpunk's two
+readings settle as `cyberpunk-2077__night-city__cbp` and
+`cyberpunk-2077__night-city__cyberpunk-2077-night-city`. A warped variant is
+named after the picture it aligns onto, so it can only be planned once the names
+have stopped moving.
+
+**The pairing is decided from the whole set.** One reading per ground — the
+deepest, since a world's other lenses are alternate art already sharing its
+window — and, among the readings of one volume, the one that draws its world at
+the most pixels is the base every other is brought into. Resampling into a
+coarser world would throw away detail that was captured. Only readings from
+*different* sources are ever paired: a source that divided its own world into
+several grounds did so deliberately. This policy lives in `cmd/atlas/warp.go`.
+
+**The alignment is an input, not a derivation.** `tiles.PlanWarp` is handed the
+fitted affine as six numbers. Fitting one stands on the names two readings share
+and belongs to `internal/enrich/align` — the same fit the cross-source merge
+folds features by, so a raster and the features drawn on it can never disagree
+about where the ground is. Neither lane imports the other; `cmd/atlas` holds
+both, and the seam is the one `adapt.go` opens for documents and volumes. Nothing
+is duplicated to arrange it: the deriver needs a fitted transformation, not the
+ability to fit one, so only the arithmetic of *using* one — apply, invert,
+scale — sits beside `tiles.Affine`.
+
+What the deriver then does:
+
+- **The target zoom** is the base-frame zoom nearest the donor's real resolution
+  after the alignment's own scaling, clamped to the base's deepest complete
+  level: deep enough to keep what the donor drew, never so deep as to invent
+  detail that was never there.
+- **The deepest level is rendered, not copied.** Every pixel of every tile in the
+  window the warped content falls in asks the inverse transformation where in the
+  donor it came from, and samples the donor's deepest complete level bilinearly,
+  clamped inside the tile that holds it. A tile no donor pixel reached is not
+  written at all: coverage says nothing about it, and a reader falls back to the
+  parent.
+- **Everything shallower folds down** from that level exactly as any other
+  pyramid folds, as a photograph.
+- **The donor's own background** paints wherever the donor never drew, so a
+  warped tile is opaque and a picture that simply ends does not end in black.
+- **The bounds are the warped content's**, measured through the alignment and
+  clipped to the world square — reported even when they come to the whole square,
+  because what the alignment reached is a fact about this picture rather than a
+  default that can be left out.
+- **The plan lists one captured level**, the donor's deepest complete one, which
+  is what the warp samples: a stamp naming the donor's other levels would rebuild
+  for a change that could not reach these tiles.
+- **The stamp carries the alignment** — the base's tile set, the target zoom, the
+  base frame, and the six coefficients to nine decimal places — because the same
+  donor through a different transformation is a different picture.
+
+`golden/pipeline/derive_test.go` holds this to the reference cache both ways.
+Cyberpunk's aligned pyramid plans to the recorded stamp under the reference
+tool's hash — which says the anchors, the name matching, the trimming, the
+least-squares fit and the target zoom all came out identical from the captures
+alone — and its 1,365 tiles are rebuilt byte for byte.
+
+### 4.5 What the deriver does not do yet
+
+One clause of the contract is declared but not built, and it is named where it
+would be used rather than left to be discovered:
+
 - **Offline basemap rendering.** A city has no tile server: its deepest level is
   rendered from the vectors its open data publishes, and every shallower level
   folds down from there exactly as any other pyramid does. The renderer is a
@@ -936,7 +1001,7 @@ was tracked as an aspiration and, for these four, is now held.
 | `fallout-new-vegas` | a split sheet: 13 worlds, 8 of them insets | mapgenie | byte-identical, 23,188,369 bytes |
 | `zelda-tears-of-the-kingdom` | lens shards: three elevations of one ground | mapgenie | byte-identical, 58,031,657 bytes |
 | `mars` | a sphere, a derived id space, named artwork | nasa-trek | byte-identical, 255,455,078 bytes |
-| `cyberpunk-2077` | two sources merged | ign ⊕ piggyback | M3 — this lane is single-source |
+| `cyberpunk-2077` | two sources merged | ign-wiki ⊕ piggyback | canonically identical; the stamp is waived (§8.2) |
 | `bend-or` | a city, basemap and national layers | arcgis-hub | blocked: the capture is gone |
 
 Every source is held against the reference tree's own reading of the same
@@ -947,7 +1012,8 @@ one today, and the ArcGIS one waits with its volume.
 
 The tile deriver is proven in two halves, for the reason §4.3 gives: the plan
 is bit-identical to the reference's for all nine pyramids of the four
-single-source fixtures, and tunic's 741 tiles rebuild from the archive byte for
+single-source fixtures and for cyberpunk's warped variant — alignment and all —
+and tunic's 741 tiles and the warp's 1,365 rebuild from the archive byte for
 byte. `golden/format/STAMPS.md` carries the accounting and the ceiling.
 
 The tests are gated on the two inputs that are deliberately not in git — the
@@ -955,12 +1021,32 @@ capture archive and the derived tile set — and skip with an explanation when
 neither `ATLAS_ARCHIVE_DIR`/`ATLAS_TILES_INDEX` nor the repository's own
 gitignored copies are present.
 
-The harness's `generate-enrich` gate stays **skipped**: its contract is
-`generate ⊕ enrich` over every bundle fixture, and enrichment does not exist
-yet, so the merged fixture cannot be reproduced by anything. The single-source
-half runs as an ordinary test in the meantime.
+The harness's `generate-enrich` gate is **green**, over five of the six bundle
+fixtures. The sixth, `bend-or`, is out of scope for a reason no milestone can
+lift, and the gate prints that scope on every run rather than omitting the
+fixture quietly.
 
-### 8.1 What the city fixture is waiting for
+### 8.1 The merged volume
+
+`cyberpunk-2077` is the one fixture no single lane can answer for, and it is
+reproduced by the shipped command rather than by a test's own reassembly of it:
+`golden/pipeline` runs `atlas enrich` over the archive and holds what lands in an
+empty registry to the fixture. Every part is byte-identical — the world payload
+including its whole merge ledger, the packed locations, the deferred prose, all
+38 icons, both pyramids' 17,507 tiles, and the archive's entry order — except
+the manifest, whose `version` object carries the enriched build's revision.
+Against the reference build itself that is 17,549 entries in identical order, of
+which exactly one differs, in two fields of one object.
+
+That one difference is the `enriched-build-revision` waiver and it is a
+consequence, not a divergence: §5.3 of issue #5 requires an enrich write to bump
+the revision past the serving build's so the registry fold serves it, the
+revision rides the manifest, the manifest rides the stamp, and the stamp names
+the file. The gate asserts the shape of the difference rather than shrugging at
+it — the capture time is unmoved, the revision is exactly this lane's bump of the
+fixture's own, the stamp differs, and the file name follows.
+
+### 8.2 What the city fixture is waiting for
 
 `bend-or` was built during M0 from a live crawl of a public city's ArcGIS Hub,
 and that capture archive was not kept. The translator fixture is the reference
@@ -971,5 +1057,5 @@ format's own invariant, and the file name would differ even if every byte of
 the city's open data were unchanged.
 
 So the volume waits on three things, in this order: the ArcGIS/USGS crawler
-(§3.2), the offline basemap renderer (§4.4), and a fresh capture — after which
+(§3.2), the offline basemap renderer (§4.5), and a fresh capture — after which
 it reproduces from *that* archive rather than from the fixture's.
