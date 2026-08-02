@@ -267,7 +267,60 @@ Nomenclature's feature list for the same body.
 - `idSpace: "derived"`: nothing in either publication numbers a mosaic or a
   feature type, so every identity is minted from a stable name.
 
-### 2.4 Adding a sixth source
+### 2.4 The IGN reader
+
+`internal/generate/sources/ign` reads a community wikimap: a flat image tiled
+like a world, markers placed on it in image-relative coordinates, and a flat list
+of marker types that names a parent to make two levels of legend.
+
+- Capture kind `ign-map`.
+- A wikimap's image is normalized so its taller dimension spans 1. A marker's
+  latitude runs down that span and is negative, its longitude across it, so
+  `(lng, -lat)` times the world square's edge is the pixel it is drawn on.
+- One collection per marker type, types in slug order, gathered under the heading
+  of whichever parent each names, headings in the order their first type appears.
+  A type no marker uses is left out — an empty collection would only dim the
+  legend — but it stays in the capture, so a marker appearing under it later
+  revives the collection without a policy change.
+- Artwork is a PNG sprite per type slug, read from the archive and carried.
+- **The gate: an embedded MapGenie map is not an IGN map.** Some IGN wikimap
+  pages are MapGenie maps in an IGN frame — the page declares a MapGenie game id
+  and serves MapGenie's tiles. Capturing one here would archive a second, worse
+  copy of data Atlas already reads properly, and a merge would then fold a source
+  into itself. The refusal lives in `internal/generate/crawl`, where the page's
+  own declaration is still in front of the crawler; by the time a capture exists
+  the evidence has been thrown away.
+- `idSpace: "derived"`: markers are opaque strings and types are slugs.
+
+### 2.5 The Piggyback reader
+
+`internal/generate/sources/piggyback` reads the official guide house's maps,
+which carry what a community wikimap does not: prose. Pins arrive with names and
+descriptions and both survive into a volume.
+
+- Capture kind `piggyback-map`.
+- Piggyback draws in a game's own coordinates on a Leaflet `CRS.Simple` map: a
+  linear transformation squeezes them onto the unit tile at zoom zero. A pin
+  passes through it and then through the shared inverse Mercator.
+- A declared category becomes a heading and its types become collections under
+  it, ordered by declared position then key. A type no pin uses is left out.
+- District name pins arrive filed under the reader-state `favorites` category,
+  which is nothing to build a legend from. They gather under their own heading
+  and render as `text`, which is what they are on Piggyback's own map. Any *other*
+  undeclared type fails the build: better a loud build than a pin silently
+  dropped.
+- Piggyback publishes no bounds, so the crawler's own survey of which tiles
+  answered is the only account of where the pyramid is drawn, and a capture with
+  no observed level is refused.
+- **The gate: an unverified transform is refused.** The transformation is read
+  off the page's own scripts, it decides where every pin in the volume stands,
+  and a wrong one puts a whole map's contents somewhere plausible and wrong —
+  exactly the failure a later merge would try to fit an affine to.
+  `verifiedTransforms` is the list of games whose numbers have been checked
+  against the published map; a capture whose numbers are not in it fails.
+- `idSpace: "derived"`: pins, categories and types are opaque string ids.
+
+### 2.6 Adding a sixth source
 
 A source is one directory, one constructor, and one line in
 `internal/generate/sources/registry.go`. The walkthrough:

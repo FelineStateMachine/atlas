@@ -394,11 +394,23 @@ func composeFixture(t *testing.T, volume string) composedBundle {
 
 func translateFixture(t *testing.T, want string) doc.Document {
 	t.Helper()
+	return translateFrom(t, "", want)
+}
+
+// translateFrom reads one volume through one source. Two sources may describe
+// one volume -- that is what the merged fixture is a fixture of -- so a caller
+// that means a particular reading names the source it means, and one that means
+// "whoever answers" names none.
+func translateFrom(t *testing.T, from, want string) doc.Document {
+	t.Helper()
 	store, err := archive.Open(archiveDir(t))
 	if err != nil {
 		t.Fatalf("archive: %v", err)
 	}
 	for _, volume := range store.Volumes() {
+		if from != "" && volume.Source != from {
+			continue
+		}
 		source, err := sources.For(volume.Source)
 		if err != nil {
 			continue

@@ -224,3 +224,125 @@ func compareAttrs(t *testing.T, what string, got, want map[string]string) {
 func near(got, want float64) bool {
 	return math.Abs(got-want) <= 1e-12*math.Max(1, math.Abs(want))
 }
+
+// TestIGNTranslatorAgreesWithFixture holds the IGN reader against the document
+// the reference tree made of the same archived capture.
+//
+// The reference document nested collections under group containers; the clean
+// room carries one ordered array with the group kept as the heading string it
+// always was. Everything else -- identities, order, titles, artwork keys,
+// placement, the render attribute -- is compared.
+func TestIGNTranslatorAgreesWithFixture(t *testing.T) {
+	document := translateFrom(t, "ign", "cyberpunk-2077")
+
+	var reference referenceDocument
+	readJSON(t, "../fixtures/translators/ign.doc.json", &reference)
+
+	if len(document.Worlds) != 1 {
+		t.Fatalf("document carries %d worlds, the fixture describes one", len(document.Worlds))
+	}
+	world := document.Worlds[0]
+
+	if document.Source.IDSpace != doc.IDSpaceDerived {
+		t.Errorf("IGN numbers markers with opaque strings, so the source must declare %q, not %q",
+			doc.IDSpaceDerived, document.Source.IDSpace)
+	}
+	if document.Volume.Slug != reference.Game.Slug || document.Volume.Title != reference.Game.Title {
+		t.Errorf("volume %s/%s, fixture %s/%s",
+			document.Volume.Slug, document.Volume.Title, reference.Game.Slug, reference.Game.Title)
+	}
+	if world.ID != reference.ID || world.Slug != reference.Slug || world.Title != reference.Title {
+		t.Errorf("world identity %d/%s/%s, fixture %d/%s/%s",
+			world.ID, world.Slug, world.Title, reference.ID, reference.Slug, reference.Title)
+	}
+	if !near(world.Center.Lat, reference.InitialLatitude) || !near(world.Center.Lng, reference.InitialLongitude) {
+		t.Errorf("center %v,%v, fixture %v,%v",
+			world.Center.Lat, world.Center.Lng, reference.InitialLatitude, reference.InitialLongitude)
+	}
+	if len(world.Lenses) != len(reference.Config.TileSets) {
+		t.Fatalf("%d lenses, fixture %d", len(world.Lenses), len(reference.Config.TileSets))
+	}
+	for i, set := range reference.Config.TileSets {
+		if world.Lenses[i].Name != set.Name || world.Lenses[i].TileSet != set.Path {
+			t.Errorf("lens %d is %s/%s, fixture %s/%s",
+				i, world.Lenses[i].Name, world.Lenses[i].TileSet, set.Name, set.Path)
+		}
+	}
+	compareCategories(t, world.Collections, reference)
+
+	// A wikimap has no ground: nothing here becomes an area or a path.
+	for _, collection := range world.Collections {
+		if collection.Kind != doc.KindPoint {
+			t.Errorf("collection %q is kind %q; a wikimap publishes only markers",
+				collection.Title, collection.Kind)
+		}
+	}
+	// The archive holds a sprite per marker type, and the document carries them
+	// so composition never has to reach back into it.
+	if len(document.Icons) == 0 {
+		t.Error("the document carries no artwork, but the archive holds a sprite per type")
+	}
+}
+
+// TestPiggybackTranslatorAgreesWithFixture holds the Piggyback reader against
+// the document the reference tree made of the same archived capture, and pins
+// the two things that are this source's own: prose survives, and district name
+// markers render as text rather than pins.
+func TestPiggybackTranslatorAgreesWithFixture(t *testing.T) {
+	document := translateFrom(t, "piggyback", "cyberpunk-2077")
+
+	var reference referenceDocument
+	readJSON(t, "../fixtures/translators/piggyback.doc.json", &reference)
+
+	if len(document.Worlds) != 1 {
+		t.Fatalf("document carries %d worlds, the fixture describes one", len(document.Worlds))
+	}
+	world := document.Worlds[0]
+
+	if document.Volume.Slug != reference.Game.Slug || document.Volume.Title != reference.Game.Title {
+		t.Errorf("volume %s/%s, fixture %s/%s",
+			document.Volume.Slug, document.Volume.Title, reference.Game.Slug, reference.Game.Title)
+	}
+	if world.ID != reference.ID || world.Slug != reference.Slug || world.Title != reference.Title {
+		t.Errorf("world identity %d/%s/%s, fixture %d/%s/%s",
+			world.ID, world.Slug, world.Title, reference.ID, reference.Slug, reference.Title)
+	}
+	if !near(world.Center.Lat, reference.InitialLatitude) || !near(world.Center.Lng, reference.InitialLongitude) {
+		t.Errorf("center %v,%v, fixture %v,%v",
+			world.Center.Lat, world.Center.Lng, reference.InitialLatitude, reference.InitialLongitude)
+	}
+	if len(world.Lenses) != len(reference.Config.TileSets) {
+		t.Fatalf("%d lenses, fixture %d", len(world.Lenses), len(reference.Config.TileSets))
+	}
+	for i, set := range reference.Config.TileSets {
+		if world.Lenses[i].Name != set.Name || world.Lenses[i].TileSet != set.Path {
+			t.Errorf("lens %d is %s/%s, fixture %s/%s",
+				i, world.Lenses[i].Name, world.Lenses[i].TileSet, set.Name, set.Path)
+		}
+	}
+	compareCategories(t, world.Collections, reference)
+
+	// The guide house's prose is the reason this source exists beside the other
+	// reading of the same city.
+	described := 0
+	for _, collection := range world.Collections {
+		for _, feature := range collection.Features {
+			if feature.Description != "" {
+				described++
+			}
+		}
+	}
+	if described == 0 {
+		t.Error("no feature carries prose, which is the one thing this source has that IGN does not")
+	}
+	// District names are floating labels, not markers.
+	labels := 0
+	for _, collection := range world.Collections {
+		if collection.Attrs["atlas.render.as"] == "text" {
+			labels++
+		}
+	}
+	if labels == 0 {
+		t.Error("no collection renders as text, so the district names became pins")
+	}
+}
