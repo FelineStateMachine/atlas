@@ -183,17 +183,6 @@ func (v *Volumes) Install(name string, content io.Reader) (hostenv.Installed, er
 	return installed, nil
 }
 
-// WriteIndex derives index.json from the library and writes it beside the
-// bundles. The listing is always derived from the files, never the other way
-// round, so it is safe to delete and safe to be stale for a moment.
-func (v *Volumes) WriteIndex() error {
-	descriptors, _, err := bundle.Scan(v.dir)
-	if err != nil {
-		return fmt.Errorf("scan library: %w", err)
-	}
-	return bundle.WriteIndex(v.dir, descriptors)
-}
-
 // carryOrOpen reuses the reader already open for a build whose file has not
 // moved, and opens the file fresh otherwise.
 func carryOrOpen(previous *snapshot, winner bundle.Descriptor) (*volume, error) {
