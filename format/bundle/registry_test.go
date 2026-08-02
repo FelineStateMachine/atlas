@@ -70,8 +70,8 @@ func TestFoldIsDeterministic(t *testing.T) {
 		build("/mars-1", "mars", "2026-08-01T14:20:42Z", 9, "aa"),
 		build("/mars-2", "mars", "2026-08-01T14:48:10Z", 9, "bb"),
 		build("/mars-3", "mars", "2026-08-01T14:48:10Z", 3, "ff"),
-		build("/city-1", "westminster-co", "2026-08-01T20:13:08Z", 9, "cc"),
-		build("/city-2", "westminster-co", "2026-07-01T20:13:08Z", 9, "dd"),
+		build("/city-1", "bend-or", "2026-08-01T20:13:08Z", 9, "cc"),
+		build("/city-2", "bend-or", "2026-07-01T20:13:08Z", 9, "dd"),
 		build("/lone", "tunic", "2026-07-30T00:00:00Z", 9, "ee"),
 	}
 	want := bundle.Fold(candidates)
@@ -81,8 +81,8 @@ func TestFoldIsDeterministic(t *testing.T) {
 	if want["mars"].Locator != "/mars-2" {
 		t.Errorf("mars served by %s", want["mars"].Locator)
 	}
-	if want["westminster-co"].Locator != "/city-1" {
-		t.Errorf("westminster-co served by %s", want["westminster-co"].Locator)
+	if want["bend-or"].Locator != "/city-1" {
+		t.Errorf("bend-or served by %s", want["bend-or"].Locator)
 	}
 
 	shuffled := append([]bundle.Descriptor(nil), candidates...)
@@ -152,7 +152,7 @@ func TestBuildIndexIsDerivedAndOrdered(t *testing.T) {
 		older,
 		renamed,
 		func() bundle.Descriptor {
-			d := build("/dir/atlas-city.atlas", "westminster-co", "2026-08-01T20:13:08Z", 9, "cc")
+			d := build("/dir/atlas-city.atlas", "bend-or", "2026-08-01T20:13:08Z", 9, "cc")
 			d.Title = "Alphabetically first"
 			return d
 		}(),

@@ -89,7 +89,7 @@ if err != nil {
 
 logger.Info("bundle installed",
     logging.Op("install"),
-    logging.Volume("westminster-co"),
+    logging.Volume("bend-or"),
     logging.Stamp("ec3fe8c21cfe"),
     logging.Dur(elapsed))
 ```
