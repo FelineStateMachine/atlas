@@ -69,16 +69,24 @@ export function tileGridFor(grid: GridSpec, deepest: number): TileGrid {
 }
 
 /**
- * The ground a lens actually draws, as an OL extent.
+ * The window a lens draws into, as an OL extent — what the camera fits.
  *
- * `surface` is the ground the picture covers; `bounds` is the raster window
- * it fills, which on a piece of a split sheet is grown to take in a title
- * drawn beside it. The view fits the surface where one is declared, so a
- * reader opening a split world is looking at the world rather than at the
- * margin its title was printed on.
+ * A lens may declare two rectangles and they are not interchangeable.
+ * `bounds` is the raster window the pyramid actually fills; `surface` is the
+ * ground that window pictures, which on a piece of a split sheet is *smaller*
+ * than the window, because the window was grown to take in a title drawn
+ * beside the map.
+ *
+ * The camera fits **bounds**, falling back to the whole world square: a
+ * reader opening a split sheet is shown everything the lens drew, title
+ * included. `surface` is what anything *dividing* the world measures, so no
+ * cell lands on margin — and that reading belongs to the analysis lane's
+ * Ground descriptor, which is handed both and prefers the other one. Tunic
+ * is the volume that tells them apart: it declares a surface and no bounds,
+ * and the recorded baseline opens on the whole square.
  */
 export function lensExtent(lens: Lens | null, grid: GridSpec): Extent {
-  const rect = lens?.surface ?? lens?.bounds;
+  const rect = lens?.bounds;
   if (!rect) return worldExtent(grid);
   return [rect.x, -(rect.y + rect.height), rect.x + rect.width, -rect.y];
 }

@@ -169,6 +169,19 @@ export class AtlasChart extends HTMLElement {
     };
   }
 
+  /**
+   * Put the locator's rectangle where another pane's camera is.
+   *
+   * The sphere has no OpenLayers view to ask, and the corner locator is the
+   * one place its camera is ever written down — in whole pixels, on a surface
+   * the chart shares. So the globe hands its extent here rather than moving
+   * the chart underneath it, which would fetch tiles for a pane nobody is
+   * looking at.
+   */
+  locate(extent: readonly number[] | null): void {
+    this.overview?.draw(extent ?? undefined);
+  }
+
   /** Force a synchronous frame, so a driver can read a settled camera. */
   renderSync(): void {
     this.map?.renderSync();

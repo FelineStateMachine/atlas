@@ -51,6 +51,14 @@ export class Skin {
   private readonly paper: CanvasRenderingContext2D | null;
   private baseKey = "";
   private detailKey = "";
+  /**
+   * Which composite is current. A paint walks tiles one image at a time and
+   * awaits each, so a camera that moved -- or a sphere that was put away --
+   * while it was walking would otherwise go on adding tiles to a
+   * neighbourhood nobody is over any more. The tour asserts exactly this: a
+   * put-away globe keeps no pyramid tiles.
+   */
+  private generation = 0;
 
   private readonly window: Window;
   private readonly grid: TileGrid;
@@ -66,9 +74,17 @@ export class Skin {
 
   /** Put the pyramid tiles away. A globe nobody is looking at holds none. */
   clear(): void {
+    this.generation++;
     this.tiles.clear();
     this.detailKey = "";
     this.lens = "";
+  }
+
+  /** Forget the neighbourhood without forgetting the skin under it. */
+  clearDetail(): void {
+    this.generation++;
+    this.tiles.clear();
+    this.detailKey = "";
   }
 
   /** Where a world pixel lands on the texture. */
@@ -120,6 +136,7 @@ export class Skin {
   ): Promise<void> {
     const key = `${lens.tiles}/${z}/${Math.round(at.x)}/${Math.round(at.y)}`;
     if (key === this.detailKey) return;
+    this.generation++;
     this.detailKey = key;
     this.tiles.clear();
     this.lens = lens.tiles;
@@ -135,6 +152,7 @@ export class Skin {
   ): Promise<void> {
     const paper = this.paper;
     if (!paper) return;
+    const mine = this.generation;
     paper.imageSmoothingEnabled = lens.interpolate;
     const coverage = new LensCoverage(lens);
     const edge = this.grid.size / 2 ** z;
@@ -155,6 +173,7 @@ export class Skin {
         const at = url(z, x, y);
         if (!at) continue;
         const image = await load(at);
+        if (mine !== this.generation) return;
         if (!image) continue;
         const [px, py] = this.place(x * edge, y * edge);
         paper.drawImage(image, px, py, scale, scaleY);

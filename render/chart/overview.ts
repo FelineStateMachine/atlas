@@ -43,8 +43,14 @@ export class Overview {
     this.drawnKey = "";
   }
 
-  /** Redraw what needs redrawing: the world rarely, the rectangle always. */
-  draw(): void {
+  /**
+   * Redraw what needs redrawing: the world rarely, the rectangle always.
+   *
+   * `over` is the camera's own extent when the caller has one the map does
+   * not — which is the sphere's case, where the locator is the only written
+   * form of the globe's camera and the chart underneath has not moved.
+   */
+  draw(over?: readonly number[]): void {
     const context = this.context();
     const canvas = document.querySelector<HTMLCanvasElement>("#overview-canvas");
     const box = document.querySelector<HTMLElement>("#overview-viewport");
@@ -55,15 +61,19 @@ export class Overview {
       this.drawnKey = key;
       void this.compose(canvas, context, extent);
     }
-    this.locate(box, canvas, extent);
+    this.locate(box, canvas, extent, over);
   }
 
   /** Where the camera is, as a box in whole pixels over the drawn world. */
-  private locate(box: HTMLElement, canvas: HTMLCanvasElement, extent: number[]): void {
-    const view = this.map.getView();
+  private locate(
+    box: HTMLElement,
+    canvas: HTMLCanvasElement,
+    extent: number[],
+    over?: readonly number[],
+  ): void {
     const size = this.map.getSize();
-    if (!size) return;
-    const camera = view.calculateExtent(size);
+    if (!size && !over) return;
+    const camera = over ?? this.map.getView().calculateExtent(size ?? [1, 1]);
     const width = (extent[2] ?? 0) - (extent[0] ?? 0);
     const height = (extent[3] ?? 0) - (extent[1] ?? 0);
     if (!width || !height) return;

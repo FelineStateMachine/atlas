@@ -93,6 +93,8 @@ export class AtlasGlobe extends HTMLElement {
   private handed: ChartCamera | null = null;
   private labelKey = "";
   private fitKey = "";
+  /** Told when the camera moves, so the corner locator can follow it. */
+  onCamera: ((pov: { lat: number; lng: number; altitude: number }) => void) | null = null;
 
   /** The seam the parity harness reads, in the golden shape. */
   readonly seam: GlobeSeam = {
@@ -176,6 +178,7 @@ export class AtlasGlobe extends HTMLElement {
     this.given = pov;
     this.globe?.pointOfView(pov, 0);
     this.refreshDetail();
+    this.onCamera?.(pov);
     log.info("the sphere is up", { op: "render", world: this.context?.model.slug, ...pov });
   }
 
@@ -190,8 +193,10 @@ export class AtlasGlobe extends HTMLElement {
   leave(viewport: { width: number; height: number }): ChartCamera | null {
     this.hidden = true;
     const pov = this.globe?.pointOfView();
-    this.skin?.clear();
-    this.seam.detail.tiles.clear();
+    // A globe nobody is looking at holds no pyramid tiles: the skin under it
+    // stays, because it is one texture and recompositing it is the expensive
+    // half of coming back.
+    this.skin?.clearDetail();
     this.seam.detail.lens = "";
     if (!pov || !this.given || !this.handed) return null;
     const unmoved = Math.abs(pov.lat - this.given.lat) < 1e-9 &&
@@ -373,6 +378,8 @@ export class AtlasGlobe extends HTMLElement {
   private moved(): void {
     this.refreshDetail();
     if (this.context?.labelsHeld) this.drawLabels();
+    const pov = this.globe?.pointOfView();
+    if (pov && this.onCamera) this.onCamera(pov);
   }
 
   /**
@@ -393,9 +400,15 @@ export class AtlasGlobe extends HTMLElement {
     const span = Math.abs(equirect.deg[1] - equirect.deg[3]);
     const worldHeight = (degrees / span) * h;
     const wanted = Math.round(Math.log2(context.grid.size / Math.max(1, worldHeight))) + 2;
-    const z = Math.max(this.skin.baseLevel(context.lens) + 1,
-      Math.min(context.lens.maxZoom, wanted));
-    if (z > context.lens.maxZoom) return;
+    // Nothing is draped until the camera asks for more than the skin already
+    // has. A sphere seen whole is the base skin and nothing else, which is
+    // what makes "past the base skin's depth, tiles actually arrive" a
+    // statement the tour can check rather than a description of every frame.
+    if (wanted <= this.skin.baseLevel(context.lens)) {
+      this.skin.clearDetail();
+      return;
+    }
+    const z = Math.min(context.lens.maxZoom, wanted);
     const [cx, cy] = equirect.mapping.toWorld(pov.lat, pov.lng);
     const width = (worldHeight * w) / h;
     void this.skin.detail(

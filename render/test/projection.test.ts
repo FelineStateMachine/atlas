@@ -98,13 +98,31 @@ test("the resampling a lens declares is the resampling the tour recorded", () =>
   }
 });
 
-test("a lens fits its declared surface, not the window it was cut into", () => {
+test("the camera fits the window a lens drew, not the ground inside it", () => {
   const grid = tileGrid("zelda-tears-of-the-kingdom");
   const lenses = payloads("zelda-tears-of-the-kingdom").get("hyrule")?.lenses ?? [];
   for (const lens of lenses) {
-    const extent = lensExtent(lens, grid);
-    const rect = lens.surface ?? lens.bounds;
+    const rect = lens.bounds;
     assert.ok(rect, `${lens.name} declares a window`);
-    assert.deepEqual(extent, [rect.x, -(rect.y + rect.height), rect.x + rect.width, -rect.y]);
+    assert.deepEqual(lensExtent(lens, grid),
+      [rect.x, -(rect.y + rect.height), rect.x + rect.width, -rect.y]);
   }
+});
+
+test("a lens with a surface and no bounds opens on the whole world square", () => {
+  // Tunic is the volume that tells the two rectangles apart, and the recorded
+  // baseline is what settles which one the camera fits: its lens declares a
+  // surface of 5,066 x 4,191 and no bounds, and the tour opens at 12.64
+  // world pixels to the screen pixel — which is the 8,192 square in a 648
+  // pixel-high map, not the surface in it.
+  const grid = tileGrid("tunic");
+  const lens = payloads("tunic").get("world")?.lenses[0];
+  assert.ok(lens?.surface, "tunic declares a surface");
+  assert.equal(lens.bounds, undefined, "and no bounds");
+  assert.deepEqual(lensExtent(lens, grid), [0, -8192, 8192, 0]);
+
+  const recorded = initial("tunic");
+  const resolution = fitResolution(lensExtent(lens, grid), MAP_WIDTH, 648);
+  assert.equal(resolution, recorded.resolution, "the resolution the tour opened at");
+  assert.ok(Math.abs(Math.log2(levelResolution(grid, 0) / resolution) - recorded.fitZoom) < 1e-12);
 });

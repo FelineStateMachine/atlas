@@ -53,6 +53,11 @@ export class AtlasViewport extends HTMLElement {
     });
     this.wireKeys();
     this.wireGlobeToggle();
+    // The sphere's camera, written where a camera can be read: the corner
+    // locator's rectangle, which is the one form the globe's view ever takes
+    // outside its own scene graph.
+    const globe = this.globe;
+    if (globe) globe.onCamera = (pov) => this.locate(pov);
     this.watcher.start();
   }
 
@@ -233,6 +238,9 @@ export class AtlasViewport extends HTMLElement {
       if (camera) chart.goTo(camera.x, camera.y, camera.zoom, camera.rotation);
       chart.hidden = false;
       this.globeUp = false;
+      // Over the chart the camera is in the snapshot proper, so the locator
+      // goes back to reading the map rather than being told.
+      chart.locate(null);
     } else {
       const camera = chart.camera();
       chart.hidden = true;
@@ -241,6 +249,22 @@ export class AtlasViewport extends HTMLElement {
     }
     toggle?.setAttribute("aria-pressed", String(this.globeUp));
     this.refresh();
+  }
+
+  /** The globe's camera as an extent on the chart's own surface. */
+  private locate(pov: { lat: number; lng: number; altitude: number }): void {
+    const context = this.context;
+    const globe = this.globe;
+    if (!context || !globe || !this.globeUp) return;
+    const camera = globe.cameraOf(pov, this.clientHeight || 1);
+    if (!camera) return;
+    const resolution = context.grid.size / context.grid.tileSize / 2 ** camera.zoom;
+    const halfWidth = (resolution * (this.clientWidth || 1)) / 2;
+    const halfHeight = (resolution * (this.clientHeight || 1)) / 2;
+    this.chart?.locate([
+      camera.x - halfWidth, camera.y - halfHeight,
+      camera.x + halfWidth, camera.y + halfHeight,
+    ]);
   }
 }
 

@@ -24,7 +24,7 @@ import { logger } from "../log.ts";
 import type { DataPlane } from "../data/plane.ts";
 import type { Lens, TileGrid as GridSpec } from "../data/payload.ts";
 import { LensCoverage } from "../data/pyramid.ts";
-import { RASTER_CACHE_SIZE, tileGridFor } from "./projection.ts";
+import { RASTER_CACHE_SIZE, levelResolution, tileGridFor } from "./projection.ts";
 
 const log = logger("raster");
 
@@ -133,12 +133,17 @@ export function buildRaster(
     // Levels above the complete one are only captured in patches. They ride
     // on top of the base so the fully-covered pyramid still shows through
     // wherever the deep capture has a gap.
-    // A pyramid complete to its own bottom has nothing to put up here, and
-    // says so with a layer that never renders rather than with a special case.
+    // The detail layer draws only where it has something the base does not:
+    // strictly deeper than the complete level. Above that threshold the base
+    // pyramid is whole and asking the patchy one for the same ground would
+    // double every request a fresh view makes -- which is a number the parity
+    // baselines record, so it is a correctness question and not a saving.
+    // A pyramid complete to its own bottom says so with a layer that never
+    // renders, rather than with a special case.
     detail: new TileLayer({
       source: detailSource,
       zIndex: 1,
-      maxResolution: lens.maxZoom > complete ? Infinity : 0,
+      maxResolution: lens.maxZoom > complete ? levelResolution(grid, complete) : 0,
     }),
   };
 }
