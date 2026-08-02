@@ -39,6 +39,7 @@ import type { CellVisual } from "@atlas/analysis";
 import { logger } from "../log.ts";
 import type { DataPlane } from "../data/plane.ts";
 import type { WorldContext } from "../context.ts";
+import type { Lens } from "../data/payload.ts";
 import type { PointRecord, ShapeRecord } from "../world/model.ts";
 import { COORDINATE_SYSTEM, atlasProjection, lensExtent, viewMaxZoom } from "./projection.ts";
 import { TileCounter, buildRaster } from "./raster.ts";
@@ -66,6 +67,69 @@ const FOCUS_ZOOM = 4;
  */
 const GRID_FIT_PADDING = 52;
 
+/**
+ * The room a piece of ground is given when a jump fits the camera to it. A
+ * boundary drawn hard against the window edge reads as ground running off the
+ * screen rather than as a shape with a size.
+ */
+const ZONE_FIT_PADDING = 54;
+
+/**
+ * The rectangle a shape occupies, or nothing when it carries no drawable
+ * geometry. Outer rings and lines are enough: a hole is inside its own ring.
+ *
+ * Cached against the record, because it is asked once per shape every time the
+ * footer recounts and a district can carry thousands of vertices. The records
+ * are rebuilt with the world, so the cache empties with them.
+ */
+const shapeExtents = new WeakMap<ShapeRecord, [number, number, number, number] | null>();
+
+function shapeExtent(shape: ShapeRecord): [number, number, number, number] | null {
+  const held = shapeExtents.get(shape);
+  if (held !== undefined) return held;
+  let minimumX = Infinity;
+  let minimumY = Infinity;
+  let maximumX = -Infinity;
+  let maximumY = -Infinity;
+  for (const line of shape.lines) {
+    for (const [x, y] of line) {
+      if (x < minimumX) minimumX = x;
+      if (y < minimumY) minimumY = y;
+      if (x > maximumX) maximumX = x;
+      if (y > maximumY) maximumY = y;
+    }
+  }
+  const extent: [number, number, number, number] | null =
+    Number.isFinite(minimumX) ? [minimumX, minimumY, maximumX, maximumY] : null;
+  shapeExtents.set(shape, extent);
+  return extent;
+}
+
+
+/**
+ * Where a camera standing over one layer of a split sheet stands over another.
+ *
+ * By its position inside each layer's own box rather than by its coordinates:
+ * the layers picture the same ground drawn in different places on the sheet,
+ * so an absolute centre carried across lands somewhere else entirely. Only a
+ * crossing between two *different* shards that both declare a box has anywhere
+ * to be carried to; every other lens swap is a different picture of the ground
+ * the reader is already looking at and moves nothing.
+ */
+function carryAcrossShards(
+  previous: Lens | null,
+  next: Lens | null,
+  standing: { x: number; y: number } | null,
+): [number, number] | null {
+  if (!previous?.shard || !next?.shard || previous.shard === next.shard) return null;
+  const from = previous.bounds;
+  const to = next.bounds;
+  if (!from || !to || !standing) return null;
+  const clamp = (value: number) => Math.min(Math.max(value, 0), 1);
+  const across = (standing.x - from.x) / from.width;
+  const down = (-standing.y - from.y) / from.height;
+  return [to.x + clamp(across) * to.width, -(to.y + clamp(down) * to.height)];
+}
 
 /** What the chart publishes about itself, in the golden key names. */
 export interface ChartDiagnostics {
@@ -115,6 +179,8 @@ export class AtlasChart extends HTMLElement {
   private drawnCells: DrawnCell[] = [];
   private gridExtent: number[] | null = null;
   private lensKey = "";
+  /** The lens the chart was last drawn with, so a swap can be told from what. */
+  private shownLens: Lens | null = null;
   private worldKey = "";
   private settle: number | undefined;
   private onSettled: ((report: { x: number; y: number; zoom: number; rotation: number }) => void) | null = null;
@@ -142,6 +208,12 @@ export class AtlasChart extends HTMLElement {
     }
     this.follow(context);
     this.restyle();
+    // The footer's own sentence. It is written here and on a camera event and
+    // on a filter, and deliberately *not* from `restyle` -- holding Z restyles
+    // and the reference never recounted for it, which on a pane put away
+    // behind the sphere is the difference between the count it recorded and a
+    // count of nothing.
+    this.writeCount();
     // The first camera a volume ever has is the one the fit produced, and a
     // fit without an animation raises no `moveend` -- so without this the
     // opening view is the one camera the server is never told about, and the
@@ -164,11 +236,19 @@ export class AtlasChart extends HTMLElement {
     if (this.sizes || typeof ResizeObserver === "undefined") return;
     this.sizes = new ResizeObserver(() => {
       // A pane measured mid-transition can be zero across, and telling
-      // OpenLayers its map is zero pixels wide throws its size away.
-      if (!this.clientWidth || !this.clientHeight) return;
+      // OpenLayers its map is zero pixels wide throws its size away. A pane
+      // that is *put away* is a different case and its zero is the truth:
+      // behind the sphere the chart has no window, and a chart with no window
+      // has nothing in view and fits nothing -- which is what every recorded
+      // globe step says once anything asks it again.
+      if (!this.hidden && (!this.clientWidth || !this.clientHeight)) return;
       this.map?.updateSize();
       this.overview?.draw();
-      this.writeCount();
+      // A window that changed size is over a different amount of what is
+      // drawn -- unless there is no window, in which case the sentence on
+      // screen is still the last true thing this pane said and the reader is
+      // reading the sphere anyway.
+      if (!this.hidden) this.writeCount();
     });
     this.sizes.observe(this);
   }
@@ -208,15 +288,70 @@ export class AtlasChart extends HTMLElement {
       return;
     }
     const feature = context.model.feature(selected);
-    const at = feature && "coordinate" in feature ? feature.coordinate : feature?.center;
-    if (!at) return;
+    if (!feature) return;
     const standing = this.camera();
     const lens = context.lens;
     if (!standing || !lens) return;
-    if (!this.borrowed) this.borrowed = standing;
-    const zoom = Math.min(viewMaxZoom(lens), Math.max(standing.zoom, FOCUS_ZOOM));
-    view.animate({ center: [at[0], at[1]], zoom, duration: 220 });
-    this.landed = { x: at[0], y: at[1], zoom, rotation: standing.rotation };
+    // Each jump holds afresh, overwriting whatever the last one left: closing
+    // a card undoes that card's own move and nothing older. Reading three rows
+    // in turn steps back through them one view at a time, and none of the
+    // three can hand back a place from before the reader went looking.
+    this.borrowed = standing;
+    if ("coordinate" in feature) {
+      // A point is one place: go to it, and go no further in than the reader
+      // already is.
+      const at = feature.coordinate;
+      const zoom = Math.min(viewMaxZoom(lens), Math.max(standing.zoom, FOCUS_ZOOM));
+      view.animate({ center: [at[0], at[1]], zoom, duration: 220 });
+      this.landed = { x: at[0], y: at[1], zoom, rotation: standing.rotation };
+      return;
+    }
+    // Ground is an area, not a point, so the camera is fitted to it rather
+    // than flown at its middle: a district reached for from an index is shown
+    // whole, with room around it. A shape carrying no drawable geometry has no
+    // extent to fit and the camera stays where it is.
+    const extent = shapeExtent(feature);
+    if (!extent) return;
+    const landed = this.fitTo(extent, ZONE_FIT_PADDING, viewMaxZoom(lens));
+    if (!landed) return;
+    this.landed = { ...landed, rotation: standing.rotation };
+  }
+
+  /**
+   * Fly the camera to an extent, and answer where it will land.
+   *
+   * The destination is wanted before the flight, because closing a card gives
+   * back the view the jump borrowed only if the camera is still where the jump
+   * put it — and an eased animation cannot be asked where it is going. So the
+   * fit is made instantly, read, undone, and then flown: no frame is drawn in
+   * between, and the answer is OpenLayers' own rather than a second
+   * implementation of its arithmetic.
+   */
+  private fitTo(
+    extent: readonly [number, number, number, number],
+    padding: number,
+    maxZoom: number,
+  ): { x: number; y: number; zoom: number } | null {
+    const view = this.view;
+    if (!view) return null;
+    const standing = this.camera();
+    const resolution = view.getResolution();
+    view.fit(extent as [number, number, number, number], {
+      size: this.map?.getSize(),
+      padding: [padding, padding, padding, padding],
+      maxZoom,
+      duration: 0,
+    });
+    const target = view.getCenter();
+    const targetResolution = view.getResolution();
+    const targetZoom = view.getZoom();
+    if (!target || targetResolution === undefined || targetZoom === undefined) return null;
+    if (standing && resolution !== undefined) {
+      view.setCenter([standing.x, standing.y]);
+      view.setResolution(resolution);
+    }
+    view.animate({ center: target, resolution: targetResolution, duration: 220 });
+    return { x: target[0] ?? 0, y: target[1] ?? 0, zoom: targetZoom };
   }
 
   /** Restyle in place: a filter moved, or a selection, or the held key. */
@@ -234,7 +369,6 @@ export class AtlasChart extends HTMLElement {
     for (const source of Object.values(this.sources)) source.changed();
     this.map?.render();
     this.overview?.draw();
-    this.writeCount();
   }
 
   /**
@@ -264,8 +398,11 @@ export class AtlasChart extends HTMLElement {
 
   /** How many of the standing features the window is over. */
   private inView(context: WorldContext): string {
-    const size = this.map?.getSize();
-    const extent = size ? this.view?.calculateExtent(size) : null;
+    // The window, from whatever size the map has -- and a pane put away behind
+    // the sphere has none at all. That is not a missing measurement to fall
+    // back from: a chart nobody is looking through has nothing in view, which
+    // is what every recorded globe step that recounts at all says.
+    const extent = this.view?.calculateExtent(this.hidden ? [0, 0] : this.map?.getSize());
     if (!extent) return count(context.visibility.drawn);
     const [minX = 0, minY = 0, maxX = 0, maxY = 0] = extent;
     const inside = (x: number, y: number) =>
@@ -275,8 +412,16 @@ export class AtlasChart extends HTMLElement {
       if (context.visibility.at(index).hidden) return;
       if (inside(point.coordinate[0], point.coordinate[1])) seen += 1;
     });
+    // Ground is counted by whether the window is *over* it, not by whether a
+    // corner of it happens to fall inside: a district big enough to fill the
+    // screen has every one of its vertices off it, and a reader looking at
+    // nothing but that district is looking at one feature rather than none.
     for (const shape of context.visibility.shapesShown) {
-      if (shape.lines.some((line) => line.some(([x, y]) => inside(x, y)))) seen += 1;
+      const extent = shapeExtent(shape);
+      if (!extent) continue;
+      if (extent[0] <= maxX && extent[2] >= minX && extent[1] <= maxY && extent[3] >= minY) {
+        seen += 1;
+      }
     }
     return count(seen);
   }
@@ -315,6 +460,18 @@ export class AtlasChart extends HTMLElement {
     this.view?.setCenter([x, y]);
     this.view?.setZoom(zoom);
     this.view?.setRotation(rotation);
+  }
+
+  /**
+   * Redraw the corner locator.
+   *
+   * The shelf's `hidden` is this lane's answer written onto the application's
+   * markup, so a swap that re-rendered the corner has just put a shelf back on
+   * screen that the camera says has nothing to say. It is the same duty
+   * `writeCount` does for the footer, and it is owed at the same moment.
+   */
+  redrawOverview(): void {
+    this.overview?.draw();
   }
 
   /** Tiles since the lens was chosen. */
@@ -480,10 +637,17 @@ export class AtlasChart extends HTMLElement {
     // options cannot be changed after it is built, so it is rebuilt. The
     // camera itself is carried across by hand below.
     const standing = this.camera();
+    const carried = fresh ? null : carryAcrossShards(this.shownLens, context.lens, standing);
+    this.shownLens = context.lens;
     this.view = this.viewFor(context);
     this.map.setView(this.view);
     if (!fresh && standing) {
       this.goTo(standing.x, standing.y, standing.zoom, standing.rotation);
+      // The layers of a split map are the same ground at different heights,
+      // stacked down one sheet. Stepping between them leaves the reader over
+      // the same place rather than at the same coordinates, which on a sheet
+      // where each layer has its own box is a different point.
+      if (carried) this.view.animate({ center: carried, duration: 200 });
     }
 
     const extent = lensExtent(context.lens, context.grid);
@@ -589,12 +753,19 @@ export class AtlasChart extends HTMLElement {
     // moved must not drag the reader back.
     if (context.cell !== this.heldCell) {
       this.heldCell = context.cell;
-      const size = this.map?.getSize();
       // Ascending is a move too: the reader asked for the ground one level
       // out, and the camera goes there the same way it came in.
-      if (this.gridExtent && this.view && size && context.lens) {
+      //
+      // The size is whatever the map has, and a map put away behind the sphere
+      // has none -- which OpenLayers reads as its own hundred-pixel default
+      // and which the recorded tours are a reading of: a cell fitted into no
+      // window at all lands at the deepest zoom the lens allows, over the
+      // middle of the ground. Refusing to fit at all would leave the camera
+      // somewhere the reference never left it.
+      if (this.gridExtent && this.view && context.lens) {
         this.view.fit(this.gridExtent as [number, number, number, number], {
-          size, padding: [GRID_FIT_PADDING, GRID_FIT_PADDING, GRID_FIT_PADDING, GRID_FIT_PADDING],
+          size: this.map?.getSize(),
+          padding: [GRID_FIT_PADDING, GRID_FIT_PADDING, GRID_FIT_PADDING, GRID_FIT_PADDING],
           maxZoom: viewMaxZoom(context.lens), nearest: false, duration: 180,
         });
       }
@@ -702,8 +873,9 @@ export class AtlasChart extends HTMLElement {
       this.overview?.draw();
       // The window moved, so how much of what is drawn it is over has moved
       // with it. The count is the camera's answer and belongs to the camera's
-      // own event, not to a filter's.
-      this.writeCount();
+      // own event, not to a filter's -- and a pane with no window has no
+      // answer to give.
+      if (!this.hidden) this.writeCount();
     });
   }
 
@@ -735,6 +907,11 @@ export class AtlasChart extends HTMLElement {
    * them (docs/app.md §4.3).
    */
   private report(): void {
+    // A pane put away reports nothing. Where the reader left off is where they
+    // were looking, and behind the sphere the chart is not it: its camera
+    // there is whatever a fit into a window of no size produced, and saving
+    // that would reopen the volume somewhere nobody ever stood.
+    if (this.hidden) return;
     if (this.settle !== undefined) clearTimeout(this.settle);
     this.settle = setTimeout(() => {
       const camera = this.camera();

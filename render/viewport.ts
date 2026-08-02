@@ -78,7 +78,13 @@ export class AtlasViewport extends HTMLElement {
     // scene node -- folding a section, unfolding every one of them -- moves
     // nothing this seam watches, so nothing would otherwise tell it to
     // finish the sentence again.
-    this.chart?.writeCount();
+    // ...unless there is no window to count over, which is the chart's case
+    // behind the sphere: the sentence on screen is then the last true thing it
+    // said, and that is what the reader is left reading.
+    if (!this.sphereUp) this.chart?.writeCount();
+    // And the same duty for the corner: the shelf hides itself when the whole
+    // map is on screen, and a swap that re-rendered it has just un-hidden it.
+    this.chart?.redrawOverview();
   }
 
   /** The panes, looked up rather than held: a morph may not touch them, but
@@ -149,8 +155,17 @@ export class AtlasViewport extends HTMLElement {
     }
   }
 
-  /** Recompute the standing set and restyle, without touching the payloads. */
-  private refresh(): void {
+  /**
+   * Recompute what stands and repaint both panes, without touching the
+   * payloads.
+   *
+   * `recount` is what tells a filter from a pane flip. A filter changed what
+   * is drawn and the footer owes a new sentence; flipping panes changed
+   * nothing about the world and the sentence on screen is still the last true
+   * thing the chart said about it -- writing it again would only ask a pane
+   * with no window how much of the map it can see.
+   */
+  private refresh({ recount = true } = {}): void {
     const context = this.context;
     if (!context) return;
     const test = context.system
@@ -159,6 +174,7 @@ export class AtlasViewport extends HTMLElement {
     context.visibility = new Visibility(
       context.model, context.scene, context.lens?.shard ?? 0, test, context.hovered);
     this.chart?.restyle();
+    if (recount) this.chart?.writeCount();
     this.globe?.update();
   }
 
@@ -245,14 +261,12 @@ export class AtlasViewport extends HTMLElement {
     // control after every swap, which is the price of the control belonging
     // to one side and the state to the other.
     toggle.setAttribute("aria-pressed", String(this.globeUp));
-    if (toggle.dataset["atlasWired"] === "yes") return;
-    toggle.dataset["atlasWired"] = "yes";
+    if (wired.has(toggle)) return;
+    wired.add(toggle);
     // The handler resolves the live viewport rather than closing over this
-    // one. A morph swap can carry a control across with its attributes
-    // intact -- including the mark that says it is already wired -- while the
-    // element it was wired to is no longer the element on the page, and a
-    // toggle bound to a viewport nobody is looking at flips nothing and
-    // reports nothing.
+    // one. A morph swap can carry a control across intact while the element it
+    // was wired to is no longer the element on the page, and a toggle bound to
+    // a viewport nobody is looking at flips nothing and reports nothing.
     toggle.addEventListener("click", () => {
       (document.querySelector<AtlasViewport>("atlas-viewport") ?? this).flipPane();
     });
@@ -277,11 +291,16 @@ export class AtlasViewport extends HTMLElement {
     } else {
       const camera = chart.camera();
       chart.hidden = true;
-      if (camera) globe.enter(camera, size);
+      // Which pane is up is set *before* the sphere comes up, because coming
+      // up is the sphere's first camera event and the corner locator refuses
+      // to follow a globe that is not up yet. Told afterwards, the mark was
+      // right on a first entry -- where the tiles arriving raised more events
+      // -- and stale on every entry after it.
       this.globeUp = true;
+      if (camera) globe.enter(camera, size);
     }
     toggle?.setAttribute("aria-pressed", String(this.globeUp));
-    this.refresh();
+    this.refresh({ recount: false });
   }
 
   /**
@@ -314,8 +333,8 @@ export class AtlasViewport extends HTMLElement {
   private wireZoom(): void {
     for (const [id, delta] of [["#zoom-in", 1], ["#zoom-out", -1]] as const) {
       const button = document.querySelector<HTMLButtonElement>(id);
-      if (!button || button.dataset["atlasWired"] === "yes") continue;
-      button.dataset["atlasWired"] = "yes";
+      if (!button || wired.has(button)) continue;
+      wired.add(button);
       button.addEventListener("click", () => {
         const live = document.querySelector<AtlasViewport>("atlas-viewport") ?? this;
         if (live.sphereUp) live.globe?.changeZoom(delta);
@@ -324,6 +343,23 @@ export class AtlasViewport extends HTMLElement {
     }
   }
 }
+
+/**
+ * The controls this lane has already wired.
+ *
+ * WHY A SET AND NOT A MARK ON THE ELEMENT. It was a `data-` attribute, and
+ * that is the one place a mark cannot be kept: a morph rewrites an element's
+ * attributes from the server's markup, which has never heard of it, so the
+ * mark was rubbed off every swap while the listener it recorded stayed
+ * attached. The next rescan wired the same button again, and again, until one
+ * press of the globe toggle flipped the panes four times and left them where
+ * they started — reachable by hand, unreachable at the end of a tour, and the
+ * parity of a count deciding which. Held here, the fact belongs to the lane
+ * that owns it and no swap can reach it.
+ *
+ * Weak, so a control that leaves the page leaves this with it.
+ */
+const wired = new WeakSet<Element>();
 
 function outsetOf(model: WorldModel): string {
   return model.payload.attrs?.[KEY_ICON_OUTSET] ?? "";

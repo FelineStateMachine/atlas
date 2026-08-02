@@ -235,6 +235,14 @@ answered `204`. It exists so a volume reopens where the reader left it. The
 server stores it and hands it back in `data-camera`; it never reasons about
 it.
 
+**Only the pane the reader is looking through reports.** A chart put away
+behind the sphere still has a camera, and it is not a view of anything: the
+pane has no window, so a fit into it lands wherever a fit into nothing lands,
+and saving that would reopen the volume somewhere nobody ever stood. The same
+rule governs the footer's count and the corner locator — a pane with no window
+answers no question about what it can see. Coming back up is what makes its
+camera the reader's again.
+
 That is the whole outward surface. No other request, no other event, no
 writes to the scene node, ever.
 
