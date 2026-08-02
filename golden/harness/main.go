@@ -65,6 +65,20 @@ func suites() []suite {
 			ready:      true,
 		},
 		{
+			// The conventions have one machine-readable source and three
+			// derivations (issue #5 §8). This gate is the derivation being
+			// current: the committed Go registry, TypeScript key constants and
+			// REGISTRY.md must equal what a generation run produces, and two
+			// runs must produce identical bytes. It stands where the registry's
+			// prose-twin agreement test used to.
+			name:       "semconv-codegen",
+			milestone:  "M7",
+			awaiting:   "",
+			entrypoint: "spec/registry.yaml",
+			argv:       []string{"go", "test", "./spec/..."},
+			ready:      true,
+		},
+		{
 			name:       "generate-enrich",
 			milestone:  "M2+M3",
 			awaiting:   "the pipeline lanes: generate ⊕ enrich must reproduce the composed bundle fixtures, merge included",
