@@ -45,17 +45,28 @@ type snapshotIndex struct {
 }
 
 type rawMap struct {
-	ID               int64             `json:"id"`
-	Title            string            `json:"title"`
-	Slug             string            `json:"slug"`
-	InitialLatitude  float64           `json:"initial_latitude"`
-	InitialLongitude float64           `json:"initial_longitude"`
-	InitialZoom      float64           `json:"initial_zoom"`
-	Config           rawConfig         `json:"config"`
-	Game             rawGame           `json:"game"`
-	Groups           []rawGroup        `json:"groups"`
-	Regions          []rawRegion       `json:"regions"`
-	Attrs            map[string]string `json:"atlas_attrs"`
+	ID               int64               `json:"id"`
+	Title            string              `json:"title"`
+	Slug             string              `json:"slug"`
+	InitialLatitude  float64             `json:"initial_latitude"`
+	InitialLongitude float64             `json:"initial_longitude"`
+	InitialZoom      float64             `json:"initial_zoom"`
+	Config           rawConfig           `json:"config"`
+	Game             rawGame             `json:"game"`
+	Groups           []rawGroup          `json:"groups"`
+	Regions          []rawRegion         `json:"regions"`
+	Collections      []rawCollectionDecl `json:"atlas_collections"`
+	Attrs            map[string]string   `json:"atlas_attrs"`
+}
+
+// rawCollectionDecl is a translator's declaration of a curated collection its
+// regions may claim (mgdoc.CollectionDecl on the producing side). MapGenie
+// captures never spell the field, so their regions keep folding into the
+// implicit collection.
+type rawCollectionDecl struct {
+	Key   string            `json:"key"`
+	Title string            `json:"title"`
+	Attrs map[string]string `json:"atlas_attrs"`
 }
 
 type rawGame struct {
@@ -112,6 +123,7 @@ type rawRegion struct {
 	CenterX        json.RawMessage   `json:"center_x"`
 	CenterY        json.RawMessage   `json:"center_y"`
 	Features       []rawFeature      `json:"features"`
+	Collection     string            `json:"atlas_collection"`
 	Attrs          map[string]string `json:"atlas_attrs"`
 }
 
@@ -524,6 +536,12 @@ func speakConventions(game *catalogVolume) error {
 		for collectionIndex := range m.Collections {
 			collection := &m.Collections[collectionIndex]
 			if collection.Kind != kindPoint {
+				// A declared collection's attributes are collection
+				// attributes in the registry's own terms; the implicit
+				// collection carries none and passes trivially.
+				if err := semconv.Validate(semconv.EntityCollection, collection.Attrs); err != nil {
+					return fmt.Errorf("world %s collection %q: %w", m.Slug, collection.Title, err)
+				}
 				for _, shape := range collection.Features {
 					if err := validateShapeAttrs(shape.Attrs); err != nil {
 						return fmt.Errorf("world %s zone %q: %w", m.Slug, shape.Title, err)

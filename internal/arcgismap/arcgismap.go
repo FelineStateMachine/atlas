@@ -80,9 +80,13 @@ type Dataset struct {
 
 	// Zones. StrokeWidth is the ground width a line dataset's zones are
 	// drawn and clicked at, in world pixels of the 8192 square: the path
-	// stays the line it is, and the viewer strokes it.
+	// stays the line it is, and the viewer strokes it. Label is the label
+	// policy the dataset's collection declares: "quiet" keeps the zones'
+	// names off the map until something highlights them, and empty means
+	// the format's default -- always, for areas.
 	ZoneOf      func(Fields) ZoneKey
 	StrokeWidth float64
+	Label       string
 
 	// Basemap. Emphasis scales a stroke per feature -- an arterial wider
 	// than a lane -- and absent means every feature draws alike.
@@ -582,8 +586,9 @@ func Translate(doc []byte) ([]byte, error) {
 			Title: title(capture.Title, city.Title),
 			Slug:  capture.City,
 		},
-		Groups:  groups,
-		Regions: regions,
+		Groups:      groups,
+		Regions:     regions,
+		Collections: declaredCollections(byOrder),
 	}
 	return json.Marshal(out)
 }
@@ -750,6 +755,38 @@ func buildGroups(capture *Capture, pairs []pairing, ids *mgdoc.IDSpace) ([]mgdoc
 	return groups, nil
 }
 
+// declaredCollections spells the zone-making datasets as the collections
+// their zones belong to, in curated order: the table already knows each
+// dataset's kind, stroke and label policy, and the declaration says it in
+// the registered vocabulary so the generator never has to sniff geometry to
+// learn what a region is.
+func declaredCollections(pairs []pairing) []mgdoc.CollectionDecl {
+	var out []mgdoc.CollectionDecl
+	for _, pair := range pairs {
+		curated := pair.curated
+		if curated.ZoneOf == nil {
+			continue
+		}
+		kind := semconv.GeometryArea
+		if curated.Geometry == "line" {
+			kind = semconv.GeometryPath
+		}
+		attrs := map[string]string{semconv.KeyGeometryKind: kind}
+		if curated.Geometry == "line" {
+			attrs[semconv.KeyStrokeWidthPx] = strconv.FormatFloat(curated.StrokeWidth, 'f', -1, 64)
+		}
+		if curated.Label != "" {
+			attrs[semconv.KeyLabelPolicy] = curated.Label
+		}
+		out = append(out, mgdoc.CollectionDecl{
+			Key:   curated.Slug,
+			Title: curated.Title,
+			Attrs: attrs,
+		})
+	}
+	return out
+}
+
 // zoneLimit is the most zones one dataset may make. The viewer's zone index
 // renders every zone a button and a title; an uncurated explosion -- every
 // parcel a zone -- is refused while the mistake is one table edit old.
@@ -797,6 +834,9 @@ func buildRegions(capture *Capture, pairs []pairing, ids *mgdoc.IDSpace, hydro *
 					ID:       zoneID,
 					Title:    scrub(key.Title),
 					Subtitle: scrub(title(key.Subtitle, curated.Title)),
+					// The zone says which declared collection it belongs
+					// to, which is the whole reason declarations exist.
+					Collection: curated.Slug,
 				}
 				// A zone made of lines declares its ground width, so a
 				// reader can draw the path as the one stroke it is.

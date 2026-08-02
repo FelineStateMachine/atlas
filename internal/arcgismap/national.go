@@ -30,7 +30,10 @@ const (
 // its ground drains through, in two grains of the USGS hydrologic unit
 // hierarchy, and the named streams and waterbodies that do the draining.
 // A padded city window intersects a handful of hydrologic units and tens
-// of named streams -- national extent, city-sized answers.
+// of named streams -- national extent, city-sized answers. Every national
+// layer labels quiet: the hydrology is the city's context, not its
+// headline, and a map flooded with creek names is a map about the wrong
+// thing.
 var National = []Dataset{
 	{
 		Slug: "watersheds", Title: "Watersheds",
@@ -39,6 +42,7 @@ var National = []Dataset{
 		Keep:     []string{"objectid", "huc10", "name"},
 		IDOf:     hucID("huc10"),
 		ZoneOf:   hucZone("huc10", "Watershed"),
+		Label:    "quiet",
 	},
 	{
 		Slug: SlugSubwatersheds, Title: "Subwatersheds",
@@ -47,6 +51,7 @@ var National = []Dataset{
 		Keep:     []string{"objectid", "huc12", "name"},
 		IDOf:     hucID("huc12"),
 		ZoneOf:   hucZone("huc12", "Subwatershed"),
+		Label:    "quiet",
 	},
 	{
 		Slug: "streams", Title: "Streams",
@@ -64,6 +69,7 @@ var National = []Dataset{
 			return ZoneKey{Key: slugify(name), Title: name, Subtitle: "Stream"}
 		},
 		StrokeWidth: 10,
+		Label:       "quiet",
 		Role:        "water",
 	},
 	{
@@ -80,7 +86,8 @@ var National = []Dataset{
 			}
 			return ZoneKey{Key: slugify(name), Title: name, Subtitle: "Waterbody"}
 		},
-		Role: "water",
+		Label: "quiet",
+		Role:  "water",
 	},
 }
 

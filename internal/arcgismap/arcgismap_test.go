@@ -243,6 +243,63 @@ func TestTranslateShapesTheDocument(t *testing.T) {
 		}
 	}
 
+	// The document declares its zone-making datasets as collections, in the
+	// same curated order, each saying its kind -- and its stroke, when its
+	// features are lines -- in the registered vocabulary. The hydro layers
+	// declare quiet labels: the nation's water is the city's context, not
+	// its headline.
+	wantDecls := []struct{ key, title, kind, label string }{
+		{"mpo-boundary", "MPO Boundary", "area", ""},
+		{"zoning", "Zoning", "area", ""},
+		{"annexations", "Annexations", "area", ""},
+		{"wetlands", "Wetlands", "area", ""},
+		{"trails", "Paths & Trails", "path", ""},
+		{"watersheds", "Watersheds", "area", "quiet"},
+		{"subwatersheds", "Subwatersheds", "area", "quiet"},
+		{"streams", "Streams", "path", "quiet"},
+		{"waterbodies", "Waterbodies", "area", "quiet"},
+	}
+	if len(out.Collections) != len(wantDecls) {
+		t.Fatalf("document declares %d collections, want %d: %+v",
+			len(out.Collections), len(wantDecls), out.Collections)
+	}
+	for at, want := range wantDecls {
+		decl := out.Collections[at]
+		if decl.Key != want.key || decl.Title != want.title {
+			t.Fatalf("collection %d is %q titled %q, want %q titled %q",
+				at, decl.Key, decl.Title, want.key, want.title)
+		}
+		if err := semconv.Validate(semconv.EntityCollection, decl.Attrs); err != nil {
+			t.Fatalf("collection %q attrs: %v", decl.Key, err)
+		}
+		if got := decl.Attrs[semconv.KeyGeometryKind]; got != want.kind {
+			t.Fatalf("collection %q declares kind %q, want %q", decl.Key, got, want.kind)
+		}
+		if got := decl.Attrs[semconv.KeyLabelPolicy]; got != want.label {
+			t.Fatalf("collection %q declares label policy %q, want %q", decl.Key, got, want.label)
+		}
+		_, stroked := decl.Attrs[semconv.KeyStrokeWidthPx]
+		if stroked != (want.kind == "path") {
+			t.Fatalf("collection %q: only path collections declare a stroke, got %v", decl.Key, decl.Attrs)
+		}
+	}
+	if out.Collections[4].Attrs[semconv.KeyStrokeWidthPx] != "12" ||
+		out.Collections[7].Attrs[semconv.KeyStrokeWidthPx] != "10" {
+		t.Fatalf("path collections declare strokes %q and %q",
+			out.Collections[4].Attrs[semconv.KeyStrokeWidthPx],
+			out.Collections[7].Attrs[semconv.KeyStrokeWidthPx])
+	}
+
+	// Every region claims the collection its dataset declared.
+	wantHomes := []string{"mpo-boundary", "zoning", "zoning", "annexations",
+		"wetlands", "trails", "watersheds", "subwatersheds", "subwatersheds",
+		"streams", "waterbodies"}
+	for at, home := range wantHomes {
+		if got := out.Regions[at].Collection; got != home {
+			t.Fatalf("zone %q claims collection %q, want %q", out.Regions[at].Title, got, home)
+		}
+	}
+
 	// The national zones say which grain of the nation they are.
 	if got := out.Regions[6].Subtitle; got != "Watershed · HUC 1707030101" {
 		t.Fatalf("watershed subtitle is %q", got)
@@ -533,6 +590,14 @@ func TestCuratedTableIsSound(t *testing.T) {
 			}
 			if dataset.Geometry == "line" && dataset.ZoneOf != nil && dataset.StrokeWidth <= 0 {
 				t.Fatalf("dataset %q zones lines without a ribbon", dataset.Slug)
+			}
+			// A label policy, when curated, must be a word the registry
+			// admits, because it rides the declaration verbatim.
+			if dataset.Label != "" {
+				if err := semconv.Validate(semconv.EntityCollection,
+					map[string]string{semconv.KeyLabelPolicy: dataset.Label}); err != nil {
+					t.Fatalf("dataset %q label: %v", dataset.Slug, err)
+				}
 			}
 		}
 	}

@@ -1,6 +1,10 @@
 package main
 
-import "fmt"
+import (
+	"fmt"
+
+	"github.com/FelineStateMachine/atlas/internal/semconv"
+)
 
 // A map's contents used to mirror the MapGenie shape all the way through the
 // generator: pins under groups and categories, regions standing apart as
@@ -77,7 +81,11 @@ type feature struct {
 
 // normalizeWorld folds a decoded capture into the uniform model: each
 // category becomes a point collection carrying its resolved colours, and
-// every region becomes a shape feature of one implicit collection. A region
+// every region becomes a shape feature of the collection it claims -- a
+// declared one when the region names it, the implicit region collection when
+// it names nothing. Declared collections follow the point collections in
+// declaration order, the implicit collection last, and a region naming a
+// collection nobody declared fails the build rather than guessing. A region
 // whose geometry all came through empty is dropped here, exactly as it always
 // was, because a shape with nothing to draw is not a shape.
 func normalizeWorld(raw rawMap) ([]worldCollection, error) {
@@ -119,7 +127,34 @@ func normalizeWorld(raw rawMap) ([]worldCollection, error) {
 			collections = append(collections, collection)
 		}
 	}
-	regions := worldCollection{
+	declared := make([]worldCollection, 0, len(raw.Collections))
+	declaredAt := make(map[string]int, len(raw.Collections))
+	for _, decl := range raw.Collections {
+		if decl.Key == "" || decl.Key == regionsCollectionKey {
+			return nil, fmt.Errorf("collection %q declares key %q, which the implicit collection reserves",
+				decl.Title, decl.Key)
+		}
+		if _, doubled := declaredAt[decl.Key]; doubled {
+			return nil, fmt.Errorf("collection %q is declared twice", decl.Key)
+		}
+		kind := decl.Attrs[semconv.KeyGeometryKind]
+		if kind != kindPath && kind != kindArea {
+			return nil, fmt.Errorf("collection %q declares geometry kind %q; a declared collection must say %q or %q",
+				decl.Key, kind, kindPath, kindArea)
+		}
+		if _, stroked := decl.Attrs[semconv.KeyStrokeWidthPx]; kind == kindPath && !stroked {
+			return nil, fmt.Errorf("path collection %q declares no %s; a path is a line and a width",
+				decl.Key, semconv.KeyStrokeWidthPx)
+		}
+		declaredAt[decl.Key] = len(declared)
+		declared = append(declared, worldCollection{
+			Key:   decl.Key,
+			Title: decl.Title,
+			Kind:  kind,
+			Attrs: decl.Attrs,
+		})
+	}
+	implicit := worldCollection{
 		Key:   regionsCollectionKey,
 		Title: "Regions",
 		Kind:  kindArea,
@@ -144,17 +179,40 @@ func normalizeWorld(raw rawMap) ([]worldCollection, error) {
 		if hasX && hasY {
 			shape.Center = &coordinate{Latitude: centerY, Longitude: centerX}
 		}
-		for _, part := range rawRegion.Features {
-			if part.Geometry.Type != "" && len(part.Geometry.Coordinates) > 0 {
-				shape.Geometry = append(shape.Geometry, part.Geometry)
+		home := &implicit
+		if rawRegion.Collection != "" {
+			at, known := declaredAt[rawRegion.Collection]
+			if !known {
+				return nil, fmt.Errorf("region %q claims collection %q, which the map never declares",
+					rawRegion.Title, rawRegion.Collection)
 			}
+			home = &declared[at]
+		}
+		for _, part := range rawRegion.Features {
+			if part.Geometry.Type == "" || len(part.Geometry.Coordinates) == 0 {
+				continue
+			}
+			// The geometry sniff is dead: a line belongs to a declared path
+			// collection, which says so up front, and never to the implicit
+			// collection, whose regions are ground.
+			if home == &implicit && part.Geometry.Type == "MultiLineString" {
+				return nil, fmt.Errorf(
+					"region %q draws lines in the implicit region collection; lines must be declared as a path collection",
+					rawRegion.Title)
+			}
+			shape.Geometry = append(shape.Geometry, part.Geometry)
 		}
 		if len(shape.Geometry) > 0 {
-			regions.Features = append(regions.Features, shape)
+			home.Features = append(home.Features, shape)
 		}
 	}
-	if len(regions.Features) > 0 {
-		collections = append(collections, regions)
+	for _, collection := range declared {
+		if len(collection.Features) > 0 {
+			collections = append(collections, collection)
+		}
+	}
+	if len(implicit.Features) > 0 {
+		collections = append(collections, implicit)
 	}
 	return collections, nil
 }
@@ -206,12 +264,16 @@ func (m catalogWorld) v2Groups() []catalogGroup {
 	return groups
 }
 
-// v2Zones rebuilds the wire's zone list from the implicit region collection,
-// in the order the capture told them.
+// v2Zones rebuilds the wire's zone list from the shape collections, each
+// collection's features in the order the capture told them and the
+// collections in declaration order. That concatenation is exactly the raw
+// region order: the one producer that declares collections emits its regions
+// grouped by dataset in the same curated order it declares them, and the
+// implicit collection -- last here -- is the whole list everywhere else.
 func (m catalogWorld) v2Zones() []zone {
 	var zones []zone
 	for _, collection := range m.Collections {
-		if collection.Key != regionsCollectionKey {
+		if collection.Kind == kindPoint {
 			continue
 		}
 		for _, f := range collection.Features {
