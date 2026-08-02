@@ -113,7 +113,7 @@ export function layerHeader(key, title, count) {
   total.textContent = formatNumber(count);
   disclosure.append(chevron, name, total);
 
-  const only = onlyButton(`Show only ${title}`);
+  const only = onlyButton(`Exclusively ${title}`);
   only.dataset.onlySection = key;
 
   const toggle = document.createElement("label");
@@ -183,7 +183,7 @@ export function collectionRow(collection) {
   name.textContent = collection.title;
   // Overlaid on the count rather than appended: these pills wrap, and a row
   // that grows on hover would shove the one under the cursor somewhere else.
-  const only = onlyButton(`Show only ${collection.title}`);
+  const only = onlyButton(`Exclusively ${collection.title}`);
   only.dataset.onlyCollection = String(collection.id);
   // Areas draw their names on the ground, and whether they speak unasked is
   // the reader's to override. A point collection's override is which shape
@@ -462,8 +462,8 @@ export function updateSoloChip() {
   }
   const label = labels.join(" · ");
   chip.hidden = !label;
-  chip.textContent = label ? `only: ${label}` : "";
-  chip.title = label ? `Showing only ${label} — click to show everything` : "";
+  chip.textContent = label ? `exclusively: ${label}` : "";
+  chip.title = label ? `Showing exclusively ${label} — click to show everything` : "";
 }
 
 export function syncSectionSwitches() {
