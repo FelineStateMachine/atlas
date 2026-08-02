@@ -91,6 +91,12 @@ func flagsOf(args []string) []string {
 func defaultPatterns(root string) []string {
 	var patterns []string
 	for _, dir := range cleanRoomRoots {
+		// The module root is the desktop shell's one package, not the tree
+		// beneath it: every other root is named on its own line below.
+		if dir == shellRoot {
+			patterns = append(patterns, modulePath)
+			continue
+		}
 		if info, err := os.Stat(filepath.Join(root, filepath.FromSlash(dir))); err == nil && info.IsDir() {
 			patterns = append(patterns, modulePath+"/"+dir+"/...")
 		}

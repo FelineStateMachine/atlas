@@ -1,8 +1,0 @@
-.app-shell {
-  display: grid;
-  grid-template-columns: var(--sidebar) minmax(0, 1fr) auto;
-  grid-template-rows: var(--topbar) minmax(0, 1fr);
-  width: 100%;
-  height: 100%;
-}
-

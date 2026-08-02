@@ -3,7 +3,7 @@
   "private": true,
   "version": "0.0.0",
   "type": "module",
-  "description": "The clean-room rewrite's TypeScript lanes (issue #5 §3.1). The pre-rewrite frontend/ keeps its own package and its own lock file; nothing here builds it.",
+  "description": "Atlas's TypeScript lanes (issue #5 §3.1): analysis/, the cell systems, and render/, the deletable rendering seam. The pre-rewrite frontend/ had a package and a lock file of its own, and left with the rest of that tree for the golden-reference tag.",
   "workspaces": [
     "analysis",
     "render"

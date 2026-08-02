@@ -21,6 +21,14 @@ const (
 	LaneCLI       Lane = "cmd/atlas"
 	LaneGolden    Lane = "golden"
 
+	// LaneShell is the desktop shell at the module root: the Wails host of
+	// issue #5 §3.4. It is a lane so that the rules which do apply to a host
+	// entry — the clean-room rule, network confinement, semconv discipline —
+	// apply to it, and so that the one that does not (hostenv purity, which a
+	// host entry exists to violate) says so by name rather than by the shell
+	// happening to sit outside the analysis.
+	LaneShell Lane = "shell"
+
 	// LaneLogging is the one shared clean-room package: the leveled event
 	// stream every lane narrates itself through (issue #5 §9,
 	// docs/logging.md). It is a lane of its own so that who may import it is
@@ -29,10 +37,11 @@ const (
 	// alone and says so in its own rule.
 	LaneLogging Lane = "logging"
 
-	// LaneOutside covers everything the clean room does not own yet: the
-	// golden-reference tree (the pre-rewrite packages), tools/, and the root
-	// desktop shell. Rules never fire on it — the old tree is the oracle, not
-	// the subject (issue #5 §1).
+	// LaneOutside covers anything the clean room does not own. Rules never
+	// fire on it. It described the pre-rewrite tree, which is now archived on
+	// the golden-reference tag (issue #5 §7, M7); it stays because a rule
+	// that is a total function of a package path needs an answer for a path
+	// it has never heard of.
 	LaneOutside Lane = ""
 )
 
@@ -40,7 +49,12 @@ const (
 // the order a reader of §3.1 meets them. A root that does not exist yet simply
 // contributes no packages, which is how rules for unwritten lanes pass
 // trivially rather than erroring.
+//
+// shellRoot is the module root itself and means the one package there, never
+// the tree beneath it — every other root is already named on its own line, and
+// a recursive pattern here would analyze each of them twice.
 var cleanRoomRoots = []string{
+	shellRoot,
 	"format",
 	"internal/logging",
 	"internal/generate",
@@ -50,6 +64,12 @@ var cleanRoomRoots = []string{
 	"cmd/atlas",
 	"golden",
 }
+
+// shellRoot names the module root in the vocabulary cleanRoomRoots is written
+// in. The module-relative path of the root package is the empty string; "." is
+// what a reader of a root list expects to see, and defaultPatterns and laneOf
+// both translate.
+const shellRoot = "."
 
 // lanePrefixes maps each lane to the module-relative path that defines it.
 // Order matters only for readability; laneOf matches on exact path segments.
@@ -81,6 +101,9 @@ func rel(importPath string) (string, bool) {
 
 // laneOf classifies a module-relative package path.
 func laneOf(relPath string) Lane {
+	if relPath == "" || relPath == shellRoot {
+		return LaneShell
+	}
 	for _, lp := range lanePrefixes {
 		if relPath == lp.prefix || strings.HasPrefix(relPath, lp.prefix+"/") {
 			return lp.lane

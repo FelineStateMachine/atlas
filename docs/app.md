@@ -1,16 +1,16 @@
 # The application
 
-**Status: in progress (M5).** This document specifies the hypermedia
-application: the URL surface, the session record, the partial and event
-envelopes, the region and template system, the state island, and the contract
-between the handler and whatever host it is mounted in. Sections marked
-**next wave** name what is deliberately a stub today, so nobody mistakes a
+**Status: built (M5, with the desktop host landing in M7).** This document
+specifies the hypermedia application: the URL surface, the session record, the
+partial and event envelopes, the region and template system, the state island,
+and the contract between the handler and whatever host it is mounted in. §11
+is the standing list of what is named rather than built, so nobody mistakes a
 placeholder for a decision.
 
 The implementation is `internal/app`, its host seam is
-`internal/app/hostenv`, and the headless host is `atlas serve`
-(`cmd/atlas/serve.go`). Where this document and the code disagree, take it as
-a defect in one of them and say so.
+`internal/app/hostenv`, and the two hosts are the desktop shell at the module
+root (`main.go`) and `atlas serve` (`cmd/atlas/serve.go`). Where this document
+and the code disagree, take it as a defect in one of them and say so.
 
 ---
 
@@ -33,7 +33,7 @@ by three different hosts:
 
 | Host | Status | What it supplies |
 |---|---|---|
-| **Wails webview** | next wave | The desktop window; `PickFile` is the native dialog; the library is the application's data directory. |
+| **Wails webview** | built | The desktop window; `PickFile` is the native dialog; the library is the application's data directory. `main.go` + `redirects.go` + `hostenv/wailshost`. |
 | **`atlas serve`** | built | Plain HTTP, no window. `PickFile` refuses with `ErrNotAvailable`. The dev loop, CI, and the parity harness. |
 | **WASM service worker** | not scheduled | Go compiled to `js/wasm`; the stores back onto OPFS. Nothing is built for it; the discipline is what keeps it reachable. |
 
@@ -41,7 +41,10 @@ The rule is enforced mechanically: `golden/depcheck`'s `hostenv` analyzer
 fails any import of `os`, `os/exec`, `path/filepath`, `syscall`, or a window
 toolkit from `internal/app` outside `internal/app/hostenv`. The OS
 implementations live in `internal/app/hostenv/oshost`, so a host that is not
-an operating system links none of them.
+an operating system links none of them. The two host entries — `cmd/atlas` and
+the desktop shell at the module root — are where the machine is *supposed* to
+be reached, and are exempt by sitting outside the lane the rule is written
+about; depcheck's scope carries the root package for the rest of its rules.
 
 ### 1.1 `VolumeStore`
 
@@ -81,6 +84,67 @@ error. Three answers are distinct and must stay so: a file, `ErrNoSelection`
 (the reader cancelled), and `ErrNotAvailable` (this host has no picker). An
 import that cannot happen and an import nobody wanted are different things to
 say.
+
+### 1.4 The desktop shell
+
+The shell at the module root is host wiring and nothing else (issue #5 §3.4).
+It resolves two directories, opens an `oshost` over them with a native picker
+attached, and hands the handler to `wails.Run` as the asset server:
+
+```go
+host, _ := oshost.New(oshost.Options{
+    BundlesDir: library, SessionsDir: sessions, Pick: window.Pick,
+})
+wails.Run(&options.App{
+    AssetServer: &assetserver.Options{Handler: followRedirects(handler)},
+    OnStartup:   window.Opened,
+})
+```
+
+Four things about it are worth knowing.
+
+**Where the library is.** `$ATLAS_DATA_DIR`, else `os.UserConfigDir()` +
+`dev.felinestatemachine.atlas` — the identifier the pre-rewrite shell used, so
+a reader's existing library is found where it always was. `bundles/` under it
+holds the volumes and `sessions/` the session records. `$ATLAS_BUNDLES_DIR`
+moves the library alone, which is what a development run points at a freshly
+composed `dist/bundles`. The headless host reads the same two variables
+(`cmd/atlas/serve.go`).
+
+**Where the seam is.** `//go:embed static` — the root `static/` directory,
+holding the seam's built bundle as `app.js`. `make static` puts the same bytes
+in `dist/static`, which is what a `-static` mount is pointed at; the shell
+embeds its copy, so the shipped application is one file with no sidecars. A
+build that skipped `make static` embeds only that directory's README:
+`/static/app.js` answers `404`, `<atlas-viewport>` renders nothing, and
+everything else works. The stylesheet system is not there — it is
+`internal/app/assets`, embedded by the application itself and served from
+`/assets`, so deleting the seam costs a page one script tag, not its chrome.
+
+**Redirects are followed by the host.** A Wails page is served over a custom
+URL scheme, and a scheme task has no way to express a redirect: WebKit hands
+the `302` to the page as if it were a document, and the reader is looking at
+the two words Go writes in a redirect body. `redirects.go` walks the
+application's own doorways instead — GET only, `Location` values naming a path
+only, five hops at most, streaming answers passed straight through — so the
+handler goes on redirecting and `atlas serve` goes on serving those redirects
+to clients that follow them. The HTTP goldens judge what the handler sends,
+which is unchanged.
+
+**No Wails runtime JavaScript in the page.** Nothing is bound, no bindings
+JSON is generated, and the page hears that the library moved over the
+application's own SSE stream (§5). Wails' asset server injects its runtime into
+a `200 text/html` answer at a path ending in `/`; this application answers `/`
+with a redirect whenever it has a library at all, so the only page that can
+ever carry the injection is the empty-library doorway, which uses none of it.
+Every explorer page is at `/v/…` and is served exactly as the headless host
+serves it.
+
+The build is a plain `go build -tags "desktop,production"`, not `wails build`:
+the Wails CLI's job is scaffolding and driving a Vite frontend, and this tree
+serves its own pages — which is also why there is no `wails.json`. `make
+desktop` is the macOS recipe, and `.github/workflows/release.yml` carries all
+three platforms.
 
 ---
 
@@ -593,17 +657,29 @@ worth nothing without a habit of writing down what it would apply to.
 
 ---
 
-## 11. Next wave
+## 11. What landed, and what is still named rather than built
 
-Named here so a stub is never mistaken for a decision.
+Named here so a stub is never mistaken for a decision — and so that a wave
+which lands moves out of the list rather than sitting in it as folklore.
 
-- **The Wails host.** ~150 lines: `wails.Run` with this handler as the asset
-  server, an `fs.Sub` mount for the seam bundle, and the native dialog behind
-  `PickFile`. No Wails runtime JS in the page; events are SSE.
-- **The seam.** `render/` lands in M6. Until it does, `/static` answers `404`,
-  an undefined `<atlas-viewport>` renders nothing, and every non-viewport
-  interaction works — which is the deletability principle demonstrated in the
-  build order itself.
+**Landed since this section was written:**
+
+- **The Wails host** (§1.4). `wails.Run` with this handler as the asset server,
+  the seam's built tree embedded and mounted at `/static`, and the native
+  dialog behind `PickFile`. No Wails runtime JS in the page; events are SSE.
+  The one thing the plan did not anticipate is that the webview's transport
+  cannot carry a redirect, so the host follows the application's own doorways
+  itself.
+- **The seam.** `render/` landed in M6. A build without it still serves:
+  `/static` answers `404`, an undefined `<atlas-viewport>` renders nothing, and
+  every non-viewport interaction works — the deletability principle,
+  demonstrated in the build order and again in the shipping binary.
+
+**Still named rather than built:**
+
 - **The grid cull and the cell systems.** §6.1.
-- **The globe toggle.** The topbar offers it on a world that declares a sphere
-  and it is inert until the seam exists to press it.
+- **The WASM service-worker host.** §1's third row. Nothing is built for it;
+  the hostenv discipline is what keeps it reachable.
+
+The seam's own list of what it has not proven is `docs/render-seam.md` §10, and
+it is the one to read for anything below the `<atlas-viewport>` boundary.

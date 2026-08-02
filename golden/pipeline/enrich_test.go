@@ -11,7 +11,7 @@ import (
 
 	"github.com/FelineStateMachine/atlas/format/bundle"
 	"github.com/FelineStateMachine/atlas/format/semconv"
-	"github.com/FelineStateMachine/atlas/golden/capture/canon"
+	"github.com/FelineStateMachine/atlas/golden/canon"
 	"github.com/FelineStateMachine/atlas/internal/enrich"
 	enrichcuration "github.com/FelineStateMachine/atlas/internal/enrich/curation"
 	"github.com/FelineStateMachine/atlas/internal/enrich/enrichers"

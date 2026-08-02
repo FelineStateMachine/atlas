@@ -12,16 +12,17 @@ import (
 	"testing"
 
 	"github.com/FelineStateMachine/atlas/format/bundle"
-	"github.com/FelineStateMachine/atlas/golden/capture/canon"
+	"github.com/FelineStateMachine/atlas/golden/canon"
 )
 
 // The fixtures this gate reads, and the shapes they are committed in.
 //
-// The row types below mirror golden/capture/bundles: an extraction is only a
-// comparison instrument if a reader can write it again, so the gate re-emits
-// each inventory through the same canon package the capture used and compares
-// whole files rather than field by field. A row type that drifts from the
-// capture's shows up immediately as a re-emission that does not match.
+// The row types below mirror the capture program that wrote the fixtures --
+// golden/capture/bundles, archived on the golden-reference tag. An extraction
+// is only a comparison instrument if a reader can write it again, so the gate
+// re-emits each inventory through the same canon package the capture used and
+// compares whole files rather than field by field. A row type that drifts from
+// the capture's shows up immediately as a re-emission that does not match.
 
 const (
 	// fixturesDir is golden/fixtures, relative to this package.
@@ -32,8 +33,8 @@ const (
 	// nothing but the committed extractions.
 	registryDirEnv = "ATLAS_REGISTRY_DIR"
 
-	// cityDirEnv and cityDirDefault are golden/capture/capture.sh's own
-	// convention for the fixture volume the library never held: the public
+	// cityDirEnv and cityDirDefault are the capture script's own convention
+	// for the fixture volume the library never held: the public
 	// proof city was built for the fixture, and is read from where it was
 	// built. A volume whose FIXTURES.json entry carries builtFor is one of
 	// those; nothing here carries a list of slugs.
@@ -41,8 +42,8 @@ const (
 	cityDirDefault = "../../dist/bundles"
 
 	// locationsNote and packedForm are constants of the extraction format,
-	// copied from golden/capture/bundles so the gate can write the header
-	// again rather than trusting the one it is checking.
+	// copied from the capture program so the gate can write the header again
+	// rather than trusting the one it is checking.
 	locationsNote = "the packed payload's own order, which is the order the viewer " +
 		"reads it in; owner indexes the payload's collections array"
 	packedForm = "ATLASLOC v3"
