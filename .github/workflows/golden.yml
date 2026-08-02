@@ -1,10 +1,16 @@
 # The clean-room rewrite's enforcement job (issue #5 §6, §9).
 #
 # Deliberately separate from CI: that workflow builds and ships the current
-# desktop app, which needs GTK and WebKitGTK headers and the frontend
-# toolchain. This one judges the rewrite, needs nothing but Go, and stays
-# green from the day the harness lands — most gates skip because their lane
-# does not exist yet, and depcheck runs for real over whatever does.
+# desktop app, which needs GTK and WebKitGTK headers and the whole frontend
+# toolchain. This one judges the rewrite and stays green from the day the
+# harness lands — most gates skip because their lane does not exist yet, and
+# the two that run (depcheck, analysis-vectors) run for real.
+#
+# It needs Go, and node with the cell math's own dependencies: the analysis
+# gate re-executes the cell systems against every recorded vector and plan,
+# and until M6 lands `analysis/cellsystems` the implementation it drives is
+# the current tree's module, which imports s2js and OpenLayers. No browser is
+# involved and no bundle is built.
 
 name: Golden
 
@@ -34,6 +40,17 @@ jobs:
       - uses: actions/setup-go@v5
         with:
           go-version-file: go.mod
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      # The engine the analysis gate drives. `--ignore-scripts` keeps the
+      # install to what the cell math needs: esbuild's postinstall belongs to
+      # the app's bundler, and nothing here bundles anything.
+      - name: Install the cell math's dependencies
+        run: npm --prefix frontend ci --ignore-scripts
 
       # The guardrails are tested like anything else: the import matrix is a
       # pure function of two package paths, and its table lives here.
