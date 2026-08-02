@@ -3,7 +3,7 @@
   "private": true,
   "version": "0.0.0",
   "type": "module",
-  "description": "The clean-room rewrite's TypeScript lanes (issue #5 \u00a73.1). The pre-rewrite frontend/ keeps its own package and its own lock file; nothing here builds it.",
+  "description": "The clean-room rewrite's TypeScript lanes (issue #5 §3.1). The pre-rewrite frontend/ keeps its own package and its own lock file; nothing here builds it.",
   "workspaces": [
     "analysis",
     "render"
@@ -12,10 +12,13 @@
     "node": ">=22.18"
   },
   "scripts": {
-    "lint": "eslint --config eslint.config.mjs analysis",
-    "typecheck": "tsc --project analysis/tsconfig.json",
+    "lint": "eslint --config eslint.config.mjs analysis render",
+    "typecheck": "tsc --project analysis/tsconfig.json && tsc --project render/tsconfig.json",
     "test": "node --test \"analysis/test/*.test.ts\"",
-    "lane": "npm run --silent lint && npm run --silent typecheck && npm run --silent test && echo 'analysis lane: the boundary rules, tsc --strict and the conformance suite all green'"
+    "lane": "npm run --silent lint && tsc --project analysis/tsconfig.json && npm run --silent test && echo 'analysis lane: the boundary rules, tsc --strict and the conformance suite all green'",
+    "seam-test": "node --test \"render/test/*.test.ts\"",
+    "seam-build": "npm run --silent build --workspace @atlas/render",
+    "seam-lane": "npm run --silent lint && tsc --project render/tsconfig.json && npm run --silent seam-test && node render/tools/lines.mjs && echo 'render lane: the boundary rules, tsc --strict, the seam tests and the line budget all green'"
   },
   "devDependencies": {
     "@types/node": "22.15.3",

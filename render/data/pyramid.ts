@@ -70,7 +70,10 @@ export function tileWindowAt(lens: Lens, grid: TileGrid, z: number): TileWindow 
 export class Coverage {
   private readonly bits: Uint8Array;
 
-  constructor(private readonly level: CoverageLevel) {
+  private readonly level: CoverageLevel;
+
+  constructor(level: CoverageLevel) {
+    this.level = level;
     const binary = atob(level.bits);
     this.bits = new Uint8Array(binary.length);
     for (let i = 0; i < binary.length; i++) this.bits[i] = binary.charCodeAt(i);
@@ -90,7 +93,11 @@ export class Coverage {
 export class LensCoverage {
   private readonly levels = new Map<number, Coverage | null>();
 
-  constructor(private readonly lens: Lens) {}
+  private readonly lens: Lens;
+
+  constructor(lens: Lens) {
+    this.lens = lens;
+  }
 
   /**
    * Whether tile `(z, x, y)` exists.

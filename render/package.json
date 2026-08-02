@@ -9,6 +9,7 @@
   },
   "scripts": {
     "build": "node build.mjs",
+    "watch": "node build.mjs --watch",
     "lines": "node tools/lines.mjs"
   },
   "dependencies": {
@@ -18,6 +19,7 @@
     "three": "0.185.1"
   },
   "devDependencies": {
+    "@types/three": "0.185.3",
     "esbuild": "0.28.1"
   }
 }

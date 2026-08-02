@@ -32,9 +32,12 @@ export type Base = string;
 
 /** Raised when a base answered 404 — the build moved out from under us. */
 export class BuildMovedError extends Error {
-  constructor(readonly url: string) {
+  readonly url: string;
+
+  constructor(url: string) {
     super(`the build serving ${url} has moved; the scene is stale`);
     this.name = "BuildMovedError";
+    this.url = url;
   }
 }
 
