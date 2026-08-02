@@ -13,6 +13,11 @@
 // smooth for a photograph, nearest-neighbour for pixel art, because a
 // hand-drawn map magnified with bilinear smoothing stops being a drawing.
 //
+// Both layers are clipped to the window the lens fills, and the base carries
+// the colour the sheet was drawn on. Those are the lens's own declarations,
+// and the corner locator already honours the second one — a map that dropped
+// either disagreed with the shelf beside it about what one lens looks like.
+//
 // Nothing here asks for a tile the coverage denies. A wasted request is not
 // free: it is a 404 the browser logs, a slot in the queue, and a reader
 // watching a spinner for a tile that was never written.
@@ -24,7 +29,7 @@ import { logger } from "../log.ts";
 import type { DataPlane } from "../data/plane.ts";
 import type { Lens, TileGrid as GridSpec } from "../data/payload.ts";
 import { LensCoverage } from "../data/pyramid.ts";
-import { RASTER_CACHE_SIZE, levelResolution, tileGridFor } from "./projection.ts";
+import { RASTER_CACHE_SIZE, lensExtent, levelResolution, tileGridFor } from "./projection.ts";
 
 const log = logger("raster");
 
@@ -128,8 +133,27 @@ export function buildRaster(
     op: "render", lens: lens.name, path: lens.tiles,
     complete, deepest: lens.maxZoom, interpolate: lens.interpolate,
   });
+  // The window the lens fills, and the colour behind it. Both are the lens's
+  // own declarations and both were already being honoured elsewhere -- the
+  // corner locator paints `background` under its thumbnail -- so a map that
+  // ignored them disagreed with the shelf beside it about what the same lens
+  // looks like. `extent` clips both layers to the window: coverage and
+  // `wrapX: false` already refuse most requests outside it, but a layer
+  // nobody clipped still *draws* out there, and on a sparse pyramid or a
+  // piece of a split sheet that is a hole, or the neighbouring layer's
+  // ground, in the margin.
+  const window = lensExtent(lens, grid);
   return {
-    base: new TileLayer({ source: baseSource, zIndex: 0 }),
+    // Only the base carries the backdrop. The detail layer rides above it, so
+    // a background there would paint over the complete pyramid wherever the
+    // deep capture has a gap -- which is the one thing the pair exists to
+    // prevent.
+    base: new TileLayer({
+      source: baseSource,
+      zIndex: 0,
+      extent: window,
+      background: lens.background || undefined,
+    }),
     // Levels above the complete one are only captured in patches. They ride
     // on top of the base so the fully-covered pyramid still shows through
     // wherever the deep capture has a gap.
@@ -143,6 +167,7 @@ export function buildRaster(
     detail: new TileLayer({
       source: detailSource,
       zIndex: 1,
+      extent: window,
       maxResolution: lens.maxZoom > complete ? levelResolution(grid, complete) : 0,
     }),
   };
