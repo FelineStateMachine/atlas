@@ -1,0 +1,231 @@
+{
+  "what": "the fixture set the golden harness measures the rewrite against, and what each volume in it is a fixture of",
+  "capturedFrom": {
+    "repo": "github.com/FelineStateMachine/atlas",
+    "tag": "golden-reference",
+    "commit": "b8d28888",
+    "branch": "main"
+  },
+  "registry": {
+    "read": "the application's own library, folded newest-per-slug exactly as internal/bundle.Registry folds it",
+    "note": "the library holds many builds per volume; the fixture is the build that would serve, and its stamp is recorded here so a re-capture that picks a different build is visible immediately"
+  },
+  "volumes": [
+    {
+      "slug": "tunic",
+      "title": "TUNIC",
+      "classification": "plain MapGenie game",
+      "verifiedBy": "one world, one lens, one pyramid, no merge beyond its own origin account and no split sheet: the simplest shape the pipeline writes, and the fixture a change to composition breaks first.",
+      "traits": [
+        "plain"
+      ],
+      "file": "tunic-20260730-13d5657ed903.atlas",
+      "fileBytes": 8047414,
+      "fileSha256": "4392c17d90f7db1c1fd9b17ff44ebc0d2c89be76a1a79c91950ce518d33220ad",
+      "stamp": "13d5657ed9038808e5fe12ef44e769b40297e9d720e53376f430f224128f2dfc",
+      "stamp12": "13d5657ed903",
+      "createdAt": "2026-07-30T03:57:41.529Z",
+      "revision": 9,
+      "formatVersion": 3,
+      "conventions": 2,
+      "counts": {
+        "entries": 774,
+        "worlds": 1,
+        "tiles": 741,
+        "icons": 29,
+        "points": 434,
+        "paths": 0,
+        "areas": 0
+      },
+      "fixture": "bundles/tunic"
+    },
+    {
+      "slug": "cyberpunk-2077",
+      "title": "Cyberpunk 2077",
+      "classification": "merged multi-source game",
+      "verifiedBy": "the world payload's merge ledger names Piggyback as the origin and IGN Wiki as a donor, with 270 matched pairs, 37 added and 61 held; its second lens is an aligned resample of the donor's raster. Verified against the ledger, not assumed.",
+      "traits": [
+        "multi-source-merge"
+      ],
+      "file": "cyberpunk-2077-20260801-e191f1964b71.atlas",
+      "fileBytes": 196539858,
+      "fileSha256": "ed2cad1b420f385cca18cad38a205b621b37f0cf57297ed27af810c8c8a7c2d8",
+      "stamp": "e191f1964b718b193fdd627012f1e06e6f9fc3afb742d13fff3c7eb881d0fcd8",
+      "stamp12": "e191f1964b71",
+      "createdAt": "2026-08-01T05:09:07.367859Z",
+      "revision": 9,
+      "formatVersion": 3,
+      "conventions": 2,
+      "counts": {
+        "entries": 17549,
+        "worlds": 1,
+        "tiles": 17507,
+        "icons": 38,
+        "points": 860,
+        "paths": 0,
+        "areas": 0
+      },
+      "fixture": "bundles/cyberpunk-2077"
+    },
+    {
+      "slug": "fallout-new-vegas",
+      "title": "Fallout: New Vegas",
+      "classification": "split-sheet game",
+      "verifiedBy": "thirteen worlds, eight of them insets carrying parent=mojave-wasteland: the sheet-splitting path, and the only fixture where a volume's worlds sort by family rather than by title.",
+      "traits": [
+        "split-sheet"
+      ],
+      "file": "fallout-new-vegas-20260730-e6cd7eb1936e.atlas",
+      "fileBytes": 23188369,
+      "fileSha256": "2c2e4cb548f66eaea100586117c789e1882d1abf41fd5c4b6a292e63adf988c0",
+      "stamp": "e6cd7eb1936e58cb428d91226538de1726c0200853ac49afb64e336c54894a09",
+      "stamp12": "e6cd7eb1936e",
+      "createdAt": "2026-07-30T15:04:13.819Z",
+      "revision": 9,
+      "formatVersion": 3,
+      "conventions": 2,
+      "counts": {
+        "entries": 2739,
+        "worlds": 13,
+        "tiles": 2651,
+        "icons": 48,
+        "points": 2635,
+        "paths": 0,
+        "areas": 0
+      },
+      "fixture": "bundles/fallout-new-vegas"
+    },
+    {
+      "slug": "zelda-tears-of-the-kingdom",
+      "title": "Zelda: Tears of the Kingdom",
+      "classification": "lens-sharded game",
+      "verifiedBy": "one world with three lenses carrying shards 1783, 1784 and 1785 -- the sky, surface and depths of one ground, offered one at a time. The candidates first proposed for this slot (ghost-of-tsushima, sonic-frontiers, marathon) carry no shard on any lens; this is the only sharded volume in the library.",
+      "traits": [
+        "lens-sharded"
+      ],
+      "file": "zelda-tears-of-the-kingdom-20260731-9dc737d9871e.atlas",
+      "fileBytes": 58031657,
+      "fileSha256": "6d01fdd3755a7fdd3005ac46c36381e5e3b593e926049ff1e2d7fc75d552cb9d",
+      "stamp": "9dc737d9871e71ab40afe57ef6c939f2e4af2b39485ebf464d080a62cfd64211",
+      "stamp12": "9dc737d9871e",
+      "createdAt": "2026-07-31T05:45:53.220145Z",
+      "revision": 9,
+      "formatVersion": 3,
+      "conventions": 2,
+      "counts": {
+        "entries": 4423,
+        "worlds": 1,
+        "tiles": 4326,
+        "icons": 93,
+        "points": 6848,
+        "paths": 0,
+        "areas": 23
+      },
+      "fixture": "bundles/zelda-tears-of-the-kingdom"
+    },
+    {
+      "slug": "mars",
+      "title": "Mars",
+      "classification": "Trek sphere",
+      "verifiedBy": "the one volume declaring atlas.geometry.surface=sphere, with an equirectangular mapping and two lenses over one ground (Viking MDIM and MOLA elevation). Every pin carries true planetary coordinates.",
+      "traits": [
+        "sphere"
+      ],
+      "file": "mars-20260801-68e141f26b1a.atlas",
+      "fileBytes": 255455078,
+      "fileSha256": "489be13db598184291699f906edbad4e20dc3221df3deeec7a2f8419d65b2f20",
+      "stamp": "68e141f26b1a77fc778f4b90dbdb4eb897fb5d190930a7171f88e0ffb99bfea7",
+      "stamp12": "68e141f26b1a",
+      "createdAt": "2026-08-01T14:48:10.486177Z",
+      "revision": 9,
+      "formatVersion": 3,
+      "conventions": 2,
+      "counts": {
+        "entries": 5480,
+        "worlds": 1,
+        "tiles": 5462,
+        "icons": 14,
+        "points": 2048,
+        "paths": 0,
+        "areas": 0
+      },
+      "fixture": "bundles/mars"
+    }
+  ],
+  "withheld": {
+    "count": 1,
+    "classification": "city: basemap lens, curated municipal layers, and the national hydrography enrichment with HUC12 membership",
+    "counts": {
+      "entries": 5469,
+      "worlds": 1,
+      "tiles": 5461,
+      "icons": 4,
+      "points": 45,
+      "paths": 36,
+      "areas": 82
+    },
+    "worlds": [
+      {
+        "points": 45,
+        "paths": 36,
+        "areas": 82,
+        "collections": 12,
+        "lenses": 1
+      }
+    ],
+    "whyWithheld": "the only city curated on the capturing machine is registered from internal/arcgismap/cities_local.go, which git ignores on purpose: it is a personal location. Its fixtures are written to golden/fixtures/private, which git also ignores, and its name appears in no committed file. Re-capture the city fixture from a publicly curated city -- bend-or or redondo-beach-ca -- once a bundle for one exists, and commit it then.",
+    "consequence": "no committed fixture exercises path or area collections, inline geometry, label policy, standard-icon resolution by convention, or the >100% DescribedPct defect. golden/fixtures/measure/NOTES.md records what the withheld fixture shows."
+  },
+  "translators": {
+    "aligned": "one archived capture per source, chosen to be the capture the fixture volumes were composed from",
+    "captured": [
+      {
+        "source": "mapgenie",
+        "kind": "map",
+        "volume": "tunic",
+        "passthrough": true
+      },
+      {
+        "source": "ign",
+        "kind": "ign-map",
+        "volume": "cyberpunk-2077",
+        "passthrough": false
+      },
+      {
+        "source": "piggyback",
+        "kind": "piggyback-map",
+        "volume": "cyberpunk-2077",
+        "passthrough": false
+      },
+      {
+        "source": "nasa-trek",
+        "kind": "trek-map",
+        "volume": "mars",
+        "passthrough": false
+      }
+    ],
+    "skipped": [
+      {
+        "source": "arcgis-hub",
+        "kind": "arcgis-map",
+        "reason": "the archived capture is present, but arcgismap.Translate refuses a city it is not curated for, and the only curated city on this machine is the withheld one. The fixture is capturable only where cities_local.go is present, and its output would be withheld for the same reason as the city bundle."
+      }
+    ]
+  },
+  "measure": {
+    "verbatim": "measure/maturity.txt, the report tools/maturity prints over a registry holding exactly the committed fixture set",
+    "structured": "measure/<slug>.build.json, internal/measure's own Build with the figures the reports derive from it",
+    "defects": "measure/NOTES.md -- annotated there, never corrected in the output"
+  },
+  "http": {
+    "recorded": "the headless application (ATLAS_HEADLESS=1) serving a registry holding exactly the committed fixture set",
+    "files": [
+      "http/transcript.json",
+      "http/catalog.json"
+    ],
+    "normalized": [
+      "the Date header",
+      "the catalog's bundlesDir, which is where this machine keeps its library"
+    ]
+  }
+}
