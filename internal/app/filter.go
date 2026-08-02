@@ -92,7 +92,7 @@ func visible(model *worldModel, session Session, lens *payloadLens) visibility {
 	// The held cell narrows exactly the way a highlight does, and it spares
 	// the same two answers: the feature the reader has open, and one they are
 	// searching for by name.
-	cell := heldCell(session, lens, float64(model.Grid.Size))
+	cell := heldCell(session, model, lens)
 
 	for _, pin := range model.Points {
 		if !onShard(pin.Shard, shard) || hidden[pin.Collection.ID] {
@@ -110,7 +110,7 @@ func visible(model *worldModel, session Session, lens *payloadLens) visibility {
 			pin.ID != session.Selected && !searched {
 			continue
 		}
-		if cell != nil && !cell.Holds(pin.X, pin.Y) &&
+		if cell != nil && !cell(pin.X, pin.Y) &&
 			pin.ID != session.Selected && !searched {
 			continue
 		}
@@ -169,8 +169,12 @@ func visible(model *worldModel, session Session, lens *payloadLens) visibility {
 		return compareTitles(out.Listable[i].Title, out.Listable[j].Title) < 0
 	})
 
-	out.Filtered = len(session.Hidden) > 0 || len(session.Highlighted) > 0 ||
-		(session.Grid.System != "" && session.Grid.Cell != "")
+	// The chip says "filtered" when something narrowed, which for a grid is
+	// the held cell having an answer rather than the session having an
+	// address: a system this world cannot divide narrows nothing, and a page
+	// that says it is filtered while showing everything is the same
+	// disagreement in words instead of counts.
+	out.Filtered = len(session.Hidden) > 0 || len(session.Highlighted) > 0 || cell != nil
 	out.FooterText = countText(out.Drawn)
 	out.DockText = countText(len(out.Listable))
 	switch {

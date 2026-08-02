@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"log/slog"
 	"net/http"
 	"sort"
 	"strconv"
@@ -11,7 +12,9 @@ import (
 	"time"
 
 	"github.com/FelineStateMachine/atlas/format/bundle"
+	"github.com/FelineStateMachine/atlas/internal/app/cells"
 	"github.com/FelineStateMachine/atlas/internal/app/hostenv"
+	"github.com/FelineStateMachine/atlas/internal/logging"
 )
 
 // The session record is the server's half of the state-placement rule
@@ -684,7 +687,19 @@ func applySelect(c *concernContext, form formValues) error {
 // defaultCellSystem is the system a grid opens on. Which systems exist and
 // what they divide is the analysis lane's (issue #5 §5.4); which one is chosen
 // is the session's, and this is the session's half saying "the first one".
-const defaultCellSystem = "geohash"
+// Geohash is the first one for the same reason it is first in the navigator:
+// it divides anything, so a grid can always open.
+const defaultCellSystem = cells.SystemGeohash
+
+// worldAttrs is the world's own conventions, or none. A request that named no
+// world the application could stand up still gets an answer out of the systems
+// that ask the ground nothing.
+func worldAttrs(world *worldModel) map[string]string {
+	if world == nil {
+		return nil
+	}
+	return world.Attrs
+}
 
 func applyGrid(c *concernContext, form formValues) error {
 	s := c.session
@@ -712,6 +727,27 @@ func applyGrid(c *concernContext, form formValues) error {
 			// does not have to be rewritten -- only this switch.
 			s.Grid.System = defaultCellSystem
 		default:
+			// A system named outright is the one value on this concern that
+			// is not a move but a destination, and a destination has to
+			// exist. Which systems divide a world is the world's answer, not
+			// the session's: geohash divides anything, S2 wants a sphere with
+			// an invertible flattening and refuses everything else
+			// (internal/app/cells, ApplicableSystems -- the same two
+			// questions the navigator asks before it offers a system at all).
+			//
+			// A value outside that set is refused rather than kept, and the
+			// state stays exactly where it was. Keeping it would put the two
+			// halves of the page in different worlds: the seam would narrow
+			// the drawn set by a system the server cannot divide by, and on a
+			// ground that cannot answer it the systems throw rather than
+			// shrug. One request is not allowed to do that.
+			attrs := worldAttrs(c.world)
+			if !cells.Applicable(attrs, value) {
+				slog.Warn("a grid system this world does not divide", logging.Op("session"),
+					slog.String("system", value),
+					slog.String("offered", strings.Join(cells.ApplicableSystems(attrs), ",")))
+				return nil
+			}
 			s.Grid.System = value
 		}
 	}

@@ -1,14 +1,31 @@
-// Package cells is the one piece of cell-system arithmetic the *server* needs.
+// Package cells is the cell-system arithmetic the *server* needs: enough of
+// every system a session can hold to answer two questions without asking the
+// seam.
 package cells
 
-import "strings"
+import (
+	"strings"
 
-// The held cell, as a rectangle of world pixels.
+	"github.com/FelineStateMachine/atlas/format/semconv"
+)
+
+// THE FIRST QUESTION is the held cell's: is this feature inside it.
 //
 // A grid narrows what stands the same way a highlight does (docs/render-seam.md
 // §4.2, rule 4), and the count above the panel beside the map has to be the
 // count of what the map is drawing — which means the application has to be able
-// to answer "is this feature inside the held cell" without asking anyone.
+// to answer it for *every* system, not merely for the first one. A package that
+// answers for geohash and says "no cell" for the rest is worse than one that
+// answers for neither: the seam narrows the drawn set, the server narrows
+// nothing, and the map, the footer and the dock stop agreeing while every one
+// of them believes it is right.
+//
+// THE SECOND QUESTION is the world's: which systems divide it at all. Geohash
+// divides anything, because it never asks what the picture is of. S2 asks, and
+// refuses a ground that cannot say (analysis/cellsystems/s2.ts, `appliesTo`).
+// The navigator offers only the systems that answer yes, so a system value
+// arriving on a request means nothing except against a world — which is what
+// [ApplicableSystems] answers and what the session spends it on.
 //
 // WHY THIS IS HERE AND NOT IN THE ANALYSIS LANE. Cell systems belong to
 // `analysis/cellsystems` (issue #5 §5.4) and that lane is TypeScript, consumed
@@ -17,14 +34,95 @@ import "strings"
 // third upward flow from the seam carrying the cell's extent, which
 // docs/render-seam.md §5 forbids in as many words.
 //
-// It is nevertheless a second copy of one system's arithmetic, and that is a
-// cost rather than a design. Two things hold it honest. The arithmetic is the
-// smallest possible piece of it — the recursive halving and nothing else: no
+// TWO SYSTEMS, TWO PROVENANCES. The geohash halving here is a second copy of
+// an arithmetic, and that is a cost rather than a design: it is kept to the
+// smallest possible piece of it — the recursive halving and nothing else, no
 // plan, no ring, no pole closure, no style token, none of which the server has
-// any use for. And it is gated: `cells_test.go` reproduces the cell extents
-// recorded in every parity baseline, which is the same oracle
-// `analysis-vectors` holds the TypeScript to. When a Go twin of the analysis
-// lane exists, this file is the first thing it deletes.
+// any use for. S2 is not a copy at all. Its spherical math is
+// github.com/golang/geo/s2, the canonical Google library; the seam's s2js is
+// that library ported, test vectors and all. The two lanes agree because they
+// are the same arithmetic, not because two authors read the same paper, and
+// what is written here is only the bridge from world pixels to the sphere plus
+// the port's own level bookkeeping.
+//
+// AND IT IS GATED. `golden/cells` reproduces every geohash cell extent
+// recorded in the parity baselines, and holds the S2 side, the surface ladder
+// and the applicable-systems answer to `golden/analysis/vectors` — the same
+// language-neutral oracle the TypeScript lane is held to. When a Go twin of
+// the analysis lane exists, this package is the first thing it deletes.
+//
+// COORDINATES. Everything exported here speaks world pixels in the orientation
+// the application's own projection produces: x east, y **negative-down**
+// (internal/app/world.go, tileGrid.project), which is the space a pin's
+// position lives in and the space the seam's cell systems work in. A declared
+// flattening reads the other way round — y down from the top of the raster
+// window (format/semconv, [semconv.Equirect.Invert]) — and the sign is flipped
+// at that one call, which is exactly where analysis/semconv/geometry.ts says
+// the two conventions meet.
+
+// The systems this package divides by, named in the order the navigator offers
+// them (analysis/cellsystems/registry.ts): geohash first because it divides
+// anything, S2 second because it asks the ground a question.
+const (
+	SystemGeohash = "geohash"
+	SystemS2      = "s2"
+)
+
+// Held is the held cell as a question rather than as a shape: does this cell
+// hold the point at these world pixels.
+//
+// A predicate rather than a rectangle because only one of the two systems has
+// a rectangle. A geohash cell is axis-aligned in world pixels and answers by
+// comparing four numbers; an S2 cell is a spherical quadrilateral whose edges
+// are straight on no projection, and the only honest way to ask it is to put
+// the point back on the sphere. The seam's own test is the same shape
+// (`cellTest` in render/chart/grid.ts: `(at) => on.contains(cell, at)`), which
+// is what makes the two sides comparable at all.
+//
+// A nil Held is no narrowing: no grid, or no cell held inside it.
+type Held func(x, y float64) bool
+
+// ApplicableSystems answers which systems will divide a world, in the
+// navigator's order. It is the server's half of the seam's
+// `applicableSystems(ground)`, and it is deliberately the same two questions
+// in the same order: S2 wants a surface that says it is a sphere and a
+// flattening that can be inverted, and geohash wants nothing.
+//
+// The attributes are the world's own (`atlas.geometry.*`, format/semconv).
+// Only the lens-shaped half of a seam `Ground` is missing from that, and
+// neither question reads it — which is why this takes attributes rather than
+// a ground.
+//
+// ONE PROJECTION, FOR NOW. The seam accepts any invertible flattening it can
+// read, which today means equirectangular or Web-Mercator. The registry knows
+// one projection value (`equirect`, format/semconv), so a Mercator world
+// cannot pass bundle validation and cannot reach this function; when the
+// vocabulary grows the second value, this is where it lands, alongside the
+// mapping reader in s2.go.
+func ApplicableSystems(attrs map[string]string) []string {
+	out := []string{SystemGeohash}
+	if Applicable(attrs, SystemS2) {
+		out = append(out, SystemS2)
+	}
+	return out
+}
+
+// Applicable answers whether one system divides this world. It is the whole
+// of the session's system-value validation: a value that is not a system, or
+// is a system this world refuses, is not a place a reader can be standing.
+func Applicable(attrs map[string]string, system string) bool {
+	switch system {
+	case SystemGeohash:
+		return true
+	case SystemS2:
+		if attrs[semconv.KeyGeometrySurface] != semconv.SurfaceSphere {
+			return false
+		}
+		_, mapped := MappingOf(attrs)
+		return mapped
+	}
+	return false
+}
 
 // GeohashAlphabet is the canonical order, which is also the child order. No
 // `a`, `i`, `l` or `o`, so a hash read aloud cannot be misheard.
@@ -95,6 +193,17 @@ func GeohashExtent(ground Extent, hash string) Extent {
 		}
 	}
 	return out
+}
+
+// GeohashHeld is the held-cell question for a geohash address: the halving,
+// and then four comparisons. It is the fast path — an axis-aligned rectangle
+// asked about a point — and it is boundary-inclusive, which is the contract's
+// own word for it (golden/analysis/vectors/containment.json): a pin on the
+// line between two cells is standing in both, because the line is drawn a
+// pixel wide and the reader put the pin on it.
+func GeohashHeld(ground Extent, hash string) Held {
+	held := GeohashExtent(ground, hash)
+	return held.Holds
 }
 
 // Rect is a rectangle of the volume's own raster pixels, y down.

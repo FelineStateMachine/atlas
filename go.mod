@@ -4,6 +4,7 @@ go 1.26.0
 
 require (
 	github.com/fsnotify/fsnotify v1.10.1
+	github.com/golang/geo v0.0.0-20260713102120-857a528af641
 	github.com/wailsapp/wails/v2 v2.13.0
 	golang.org/x/image v0.44.0
 	golang.org/x/text v0.40.0
