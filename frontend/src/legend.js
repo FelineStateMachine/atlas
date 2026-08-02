@@ -205,9 +205,12 @@ export function collectionRow(collection) {
     // simply has no button to press.
     labels = document.createElement("button");
     labels.type = "button";
-    labels.className = "label-toggle render-toggle";
+    labels.className = "label-toggle";
     labels.dataset.labelToggle = String(collection.id);
-    labels.textContent = "Tt";
+    labels.innerHTML =
+      '<svg viewBox="0 0 16 16" aria-hidden="true">' +
+      '<path d="M8.6 2.5H2.5v6.1l5.4 5.4a1.2 1.2 0 0 0 1.7 0l4.4-4.4a1.2 1.2 0 0 0 0-1.7z"/>' +
+      '<path d="M5.6 5.6h.01"/></svg>';
     syncLabelToggle(labels, collection);
   } else {
     labels = document.createElement("span");
@@ -216,7 +219,9 @@ export function collectionRow(collection) {
   const count = document.createElement("span");
   count.className = "category-count";
   count.textContent = formatNumber(collectionCount(collection));
-  row.append(checkbox, icon, name, only, labels, count);
+  // The label toggle sits inside the isolate target, so Only keeps one
+  // column down the whole legend whether or not a row has labels to offer.
+  row.append(checkbox, icon, name, labels, only, count);
   return row;
 }
 
