@@ -39,7 +39,7 @@ import type { CellVisual } from "@atlas/analysis";
 
 import { logger } from "../log.ts";
 import type { DataPlane } from "../data/plane.ts";
-import { reportPick } from "../data/report.ts";
+import { reportGridPick, reportPick } from "../data/report.ts";
 import type { WorldContext } from "../context.ts";
 import type { Lens } from "../data/payload.ts";
 import type { PointRecord, ShapeRecord } from "../world/model.ts";
@@ -133,6 +133,29 @@ function carryAcrossShards(
   return [to.x + clamp(across) * to.width, -(to.y + clamp(down) * to.height)];
 }
 
+/**
+ * What a pixel on the canvas resolved to.
+ *
+ * Two things can be under a pointer and they are not the same kind of answer,
+ * which is why this is a discriminated union rather than an id and a label. A
+ * feature has an identity the session stores and the card, the dock and the
+ * legend all mark; a cell has an *address*, which no feature has and which
+ * belongs to a different concern entirely. Flattening the two into one string
+ * would leave every caller guessing which route it was holding.
+ */
+export interface CellPick {
+  readonly kind: "cell";
+  readonly cell: string;
+}
+
+/** A feature under the pointer: a pin, a piece of ground, or a run of one. */
+export interface FeaturePick {
+  readonly kind: "point" | "area" | "path";
+  readonly id: string;
+}
+
+export type Pick = CellPick | FeaturePick;
+
 /** What the chart publishes about itself, in the golden key names. */
 export interface ChartDiagnostics {
   coordinateSystem: string;
@@ -165,6 +188,13 @@ export class AtlasChart extends HTMLElement {
     pins: new VectorSource({ wrapX: false }),
     priority: new VectorSource({ wrapX: false }),
   };
+  /**
+   * The two layers a cell is ever drawn on, held so a click can ask them and
+   * only them. The chosen path lies under the pins and the dimmed context over
+   * them, which is a z-order argument (chart/grid.ts) and is exactly why the
+   * hit test cannot be a question about depth.
+   */
+  private gridLayers: VectorLayer<VectorSource>[] = [];
   private styles: Styles | null = null;
   private context: WorldContext | null = null;
   /** The feature the card is open about, so a change in it can be acted on. */
@@ -208,6 +238,14 @@ export class AtlasChart extends HTMLElement {
       this.openLens(context, this.lensKey === "");
       this.lensKey = lensKey;
     }
+    // Before the selection is followed, because a descend spends the view a
+    // jump was holding and the card closing must not hand it back over the top
+    // of the cell being flown to. The reference releases the hold and then
+    // closes the card, in that order, for exactly this reason (grid.js,
+    // selectGridCell); here the two are a swap apart -- the server closes the
+    // card, the scene comes back with both facts in it -- so the order is kept
+    // by reading the cell first.
+    this.releaseOnDescend(context);
     this.follow(context);
     this.restyle();
     // The footer's own sentence. It is written here and on a camera event and
@@ -253,6 +291,25 @@ export class AtlasChart extends HTMLElement {
       if (!this.hidden) this.writeCount();
     });
     this.sizes.observe(this);
+  }
+
+  /**
+   * A cell the reader moved to retires the view a jump was holding.
+   *
+   * Descending is the reader saying where they want to be. Whatever panel jump
+   * was holding a view for them is spent by that, and the loan has to be
+   * cancelled *before* the selection is read: the same swap that carries the
+   * new cell may carry a closed card, and a card closing gives the borrowed
+   * view back — over the top of the cell about to be fitted.
+   *
+   * It reads `heldCell`, which `drawGrid` owns and updates; between here and
+   * there nothing else looks at it, so the two halves of one scene see the same
+   * answer to "did the cell move".
+   */
+  private releaseOnDescend(context: WorldContext): void {
+    if (context.cell === this.heldCell) return;
+    this.borrowed = null;
+    this.landed = null;
   }
 
   /**
@@ -603,8 +660,11 @@ export class AtlasChart extends HTMLElement {
       renderBuffer: options.renderBuffer ?? 64,
       ...(options.declutter ? { declutter: true } : {}),
     });
+    const grid = eager(this.sources.grid, 5, (f) => this.gridStyle(f));
+    const gridContext = eager(this.sources.gridContext, 48, (f) => this.gridStyle(f));
+    this.gridLayers = [grid, gridContext];
     return [
-      eager(this.sources.grid, 5, (f) => this.gridStyle(f)),
+      grid,
       eager(this.sources.zoneScrim, 6, () => this.styles?.scrim()),
       eager(this.sources.zones, 10, (f, r) => this.shapeStyle(f, r)),
       eager(this.sources.zoneTitles, 20, (f) => this.titleStyle(f, false)),
@@ -612,7 +672,7 @@ export class AtlasChart extends HTMLElement {
       eager(this.sources.pins, 42, (f) => this.pinStyle(f, true)),
       eager(this.sources.zoneTitles, 44, (f) => this.titleStyle(f, true)),
       eager(this.sources.pins, 45, (f) => this.labelStyle(f), { declutter: true, renderBuffer: 180 }),
-      eager(this.sources.gridContext, 48, (f) => this.gridStyle(f)),
+      gridContext,
       eager(this.sources.priority, 50, (f) => this.priorityStyle(f), { renderBuffer: 220 }),
     ];
   }
@@ -789,6 +849,16 @@ export class AtlasChart extends HTMLElement {
     // address names, the same way the navigator's own field does it. Only a
     // change of cell moves it -- redrawing the same grid because a filter
     // moved must not drag the reader back.
+    //
+    // THIS IS THE ONE FIT, and every way into a cell arrives at it: the
+    // navigator's field, the back button, Escape, a click on the canvas and a
+    // press on the sphere. The reference fitted synchronously inside
+    // `selectGridCell` because the cell moved synchronously; here a cell moves
+    // by a round trip, so the fit belongs to the arrival rather than to the
+    // ask. A second fit fired off at the click would be the same arithmetic
+    // said twice, racing its own confirmation and answering for a cell the
+    // server had not yet agreed to -- and it is precisely the fit the parity
+    // baselines pinned, so there is one of it.
     if (context.cell !== this.heldCell) {
       this.heldCell = context.cell;
       // Ascending is a move too: the reader asked for the ground one level
@@ -884,7 +954,9 @@ export class AtlasChart extends HTMLElement {
     if (!map) return;
     map.on("pointermove", (event) => {
       if (event.dragging || !this.context) return;
-      const found = this.hit(event.pixel);
+      // The hover is about features and never about cells: what it draws is a
+      // marker lifting under the pointer, and a cell has no such reading.
+      const found = this.hitFeature(event.pixel);
       const id = found?.id ?? null;
       if (id === this.context.hovered) return;
       this.context.hovered = id;
@@ -897,9 +969,14 @@ export class AtlasChart extends HTMLElement {
       // leaving a feature still clears the cursor, because that is continuous
       // state this pane owns, and a selection is not.
       if (!found) return;
-      // The seam resolves the hit; the identity is the application's to act
-      // on, and it acts on it through the form the page renders for exactly
-      // this (data/report.ts, issue #5 §4.4).
+      // The seam resolves the hit; what it resolved to is the application's to
+      // act on, and it acts on it through the forms the page renders for
+      // exactly this (data/report.ts, issue #5 §4.4). Two answers, two forms,
+      // two concerns -- a selection and a place.
+      if (found.kind === "cell") {
+        reportGridPick(found.cell);
+        return;
+      }
       reportPick({ feature: found.id, kind: found.kind });
     });
     map.on("moveend", () => {
@@ -918,11 +995,64 @@ export class AtlasChart extends HTMLElement {
     });
   }
 
-  private hit(pixel: number[]): { id: string; kind: string } | null {
+  /**
+   * What is under a pixel: a cell first, then a feature.
+   *
+   * THE ORDER IS THE WHOLE OF IT. While a grid is up the reader is
+   * telescoping, and a click is a request to go one level in -- so a cell
+   * answers before the pins standing on it are consulted at all, and a cell
+   * that answered returns without asking. Reversed, the grid would be
+   * undescendable anywhere a pin happened to be, which is everywhere worth
+   * descending to.
+   */
+  private hit(pixel: number[]): Pick | null {
+    return this.hitCell(pixel) ?? this.hitFeature(pixel);
+  }
+
+  /**
+   * The cell under a pixel, or nothing.
+   *
+   * TWO RULES, AND BOTH ARE THE REFERENCE'S OWN.
+   *
+   * ONLY THE GRID'S OWN LAYERS ARE ASKED, which is what a hit test over a
+   * dozen layers cannot say for itself: everything else on the map is a
+   * feature and answers the second question, not this one.
+   *
+   * AND ONLY A NEIGHBOUR OR A CHILD IS AN ANSWER. The cell the reader is
+   * already inside is drawn over its own children -- as an outline while the
+   * subdivision is up, and as the whole of the grid when the telescope has
+   * bottomed out -- so a plan that answered for `scope` or `leaf` would hand
+   * back the address already held on every click, and the grid could not be
+   * descended at all. A neighbour is a step sideways and a child is a step in;
+   * those are the two moves a click on a grid means.
+   *
+   * The tolerance is one pixel rather than the four a marker gets. A cell is a
+   * region and the reader is pointing *into* it; slack around a boundary would
+   * only make the boundary ambiguous, and a boundary that cannot be told apart
+   * from the cell beyond it is a grid nobody can steer by.
+   */
+  private hitCell(pixel: number[]): CellPick | null {
+    const map = this.map;
+    const context = this.context;
+    if (!map || !context?.system || !context.scene.gridSystem) return null;
+    let found: CellPick | null = null;
+    map.forEachFeatureAtPixel(pixel, (feature) => {
+      const cell = feature.get("gridCell") as DrawnCell | undefined;
+      if (!cell || (cell.role !== "neighbor" && cell.role !== "child")) return false;
+      found = { kind: "cell", cell: cell.hash };
+      return true;
+    }, {
+      hitTolerance: 1,
+      layerFilter: (layer) => this.gridLayers.some((one) => one === layer),
+    });
+    return found;
+  }
+
+  private hitFeature(pixel: number[]): FeaturePick | null {
     const map = this.map;
     const context = this.context;
     if (!map || !context) return null;
-    let found: { id: string; kind: string } | null = null;
+    let found: FeaturePick | null = null;
     map.forEachFeatureAtPixel(pixel, (feature) => {
       const record = feature.get("record") as PointRecord | ShapeRecord | undefined;
       if (!record) return false;

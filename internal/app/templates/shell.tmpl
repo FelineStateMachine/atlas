@@ -270,6 +270,29 @@
     <input type="hidden" name="feature" id="atlas-pick-feature">
   </form>
   {{/*
+    The cell's way in, which is the pick's way in for the other thing a
+    surface can be pointed at.
+
+    A reader telescopes through the grid three ways and they are one
+    interaction: typing an address into the navigator's field, clicking a cell
+    the chart drew, and pressing a point on the sphere -- which names the cell
+    one level below the one being held. The field is a control the application
+    already renders and posts for itself; the two surfaces are pixels, and a
+    pixel is the seam's to resolve (docs/render-seam.md §5). So they arrive
+    here, at the same route the field posts to and with the same field name,
+    and the server normalizes and validates the address once for all three.
+
+    IT POSTS `cell` AND NOTHING ELSE. Which system is dividing the map is
+    already in the session -- the address was resolved *by* that system, and a
+    seam telling the server which one it used would be the seam holding an
+    opinion about state it does not own. The volume is inherited from the
+    shell, as everything on this page is.
+  */}}
+  <form hidden id="atlas-grid-pick" hx-post="/session/grid"
+        hx-trigger="atlas:grid-pick from:window">
+    <input type="hidden" name="cell" id="atlas-grid-pick-cell">
+  </form>
+  {{/*
     Live updates. The stream carries ready-to-swap partials and two event
     names (docs/app.md §5); the page takes the plainer road of re-fetching
     itself on either, because both events mean the library moved under it and

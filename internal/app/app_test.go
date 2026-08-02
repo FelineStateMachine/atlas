@@ -657,6 +657,80 @@ func TestCanvasPickSelectsWithoutFocusing(t *testing.T) {
 	}
 }
 
+// A cell chosen off a surface, end to end: the page's half and the handler's.
+//
+// It is the pick's arrangement exactly, for the other thing a surface can be
+// pointed at. A reader telescopes three ways -- typing an address, clicking a
+// cell the chart drew, pressing a point on the sphere -- and only the first
+// has a control of its own. The other two are pixels, and a pixel is the
+// seam's to resolve; what it resolves to has to land somewhere, and this form
+// is where.
+//
+// The field it does NOT carry is the interesting half. Which system is
+// dividing the map is already in the record -- the address was resolved by
+// that system -- so a seam posting one alongside would be the seam holding an
+// opinion about state it does not own, and a stale one at that.
+func TestGridPickFormCarriesTheAddressAndNothingElse(t *testing.T) {
+	handler, host := newApp(t, volume("tunic", "TUNIC", tunicStamp))
+
+	page := get(t, handler, "/v/tunic/overworld", nil)
+	if page.Code != http.StatusOK {
+		t.Fatalf("the explorer answered %d", page.Code)
+	}
+	shell := page.Body.String()
+	opens := strings.Index(shell, `<form hidden id="atlas-grid-pick"`)
+	if opens < 0 {
+		t.Fatalf("the page renders no grid-pick form, so a cell clicked posts nothing:\n%s", shell)
+	}
+	closes := strings.Index(shell[opens:], "</form>")
+	if closes < 0 {
+		t.Fatalf("the grid-pick form is never closed:\n%s", shell[opens:])
+	}
+	pickForm := shell[opens : opens+closes]
+	for _, want := range []string{
+		`hx-post="/session/grid"`,
+		`hx-trigger="atlas:grid-pick from:window"`,
+		`name="cell" id="atlas-grid-pick-cell"`,
+	} {
+		if !strings.Contains(pickForm, want) {
+			t.Errorf("the grid-pick form is missing %s:\n%s", want, pickForm)
+		}
+	}
+	// The address is the one field. The volume is inherited from the shell,
+	// like every other interaction's on this page.
+	if strings.Contains(pickForm, `name="system"`) {
+		t.Errorf("the grid-pick form posts a system, which is already in the record:\n%s", pickForm)
+	}
+	if strings.Contains(pickForm, `name="volume"`) {
+		t.Errorf("the grid-pick form posts its own volume rather than inheriting one:\n%s", pickForm)
+	}
+	// It posts to the route the navigator's own field posts to, with the same
+	// field name, so one address is normalized and validated for all three
+	// ways into a cell.
+	if !strings.Contains(shell, `id="grid-input" name="cell"`) {
+		t.Errorf("the navigator's field and the grid-pick form no longer name one field:\n%s", shell)
+	}
+
+	got := post(t, handler, "/session/grid", url.Values{
+		"volume": {"tunic"}, "cell": {"9q"},
+	})
+	if got.Code != http.StatusOK {
+		t.Fatalf("a cell chosen off a surface answered %d: %s", got.Code, got.Body)
+	}
+
+	held, err := host.sessions.Load("volume.tunic.json")
+	if err != nil {
+		t.Fatalf("a cell wrote no session record: %v", err)
+	}
+	var session app.Session
+	if err := json.Unmarshal(held, &session); err != nil {
+		t.Fatal(err)
+	}
+	if session.Grid.Cell != "9q" {
+		t.Errorf("cell = %q, want the one the surface named", session.Grid.Cell)
+	}
+}
+
 func TestSessionRefusals(t *testing.T) {
 	handler, _ := newApp(t, volume("tunic", "TUNIC", tunicStamp))
 	cases := []struct {

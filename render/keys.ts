@@ -11,8 +11,8 @@
 //   and there is nothing to tell the server: the moment the key comes up the
 //   map is back.
 //   FOCUS. ⌘K reaches the search field, Escape hands the keyboard back from
-//   the grid field to the map. Where the caret is is not a fact about the
-//   volume.
+//   the grid field to the map, and G hands it on to the grid's own field and
+//   takes it back again. Where the caret is is not a fact about the volume.
 //   WHICH PANE IS UP. The backquote flips chart and sphere, which is the same
 //   world seen from a different distance -- the same filters, the same
 //   selection, the same camera.
@@ -66,7 +66,7 @@ export function wireKeyboard(host: KeyboardHost): () => void {
   const stop = new AbortController();
   const { signal } = stop;
 
-  window.addEventListener("keydown", (event) => pressed(host, event),
+  window.addEventListener("keydown", (event) => pressed(host, event, signal),
     { capture: true, signal });
   // No guard and no preventDefault on the way up. A key that went down inside
   // a text field still has to be allowed to come up: the alternative is labels
@@ -92,7 +92,7 @@ export function wireKeyboard(host: KeyboardHost): () => void {
  * and the order is the meaning: the field before the guard, the guard before
  * everything a reader would rather type than trigger.
  */
-function pressed(host: KeyboardHost, event: KeyboardEvent): void {
+function pressed(host: KeyboardHost, event: KeyboardEvent, signal: AbortSignal): void {
   // The grid field speaks for itself first. Everything it does not claim
   // stops here anyway -- it is an input, and the guard below would have
   // stopped it one line later.
@@ -121,6 +121,14 @@ function pressed(host: KeyboardHost, event: KeyboardEvent): void {
       host.flipPane();
     }
     return;
+  }
+  // G is the application's key -- it posts the grid on and off -- and the
+  // keyboard it hands on is this lane's. The keystroke is not answered here,
+  // only noted: nothing is swallowed, nothing is moved, and the route the
+  // shell declares against this very filter does the rest.
+  if (event.key.toLowerCase() === "g" && !event.metaKey && !event.ctrlKey &&
+    !event.altKey && !event.repeat) {
+    followGrid(signal);
   }
   if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === "k") {
     event.preventDefault();
@@ -189,20 +197,44 @@ function onMap(host: KeyboardHost, event: KeyboardEvent): boolean {
   return true;
 }
 
-// OWED, AND NAMED HERE SO IT IS NOT FORGOTTEN (wave 3B).
-//
-// The reference hands the keyboard on when the grid opens and takes it back
-// when the grid closes: G focuses and selects the grid field on the way in --
-// so "gm6" arrives at m6, the rest of the word being typed landing in the
-// field that takes a hash -- and refocuses the map on the way out, where the
-// shortcuts live.
-//
-// Both halves are focus, so both are this file's. They are not here yet
-// because the state they follow is the *answer* to the G key's post, and this
-// lane learns about that answer through the scene node rather than through
-// the keystroke. The hook is the grid's own arrival: when a swap turns the
-// navigator on, focus the field; when it turns it off, focus the map. Doing
-// it from the keydown instead would race the request.
+/**
+ * Follow the G key's own answer, once.
+ *
+ * The reference hands the keyboard on when the grid opens and takes it back
+ * when it closes: the field that takes a hash is focused and selected on the
+ * way in -- so "gm6" arrives at m6, the rest of the word being typed landing
+ * where a hash is typed -- and the map is focused on the way out, where the
+ * shortcuts live.
+ *
+ * Both halves are focus, so both are this file's. Neither can be done from
+ * the keydown: what they follow is the *answer* to the key's post, and until
+ * the swap has settled the navigator on screen is still the one from before.
+ * So the press arms a listener for one settle and asks the page which way it
+ * went -- the navigator says whether it is up, and nothing here has to
+ * remember what it was.
+ *
+ * ONE SETTLE, AND ANY SETTLE. `once` is what keeps a press from leaving a
+ * listener behind, and the listener does not check whose swap it heard: a
+ * request already in flight can settle first and take the focus with it,
+ * which is a keystroke landing a beat early rather than a keystroke landing
+ * somewhere wrong -- the navigator is asked either way. The signal is the
+ * viewport's, so a seam that leaves the page leaves no armed press behind.
+ */
+function followGrid(signal: AbortSignal): void {
+  window.addEventListener("htmx:after:settle", () => {
+    const navigator = find<HTMLElement>("#atlas-grid-navigator");
+    if (navigator !== null && !navigator.hidden) {
+      const field = find<HTMLInputElement>("#grid-input");
+      field?.focus({ preventScroll: true });
+      field?.select();
+      return;
+    }
+    // The grid went away -- or was never there, on a page that renders no
+    // navigator. Either way the keyboard belongs back on the map, which is
+    // where every shortcut that is not a route is heard.
+    find<HTMLElement>("#map")?.focus({ preventScroll: true });
+  }, { once: true, signal });
+}
 
 /** Whether the page is offering a sphere, asked of the control that says so. */
 function offersSphere(): boolean {

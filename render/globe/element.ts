@@ -47,7 +47,7 @@ import type { GeoMapping, PlanCell } from "@atlas/analysis";
 import { logger } from "../log.ts";
 import type { WorldContext } from "../context.ts";
 import type { Attrs, Collection } from "../data/payload.ts";
-import { reportPick } from "../data/report.ts";
+import { reportGridPick, reportPick } from "../data/report.ts";
 import { viewMaxZoom } from "../chart/projection.ts";
 import { collectionColor, outsetColor } from "../chart/styles.ts";
 import { Skin } from "./texture.ts";
@@ -1025,6 +1025,7 @@ export class AtlasGlobe extends HTMLElement {
     const context = this.context;
     const equirect = this.equirect;
     if (!context || !equirect) return;
+    if (this.descend(lat, lng)) return;
     let best: { id: string; distance: number } | null = null;
     for (const point of context.visibility.standing()) {
       const [plat, plng] = equirect.mapping.toLatLng(point.coordinate[0], -point.coordinate[1]);
@@ -1037,6 +1038,36 @@ export class AtlasGlobe extends HTMLElement {
     // fills it and says so (data/report.ts). The sphere draws pins and only
     // pins, so the kind is settled here.
     reportPick({ feature: best.id, kind: "point" });
+  }
+
+  /**
+   * A press on the sphere while a grid is up: one level in, under the finger.
+   *
+   * PURE GEOMETRY, and the sphere has no other way of doing it. The chart can
+   * ask which cell it drew under a pixel because it drew them onto the same
+   * surface the pointer is over; here the cells are meshes on a globe and the
+   * press answers in degrees, so the point is flattened back onto the picture
+   * and the system is asked what lies below the held cell there. Which is the
+   * navigator's own arithmetic -- `descendTarget` is what typing one more
+   * character into the field means -- so the two roads meet at the same
+   * address, and both post the same form.
+   *
+   * `descendTarget` answers `""` at the floor of the telescope, which is
+   * "there is nothing below this" rather than "the root": the report refuses
+   * an empty address, and the click is a miss.
+   *
+   * Answers whether it claimed the press. With no grid up a press is a pick,
+   * as it has always been.
+   */
+  private descend(lat: number, lng: number): boolean {
+    const context = this.context;
+    const equirect = this.equirect;
+    if (!context || !equirect) return false;
+    if (!context.system || !context.scene.gridSystem) return false;
+    const [x, y] = equirect.mapping.toWorld(lat, lng);
+    const target = context.system.on(context.ground).descendTarget(context.cell, [x, -y]);
+    reportGridPick(target);
+    return true;
   }
 }
 

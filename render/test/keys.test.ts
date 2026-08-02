@@ -58,7 +58,9 @@ interface Prevented {
  * was wired to it. The AbortController is real: honouring the signal is how
  * the "wired twice, heard twice" bug is tested rather than assumed.
  */
-function mount(ids: string[] = ["#map", "#grid-input", "#pin-search", "#globe-toggle"]): Harness {
+function mount(ids: string[] = [
+  "#map", "#grid-input", "#pin-search", "#globe-toggle", "#atlas-grid-navigator",
+]): Harness {
   const nodes = new Map<string, StubElement>();
   for (const id of ids) {
     nodes.set(id, new StubElement(id === "#map" ? "DIV" : id === "#globe-toggle" ? "BUTTON" : "INPUT"));
@@ -68,16 +70,26 @@ function mount(ids: string[] = ["#map", "#grid-input", "#pin-search", "#globe-to
   globalThis.document = {
     querySelector: (selector: string) => nodes.get(selector) ?? null,
   } as unknown as Document;
+  const drop = (name: string, entry: Listener) => {
+    listeners.set(name, (listeners.get(name) ?? []).filter((one) => one !== entry));
+  };
   globalThis.window = {
     addEventListener: (name: string, handler: (event: unknown) => void,
-      options?: { capture?: boolean; signal?: AbortSignal }) => {
+      options?: { capture?: boolean; once?: boolean; signal?: AbortSignal }) => {
       const held = listeners.get(name) ?? [];
-      const entry: Listener = { handler, capture: options?.capture === true };
+      // `once` is honoured because it is under test: the G key arms a
+      // listener for a single settle, and one that outlived its own swap
+      // would take the focus away from wherever the reader put it since.
+      const entry: Listener = {
+        handler: (event) => {
+          if (options?.once) drop(name, entry);
+          handler(event);
+        },
+        capture: options?.capture === true,
+      };
       held.push(entry);
       listeners.set(name, held);
-      options?.signal?.addEventListener("abort", () => {
-        listeners.set(name, (listeners.get(name) ?? []).filter((one) => one !== entry));
-      });
+      options?.signal?.addEventListener("abort", () => drop(name, entry));
     },
   } as unknown as Window & typeof globalThis;
 
@@ -226,6 +238,81 @@ test("the backquote reaches the field too, and is swallowed there either way", (
   toggle.hidden = false;
   page.fire("keydown", { key: "`", target: page.nodes.get("#grid-input") });
   assert.deepEqual(page.flips, [1]);
+});
+
+// ---- G hands the keyboard on, and takes it back ------------------------
+
+test("G hands the keyboard to the field once the grid has arrived", () => {
+  const page = mount();
+  const pressed = page.fire("keydown", { key: "g", ...AT_WINDOW });
+  // The key itself is the application's -- a route posts it -- so nothing is
+  // swallowed here and nothing has moved yet: until the swap settles, the
+  // navigator on screen is still the one from before.
+  assert.equal(pressed.prevented, false, "the seam answered a key that is a route");
+  assert.equal(page.nodes.get("#grid-input")?.focused, 0, "the focus raced the request");
+
+  page.fire("htmx:after:settle", {});
+  const field = page.nodes.get("#grid-input");
+  assert.equal(field?.focused, 1, "the grid opened and the field never got the keyboard");
+  // Selected as well as focused, which is what makes "gm6" arrive at m6: the
+  // address already in the field is replaced by what is typed next.
+  assert.equal(field?.selected, 1);
+  assert.equal(page.nodes.get("#map")?.focused, 0);
+});
+
+test("G that closed the grid hands the keyboard back to the map", () => {
+  const page = mount();
+  const navigator = page.nodes.get("#atlas-grid-navigator");
+  assert.ok(navigator);
+  navigator.hidden = true;
+  page.fire("keydown", { key: "g", ...AT_WINDOW });
+  page.fire("htmx:after:settle", {});
+  assert.equal(page.nodes.get("#map")?.focused, 1,
+    "the grid closed and the keyboard stayed in a field nobody can see");
+  assert.equal(page.nodes.get("#grid-input")?.focused, 0);
+});
+
+test("one press follows one settle, and no more", () => {
+  const page = mount();
+  page.fire("keydown", { key: "g", ...AT_WINDOW });
+  page.fire("htmx:after:settle", {});
+  page.fire("htmx:after:settle", {});
+  assert.equal(page.nodes.get("#grid-input")?.focused, 1,
+    "a swap the reader did not ask for took the focus back");
+});
+
+test("a settle nobody armed moves no focus at all", () => {
+  const page = mount();
+  page.fire("htmx:after:settle", {});
+  assert.equal(page.nodes.get("#grid-input")?.focused, 0);
+  assert.equal(page.nodes.get("#map")?.focused, 0);
+});
+
+test("a reader typing a g arms nothing, in a field or in the grid's own", () => {
+  const page = mount();
+  for (const id of ["#pin-search", "#grid-input"]) {
+    page.fire("keydown", { key: "g", target: page.nodes.get(id) });
+  }
+  page.fire("htmx:after:settle", {});
+  assert.equal(page.nodes.get("#grid-input")?.focused, 0,
+    "typing a g into a field armed the grid's focus");
+});
+
+test("⌘G is the system cycle and hands the keyboard nowhere", () => {
+  const page = mount();
+  page.fire("keydown", { key: "g", metaKey: true, ...AT_WINDOW });
+  page.fire("htmx:after:settle", {});
+  assert.equal(page.nodes.get("#grid-input")?.focused, 0);
+  assert.equal(page.nodes.get("#map")?.focused, 0);
+});
+
+test("the armed press leaves with the keyboard it was armed on", () => {
+  const page = mount();
+  page.fire("keydown", { key: "g", ...AT_WINDOW });
+  page.off();
+  page.fire("htmx:after:settle", {});
+  assert.equal(page.nodes.get("#grid-input")?.focused, 0,
+    "a seam that left the page still moved the focus");
 });
 
 test("the map's own keys step the zoom, and only on the map", () => {
