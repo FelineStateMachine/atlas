@@ -16,8 +16,11 @@ import { join } from "node:path";
 import test from "node:test";
 import { strict as assert } from "node:assert";
 import VectorSource from "ol/source/Vector.js";
-import { cellSystems } from "@atlas/analysis";
-import { drawGrid } from "../chart/grid.ts";
+import type { FeatureLike } from "ol/Feature.js";
+import { cellSystems, gridCellVisual } from "@atlas/analysis";
+import type { PlanCell } from "@atlas/analysis";
+import { cellMoved, drawGrid } from "../chart/grid.ts";
+import { labelFitsCell } from "../chart/styles.ts";
 import type { DrawnCell } from "../chart/grid.ts";
 import { WorldModel, worldGrid } from "../world/model.ts";
 import { Visibility } from "../world/visibility.ts";
@@ -27,6 +30,27 @@ import { FIXTURES, locations, payloads, tileGrid } from "./fixtures.ts";
 import type { LocationsFixture } from "./fixtures.ts";
 
 const PARITY = join(FIXTURES, "..", "..", "parity");
+const PLANS = join(FIXTURES, "..", "..", "analysis", "plans");
+
+/**
+ * A page with a ruler on it.
+ *
+ * The fit gate measures an address in the pitch it will be drawn in, so it
+ * needs a canvas; a monospace stub is enough, and it is the honest shape of
+ * the thing — every hash at a level is the same length, so a level keeps or
+ * drops its labels as one.
+ */
+(globalThis as unknown as Record<string, unknown>).document = {
+  createElement: () => ({
+    getContext: () => ({
+      font: "",
+      measureText(text: string) {
+        const size = Number(/(\d+)px/.exec(String(this.font))?.[1] ?? 10);
+        return { width: text.length * size * 0.6 };
+      },
+    }),
+  }),
+};
 
 interface Step {
   name: string;
@@ -94,7 +118,7 @@ function asRecorded<T>(value: T): T {
 }
 
 /** Draw one grid the way the chart does, and answer what it held. */
-function draw(model: WorldModel, cell: string, subgrid: boolean): {
+function draw(model: WorldModel, cell: string): {
   cells: DrawnCell[]; extent: readonly number[] | null;
 } {
   const lens = model.payload.lenses[0] ?? null;
@@ -103,9 +127,7 @@ function draw(model: WorldModel, cell: string, subgrid: boolean): {
   const standing = new Visibility(model, EMPTY_SCENE, lens?.shard ?? 0, null);
   const chosen = new VectorSource({ wrapX: false });
   const context = new VectorSource({ wrapX: false });
-  // The resolution a whole world sits at in a window about nine hundred
-  // pixels wide, which is what the recorded tours were taken in.
-  const drawn = drawGrid(ground, system, cell, subgrid, 9,
+  const drawn = drawGrid(ground, system, cell,
     [...standing.standing()], chosen, context);
   const cells = [...chosen.getFeatures(), ...context.getFeatures()]
     .map((feature) => feature.get("gridCell") as DrawnCell);
@@ -114,7 +136,7 @@ function draw(model: WorldModel, cell: string, subgrid: boolean): {
 
 test("the root grid over Mars is the one the tour recorded", () => {
   const recorded = step("mars", "grid-open");
-  const drawn = draw(world("mars", "global"), recorded.prefix, true);
+  const drawn = draw(world("mars", "global"), recorded.prefix);
   assert.deepEqual(asRecorded(drawn.extent), recorded.extent, "the ground the system divides");
   assert.deepEqual(
     drawn.cells.map((cell) => [cell.hash, cell.role, cell.contextDistance]).sort(),
@@ -130,7 +152,7 @@ test("the root grid over Mars is the one the tour recorded", () => {
 
 test("descending into a cell holds its neighbours as context", () => {
   const recorded = step("mars", "grid-descended");
-  const drawn = draw(world("mars", "global"), recorded.prefix, true);
+  const drawn = draw(world("mars", "global"), recorded.prefix);
   assert.deepEqual(asRecorded(drawn.extent), recorded.extent, "the held cell is the ground now");
   const roles = (cells: DrawnCell[]) => {
     const held: Record<string, number> = {};
@@ -154,9 +176,170 @@ test("the chosen path draws under the pins and the context over them", () => {
   const system = cellSystems.require("geohash");
   const chosen = new VectorSource({ wrapX: false });
   const context = new VectorSource({ wrapX: false });
-  drawGrid(ground, system, "m", true, 9, [], chosen, context);
+  drawGrid(ground, system, "m", [], chosen, context);
   const roleOf = (source: VectorSource) => new Set(
     source.getFeatures().map((feature) => (feature.get("gridCell") as DrawnCell).role));
   assert.deepEqual([...roleOf(chosen)].sort(), ["child", "scope"]);
   assert.deepEqual([...roleOf(context)], ["neighbor"]);
+});
+
+// ---- the subgrid at the depth cap --------------------------------------
+//
+// THE DEFECT, as the reader met it: hold a geohash cell two levels down with
+// the subdivision on, and the chart draws no children at all — though the cap
+// is three, the plan holds all thirty-two of them, and typing a depth-three
+// address works.
+//
+// The plan was never the problem. `golden/analysis/plans/contract.json` pins
+// it: the same ground the tour walks, held at "m6", with thirty-two children
+// under it. What was wrong is *when* the question "can this cell carry its
+// address?" was asked. A child too small for its label draws **nothing**
+// (analysis/cellsystems/visual.ts), so that one boolean decides whether the
+// subdivision exists — and it was answered once, while the grid was being
+// built, against the resolution the camera was *leaving*. Descending flies the
+// camera in afterwards; nothing asked again. The deeper the held cell, the
+// smaller its children are against the zoom they were judged at, and at two
+// levels down every one of them failed.
+//
+// So the fit gate belongs to the style function, where OpenLayers hands the
+// resolution being drawn at. These tests are that, in numbers taken from the
+// contract and from the tour.
+
+interface PlanStep {
+  step: string;
+  system: string;
+  cell: string;
+  subgridVisible: boolean;
+  plan: { hash: string; extent: number[]; role: string }[];
+}
+
+function contractStep(name: string): PlanStep {
+  const contract = JSON.parse(readFileSync(
+    join(PLANS, "contract.json"), "utf8")) as { steps: PlanStep[] };
+  const found = contract.steps.find((entry) => entry.step === name);
+  assert.ok(found, `the plan contract has a ${name} case`);
+  return found;
+}
+
+/** Every feature one draw built, chosen path first, in the sources' own order. */
+function features(model: WorldModel, cell: string): FeatureLike[] {
+  const lens = model.payload.lenses[0] ?? null;
+  const chosen = new VectorSource({ wrapX: false });
+  const context = new VectorSource({ wrapX: false });
+  drawGrid(model.ground(lens), cellSystems.require("geohash"), cell, [], chosen, context);
+  return [...chosen.getFeatures(), ...context.getFeatures()];
+}
+
+/** Every cell one draw planned, with the plan cell the style will read. */
+function planned(model: WorldModel, cell: string): PlanCell[] {
+  return features(model, cell).map((feature) => feature.get("gridPlan") as PlanCell);
+}
+
+/** What one cell paints at one resolution: null is "nothing at all". */
+function paints(cell: PlanCell, resolution: number, subgridVisible: boolean): boolean {
+  const model = world("mars", "global");
+  const ground = model.ground(model.payload.lenses[0] ?? null);
+  return gridCellVisual(ground, cellSystems.require("geohash"), cell, {
+    subgridVisible,
+    labelled: labelFitsCell(cell.hash, cell.role, cell.extent, resolution),
+  }) !== null;
+}
+
+test("a cell held two levels down plans every one of its children", () => {
+  const recorded = contractStep("geohash-depth-2");
+  const cells = planned(world("mars", "global"), recorded.cell);
+  assert.deepEqual(
+    cells.map((cell) => [cell.hash, cell.role]).sort(),
+    recorded.plan.map((cell) => [cell.hash, cell.role]).sort(),
+    "the contract's own plan, cell for cell");
+  assert.equal(cells.filter((cell) => cell.role === "child").length, 32,
+    "thirty-two children, one level above the cap");
+  // AND NOTHING ABOUT HOW THEY LOOK IS DECIDED HERE. A visual baked onto the
+  // feature is a visual decided at the wrong moment: the camera moves between
+  // a grid being built and a reader seeing it, and the answer never changed
+  // afterwards.
+  for (const feature of features(world("mars", "global"), "m6")) {
+    assert.equal(feature.get("gridVisual"), undefined,
+      "the tokens are the style function's answer, at the resolution it is handed");
+  }
+});
+
+test("and draws them, once the camera has landed on the cell it was flown to", () => {
+  const recorded = contractStep("geohash-depth-2");
+  const cells = planned(world("mars", "global"), recorded.cell);
+  const children = cells.filter((cell) => cell.role === "child");
+  // The resolution the parent was being read at when the descent was asked
+  // for: `grid-descended` in the mars tour, holding "m" one level up. Judged
+  // there, a 32-pixel child is 16 pixels across and cannot carry "m60".
+  const leaving = 2.007843137254902;
+  assert.equal(children.some((cell) => paints(cell, leaving, true)), false,
+    "no child fits its address at the zoom the camera is leaving — which is what was drawn");
+  // Where the camera actually lands: the held cell, 256 by 128, fitted into
+  // the window with its padding, snapped to the pyramid's own ladder.
+  const landed = 0.25;
+  for (const child of children) {
+    assert.equal(paints(child, landed, true), true,
+      `child ${child.hash} draws once the camera is over it`);
+  }
+});
+
+test("the subdivision still answers to the reader's own switch", () => {
+  const cells = planned(world("mars", "global"), "m6");
+  const child = cells.find((cell) => cell.role === "child");
+  const scope = cells.find((cell) => cell.role === "scope");
+  assert.ok(child && scope);
+  assert.equal(paints(child, 0.25, false), false, "the subgrid put away draws no children");
+  assert.equal(paints(scope, 0.25, false), true, "and the held cell keeps its own boundary");
+});
+
+test("a cell at the cap is a leaf with nothing under it", () => {
+  const recorded = contractStep("geohash-leaf");
+  const cells = planned(world("mars", "global"), recorded.cell);
+  assert.equal(cells.filter((cell) => cell.role === "leaf").length, 1);
+  assert.equal(cells.filter((cell) => cell.role === "child").length, 0,
+    "the floor of the telescope divides no further");
+  // A leaf is drawn whether or not its address fits: it is the ground the
+  // reader asked for, not a subdivision offered to them.
+  const leaf = cells.find((cell) => cell.role === "leaf");
+  assert.ok(leaf);
+  assert.equal(paints(leaf, 64, true), true, "even from far enough out to lose its chip");
+});
+
+test("a chip is measured as it will be drawn, not against a round number", () => {
+  // Two hashes of different lengths in the same cell: a flat pixel threshold
+  // keeps or drops both, and one of them is twice as wide as the other.
+  const extent: [number, number, number, number] = [0, 0, 32, 32];
+  assert.equal(labelFitsCell("m", "child", extent, 1.2), true);
+  assert.equal(labelFitsCell("m6sz1", "child", extent, 1.2), false,
+    "a label wider than its cell names the neighbours instead");
+});
+
+// ---- cycling the system is not a descent -------------------------------
+//
+// THE DEFECT: press the cell-system key with a cell held and both panes moved
+// the camera. The chart fitted its view and the sphere turned the planet — to
+// ground the reader was already looking at, because cycling carries the held
+// cell across to the cell of the next system covering the same place. "m" in
+// geohash becomes "24" in S2, and read as a string that is a descent.
+
+test("a cell that only changed its spelling is not a cell that moved", () => {
+  assert.equal(cellMoved({ system: "geohash", cell: "m" }, { system: "s2", cell: "24" }), false,
+    "the same ground under a new name: the camera is already there");
+  assert.equal(cellMoved({ system: "s2", cell: "24" }, { system: "geohash", cell: "m" }), false,
+    "and back again");
+});
+
+test("a descent within one system still moves the camera", () => {
+  assert.equal(cellMoved({ system: "geohash", cell: "m" }, { system: "geohash", cell: "m6" }), true);
+  assert.equal(cellMoved({ system: "geohash", cell: "m6" }, { system: "geohash", cell: "m" }), true,
+    "ascending is a move too: the reader asked for the ground one level out");
+  assert.equal(cellMoved({ system: "s2", cell: "24" }, { system: "s2", cell: "241" }), true,
+    "including the descent made straight after a cycle");
+});
+
+test("redrawing the same grid moves nothing", () => {
+  assert.equal(cellMoved({ system: "geohash", cell: "m" }, { system: "geohash", cell: "m" }), false,
+    "a filter moving must not drag the reader back to the cell they are in");
+  assert.equal(cellMoved({ system: "", cell: "" }, { system: "geohash", cell: "" }), false,
+    "and opening a grid over the ground already on screen is not a request to go anywhere");
 });

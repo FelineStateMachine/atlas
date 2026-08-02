@@ -35,7 +35,8 @@ import Style from "ol/style/Style.js";
 import { defaults as defaultControls } from "ol/control/defaults.js";
 import type { FeatureLike } from "ol/Feature.js";
 import type Projection from "ol/proj/Projection.js";
-import type { CellVisual } from "@atlas/analysis";
+import { gridCellVisual } from "@atlas/analysis";
+import type { PlanCell } from "@atlas/analysis";
 
 import { logger } from "../log.ts";
 import type { DataPlane } from "../data/plane.ts";
@@ -46,9 +47,9 @@ import type { PointRecord, ShapeRecord } from "../world/model.ts";
 import { COORDINATE_SYSTEM, atlasProjection, lensExtent, viewMaxZoom } from "./projection.ts";
 import { TileCounter, buildRaster } from "./raster.ts";
 import type { Raster } from "./raster.ts";
-import { Styles } from "./styles.ts";
+import { Styles, labelFitsCell } from "./styles.ts";
 import type { StyleContext } from "./styles.ts";
-import { drawGrid } from "./grid.ts";
+import { cellMoved, drawGrid } from "./grid.ts";
 import type { DrawnCell } from "./grid.ts";
 import { Overview } from "./overview.ts";
 
@@ -205,6 +206,15 @@ export class AtlasChart extends HTMLElement {
   private sizes: ResizeObserver | null = null;
   /** The cell the camera was last flown to hold. */
   private heldCell = "";
+  /**
+   * The system that cell was held in — the other half of the memo above.
+   *
+   * A held cell is a string only its own system can read: geohash's "m" and
+   * S2's "24" name the same ground here and nothing about the two spellings
+   * says so. So "the cell moved" is only a question worth asking *within* one
+   * system, and the fit asks it that way.
+   */
+  private heldSystem = "";
   private plane: DataPlane | null = null;
   private overview: Overview | null = null;
   private fitZoom: number | null = null;
@@ -665,8 +675,8 @@ export class AtlasChart extends HTMLElement {
       renderBuffer: options.renderBuffer ?? 64,
       ...(options.declutter ? { declutter: true } : {}),
     });
-    const grid = eager(this.sources.grid, 5, (f) => this.gridStyle(f));
-    const gridContext = eager(this.sources.gridContext, 48, (f) => this.gridStyle(f));
+    const grid = eager(this.sources.grid, 5, (f, r) => this.gridStyle(f, r));
+    const gridContext = eager(this.sources.gridContext, 48, (f, r) => this.gridStyle(f, r));
     this.gridLayers = [grid, gridContext];
     return [
       grid,
@@ -837,11 +847,10 @@ export class AtlasChart extends HTMLElement {
     this.drawnCells = [];
     this.gridExtent = null;
     if (!context.system || !context.scene.gridSystem) return;
-    const resolution = this.view?.getResolution() ?? 1;
     const standing = [...context.visibility.withoutCell()];
     const drawn = drawGrid(
-      context.ground, context.system, context.cell, context.subgridVisible,
-      resolution, standing, this.sources.grid, this.sources.gridContext);
+      context.ground, context.system, context.cell,
+      standing, this.sources.grid, this.sources.gridContext);
     // The plan's own order is the contract; what is read back for the
     // diagnostics is the sources' order, chosen path first and context after,
     // which is the order the baselines record.
@@ -864,8 +873,17 @@ export class AtlasChart extends HTMLElement {
     // said twice, racing its own confirmation and answering for a cell the
     // server had not yet agreed to -- and it is precisely the fit the parity
     // baselines pinned, so there is one of it.
-    if (context.cell !== this.heldCell) {
-      this.heldCell = context.cell;
+    //
+    // AND A CELL MOVES WITHIN A SYSTEM. Cycling the system carries the held
+    // cell across to whichever cell of the next system covers the same ground
+    // (`equivalentCell`): "m" becomes "24", the string moves and the reader
+    // does not. Read against the cell alone that is a descent, and the camera
+    // flies to a place it is already standing over — the one thing a reader
+    // pressing a cycle key is not asking for. Both memos are written whatever
+    // happened, so the descent after a cycle is still read against the system
+    // it was made in.
+    const system = context.scene.gridSystem;
+    if (cellMoved({ system: this.heldSystem, cell: this.heldCell }, { system, cell: context.cell })) {
       // Ascending is a move too: the reader asked for the ground one level
       // out, and the camera goes there the same way it came in.
       //
@@ -883,6 +901,8 @@ export class AtlasChart extends HTMLElement {
         });
       }
     }
+    this.heldCell = context.cell;
+    this.heldSystem = system;
   }
 
   // ---- styles ---------------------------------------------------------
@@ -946,10 +966,35 @@ export class AtlasChart extends HTMLElement {
     return this.styles.areaTitle(record, promoted) ?? undefined;
   }
 
-  private gridStyle(feature: FeatureLike): Style[] | undefined {
-    const visual = feature.get("gridVisual") as CellVisual | null | undefined;
-    if (!visual || !this.styles) return undefined;
-    return this.styles.grid(visual);
+  /**
+   * One cell, styled against the resolution it is actually being drawn at.
+   *
+   * THE RESOLUTION IS THE ARGUMENT, and it has to be: whether a cell can carry
+   * its address is a fact about the camera, and the camera moves between a
+   * grid being built and the reader looking at it. A descent builds its grid
+   * from the zoom it is leaving and then flies in — so a subdivision judged
+   * once, at build time, was judged at the wrong depth, and the deeper the
+   * held cell the worse it got. Held two levels down with the subdivision on,
+   * every child came out a third of the size the parent's zoom required, every
+   * one of them answered "no label", and a child with no label draws **nothing
+   * at all** (analysis/cellsystems/visual.ts) — a subgrid that was on, planned,
+   * counted, and invisible.
+   */
+  private gridStyle(feature: FeatureLike, resolution: number): Style[] | undefined {
+    const plan = feature.get("gridPlan") as PlanCell | undefined;
+    const context = this.context;
+    if (!plan || !context?.system || !this.styles) return undefined;
+    const visual = gridCellVisual(context.ground, context.system, plan, {
+      subgridVisible: context.subgridVisible,
+      labelled: labelFitsCell(plan.hash, plan.role, plan.extent, resolution),
+    });
+    if (!visual) return undefined;
+    // The chosen path draws over its own context wherever the two meet; every
+    // other cell carries the plan's own order, which the feature was built
+    // with (chart/grid.ts).
+    const chosen = plan.role === "leaf" || plan.role === "scope";
+    const zIndex = chosen ? 100 : Number(feature.get("priority") ?? 0);
+    return this.styles.grid(visual, zIndex, plan.role === "neighbor");
   }
 
   // ---- interaction ----------------------------------------------------

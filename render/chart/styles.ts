@@ -343,8 +343,15 @@ export class Styles {
     });
   }
 
-  /** One grid cell, adapted from the analysis lane's tokens and nothing else. */
-  grid(visual: CellVisual): Style[] {
+  /**
+   * One grid cell, adapted from the analysis lane's tokens and nothing else.
+   *
+   * `zIndex` is the caller's — the plan's own order, which decides how the
+   * dimmed neighbourhood stacks against itself and how the chosen path stands
+   * over it — and the chip rides one above whatever its cell was given, so a
+   * boundary never crosses the address it belongs to.
+   */
+  grid(visual: CellVisual, zIndex: number, neighbor: boolean): Style[] {
     const marks: Style[] = [
       new Style({
         stroke: new Stroke({
@@ -354,30 +361,114 @@ export class Styles {
         ...(visual.fill
           ? { fill: new Fill({ color: withAlpha(visual.fill.color, visual.fill.opacity) }) }
           : {}),
+        zIndex,
       }),
     ];
     if (visual.label) {
       const { prefix, final, color, textAlpha, chip, sizePx } = visual.label;
+      // TWO CUTS OF ONE PITCH. The prefix is context and the final character
+      // is the address's principal digit, so the prefix takes a lighter cut of
+      // the same fixed pitch at the same size: weight alone carries the
+      // faintness, because mixing sizes on one line moves the baselines and
+      // the address wobbles. Written as one 600 run — which is what this said
+      // before — a hash reads as one flat word and the digit that actually
+      // changes as you descend is lost in it.
+      const text = prefix
+        ? [prefix, gridLabelFont(500, sizePx), final, gridLabelFont(900, sizePx)]
+        : final;
       marks.push(new Style({
         text: new Text({
-          text: `${prefix}${final}`,
-          font: `600 ${sizePx}px ${gridTheme.labelFont}`,
+          text,
+          font: gridLabelFont(900, sizePx),
           textAlign: "right",
           textBaseline: "bottom",
           offsetX: -gridTheme.labelInsetPx,
           offsetY: -gridTheme.labelInsetPx,
           fill: new Fill({ color: withAlpha(color, textAlpha) }),
           backgroundFill: new Fill({ color: chip }),
-          padding: [2, 4, 2, 4],
+          padding: chipPadding(neighbor),
           declutterMode: "none",
         }),
         // The chip belongs in the cell's bottom-right corner, which is the
         // bounding-box convention the label placement below relies on.
         geometry: cornerOf,
+        zIndex: zIndex + 1,
       }));
     }
     return marks;
   }
+}
+
+/**
+ * One chunk of a cell's address, in the pitch the whole grid is measured at.
+ *
+ * Monospace, as the field these are typed into already is: every hash at a
+ * level is the same length, so in a fixed pitch a level keeps or drops its
+ * labels as one.
+ */
+export function gridLabelFont(weight: number, sizePx: number): string {
+  return `${weight} ${sizePx}px ${gridTheme.labelFont}`;
+}
+
+/** The room a chip gives its address. A neighbour's is the tighter. */
+function chipPadding(neighbor: boolean): [number, number, number, number] {
+  return neighbor ? [2, 4, 2, 4] : [3, 5, 3, 5];
+}
+
+/**
+ * One shared canvas for measuring an address: measuring is not drawing.
+ *
+ * Widths are cached by font and text, because the fit gate below is asked once
+ * per cell per render — ninety-odd cells at sixty frames — and a hash is one
+ * of a handful of strings at any level.
+ */
+let ruler: CanvasRenderingContext2D | null | undefined;
+const rulings = new Map<string, number>();
+
+export function measureLabel(text: string, font: string): number {
+  const key = `${font}|${text}`;
+  const held = rulings.get(key);
+  if (held !== undefined) return held;
+  ruler ??= document.createElement("canvas").getContext("2d");
+  let width = text.length * 7;
+  if (ruler) {
+    ruler.font = font;
+    width = ruler.measureText(text).width;
+  }
+  rulings.set(key, width);
+  return width;
+}
+
+/**
+ * Whether a cell can carry its own address at this resolution.
+ *
+ * A hash names the cell it sits in, so a label wider than its cell names the
+ * neighbours instead — and at the depth where cells are smallest, that is
+ * every label at once. The cell keeps its outline and colour; only the word
+ * waits for a zoom that has room for it. (A *child* waits altogether: the
+ * subdivision appears at the size it can be read, which is the analysis lane's
+ * rule and not this one's.)
+ *
+ * The measurement is the chip as it will actually be drawn — the address in
+ * its own fixed pitch, plus the padding around it — rather than a round number
+ * of pixels standing in for one. A flat threshold is wrong in both directions:
+ * it drops a two-character hash that had room and keeps a six-character one
+ * that never did.
+ */
+export function labelFitsCell(
+  hash: string,
+  role: string,
+  extent: readonly [number, number, number, number],
+  resolution: number,
+): boolean {
+  if (!resolution) return true;
+  const neighbor = role === "neighbor";
+  const size = neighbor ? gridTheme.neighborLabelSizePx : gridTheme.labelSizePx;
+  const [top, right, bottom, left] = chipPadding(neighbor);
+  const width = measureLabel(hash, gridLabelFont(900, size)) + left + right;
+  const height = size + top + bottom;
+  return width <= (extent[2] - extent[0]) / resolution &&
+    height <= (extent[3] - extent[1]) / resolution;
 }
 
 /** A CSS colour at an alpha, whether it arrived as hex or as rgb(). */
