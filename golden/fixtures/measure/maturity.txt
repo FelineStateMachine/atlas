@@ -1,5 +1,5 @@
 Bend, Oregon (bend-or)
-  serving bend-or-20260802-f0feba1cd00c.atlas
+  serving bend-or-20260802-3610a0f10798.atlas
     annotation      65 pins · 153 described (235%) · median 63 chars
     cartography   2316 tiles · 11.9 MB unique raster · depth z6 holds 1538 tiles
     structure        1 categories in 1 groups · 0 text label sets · 148 zones (85207 vertices) · 1 layers

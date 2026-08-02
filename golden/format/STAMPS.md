@@ -70,7 +70,7 @@ a real library, so the table can be checked rather than believed.
 | `fallout-new-vegas` | `e6cd7eb1936e` | 93 | 88 | 5 | **HELD** (M2) |
 | `zelda-tears-of-the-kingdom` | `9dc737d9871e` | 98 | 97 | 1 | **HELD** (M2) |
 | `mars` | `68e141f26b1a` | 20 | 18 | 2 | **HELD** (M2) |
-| `bend-or` | `f0feba1cd00c` | — | — | 1 | BLOCKED — the capture is gone, see below |
+| `bend-or` | `3610a0f10798` | 6 | 5 | 1 | ASPIRATION — the capture is back, the city lane is not, see below |
 
 ## What M2 closed, and how far
 
@@ -138,16 +138,57 @@ and at the composed bundle, which is where it is observable.
 
 ## The city fixture
 
-`bend-or` is **BLOCKED**, and not for a reason M2 can lift. Its bundle was built
+`bend-or` was **BLOCKED**, for a reason no gate could lift: its bundle was built
 during M0 from a live crawl of Bend, Oregon's ArcGIS Hub, and that capture
-archive was not kept — the archive on disk holds the operator's own private
-city, which by the privacy rule may never be named in a committed file. The
-translator fixture `golden/fixtures/translators/arcgis-hub.doc.json` is the
-reference tree's *output* for that capture, committed; the *input* is gone.
+archive was not kept. The committed
+`golden/fixtures/translators/arcgis-hub.doc.json` was the reference tree's
+*output* for a capture whose *input* no longer existed, and a fixture nothing
+can be rebuilt from is a fixture nothing can be measured against.
 
-Re-crawling is permitted (the data is public) and the crawler for it is
-runnable, but it would not close this row either: `capturedAt` is first-seen,
-so a fresh capture carries today's time, a volume's `createdAt` is
-capture-derived by the format's own invariant, and the file name would differ
-even if every byte of the city's open data were unchanged. The row stays
-BLOCKED with its reason rather than being quietly dropped.
+The archive is back. The city was re-crawled on **the same day the first build
+answered to**, 2026-08-02, from the same eleven datasets and the same three
+endpoints, into the archive the pipeline keeps —
+`games/arcgis-hub-bend-oregon-34950069941/maps/2026-08-02-35604576620`. The
+repository stages it at `crawl/bend-or/fmg-archive`, a one-game archive of the
+shape `tools/generate` reads, so the city can be rebuilt without walking a
+library-sized capture.
+
+What came back is worth stating precisely, because it is stronger than the
+re-crawl had any right to be. **Every entry of the rebuilt bundle but one hashes
+exactly as the lost build's did** — all 2,320 of them: the world payload, the
+packed locations, the deferred prose, the icon, and all 2,316 tiles of the
+basemap the renderer draws from the city's own vector data. The city's open data
+had not moved between the two crawls, and the offline render is deterministic
+over it. The one entry that differs is `atlas.json`, in exactly three fields:
+
+| field | first build | rebuild |
+| --- | --- | --- |
+| `version.createdAt` | `2026-08-02T09:09:17.410769Z` | `2026-08-02T10:45:19.464241Z` |
+| `worlds[0].updatedAt` | `2026-08-02T09:09:17.410769Z` | `2026-08-02T10:45:19.464241Z` |
+| `version.stamp` | `f0feba1cd00c…` | `3610a0f10798…` |
+
+That is the whole difference, and it is the one the old row predicted:
+`capturedAt` is first-seen, a volume's `createdAt` is capture-derived by the
+format's own invariant, the manifest's encoded bytes are a stamped part, and so
+the stamp and the file name move after the clock. **The stamp is a rebuild-cost
+promise, not a content promise** — the same decision the pyramids force, arrived
+at from the other direction, and here it is measured rather than argued: two
+builds of the same city, 13,642,843 bytes each, identical everywhere the city is
+and different only where the clock is.
+
+So the row is **ASPIRATION** rather than BLOCKED, and what it is now waiting on
+is a lane rather than a lost input:
+
+- **the archive is an input again.** Rebuilding from it reproduces the committed
+  fixture exactly — `dist/bundles/bend-or-20260802-3610a0f10798.atlas`, sha256
+  `7a4375d0…`, byte-identical across two runs of the reference pipeline, and the
+  derived pyramid stamps the same value both times.
+- **the clean room cannot compose it yet.** `internal/generate/sources` has no
+  `arcgishub` translator, and the tile deriver renders no basemap, so
+  `golden/pipeline` has no bend-or row to fail. The gate's `singleSource` table
+  is the honest record of that: four fixtures, not five.
+
+When the city lane lands, this row reads the same way the pyramids do — the
+plan, the rasters and the canonical content reproduce, and the stamp does not,
+because the stamp is downstream of the clock and of the deriving tool's own
+source hash.
