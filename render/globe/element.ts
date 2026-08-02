@@ -410,7 +410,7 @@ export class AtlasGlobe extends HTMLElement {
     const globe = this.globe;
     if (!context || !globe) return;
     if (!context.labelsHeld) {
-      this.labels.clear();
+      this.releaseLabels();
       this.labelKey = "";
       this.seam.labels.key = "";
       return;
@@ -430,7 +430,7 @@ export class AtlasGlobe extends HTMLElement {
     if (key === this.labelKey) return;
     this.labelKey = key;
     this.seam.labels.key = key;
-    this.labels.clear();
+    this.releaseLabels();
     const standing = [...context.visibility.standing()]
       .sort((a, b) => a.priority - b.priority)
       .slice(0, LABEL_BUDGET);
@@ -448,12 +448,34 @@ export class AtlasGlobe extends HTMLElement {
     }
   }
 
+  /** Drop the raised names and give their textures back. */
+  private releaseLabels(): void {
+    for (const held of [...this.labels.children]) {
+      const sprite = held as THREE.Sprite;
+      sprite.material?.map?.dispose?.();
+      sprite.material?.dispose?.();
+    }
+    this.labels.clear();
+  }
+
   /** The grid, from the same plan and the same tokens the chart draws. */
   private drawGrid(): void {
     const context = this.context;
     const globe = this.globe;
     const equirect = this.equirect;
     if (!context || !globe || !equirect) return;
+    // Cleared *and released*. Every rebuild mints new geometries, and a chip
+    // mints a canvas texture of its own; the grid is rebuilt whenever the
+    // camera moves far enough in depth to change what fits, which over one
+    // flight to a cell is several rebuilds of a couple of hundred objects.
+    // Dropping them out of the group is not dropping them off the card, and
+    // the sphere eventually stops answering at all.
+    for (const held of [...this.cells.children]) {
+      const drawn = held as THREE.Mesh & { material?: THREE.Material & { map?: THREE.Texture } };
+      drawn.geometry?.dispose?.();
+      drawn.material?.map?.dispose?.();
+      drawn.material?.dispose?.();
+    }
     this.cells.clear();
     // The fit key is not cleared when the grid closes. It is the last frame
     // the camera was flown to hold a cell, and the baselines carry it through
