@@ -1,0 +1,14 @@
+{
+  "name": "@atlas/analysis",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "description": "Lane 3 of issue #5 §5.4: client-side, render-time transformations applied to a volume. Cell systems are the founding family. No DOM, no fetch, no application imports — an analysis is a pure function of its declared inputs.",
+  "exports": {
+    ".": "./index.ts",
+    "./cellsystems": "./cellsystems/index.ts"
+  },
+  "dependencies": {
+    "s2js": "1.44.0"
+  }
+}

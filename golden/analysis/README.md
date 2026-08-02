@@ -9,15 +9,24 @@ without reference to any implementation. A Go or TypeScript build reads the
 same files, runs the same eight calls, and compares the same way.
 
 ```sh
-node golden/analysis/run.mjs             # the gate (also `make golden`)
-node golden/analysis/run.mjs --verbose    # name every case as it passes
-node golden/analysis/capture.mjs --check  # re-record in memory, write nothing
+node golden/analysis/run.mjs              # the gate (also `make golden`)
+node golden/analysis/run.mjs --verbose     # name every case as it passes
+node golden/analysis/capture.mjs --check   # re-record in memory, write nothing
 ```
 
-The gate needs the cell math's own dependencies: `npm --prefix frontend ci`.
-Until M6 lands `analysis/cellsystems`, the implementation being driven *is*
-the current tree's module, and it imports s2js and OpenLayers. No browser,
-no bundler, no test framework.
+**The gate now judges the clean lane.** M6 landed `analysis/cellsystems` and
+threw the switch in `run.mjs`: the eight functions come out of
+`engine/cleanroom.mjs`, and every fixture in this directory passed on the first
+run against an implementation written from the contract rather than from the
+old files. The gate needs `npm ci` at the repository root (the lane's one
+dependency, s2js) and a node that strips types — 22.18+, or 24+.
+
+`engine/current.mjs` stays where it is: it documents the oracle these fixtures
+were recorded from, it still runs, and `ATLAS_ANALYSIS_ENGINE=current` re-points
+the gate at the old tree for a side-by-side. That path needs the old module's
+dependencies — `npm --prefix frontend ci` — because it drives s2js *and*
+OpenLayers through the current tree. No browser, no bundler, no test framework,
+either way.
 
 ## What is here
 
@@ -153,25 +162,27 @@ disagreement aborts the capture. Those cases are marked `handDerived: true`
 in the fixtures. The rest are recordings of an implementation that works,
 which is what a golden is.
 
-## Re-pointing the gate at M6's lane
+## The two engines
 
-`run.mjs` imports one module and calls the eight functions above. To judge
-the clean `analysis/cellsystems` lane instead, write
-`golden/analysis/engine/cleanroom.mjs` exporting the same eight functions
-plus `engineName`, and change the single import line at the top of `run.mjs`
-(it is marked with a banner comment). Nothing else in the gate and nothing in
-the fixtures refers to an implementation.
+`run.mjs` imports one module and calls the eight functions above. Two modules
+provide them, and the fixtures know about neither.
 
-`engine/current.mjs` is the adapter for the current tree, and it is doing one
-thing the clean lane will not need: `applyGround` writes the recorded ground
-descriptor *back into the globals* the current systems read it from. In the
-new lane that function becomes an argument pass. Its two neighbours —
-`engine/hooks.mjs` and `engine/stubs.mjs` — exist for the same reason, and
-retire with it: `frontend/src/grid.js` holds the plan and its style tokens in
-the same file as a DOM controller, so the hook swaps four
-application-shaped imports (`dom`, `detail`, `navigation`, `features`) for
-stubs that throw if anything ever calls them. The cell math itself is loaded
-from its real source files, unbundled and unedited.
+`engine/cleanroom.mjs` — **what the gate judges today** — adapts
+`analysis/cellsystems`. It is short, and every line it does not have is the
+de-globalization: a ground is an argument, the held cell is an argument, and
+three of the eighteen contract methods live on the system while the other
+fifteen are reached through `system.on(ground)`.
+
+`engine/current.mjs` is the adapter for the current tree, and it does one thing
+the clean lane does not need: `applyGround` writes the recorded ground
+descriptor *back into the globals* the old systems read it from. Its two
+neighbours — `engine/hooks.mjs` and `engine/stubs.mjs` — exist for the same
+reason: `frontend/src/grid.js` holds the plan and its style tokens in the same
+file as a DOM controller, so the hook swaps four application-shaped imports
+(`dom`, `detail`, `navigation`, `features`) for stubs that throw if anything
+ever calls them. The cell math itself is loaded from its real source files,
+unbundled and unedited. All three stay because the oracle is worth being able
+to re-run; none of them is on the gate's default path.
 
 ## Re-capturing
 

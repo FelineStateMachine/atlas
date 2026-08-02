@@ -16,7 +16,8 @@ disagree, the issue wins.
 make golden          # every gate, in order; skips what has no lane yet
 make depcheck        # the Go guardrails alone
 make golden-all      # attempt every gate, including the unready ones
-make lint-lanes      # the TypeScript guardrails (needs M6's lanes + eslint)
+make lint-lanes      # the TypeScript guardrails alone
+make analysis-lane   # the analysis lane's gate: lint + typecheck + conformance
 go test ./golden/... # the harness's own tests
 ```
 
@@ -28,6 +29,7 @@ A run prints one line per gate, then the waiver file, then a count:
   PASS  format-roundtrip  ok  github.com/FelineStateMachine/atlas/golden/format  0.35s
   SKIP  generate-enrich   awaiting M2+M3 — the pipeline lanes: …
   PASS  analysis-vectors  9 grounds, 178 vectors in 8 families, 28 plans over …
+  PASS  analysis-lane     analysis lane: the boundary rules, tsc --strict and …
   PASS  http-replay       ok  github.com/FelineStateMachine/atlas/golden/http
   PASS  depcheck          depcheck: 5 rules over …
 
@@ -35,7 +37,7 @@ waivers: 2 accepted divergences from the goldens (golden/waivers.json)
   WAIVED  app-shell-page   http-replay/GET /: …
   WAIVED  seam-assets      http-replay/GET /static/app.css, …
 
-6 suites: 4 passed, 2 skipped, 0 failed
+7 suites: 5 passed, 2 skipped, 0 failed
 ```
 
 A run where everything skips is green. That is deliberate: the harness lands
@@ -56,11 +58,17 @@ recorded bodies too when the variable names a bundles directory holding the
 fixture builds (see `golden/http/NOTES.md`). Both modes must pass; CI runs the
 first.
 
-Four gates run today. `depcheck`, `format-roundtrip` and `http-replay` need
-only Go; `analysis-vectors` runs on plain node and needs the cell math's own
-dependencies — `npm --prefix frontend ci` — because the implementation it
-drives until M6 is the current tree's module, which imports s2js and
-OpenLayers. The workflow installs them; no browser and no bundler is involved.
+Five gates run today. `depcheck`, `format-roundtrip` and `http-replay` need
+only Go. The two
+analysis gates run on plain node and need one `npm ci` at the **repository
+root** — the workspace install that brings the analysis lane its single
+dependency (s2js), plus eslint and tsc — and a node that strips TypeScript
+types (22.18+, or 24+). The workflow installs them; no browser and no bundler
+is involved.
+
+The old `npm --prefix frontend ci` is no longer on the gate's path. It is still
+what `ATLAS_ANALYSIS_ENGINE=current` needs, because that drives the pre-rewrite
+module and its OpenLayers imports; see `analysis/README.md`.
 
 ## The gates
 
@@ -71,7 +79,8 @@ seam — and the order the harness runs.
 | --- | --- | --- |
 | `format-roundtrip` | M1 | A fixture bundle read and rewritten by `format/bundle` is canonically identical. Canonical-content equality is mandatory; stamp identity is tracked per fixture as an aspiration (issue #5 §6). Runs today. |
 | `generate-enrich` | M2+M3 | `generate ⊕ enrich` reproduces the composed bundle fixtures. Correctness is defined at the composed-bundle level, which is why the internal interchange shape is free to differ from the old tree's (§5.1). |
-| `analysis-vectors` | M0 | The hand-derived geohash and S2 goldens and every recorded cell plan, byte-exact, compared **positionally** — plan emission order is frozen (§5.4). Runs today, against the current systems; M6 re-points it at `analysis/cellsystems` by changing one import. |
+| `analysis-vectors` | M0 | The hand-derived geohash and S2 goldens and every recorded cell plan, byte-exact, compared **positionally** — plan emission order is frozen (§5.4). Runs today, against `analysis/cellsystems`: M6 re-pointed it by changing one import, and the fixtures did not move. |
+| `analysis-lane` | M6 | The analysis lane's own gate: the TypeScript boundary rules of §9 (`eslint.config.mjs`), `tsc` at its strictest, and the conformance suite every cell system must pass (§5.4), run over geohash, S2 and a third system that exists only to prove the contract admits one. `make analysis-lane` is the same run on its own. |
 | `parity-compare` | M5+M6 | The ~45-step tour, extended into its blind spots, re-pointed at the new app. Diagnostics are emitted jointly: server session state as a JSON island plus seam state, under the golden key names. |
 | `http-replay` | M5 | Recorded catalog and sampled `/data` responses, replayed with their headers. The data plane is byte-compatible with today because the seam and the goldens both consume it (§4.2). Runs today, in two modes; the app plane's three exchanges are waived and reduced, not skipped. |
 | `depcheck` | M0 | The lane boundaries, as static analysis. Runs today. |
@@ -118,11 +127,20 @@ close it.
 ## analysis-vectors
 
 `analysis-vectors` is the one gate that did not wait for its lane, because it
-did not have to: the cell systems already exist as the oracle, so the vectors
-judge an implementation from the day they are captured and M6 inherits a gate
-that has been green — and therefore honest — the whole way. What each family
-pins, what a ground carries, and where the one-line switch lives are in
-[`analysis/README.md`](analysis/README.md).
+did not have to: the cell systems already existed as the oracle, so the vectors
+judged an implementation from the day they were captured and M6 inherited a
+gate that had been green — and therefore honest — the whole way. It paid off
+exactly as intended: the clean `analysis/cellsystems` passed all 178 vectors
+and all 28 plans on its first run, and the switch was one import line.
+
+`analysis-lane` is its sibling and answers a different question. The vectors
+say the lane *reproduces* the oracle; the lane gate says the lane is the
+*shape* the architecture asked for — no DOM, no fetch, nothing app-shaped, no
+`any`, no bare `console.*`, and every registered system passing a property
+suite rather than a list of examples. Both must be green. What each vector
+family pins and what a ground carries are in
+[`analysis/README.md`](analysis/README.md); the contract itself is
+[`docs/analysis.md`](../docs/analysis.md).
 
 ## generate-enrich
 
@@ -191,8 +209,9 @@ as a cost.
 The TypeScript half of the same boundaries lives in `/eslint.config.mjs`
 (analysis touches no DOM and nothing app-shaped; render imports only analysis
 and itself; fetch in the data layer; no bare `console.*` outside the log
-module). It is not wired into the existing frontend build and waits on M6's
-lanes.
+module). It is not wired into the existing frontend build. `make lint-lanes`
+runs it over `analysis/` today and picks up `render/` the moment that directory
+exists; the `analysis-lane` gate runs the same rules on every `make golden`.
 
 ## Waivers
 

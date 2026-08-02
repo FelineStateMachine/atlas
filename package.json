@@ -1,0 +1,25 @@
+{
+  "name": "atlas-workspaces",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "description": "The clean-room rewrite's TypeScript lanes (issue #5 §3.1). The pre-rewrite frontend/ keeps its own package and its own lock file; nothing here builds it.",
+  "workspaces": [
+    "analysis"
+  ],
+  "engines": {
+    "node": ">=22.18"
+  },
+  "scripts": {
+    "lint": "eslint --config eslint.config.mjs analysis",
+    "typecheck": "tsc --project analysis/tsconfig.json",
+    "test": "node --test \"analysis/test/*.test.ts\"",
+    "lane": "npm run --silent lint && npm run --silent typecheck && npm run --silent test && echo 'analysis lane: the boundary rules, tsc --strict and the conformance suite all green'"
+  },
+  "devDependencies": {
+    "@types/node": "22.15.3",
+    "eslint": "9.39.0",
+    "typescript": "5.9.2",
+    "typescript-eslint": "8.46.0"
+  }
+}

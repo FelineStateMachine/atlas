@@ -9,16 +9,21 @@
 // for cell, because the plan's emission order is the contract (§5.4).
 //
 // ────────────────────────────────────────────────────────────────────────────
-// POINTING THIS AT THE NEW LANE (M6)
+// WHICH IMPLEMENTATION IS ON TRIAL (M6: the switch has been thrown)
 //
-// The line below is the switch. When `analysis/cellsystems` lands, write
-// `golden/analysis/engine/cleanroom.mjs` exporting the same eight functions
-// as `engine/current.mjs` — surfaceExtent, applicableSystems, invoke,
-// geohashCellAt, equivalentCell, clipRingX, cellPlan, cellVisual — and change
-// this import. Nothing else in the gate and nothing in the fixtures knows
-// which implementation is answering.
+// The line below is the switch, and it now names the clean lane. The gate
+// judges `analysis/cellsystems` — the eight functions come out of
+// `engine/cleanroom.mjs`, which adapts the lane's contract to them.
+//
+// `engine/current.mjs` stays where it is: it documents the oracle these
+// fixtures were recorded from and it still runs, so `ATLAS_ANALYSIS_ENGINE=current`
+// re-points the gate at the old tree for a side-by-side. The fixtures know
+// about neither.
 // ────────────────────────────────────────────────────────────────────────────
-import * as engine from "./engine/current.mjs";
+const engineModule = process.env.ATLAS_ANALYSIS_ENGINE === "current"
+  ? "./engine/current.mjs"
+  : "./engine/cleanroom.mjs";
+const engine = await import(engineModule);
 
 import fs from "node:fs";
 import path from "node:path";
