@@ -128,21 +128,31 @@ export default tseslint.config(
         {
           patterns: [
             {
-              // Allowlist. M6 declares the analysis package's real specifier
-              // here; the pinned dependency surface (OpenLayers, globe.gl /
-              // three, s2js) is the rest of it, and it grows only behind a
-              // green parity tour.
+              // The allowlist, as M6 declares it. The analysis lane's real
+              // specifier is its workspace name, `@atlas/analysis`; the
+              // pinned dependency surface (OpenLayers, globe.gl / three,
+              // s2js through analysis) is the rest of it, and it grows only
+              // behind a green parity tour. Relative imports are allowed at
+              // any depth — the lane is one package and its own directories
+              // are not a boundary.
+              //
+              // The patterns are gitignore-shaped, which is why each allowed
+              // scope is un-denied twice: gitignore cannot re-include a path
+              // whose parent directory is excluded, so `!ol` has to precede
+              // `!ol/**` for `ol/style/Style.js` to be admitted at all.
               group: [
                 "*",
-                "!./*",
-                "!../*",
-                "!analysis",
-                "!analysis/*",
+                "!.",
+                "!./**",
+                "!..",
+                "!../**",
+                "!@atlas",
+                "!@atlas/**",
                 "!ol",
-                "!ol/*",
+                "!ol/**",
                 "!globe.gl",
                 "!three",
-                "!three/*",
+                "!three/**",
                 "!s2js",
               ],
               message: cite(
@@ -157,6 +167,33 @@ export default tseslint.config(
                 "render/ must not import the application",
                 "5.5",
                 "data flows one way — server to scene description to seam — and only two things flow back: the atlas:pick event and the debounced camera report",
+              ),
+            },
+          ],
+        },
+      ],
+    },
+  },
+
+  {
+    // The seam's own tests run in Node, against the golden fixtures. They may
+    // reach for the standard library to read a file and hash bytes; they are
+    // not shipped, and every other boundary still holds over them.
+    files: ["render/test/**/*.ts"],
+    rules: {
+      "no-restricted-imports": [
+        "error",
+        {
+          patterns: [
+            {
+              group: [
+                "*", "!.", "!./**", "!..", "!../**", "!@atlas", "!@atlas/**",
+                "!node:*", "!ol", "!ol/**", "!globe.gl", "!three", "!three/**", "!s2js",
+              ],
+              message: cite(
+                "even the seam's tests import only the lane, the analysis package, its pinned surface and the standard library",
+                "5.5",
+                "a test that reached into the application would be proving the seam against the thing it is supposed to be independent of",
               ),
             },
           ],
