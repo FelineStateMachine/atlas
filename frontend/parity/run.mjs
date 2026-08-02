@@ -9,13 +9,15 @@
 // its own app process and a new browser session, and nothing touches either
 // before the tour does. The tour itself clears localStorage at both ends.
 //
-//   node frontend/parity/run.mjs [--bundles <dir>] [--out <file>]
+//   node frontend/parity/run.mjs [--bundles <dir>] [--volume <slug>] [--out <file>]
 //
 // --bundles pins ATLAS_BUNDLES_DIR so a recorded baseline names exactly one
-// bundle build; --out copies the freshly written tour log there. The browser
-// is driven through playwright-cli via npx, so the only prerequisite beyond
-// Node is a Playwright Chromium already installed (npx playwright install
-// chromium). macOS paths, like the dev loop itself.
+// bundle build; --volume names which of the offered volumes the run is about,
+// since a baseline is captured per volume and the tour otherwise opens on
+// whichever sorts first; --out copies the freshly written tour log there. The
+// browser is driven through playwright-cli via npx, so the only prerequisite
+// beyond Node is a Playwright Chromium already installed (npx playwright
+// install chromium). macOS paths, like the dev loop itself.
 
 import { spawn, spawnSync } from "node:child_process";
 import { copyFileSync, mkdtempSync, readdirSync, readFileSync, statSync } from "node:fs";
@@ -44,7 +46,7 @@ const cli = (...cliArgs) => {
   const result = spawnSync(
     "npx",
     ["--yes", "--package=@playwright/cli@latest", "playwright-cli", ...cliArgs],
-    { cwd: cliDir, encoding: "utf8", timeout: 600_000 },
+    { cwd: cliDir, encoding: "utf8", timeout: 1_800_000 },
   );
   if (result.status !== 0) {
     throw new Error(`playwright-cli ${cliArgs[0]} failed:\n${result.stdout}\n${result.stderr}`);
@@ -89,15 +91,16 @@ try {
   if (!url) throw new Error("the dev build never wrote inspector.url");
 
   cli("open", url);
+  const options = JSON.stringify(flag("--volume") ? { volume: flag("--volume") } : {});
   const badge = cli("run-code", `async page => {
     await page.waitForFunction(() =>
       window.__atlasTour && window.__atlasDebug &&
       document.querySelectorAll(".category-row").length > 0, null, { timeout: 60000 });
-    await page.evaluate(() => { window.__atlasTour(); });
+    await page.evaluate((options) => { window.__atlasTour(options); }, ${options});
     await page.waitForFunction(() => {
       const badge = document.querySelector("#parity-badge");
       return badge && (badge.textContent.includes("complete") || badge.textContent.includes("failed"));
-    }, null, { timeout: 480000 });
+    }, null, { timeout: 1500000 });
     return await page.evaluate(() => document.querySelector("#parity-badge").textContent);
   }`);
   // A tour that finished but found the map, the footer and the dock telling
