@@ -283,6 +283,33 @@ public baselines are identical across every step under the ignore list above.
 
 ---
 
+## 5.1 Walking the tour against the rewrite
+
+`golden/parity/compare.mjs` is the gate; `golden/HARNESS.md` says how to run
+it. Two things about it belong here, because they are contract rather than
+plumbing.
+
+**The reading half was re-pointed; the values were not.** The page underneath
+is a different page, so a handful of questions are asked of different
+elements: the panes are `<atlas-chart>` and `<atlas-globe>` rather than `#map`
+and `#globe`; the locator's shelf is `#atlas-overview`; the arrangement is
+read from the server's JSON island rather than from `localStorage`; and the
+empty-library card is a page of its own, so on an explorer page there is no
+`#empty-state` element to ask — an absent card is recorded as a card that is
+not shown, which is the same fact the reference recorded as `hidden`. Every
+one of those is written down at the read in `golden/parity/tour.js`. No value
+was redefined, and where a value genuinely cannot be equal it is a waiver in
+`golden/waivers.json`, never an edited baseline.
+
+**`refreshCatalog` is gone and needed no replacement.** The reference opened
+`__atlasDebug.refreshCatalog()` for the harness. The rewritten page already
+re-reads its own URL whenever the library moves under it (docs/app.md §5), so
+the tour raises the event the application listens for instead of calling into
+it — which drives the real reconcile through the real wiring rather than a
+seam that existed only to be driven.
+
+---
+
 ## 6. Reproducing a baseline
 
 ```sh
@@ -352,6 +379,65 @@ issue §6.1) are a separate instrument and are not this one.
 is reachable on exactly one fixture, Mars, because it is the only volume
 declaring a sphere. Every `globe-*` assertion rests on that one volume's
 data.
+
+### The two gaps the rewrite could close
+
+Both of the headline gaps above were written when the reference was the only
+implementation. The rewritten application changes what is reachable, and the
+change is recorded here rather than acted on, because extending a step is a
+re-capture and a re-capture is not this milestone's to do.
+
+**Import over HTTP.** `POST /bundles/import` still raises a native picker
+through `hostenv.PickFile`, and `atlas serve` answers `ErrNotAvailable`, so
+`import-refused` is still the refusal it always was. But the rewrite *can*
+rescan: `VolumeStore.Rescan` exists, an import calls it, and it is the thing
+the `catalog` event is raised by (docs/app.md §1.1, §5). A host route that
+took a path — the shape issue #5 §6's gap note asks for — would close this
+gap and the `import-*` steps should then be extended rather than left. Doing
+it now would move six baselines to prove a route nobody has written.
+
+**A catalog that actually changed.** Same answer, and closer than it was. The
+reference could not be told to look again; the rewrite can, and the reconcile
+the tour drives today goes through the application's own `catalog` wiring
+rather than through a harness-only hook. The two uncaptured paths — the open
+volume's build replaced, the open volume's bundle gone — need only a way to
+put a file in the library and say so, which is the same missing route. They
+remain the first thing to capture, and they are now a small thing to reach.
+
+---
+
+## What the rewrite has not reproduced yet
+
+The gate is wired and walking; it is not green, and `parity-compare` is
+declared unready until it is. These are the differences the diff still shows,
+each of them a behaviour to build rather than a baseline to edit. They are
+listed here so that turning the flag on is a matter of emptying a list.
+
+- **The camera never reaches the island.** `session.entry.center` and `.zoom`
+  are `null` on every step. The seam reports a settled camera to `POST
+  /session/view`, which answers `204` and swaps nothing (docs/app.md §4.3), so
+  the island goes on saying what it said at the last render. Either the island
+  becomes a region that the camera report re-renders, or the camera report
+  stops being the one concern that answers nothing.
+- **The keyboard's own steps.** `g`, `Escape`, `Space` and `⌘B` are wired as
+  `hx-trigger` shortcuts on the shell; what each one *does* to the grid and
+  the sidebar is implemented, and what the baselines record for
+  `grid-descended`, `subgrid-hidden` and `sidebar-collapsed` -- a cell cull, a
+  refit -- is not yet all of it.
+- **The label ladder is offered too widely.** Tunic records no label toggles
+  at all; the rewrite renders them, so six `label-*` steps appear on a volume
+  whose baseline has none. `semconv.LabelPolicy` offers a toggle where the
+  reference offered none.
+- **The reconcile is not yet invisible.** `catalog-reconciled` moves the
+  reader and the camera, and `catalog-reconciled-filtered` spends the reader's
+  filter: re-fetching the page is a heavier answer than the reference's
+  in-place reconcile, and it has to become a cheaper one.
+- **The footer's sentence lands late twice.** `section-folded` and
+  `sections-unfolded` record the server's half of the count rather than the
+  seam's completed sentence, because those two concerns re-render the legend
+  and nothing tells the seam to write the count again.
+- **`ui.dockFolded`.** A search reveals the panel in the reference; the
+  rewrite's `revealDock` does not fire on the same move.
 
 **Closed by the city.** `and-highlighted`, `labels-held-highlighted` and
 `and-cleared` — highlighting across two collections to read as AND — need a

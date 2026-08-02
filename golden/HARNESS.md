@@ -81,7 +81,7 @@ seam — and the order the harness runs.
 | `generate-enrich` | M2+M3 | `generate ⊕ enrich` reproduces the composed bundle fixtures. Correctness is defined at the composed-bundle level, which is why the internal interchange shape is free to differ from the old tree's (§5.1). |
 | `analysis-vectors` | M0 | The hand-derived geohash and S2 goldens and every recorded cell plan, byte-exact, compared **positionally** — plan emission order is frozen (§5.4). Runs today, against `analysis/cellsystems`: M6 re-pointed it by changing one import, and the fixtures did not move. |
 | `analysis-lane` | M6 | The analysis lane's own gate: the TypeScript boundary rules of §9 (`eslint.config.mjs`), `tsc` at its strictest, and the conformance suite every cell system must pass (§5.4), run over geohash, S2 and a third system that exists only to prove the contract admits one. `make analysis-lane` is the same run on its own. |
-| `parity-compare` | M5+M6 | The ~45-step tour, extended into its blind spots, re-pointed at the new app. Diagnostics are emitted jointly: server session state as a JSON island plus seam state, under the golden key names. |
+| `parity-compare` | M5+M6 | The tour, extended into its blind spots, re-pointed at the new app and walked against it from a fresh launch per volume. Diagnostics are emitted jointly: server session state as a JSON island plus seam state, under the golden key names. Wired and running; not yet green, so it is still declared unready — see below. |
 | `http-replay` | M5 | Recorded catalog and sampled `/data` responses, replayed with their headers. The data plane is byte-compatible with today because the seam and the goldens both consume it (§4.2). Runs today, in two modes; the app plane's three exchanges are waived and reduced, not skipped. |
 | `depcheck` | M0 | The lane boundaries, as static analysis. Runs today. |
 
@@ -123,6 +123,51 @@ derivation stamp — is not recoverable from a finished bundle, so the sum canno
 be recomputed by a reader. `golden/format/STAMPS.md` tracks the aspiration per
 fixture, names the proxies that are enforced instead, and says what in M2 would
 close it.
+
+## parity-compare
+
+The gate is `golden/parity/compare.mjs`, and it is four files:
+
+| File | What it is |
+| --- | --- |
+| `library.mjs` | the fixture link farm: exactly the builds `FIXTURES.json` names, linked into `golden/parity/.bundles`, so the registry's newest-wins fold has nothing to choose between and the library is the same everywhere. Shared with `capture.mjs`, which is what makes candidate and baseline comparable at all. |
+| `tour.js` | the walk. Every step name, order and self-check is the reference tour's; the reading half is re-pointed at the new page and every re-pointing says so where it is written. |
+| `run.mjs` | one walk from a fresh launch: its own `atlas serve`, its own session directory, its own browser, all three torn down afterwards. |
+| `compare.mjs` | the diff, the waivers, and the gate. |
+
+```sh
+node golden/parity/compare.mjs                      # all six volumes
+node golden/parity/compare.mjs --only mars          # one of them
+node golden/parity/compare.mjs --only mars --save /tmp   # keep the candidate log
+node golden/parity/compare.mjs base.json cand.json  # two saved logs, no browser
+```
+
+**What is required to run it.** A built seam (`make static`) and a Playwright
+Chromium. The application is launched with `-static dist/static`, because a
+build with no seam answers no viewport question at all — which is the
+deletability principle, and not something to discover halfway through a tour.
+
+**The fresh-launch rule holds by construction.** Every volume gets its own
+`atlas serve` over a session directory made for it and removed after it, and
+its own browser session. Nothing is carried between volumes; nothing survives
+a run. That is the rewrite's answer to the reference tour clearing
+`localStorage` at both ends, and it is stronger, because the reference could
+only clear what it knew about.
+
+**Waivers are paths.** A `parity-compare` waiver names the volumes it applies
+to (`*` for all) and the snapshot paths it covers; a path covers everything
+beneath it, so `library.lenses` covers every element of that array. Every
+waiver is printed on every run of the gate and again by the harness, which is
+what keeps an accepted divergence a visible cost rather than a green tick.
+The two advisory `tileStats` fields are *not* waivers — they are recorded and
+not compared, for the reason SCHEMA.md §5 gives, and they need no reviewer.
+
+**It is not ready yet, and the flag says so.** The tour walks, the step lists
+agree on the volumes checked, and the diff is down to a readable handful of
+fields per step. What is still open is written in `golden/parity/SCHEMA.md`
+§7 under "What the rewrite has not reproduced yet", one entry per behaviour,
+so that turning the flag on is a matter of emptying that list rather than of
+deciding the gate is close enough.
 
 ## analysis-vectors
 
