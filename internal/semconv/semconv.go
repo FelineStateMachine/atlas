@@ -116,6 +116,13 @@ const (
 	KeyGeoLat = "atlas.geo.lat"
 	KeyGeoLon = "atlas.geo.lon"
 
+	// HydroHUC12 names the USGS twelve-digit hydrologic unit -- the
+	// subwatershed -- a zone's ground lies wholly within, from the national
+	// Watershed Boundary Dataset, so watershed membership is machine-readable
+	// beside whatever sentence the zone's card shows. A zone spanning
+	// subwatersheds carries no key rather than a misleading one.
+	KeyHydroHUC12 = "atlas.hydro.huc12"
+
 	// StrokeWidthPx is the ground width of a zone whose features are lines
 	// rather than areas, in world pixels: a trail is a line and a weight,
 	// and declaring the weight lets a reader draw the path as one
@@ -196,6 +203,18 @@ func positiveDecimal(value string) error {
 	return nil
 }
 
+func huc12(value string) error {
+	if len(value) != 12 {
+		return fmt.Errorf("%q is not twelve digits", value)
+	}
+	for _, r := range value {
+		if r < '0' || r > '9' {
+			return fmt.Errorf("%q is not twelve digits", value)
+		}
+	}
+	return nil
+}
+
 func setName(value string) error {
 	set, name, found := strings.Cut(value, "/")
 	if !found || set == "" || name == "" {
@@ -239,6 +258,7 @@ var registry = map[string]definition{
 	KeyGeometryRadiusKM:    {EntityWorld, Experimental, decimal},
 	KeyGeoLat:              {EntityLocation, Experimental, decimal},
 	KeyGeoLon:              {EntityLocation, Experimental, decimal},
+	KeyHydroHUC12:          {EntityZone, Experimental, huc12},
 	KeyStrokeWidthPx:       {EntityZone, Experimental, positiveDecimal},
 	KeyCategoryKey:         {EntityCategory, Experimental, slug},
 }

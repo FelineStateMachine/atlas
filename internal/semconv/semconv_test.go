@@ -131,7 +131,7 @@ func TestRegistryAgreesWithItsDocument(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	row := regexp.MustCompile("(?m)^\\| `(atlas\\.[a-z_.]+)` \\| (bundle|world|zone|category|location) \\|.*\\| (stable|experimental) \\|")
+	row := regexp.MustCompile("(?m)^\\| `(atlas\\.[a-z0-9_.]+)` \\| (bundle|world|zone|category|location) \\|.*\\| (stable|experimental) \\|")
 	documented := make(map[string][2]string)
 	for _, match := range row.FindAllStringSubmatch(string(doc), -1) {
 		documented[match[1]] = [2]string{match[2], match[3]}

@@ -104,6 +104,9 @@ func fixtureCapture() Capture {
 				{ID: 1, Fields: Fields{"ZONE": "PF"}, Geometry: square(-121.31, 44.05, 0.004)},
 				{ID: 2, Fields: Fields{"ZONE": "RS"}, Geometry: square(-121.30, 44.06, 0.002)},
 				{ID: 3, Fields: Fields{"ZONE": "PF"}, Geometry: square(-121.28, 44.08, 0.003)},
+				// A second RS parcel in the other subwatershed: the RS zone
+				// straddles, and must say nothing about membership.
+				{ID: 4, Fields: Fields{"ZONE": "RS"}, Geometry: square(-121.36, 44.135, 0.002)},
 			}},
 			{Slug: "annexations", Features: []Feature{
 				{ID: 3, Fields: Fields{"DESCRIPT": "Rockridge Park", "EFF_DATE": "1556866800000", "ORDIN_NO": "NS-2327"}, Geometry: square(-121.29, 44.09, 0.002)},
@@ -112,11 +115,30 @@ func fixtureCapture() Capture {
 				{ID: 1, Fields: Fields{"TYPE": "Significant Identified Wetlands", "MAP_CODE": "R9"}, Geometry: square(-121.32, 44.04, 0.003)},
 			}},
 			{Slug: "trails", Features: []Feature{
-				{ID: 6, Fields: Fields{"Trail_Name": "Riley Ranch", "Park": "Riley Ranch Nature Reserve", "Status": "Existing"}, Geometry: line([2]float64{-121.35, 44.11}, [2]float64{-121.345, 44.115})},
+				{ID: 6, Fields: Fields{"Trail_Name": "Riley Ranch", "Park": "Riley Ranch Nature Reserve", "Status": "Existing"}, Geometry: line([2]float64{-121.35, 44.14}, [2]float64{-121.345, 44.145})},
 				{ID: 7, Fields: Fields{"Trail_Name": "Planned Spur", "Status": "Proposed"}, Geometry: line([2]float64{-121.33, 44.02}, [2]float64{-121.329, 44.021})},
 			}},
 			{Slug: "mpo-boundary", Features: []Feature{
 				{ID: 21, Fields: Fields{"LABEL": "MPO BOUNDARY"}, Geometry: square(-121.40, 43.97, 0.17)},
+			}},
+			// The national enrichment, city-sized: two subwatersheds that
+			// between them hold most of the city fixtures -- but not the MPO
+			// boundary's corners, so that zone's ground lands nowhere and it
+			// claims nothing.
+			{Slug: "watersheds", Features: []Feature{
+				{ID: 1707030101, Fields: Fields{"huc10": "1707030101", "name": "Tumalo Creek"}, Geometry: square(-121.40, 44.00, 0.15)},
+			}},
+			{Slug: "subwatersheds", Features: []Feature{
+				{ID: 170703010101, Fields: Fields{"huc12": "170703010101", "name": "Tumalo Creek"}, Geometry: square(-121.37, 44.03, 0.10)},
+				{ID: 170703010102, Fields: Fields{"huc12": "170703010102", "name": "Bull Creek"}, Geometry: square(-121.37, 44.131, 0.03)},
+			}},
+			{Slug: "streams", Features: []Feature{
+				{ID: 51, Fields: Fields{"gnis_name": "Tumalo Creek"}, Geometry: line([2]float64{-121.34, 44.05}, [2]float64{-121.30, 44.07})},
+			}},
+			{Slug: "waterbodies", Features: []Feature{
+				{ID: 61, Fields: Fields{"GNIS_NAME": "Mirror Pond"}, Geometry: square(-121.316, 44.057, 0.002)},
+				// An unnamed pond draws into the basemap but earns no zone.
+				{ID: 62, Geometry: square(-121.29, 44.05, 0.001)},
 			}},
 		},
 	}
@@ -204,13 +226,14 @@ func TestTranslateShapesTheDocument(t *testing.T) {
 
 	// Zones: the boundary as one, zoning bucketed by code, annexations by
 	// decade, wetlands by type, and only the existing named trail -- in
-	// curated dataset order.
+	// curated dataset order, with the national enrichment after them all.
 	titles := make([]string, 0, len(out.Regions))
 	for _, region := range out.Regions {
 		titles = append(titles, region.Title)
 	}
 	want := []string{"MPO Boundary", "PF", "RS", "Annexed 2010–2019",
-		"Significant Identified Wetlands", "Riley Ranch"}
+		"Significant Identified Wetlands", "Riley Ranch",
+		"Tumalo Creek", "Tumalo Creek", "Bull Creek", "Tumalo Creek", "Mirror Pond"}
 	if len(titles) != len(want) {
 		t.Fatalf("zones are %v", titles)
 	}
@@ -218,6 +241,48 @@ func TestTranslateShapesTheDocument(t *testing.T) {
 		if titles[at] != name {
 			t.Fatalf("zones are %v, want %v", titles, want)
 		}
+	}
+
+	// The national zones say which grain of the nation they are.
+	if got := out.Regions[6].Subtitle; got != "Watershed · HUC 1707030101" {
+		t.Fatalf("watershed subtitle is %q", got)
+	}
+	if got := out.Regions[7].Subtitle; got != "Subwatershed · HUC 170703010101" {
+		t.Fatalf("subwatershed subtitle is %q", got)
+	}
+	if got := out.Regions[9].Subtitle; got != "Stream" {
+		t.Fatalf("stream subtitle is %q", got)
+	}
+	if got := out.Regions[10].Subtitle; got != "Waterbody" {
+		t.Fatalf("waterbody subtitle is %q", got)
+	}
+
+	// Membership: the PF zone's ground lies wholly in one subwatershed, so
+	// it says so, once, in both spellings.
+	pf := out.Regions[1]
+	if pf.Description != "Lies in the Tumalo Creek subwatershed (HUC 170703010101)." {
+		t.Fatalf("PF card reads %q", pf.Description)
+	}
+	if err := semconv.Validate(semconv.EntityZone, pf.Attrs); err != nil {
+		t.Fatalf("PF attrs: %v", err)
+	}
+	if pf.Attrs[semconv.KeyHydroHUC12] != "170703010101" {
+		t.Fatalf("PF claims %q", pf.Attrs[semconv.KeyHydroHUC12])
+	}
+	// The RS zone straddles the two subwatersheds and says nothing; the MPO
+	// boundary's corners land in no unit and it says nothing either; the
+	// national zones never describe themselves.
+	for _, at := range []int{2, 0, 7} {
+		zone := out.Regions[at]
+		if zone.Description != "" || zone.Attrs[semconv.KeyHydroHUC12] != "" {
+			t.Fatalf("zone %q claims membership: %q %v", zone.Title, zone.Description, zone.Attrs)
+		}
+	}
+	// A line zone in one subwatershed claims it alongside its stroke.
+	riley := out.Regions[5]
+	if riley.Attrs[semconv.KeyHydroHUC12] != "170703010102" ||
+		riley.Attrs[semconv.KeyStrokeWidthPx] != "12" {
+		t.Fatalf("trail attrs are %v", riley.Attrs)
 	}
 	if out.Regions[1].Subtitle != "Zoning" {
 		t.Fatalf("PF subtitle is %q", out.Regions[1].Subtitle)
@@ -246,7 +311,7 @@ func TestTranslateShapesTheDocument(t *testing.T) {
 	if len(lineCoords) != 1 || len(lineCoords[0]) != 2 {
 		t.Fatalf("the two-point trail should stay one two-point line, got %v", lineCoords)
 	}
-	if out.Regions[1].Attrs != nil {
+	if _, stroked := out.Regions[1].Attrs[semconv.KeyStrokeWidthPx]; stroked {
 		t.Fatalf("a polygon zone declares no stroke, got %v", out.Regions[1].Attrs)
 	}
 
@@ -426,6 +491,9 @@ func TestRound7(t *testing.T) {
 
 // The curated table itself must be internally sound: slugs unique and
 // well-formed, point datasets fully spelled, zone functions only on ground.
+// Every city walks with the national enrichment appended, so a private
+// city registered from cities_local.go is held to the same rules,
+// collisions with the national slugs included.
 func TestCuratedTableIsSound(t *testing.T) {
 	for slug, city := range Cities {
 		if slug != city.Slug {
@@ -435,13 +503,16 @@ func TestCuratedTableIsSound(t *testing.T) {
 			t.Fatalf("city %q declares no ground or no pyramid", slug)
 		}
 		seen := map[string]bool{}
-		for _, dataset := range city.Datasets {
+		for _, dataset := range city.AllDatasets() {
 			if dataset.Slug == "" || seen[dataset.Slug] {
 				t.Fatalf("dataset slug %q is empty or doubled", dataset.Slug)
 			}
 			seen[dataset.Slug] = true
-			if dataset.ItemID == "" || dataset.Title == "" {
-				t.Fatalf("dataset %q is missing its identity", dataset.Slug)
+			if (dataset.ItemID == "") == (dataset.Server == "") || dataset.Title == "" {
+				t.Fatalf("dataset %q wants exactly one identity, hub or national", dataset.Slug)
+			}
+			if dataset.Server != "" && len(dataset.Keep) == 0 {
+				t.Fatalf("dataset %q pages a national layer without a row identity", dataset.Slug)
 			}
 			isPoint := dataset.Geometry == "point"
 			if isPoint != (dataset.Group != "") {
