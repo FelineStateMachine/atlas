@@ -21,9 +21,9 @@
 //   reason. There is no third answer, and there is deliberately no flag here
 //   that would produce one.
 //
-//   ADVISORY FIELDS ARE RECORDED AND NOT COMPARED. Two of them, both counting
-//   tiles fetched since the lens was chosen, both measuring the route two runs
-//   took rather than the destination (SCHEMA.md §5). They stay in the log.
+//   ADVISORY FIELDS ARE RECORDED AND NOT COMPARED. Three of them, all about
+//   tiles since the lens was chosen, all measuring the route two runs took
+//   rather than the destination (SCHEMA.md §5). They stay in the log.
 //
 //   WAIVERS ARE PATHS, AND THEY ARE PRINTED. A waiver names snapshot paths
 //   that are allowed to differ; every one of them is listed on every run, so
@@ -47,8 +47,8 @@ const flag = (name, fallback) => {
 };
 const has = (name) => args.includes(name);
 
-/** The two fields a baseline records and does not bind (SCHEMA.md §5). */
-const ADVISORY = ["tileStats.requested", "tileStats.loaded"];
+/** The three fields a baseline records and does not bind (SCHEMA.md §5). */
+const ADVISORY = ["tileStats.requested", "tileStats.loaded", "tileStats.peakPending"];
 
 // ---- diffing ----------------------------------------------------------
 

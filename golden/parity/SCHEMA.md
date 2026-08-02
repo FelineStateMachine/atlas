@@ -448,18 +448,30 @@ Run `golden/parity/compare.mjs baseline.json candidate.json`. Every leaf of
 every snapshot binds, **except**:
 
 ```
---ignore tileStats.requested,tileStats.loaded
+--ignore tileStats.requested,tileStats.loaded,tileStats.peakPending
 ```
 
-Two fields, both counting tiles fetched since the lens was chosen. They
-measure the *route* two runs took to the same destination rather than the
-destination: a browser that samples one fly-to a frame differently fetches a
-tile the other never wanted, and no amount of settling undoes a request
-already made. Across every paired run taken here — each of the six public
-fixtures captured twice from two fresh launches, twice over — nothing else
-ever moved. The fields stay recorded — a candidate that fetches four times as
-many tiles is worth seeing — they are simply not equality-checked.
-`tileStats.errors` and `tileStats.peakPending` bind as usual.
+Three fields, all about tiles since the lens was chosen. They measure the
+*route* two runs took to the same destination rather than the destination: a
+browser that samples one fly-to a frame differently fetches a tile the other
+never wanted, and no amount of settling undoes a request already made. Across
+every paired run taken here — each of the six public fixtures captured twice
+from two fresh launches, twice over — nothing else ever moved. The fields stay
+recorded, because a candidate that fetches four times as many tiles is worth
+seeing; they are simply not equality-checked. `tileStats.errors` binds as
+usual: a tile that failed to load is a fact about the build.
+
+**`peakPending` joined them when the extended half was captured**, and the
+reason belongs here because the rule in this file is *fix it, do not ignore
+it*. It is the high-water mark of requests in flight at once — a measure of
+overlap rather than of anything a walk arrives at — and overlap is the one
+thing a settle cannot repair after the event: waiting for a page to go quiet
+says nothing about how many requests were in the air together a moment
+earlier. It held still over the steps the reference captured because those
+steps *step* the camera, and this half flies it: two zoom-outs to find an aim,
+a zoom-in to find a gap between eight thousand features, a telescope into a
+cell. Three walks of mars against one build read 12, 16 and 2 at the same
+step. Nothing else in the extended half moved between runs at all.
 
 Two other things were unstable and were **fixed rather than ignored**, which
 is the rule:
@@ -677,19 +689,21 @@ remain the first thing to capture, and they are now a small thing to reach.
 ## What the rewrite reproduces, and the two things it does not
 
 All six volumes agree with their baselines, step for step and field for field,
-under the declared waivers and the two advisory `tileStats` counters. The tour
-finds no problems on any of them: the map, the footer and the dock tell one
-story on every step of every walk, a closed card gives back the view a jump
-borrowed, and the sphere and the chart lose the same pins to one filter.
+under the declared waivers and the three advisory `tileStats` counters — over
+the whole walk now, extended half included, with every picture compared
+against its committed twin. The tour finds no problems on any of them: the
+map, the footer and the dock tell one story on every step of every walk, a
+closed card gives back the view a jump borrowed, and the sphere and the chart
+lose the same pins to one filter.
 
-| volume | steps | tour's own checks | fields differing |
-|---|---|---|---|
-| tunic | 37 / 37 | clean | **0** |
-| cyberpunk-2077 | 49 / 49 | clean | **0** |
-| fallout-new-vegas | 39 / 39 | clean | **0** |
-| zelda-tears-of-the-kingdom | 67 / 67 | clean | **0** |
-| mars | 59 / 59 | clean | **0** |
-| bend-or | 66 / 66 | clean | **0** |
+| volume | steps | pictures | tour's own checks | fields differing |
+|---|---|---|---|---|
+| tunic | 70 / 70 | 6 | clean | **0** |
+| cyberpunk-2077 | 82 / 82 | 6 | clean | **0** |
+| fallout-new-vegas | 72 / 72 | 6 | clean | **0** |
+| zelda-tears-of-the-kingdom | 102 / 102 | 7 | clean | **0** |
+| mars | 95 / 95 | 8 | clean | **0** |
+| bend-or | 103 / 103 | 7 | clean | **0** |
 
 Two differences are declared rather than reproduced, and both are the same
 kind of thing: a number the reference read off a window that was about to stop

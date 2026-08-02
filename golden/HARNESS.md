@@ -119,7 +119,7 @@ seam — and the order the harness runs.
 | `analysis-lane` | M6 | The analysis lane's own gate: the TypeScript boundary rules of §9 (`eslint.config.mjs`), `tsc` at its strictest, and the conformance suite every cell system must pass (§5.4), run over geohash, S2 and a third system that exists only to prove the contract admits one. `make analysis-lane` is the same run on its own. |
 | `render-lane` | M6 | The seam's own gate, beside the analysis lane's: the same TypeScript boundary rules, `tsc` at its strictest, the seam's unit tests against the golden fixtures, and the ~3,000 authored-line budget of §5.5 as a warning that never fails a build. `make render-lane` is the same run on its own. Runs today. |
 | `island` | M5 | The server's half of the joint diagnostics §6 asks for: the state island held to the `session` object every parity baseline records, key for key, over sequences driven through the application's own routes. The other half is `parity-compare`. Runs today. |
-| `parity-compare` | M5+M6 | The tour, extended into its blind spots, re-pointed at the new app and walked against it from a fresh launch per volume. Diagnostics are emitted jointly: server session state as a JSON island plus seam state, under the golden key names. Runs today, over all six fixture volumes, and green under two declared waivers. |
+| `parity-compare` | M5+M6 | The tour, extended into its blind spots, re-pointed at the new app and walked against it from a fresh launch per volume. Diagnostics are emitted jointly: server session state as a JSON island plus seam state, under the golden key names. Runs today over all six fixture volumes — the extended half included, so a real pointer, the focus, and forty committed pictures are all judged — and green under the declared waivers. |
 | `http-replay` | M5 | Recorded catalog and sampled `/data` responses, replayed with their headers. The data plane is byte-compatible with today because the seam and the goldens both consume it (§4.2). Runs today, in two modes; the app plane's three exchanges are waived and reduced, not skipped. |
 | `depcheck` | M0 | The lane boundaries, as static analysis. Runs today. |
 
@@ -187,14 +187,13 @@ tour was structurally unable to see with — real pointer events at a feature's
 pixel, keys that record where the focus landed and can be dispatched *at* a
 text field, and driver-taken screenshots compared perceptually — are described
 in `golden/parity/SCHEMA.md` §2.1. The gate walks them when the *baseline*
-holds them: while the six committed baselines are the pre-existing ones,
-nothing changes and this gate is exactly what it was; when the capture wave
-(SCHEMA.md §6.1) commits extended baselines and the pictures beside them, every
-run walks all three kinds on every volume and there is no lever to turn them
-off. `--extended` forces the walk before that, which is how a fix is checked.
-Several of the new steps assert behaviour that is not in the tree yet and are
-listed as awaiting-fix in SCHEMA.md §2.1.4 — that table is what tells the
-capture wave the difference between new coverage and a regression.
+holds them, and the baselines hold them now: the capture wave of SCHEMA.md
+§6.1 has run, so **every run of this gate walks all three kinds on every
+volume**, compares every picture against its committed twin, and there is no
+lever to turn any of it off. `--extended` forces the walk without the
+baselines, which is how a fix is checked before a capture. SCHEMA.md §2.1.4's
+awaiting-fix table is spent: every step in it is green, and the two pictures
+it named are taken.
 
 **What is required to run it.** A built seam (`make static`) and a Playwright
 Chromium. The application is launched with `-static dist/static`, because a
@@ -234,7 +233,7 @@ not a loosening — it is the opposite: a divergence that happens at one step of
 sixty is a smaller bill than the same field waived across a whole tour, and
 spelling the step is what keeps the field bound everywhere else. Every waiver
 is printed on every run of the gate, with its paths and its steps, and again by
-the harness. The two advisory `tileStats` fields are *not* waivers — they are
+the harness. The three advisory `tileStats` fields are *not* waivers — they are
 recorded and not compared, for the reason SCHEMA.md §5 gives, and they need no
 reviewer.
 
