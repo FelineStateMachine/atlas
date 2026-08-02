@@ -223,3 +223,97 @@ test("a page with no navigator on it wires nothing and says nothing", () => {
   const seam = viewport();
   assert.doesNotThrow(() => (seam.wireGridInput as () => void).call(seam));
 });
+
+// ---- the pane a world change leaves standing ---------------------------
+//
+// WHICH PANE IS UP IS SEAM STATE, and that is right until the world changes.
+// A filter must not drop the reader back to the chart, so the flag survives
+// every swap -- and a volume change is the one swap where surviving is wrong.
+// The reader opened Night City while the Mars globe was up: the server did its
+// half (the toggle is rendered `hidden` for a world that declares no sphere,
+// `topbar.tmpl`), and the sphere went on turning in front of it, still wearing
+// the skin of the world they had left.
+//
+// The scene says which surface the world declares, so the pane is put right in
+// the tick the scene moved rather than a payload later.
+
+/** The two panes, as much of them as a pane flip touches. */
+function panes() {
+  const chart = {
+    hidden: true, located: [] as unknown[], counted: 0,
+    locate(where: unknown) { this.located.push(where); },
+    show() {}, restyle() {}, writeCount() { this.counted += 1; }, redrawOverview() {},
+  };
+  const globe = { retired: 0, retire() { this.retired += 1; }, show() {} };
+  return { chart, globe };
+}
+
+/** A viewport with the sphere up over a world, and a toggle saying so. */
+function standing(): {
+  seam: Seam;
+  chart: ReturnType<typeof panes>["chart"];
+  globe: ReturnType<typeof panes>["globe"];
+  toggle: { pressed: string };
+} {
+  const seam = viewport();
+  const { chart, globe } = panes();
+  seam.querySelector = (selector: string) => (selector === "atlas-chart" ? chart : globe);
+  seam.globeUp = true;
+  // No volume in the catalog: the scene is read and the pane decided before a
+  // payload is ever asked for, which is the point -- a sphere over the wrong
+  // world must come down even if nothing else about the new one ever arrives.
+  seam.catalog = { volumes: [] };
+  const toggle = {
+    pressed: "true",
+    setAttribute: (name: string, value: string) => {
+      if (name === "aria-pressed") toggle.pressed = value;
+    },
+  };
+  nodes.set("#globe-toggle", toggle);
+  return { seam, chart, globe, toggle };
+}
+
+function scene(surface: "plane" | "sphere"): Record<string, unknown> {
+  return { volume: "cyberpunk-2077", base: "/data/cyberpunk", world: "night-city", surface };
+}
+
+const swapped = { volume: true, world: true, lens: true, filters: false,
+  selection: false, grid: false, camera: false, any: true };
+
+function applied(seam: Seam, surface: "plane" | "sphere"): Promise<void> {
+  return (seam.apply as (scene: unknown, change: unknown) => Promise<void>)
+    .call(seam, scene(surface), swapped);
+}
+
+test("a world that declares no sphere takes the sphere down with it", async () => {
+  const { seam, chart, globe, toggle } = standing();
+  await applied(seam, "plane");
+  assert.equal(seam.globeUp, false, "the pane flag follows the world");
+  assert.equal(chart.hidden, false, "the chart is back on screen");
+  assert.deepEqual(chart.located, [null], "and reading its own camera again rather than being told");
+  assert.equal(globe.retired, 1, "the planet is given back, not merely hidden");
+  assert.equal(toggle.pressed, "false", "and the control says which pane is up");
+});
+
+test("a world that does declare one is left exactly as it was found", async () => {
+  const { seam, chart, globe, toggle } = standing();
+  await applied(seam, "sphere");
+  assert.equal(seam.globeUp, true, "the reader is still on the sphere");
+  assert.equal(chart.hidden, true);
+  assert.equal(globe.retired, 0);
+  assert.equal(toggle.pressed, "true");
+});
+
+test("putting the sphere down twice is putting it down once", async () => {
+  // Every scene change over a plane comes through here -- a filter, a
+  // selection, a grid -- so the second pass must be a pass over nothing. The
+  // sphere is asked again and answers for free (`AtlasGlobe.retire` returns on
+  // an element that is already about no world); what must not happen twice is
+  // anything the reader would see.
+  const { seam, chart } = standing();
+  await applied(seam, "plane");
+  await applied(seam, "plane");
+  assert.equal(seam.globeUp, false);
+  assert.equal(chart.hidden, false);
+  assert.deepEqual(chart.located, [null], "the chart was put back once, not once per scene");
+});

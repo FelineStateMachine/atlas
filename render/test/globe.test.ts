@@ -202,7 +202,7 @@ test("a card floats above its pin and draws over the planet", () => {
   assert.equal(material.depthWrite, false);
   assert.equal(material.sizeAttenuation, false, "screen-sized, not world-sized");
   assert.equal(material.transparent, true);
-  assert.equal(card.renderOrder, 4);
+  assert.equal(card.renderOrder, 5, "over the grid (1, 2, 4) and over the pin it names (3)");
   assert.deepEqual([card.center.x, card.center.y], [0.5, 0], "anchored by its bottom edge");
   assert.deepEqual([card.position.x, card.position.y, card.position.z], [0, 0, 101]);
 });
@@ -333,6 +333,13 @@ test("a collection's marker is built once and shared by every pin wearing it", (
     "a different colour is a different marker");
   assert.equal(first.depthWrite, false);
   assert.equal(first.sizeAttenuation, false, "a pin keeps its size however close the camera comes");
+  // THE DEFECT THIS PINS DOWN. A pin's sprite is screen-sized around a point
+  // half a unit off the skin, so at the limb most of that square stands over
+  // ground nearer the camera than its own anchor: tested against the depth
+  // buffer, the planet swallowed the buried half and the reader saw icons sunk
+  // to the waist in the rim. An icon is drawn on top of the raster, and the
+  // far side is kept out by the horizon instead (`cull`).
+  assert.equal(first.depthTest, false, "a pin is not clipped by the ground it stands on");
 });
 
 test("a marker with no picture wears its collection's initials in its colour", () => {
@@ -501,7 +508,8 @@ test("a fill is drawn under the boundary and over the tiles, writing no depth", 
   const mesh = ringFill(sphere, ring, corners, [5, 5], { color: "#4fb3d5", opacity: 0.14 });
   assert.ok(mesh);
   const material = mesh.material as THREE.MeshBasicMaterial;
-  assert.equal(mesh.renderOrder, 1, "over the tiles (0), under the boundary (2) and the chip (3)");
+  assert.equal(mesh.renderOrder, 1,
+    "over the tiles (0), under the boundary (2), the pins (3), the chip (4) and the cards (5)");
   assert.equal(material.transparent, true);
   assert.equal(material.opacity, 0.14);
   assert.equal(material.depthWrite, false, "a sheet that wrote depth would erase its own boundary");

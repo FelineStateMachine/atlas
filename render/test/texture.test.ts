@@ -135,7 +135,7 @@ function baseTiles(tag: string): string[] {
 
 test("dropping the neighbourhood does not cancel the base skin under it", async () => {
   const skin = fresh();
-  const painting = skin.base("v1", alpha, urls("alpha"), nothing);
+  const painting = skin.base("v1", "mars", alpha, urls("alpha"), nothing);
   await settle();
   assert.equal(parked.length, 1, "the base pass is suspended on its first tile");
 
@@ -153,7 +153,7 @@ test("dropping the neighbourhood does not cancel the base skin under it", async 
 
 test("a base skin that did arrive is not composited a second time", async () => {
   const skin = fresh();
-  const first = skin.base("v1", alpha, urls("alpha"), nothing);
+  const first = skin.base("v1", "mars", alpha, urls("alpha"), nothing);
   await deliverAll();
   await first;
   assert.equal(drawn.length, 4);
@@ -161,14 +161,14 @@ test("a base skin that did arrive is not composited a second time", async () => 
   // Leave, and come back: `leave` drops the neighbourhood, `show` asks for
   // the same lens again. The skin is on the texture and is left there.
   skin.clearDetail();
-  await skin.base("v1", alpha, urls("alpha"), nothing);
+  await skin.base("v1", "mars", alpha, urls("alpha"), nothing);
   assert.equal(parked.length, 0, "no tile was asked for");
   assert.equal(drawn.length, 4, "and nothing was drawn again");
 });
 
 test("a base skin cancelled by a whole-skin clear is asked for again", async () => {
   const skin = fresh();
-  const abandoned = skin.base("v1", alpha, urls("alpha"), nothing);
+  const abandoned = skin.base("v1", "mars", alpha, urls("alpha"), nothing);
   await settle();
   skin.clear();
   await deliverAll();
@@ -176,7 +176,7 @@ test("a base skin cancelled by a whole-skin clear is asked for again", async () 
   assert.deepEqual(drawn, [], "the cancelled pass drew nothing after the clear");
 
   // The key was never committed, so the very same request repaints.
-  const retry = skin.base("v1", alpha, urls("alpha"), nothing);
+  const retry = skin.base("v1", "mars", alpha, urls("alpha"), nothing);
   await deliverAll();
   await retry;
   assert.deepEqual(drawn, baseTiles("alpha"));
@@ -184,9 +184,9 @@ test("a base skin cancelled by a whole-skin clear is asked for again", async () 
 
 test("a newer base skin supersedes the one in flight, and it is the one kept", async () => {
   const skin = fresh();
-  const stale = skin.base("v1", alpha, urls("alpha"), nothing);
+  const stale = skin.base("v1", "mars", alpha, urls("alpha"), nothing);
   await settle();
-  const current = skin.base("v1", beta, urls("beta"), nothing);
+  const current = skin.base("v1", "mars", beta, urls("beta"), nothing);
   await deliverAll();
   await Promise.all([stale, current]);
   assert.deepEqual(drawn, baseTiles("beta"), "only the newer lens is on the texture");
@@ -194,7 +194,7 @@ test("a newer base skin supersedes the one in flight, and it is the one kept", a
 
   // The lens that was abandoned is not remembered as painted: going back to
   // it composites it, rather than trusting a texture it never finished.
-  const back = skin.base("v1", alpha, urls("alpha"), nothing);
+  const back = skin.base("v1", "mars", alpha, urls("alpha"), nothing);
   await deliverAll();
   await back;
   assert.deepEqual(drawn, baseTiles("alpha"));
@@ -235,4 +235,53 @@ test("the neighbourhood is not recomposited while the camera holds still", async
   await skin.detail(beta, 3, wanted, urls("beta"), nothing);
   assert.equal(parked.length, 0);
   assert.equal(drawn.length, 1);
+});
+
+// ---- one skin, and the worlds that pass under it ----------------------
+//
+// A sphere outlives a world. Flipping the volume select keeps the renderer,
+// the canvas and the texture hanging on it, and the only thing about the old
+// world is what is painted and where it landed -- so the two guards below are
+// the whole of the stale-skin defect: the reader opened another world and the
+// planet went on wearing the one before it.
+
+test("another world is another skin, even where the pyramid is spelled the same", async () => {
+  const skin = fresh();
+  const first = skin.base("v1", "mars", alpha, urls("mars"), nothing);
+  await deliverAll();
+  await first;
+  assert.deepEqual(drawn, baseTiles("mars"));
+
+  // The same volume and a pyramid of the same name: `tiles` is a path inside
+  // a world, so two worlds of one bundle collide here and nowhere else. Keyed
+  // on the base and the lens alone this composited nothing and the second
+  // world wore the first world's ground.
+  const second = skin.base("v1", "phobos", alpha, urls("phobos"), nothing);
+  await deliverAll();
+  await second;
+  assert.deepEqual(drawn, baseTiles("phobos"), "the second world composited its own skin");
+});
+
+test("a retargeted skin gives up its window, its pixels and both its keys", async () => {
+  const skin = fresh();
+  const first = skin.base("v1", "mars", alpha, urls("mars"), nothing);
+  await deliverAll();
+  await first;
+  const near = skin.detail(alpha, 3, [[0, 0]], urls("mars"), nothing);
+  await deliverAll();
+  await near;
+  assert.ok(drawn.length > 4, "a skin and a neighbourhood on the texture");
+
+  // The next world declares a different window of world pixels, so where
+  // every one of those tiles landed is wrong.
+  skin.retarget({ x: 0, y: 0, width: 512, height: 512 });
+  assert.deepEqual(drawn, [], "the texture was wiped rather than drawn over");
+  assert.equal(skin.tiles.size, 0, "and the neighbourhood went with it");
+
+  // Even the very same world and lens is composited again: nothing on this
+  // canvas is claimed any more.
+  const again = skin.base("v1", "mars", alpha, urls("mars"), nothing);
+  await deliverAll();
+  await again;
+  assert.deepEqual(drawn, [`mars/1/0/0`], "the new window is one tile of the pyramid");
 });

@@ -68,7 +68,19 @@ class StubObserver {
 }
 
 const host = globalThis as unknown as Record<string, unknown>;
-host.HTMLElement = class {};
+/**
+ * The one thing a pane's teardown asks of its own element: that it can be
+ * emptied. globe.gl's destructor gives back the renderer and leaves its canvas
+ * exactly where it put it, holding the last frame it drew, so the container is
+ * emptied by hand -- and the count is what a test reads that by.
+ */
+host.HTMLElement = class {
+  emptied = 0;
+
+  replaceChildren(): void {
+    this.emptied += 1;
+  }
+};
 host.window = globalThis;
 host.requestAnimationFrame = (): number => 0;
 host.cancelAnimationFrame = (): void => {};
@@ -316,4 +328,56 @@ test("a chart that leaves the page does not report a camera afterwards", () => {
   chart.disconnectedCallback();
   assert.equal(charted(chart).settle, undefined,
     "and it is cancelled: a camera reported after the pane went is a report about a world the reader has left");
+});
+
+// ---- and the sphere a world change withdraws --------------------------
+//
+// A disconnect is the element leaving the page. This is the page staying and
+// the *world* leaving: the reader opens a volume whose world is a game map,
+// and a sphere is no longer a thing this page offers. The reference destroys
+// the instance, forgets what it was textured for and empties the container
+// (`syncGlobe`, frontend/src/globe.js); leaving it standing is what put Night
+// City's map under a planet still wearing Mars's skin.
+
+/** What a retirement is measured by, past the fields a disconnect clears. */
+interface Retired extends Inside {
+  context: unknown;
+  equirect: unknown;
+  emptied: number;
+  hidden: boolean;
+}
+
+function retired(element: object): Retired {
+  return element as unknown as Retired;
+}
+
+test("a sphere the world no longer offers is put down, not merely hidden", () => {
+  const { element, globe } = built();
+  retired(element).context = { model: { slug: "mars" } };
+  retired(element).equirect = { px: [0, 0, 3600, 1800] };
+  const texture = new THREE.CanvasTexture(stubNode() as unknown as HTMLCanvasElement);
+  inside(element).texture = texture;
+  const seen: string[] = [];
+  watch(texture, seen, "skin");
+
+  element.retire();
+  assert.equal(element.hidden, true, "the pane is off screen");
+  assert.equal(globe.destructs(), 1, "the renderer is given back");
+  assert.deepEqual(seen, ["skin"], "and the skin with it");
+  assert.equal(retired(element).emptied, 1,
+    "the container is emptied: globe.gl's destructor leaves its canvas holding the last frame");
+  assert.equal(element.built, false);
+  // The difference from a disconnect, and the whole of the stale-skin defect:
+  // this element is not about that world any more. A disconnect keeps the
+  // context, because the same world is what the next entry builds from.
+  assert.equal(retired(element).context, null, "the world it was showing is forgotten");
+  assert.equal(retired(element).equirect, null, "and the flattening that world declared");
+});
+
+test("retiring a sphere that was never built costs nothing", () => {
+  const element = new AtlasGlobe();
+  element.retire();
+  element.retire();
+  assert.equal(retired(element).emptied, 0, "there was no canvas to take away");
+  assert.equal(element.hidden, true);
 });
