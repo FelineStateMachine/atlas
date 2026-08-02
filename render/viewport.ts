@@ -21,6 +21,7 @@ import { applicableSystems, cellSystems } from "@atlas/analysis";
 import type { CellSystem } from "@atlas/analysis";
 import { logger } from "./log.ts";
 import { wireKeyboard } from "./keys.ts";
+import { RowHover } from "./hover.ts";
 import { DataPlane } from "./data/plane.ts";
 import { reportCamera } from "./data/report.ts";
 import type { Catalog, Lens, TileGrid } from "./data/payload.ts";
@@ -47,6 +48,10 @@ export class AtlasViewport extends HTMLElement {
   // custom element can be disconnected and reconnected -- a swap that moved
   // it, a test that reused it -- and window listeners do not leave with it.
   private unkey: (() => void) | null = null;
+  // And the same for the legend's pointer: which row it is over is continuous
+  // state nobody posts, and the tracker's listeners live and die with this
+  // element (`hover.ts`).
+  private hover: RowHover | null = null;
 
   connectedCallback(): void {
     const selector = this.getAttribute("state-src") || "#atlas-viewport-state";
@@ -60,6 +65,9 @@ export class AtlasViewport extends HTMLElement {
     });
     this.unkey?.();
     this.unkey = wireKeyboard(this);
+    this.hover?.stop();
+    this.hover = new RowHover();
+    this.hover.start();
     this.wireGlobeToggle();
     this.wireZoom();
     this.wireGridInput();
@@ -75,6 +83,8 @@ export class AtlasViewport extends HTMLElement {
     this.watcher?.stop();
     this.unkey?.();
     this.unkey = null;
+    this.hover?.stop();
+    this.hover = null;
   }
 
   /** The one after-swap hook: re-resolve the scene node and re-read it. */
@@ -85,6 +95,11 @@ export class AtlasViewport extends HTMLElement {
     // The navigator is a region and a swap replaces it whole, so the field the
     // last swap left behind is not the field on screen.
     this.wireGridInput();
+    // The legend is a region too, and the one that moves most: every filtering
+    // move re-renders it. The list on screen may be a new node with no
+    // listener on it, or the same node carrying a mark from before the swap on
+    // a row the pointer is no longer over -- one pass answers both.
+    this.hover?.rescan();
     // The footer's sentence is half the application's and half this lane's,
     // and a swap that re-rendered the legend has just put the application's
     // half back on screen. A concern that touches the legend and not the
