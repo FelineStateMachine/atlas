@@ -546,7 +546,7 @@ what makes running this over a whole archive cheap. `-evidence DIR` resolves as
 | claim | held by |
 | --- | --- |
 | the merge reproduces the reference tree's judgement, pair by pair | `golden/pipeline`: re-runs the merge from the two committed translator fixtures and holds it to the merged fixture's recorded ledger — 99 anchors, median 26.0px, 270 matched, 37 added (7 adopted), 61 held, every pair to the same serving feature at the same distance, every hold for the same reason |
-| the membership join reproduces the reference tree's claims | `golden/pipeline`: re-runs the join over the city fixture's own payload and reproduces exactly its 88 claimed features, codes and sentences |
+| the membership join reproduces the reference tree's claims | `golden/pipeline`: re-runs the join over the city fixture's own payload and reproduces exactly the features it claims, with the same codes and the same sentences — 88 from 12 surveyed units when the fixture was captured. The test reads the world out of the fixture's manifest and compares against the fixture's own claims, so a re-capture that moves the capture day, the stamp or the survey moves the test with it rather than breaking it |
 | a standard glyph is byte-identical to what the reference shipped | `golden/pipeline`: the vendored `maki/monument` against the city fixture's icon hash |
 | enrichment raises the score, and the gate refuses the reverse | `golden/pipeline`: the city fixture with and without its membership claims |
 | every fixture volume scores, reproducibly, and a score is the sum of its worlds | `golden/pipeline` |

@@ -41,8 +41,32 @@ const (
 	mergedFixtureDir = "../fixtures/bundles/cyberpunk-2077"
 	cityFixtureDir   = "../fixtures/bundles/bend-or"
 	mergedWorld      = "night-city"
-	cityWorld        = "2026-08-02"
 )
+
+// The city fixture's world is its capture day, so its slug moves whenever the
+// volume is re-captured -- as do its stamp, its file name and, if the survey
+// beneath it moved, the number of claims the join can make. Nothing here is
+// keyed on any of those: the world is read out of the fixture's own manifest,
+// and what is checked is that the join reproduces exactly the claims the
+// fixture carries, whatever they turn out to be.
+//
+// The counts recorded at capture are noted where they are logged, as an
+// observation rather than an assertion. Transcribing a golden into a constant
+// beside it only creates a second copy to disagree with.
+func cityWorld(t *testing.T) string {
+	t.Helper()
+	var manifest struct {
+		Worlds []struct {
+			Slug string `json:"slug"`
+		} `json:"worlds"`
+	}
+	readJSON(t, filepath.Join(cityFixtureDir, "manifest.json"), &manifest)
+	if len(manifest.Worlds) != 1 {
+		t.Fatalf("the city fixture holds %d worlds; this test reads the one it was captured with",
+			len(manifest.Worlds))
+	}
+	return manifest.Worlds[0].Slug
+}
 
 // TestMergeReproducesFixtureLedger re-runs the merge over the two readings the
 // merged fixture was composed from -- the Piggyback capture that serves and the
@@ -200,10 +224,11 @@ func TestNationalJoinReproducesCityClaims(t *testing.T) {
 	if err != nil {
 		t.Fatalf("enrich curation: %v", err)
 	}
-	payload := readPayload(t, cityFixtureDir, cityWorld)
+	world := cityWorld(t)
+	payload := readPayload(t, cityFixtureDir, world)
 	evidence := evidenceOf(t, payload, "Subwatersheds")
-	if len(evidence.Units) != 12 {
-		t.Fatalf("the fixture carries %d surveyed units, expected 12", len(evidence.Units))
+	if len(evidence.Units) == 0 {
+		t.Fatal("the fixture carries no surveyed units, so there is nothing to re-run the join against")
 	}
 
 	// What the reference claimed, read straight off the fixture.
@@ -211,7 +236,7 @@ func TestNationalJoinReproducesCityClaims(t *testing.T) {
 		code     string
 		sentence string
 	}
-	text := readText(t, cityFixtureDir, cityWorld)
+	text := readText(t, cityFixtureDir, world)
 	want := map[int64]claim{}
 	for _, collection := range payload.Collections {
 		for _, feature := range collection.Features {
@@ -222,16 +247,16 @@ func TestNationalJoinReproducesCityClaims(t *testing.T) {
 			want[feature.ID] = claim{code: code, sentence: text[strconv.FormatInt(feature.ID, 10)].Description}
 		}
 	}
-	if len(want) != 88 {
-		t.Fatalf("the fixture claims %d features, expected 88", len(want))
+	if len(want) == 0 {
+		t.Fatal("the fixture claims no memberships, so this test would prove nothing")
 	}
 
 	// The join is re-run over the volume as it stood before anybody joined it:
 	// the claims and the sentences they earned are taken back out, and the
 	// evidence has to put exactly those back.
-	volume := volumeOfPayload(t, "bend-or", cityWorld, payload)
-	for _, world := range volume.Worlds {
-		for _, collection := range world.Collections {
+	volume := volumeOfPayload(t, "bend-or", world, payload)
+	for _, held := range volume.Worlds {
+		for _, collection := range held.Collections {
 			for index := range collection.Features {
 				feature := &collection.Features[index]
 				if feature.Attrs[semconv.KeyHydroHUC12] == "" {
@@ -293,8 +318,8 @@ func TestNationalJoinReproducesCityClaims(t *testing.T) {
 	if err := enrich.Apply(volume, contribution); err != nil {
 		t.Fatalf("apply: %v", err)
 	}
-	t.Logf("membership join reproduced: %d features claimed from %d surveyed units",
-		len(got), len(evidence.Units))
+	t.Logf("membership join reproduced: %d features claimed from %d surveyed units "+
+		"(88 from 12 when this fixture was captured)", len(got), len(evidence.Units))
 }
 
 // TestStandardIconResolvesFixtureBytes holds the vendored library to the bytes
@@ -328,8 +353,9 @@ func TestStandardIconResolvesFixtureBytes(t *testing.T) {
 
 	// And the enricher reaches the same conclusion from the volume: the
 	// collection that declares the glyph is the one that gets it.
-	payload := readPayload(t, cityFixtureDir, cityWorld)
-	volume := volumeOfPayload(t, "bend-or", cityWorld, payload)
+	world := cityWorld(t)
+	payload := readPayload(t, cityFixtureDir, world)
+	volume := volumeOfPayload(t, "bend-or", world, payload)
 	for index := range volume.Worlds[0].Collections {
 		// The fixture is composed, so its artwork is already resolved; the
 		// enricher's subject is a volume on its way to composition.
