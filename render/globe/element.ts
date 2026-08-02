@@ -200,6 +200,13 @@ export class AtlasGlobe extends HTMLElement {
   private heldCell: string | null = null;
   /** The feature a card was last open about, so a change in it can turn the planet. */
   private selected = "";
+  /**
+   * The handler globe.gl's controls were given, held so it can be taken off.
+   *
+   * Written inline it was unremovable, and a closure over `this` is exactly
+   * the thing an element leaving the page has to stop being reachable from.
+   */
+  private moving: (() => void) | null = null;
   /** Told when the camera moves, so the corner locator can follow it. */
   onCamera: ((pov: { lat: number; lng: number; altitude: number }) => void) | null = null;
 
@@ -336,6 +343,63 @@ export class AtlasGlobe extends HTMLElement {
     return unmoved ? this.handed : this.cameraOf(pov);
   }
 
+  /**
+   * Leave the page, and give back everything a sphere holds.
+   *
+   * `leave` is the reader putting the pane away, and a keystroke undoes it;
+   * this is the element itself going, and nothing survives it. A detached
+   * globe keeps a live WebGL context, an animation frame asking for the next
+   * one forever, and two callbacks closing over both — so a morph that
+   * replaces the viewport on a volume navigation would leave a dead planet
+   * rendering behind the new one, once per navigation.
+   *
+   * WHAT IS GIVEN BACK, and what deliberately is not. The names and the grid
+   * are released, because every card in them is a canvas and a texture this
+   * element minted. The pins are only *cleared*: a sprite's material is its
+   * collection's, shared with every pin wearing the same mark and cached
+   * across worlds, and its geometry is three's own quad shared by every sprite
+   * in the scene — freeing those would take the marks out from under the next
+   * sphere. It is also why the three groups come out of the scene before
+   * `_destructor` empties it: globe.gl deallocates whatever it finds there,
+   * and what it would find here is not its to free.
+   *
+   * AND THE ELEMENT STAYS RE-CONNECTABLE. A morph can take an element out and
+   * put the same one back, so every memo that guards a rebuild is put back to
+   * what a freshly constructed element carries — the lens key above all, which
+   * would otherwise let `openLens` skip compositing a skin that no longer
+   * exists and leave the sphere black. The world it was showing is *not*
+   * forgotten: the context is what the next `enter` builds from.
+   */
+  disconnectedCallback(): void {
+    const globe = this.globe;
+    if (globe && this.moving) globe.controls().removeEventListener("change", this.moving);
+    this.moving = null;
+    this.onCamera = null;
+    release(this.labels);
+    release(this.cells);
+    this.pins.clear();
+    this.sprites.clear();
+    if (globe) {
+      globe.scene().remove(this.pins, this.labels, this.cells);
+      globe._destructor?.();
+    }
+    this.texture?.dispose();
+    this.texture = null;
+    this.skin = null;
+    this.globe = null;
+    this.worldKey = "";
+    this.lensKey = "";
+    this.labelKey = "";
+    this.fitKey = "";
+    this.heldCell = null;
+    this.selected = "";
+    this.given = null;
+    this.handed = null;
+    this.seam.detail = { lens: "", tiles: new Map() };
+    this.seam.grid = { group: null, cell: null, fitKey: "" };
+    this.seam.labels = { key: "", group: null };
+  }
+
   /** The globe's own rounding of its camera, non-empty only while Z is down. */
   diagnostics(): GlobeSeam {
     return this.seam;
@@ -417,8 +481,20 @@ export class AtlasGlobe extends HTMLElement {
     this.seam.detail.tiles = this.skin.tiles;
 
     this.buildSprites(context);
-    this.globe.controls().addEventListener("change", () => this.moved());
+    this.watchCamera(this.globe);
     this.globe.onGlobeClick(({ lat, lng }) => this.pick(lat, lng));
+  }
+
+  /**
+   * Follow the camera, holding the handler that does it.
+   *
+   * One listener per built globe, and `build` is the only caller — which is
+   * what keeps a sphere that has been put away and brought back reporting one
+   * camera per move rather than one per life it has had.
+   */
+  private watchCamera(globe: GlobeInstance): void {
+    this.moving = () => this.moved();
+    globe.controls().addEventListener("change", this.moving);
   }
 
   /**
