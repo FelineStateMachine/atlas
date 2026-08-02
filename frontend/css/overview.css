@@ -12,8 +12,13 @@
   display: none;
 }
 
+/* Put away, the panel travels its own width plus the corner's inset, so what
+   is left on screen is the handle alone, flush with the edge of the map. The
+   map panel clips it there: the dock is the map's neighbour, not a layer under
+   it, and a panel sliding out of one column has no business painting over the
+   next one. */
 .overview-shelf.is-docked {
-  transform: translateX(calc(100% - 23px));
+  transform: translateX(calc(100% - 23px + var(--corner-inset, 0px)));
 }
 
 /* Put away is put away: what is left of the panel past the edge of the window

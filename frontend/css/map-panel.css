@@ -1,5 +1,10 @@
+/* The column the map and everything drawn over it belong to. Nothing inside it
+   reaches past its edges: the panels flanking the map are columns of their own,
+   and the overview sliding itself away used to carry on across the dock and
+   paint over the list. */
 .map-panel {
   position: relative;
+  overflow: hidden;
   grid-column: 2;
   grid-row: 2;
   min-width: 0;
