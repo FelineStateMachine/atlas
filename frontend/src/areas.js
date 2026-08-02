@@ -10,7 +10,7 @@ import { elements } from "./dom.js";
 import { state } from "./state.js";
 import { showFeature } from "./detail.js";
 import { collectionID, syncLegendCheckboxes, syncSectionSwitches } from "./legend.js";
-import { viewMaxZoom } from "./navigation.js";
+import { holdCameraReturn, viewMaxZoom } from "./navigation.js";
 import { onActiveShard, refreshPinRendering, updateZonePinFocus } from "./features.js";
 import { labelPolicy } from "./semconv.js";
 import { colorFor } from "./theme.js";
@@ -227,6 +227,9 @@ export function jumpToZone(zoneID) {
   state.focusedZoneID = zoneID;
   updateZoneIndexState();
   showFeature(record.zone);
+  // Reached for from a list, the same way a location is: the view it costs is
+  // given back when the card closes.
+  holdCameraReturn();
   state.engine.getView().fit(record.extent, {
     size: state.engine.getSize(),
     padding: [54, 54, 54, 54],

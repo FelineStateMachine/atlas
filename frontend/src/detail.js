@@ -4,7 +4,7 @@ import { geohashCellAt } from "./cellsystems/geohash.js";
 import { collectionFor, geometryContainsCoordinate } from "./collections.js";
 import { elements } from "./dom.js";
 import { syncLegendCheckboxes, syncSectionSwitches } from "./legend.js";
-import { viewMaxZoom } from "./navigation.js";
+import { holdCameraReturn, returnCamera, viewMaxZoom } from "./navigation.js";
 import { applyPinFilters, onActiveShard, refreshPrioritySource } from "./features.js";
 import { renderSearchResults, revealDock } from "./search.js";
 import { featureAttributeRows, geoMapping } from "./semconv.js";
@@ -79,7 +79,11 @@ export function showPin(pin, focus = false) {
   elements.detail.hidden = false;
   revealDock();
   renderSearchResults();
+  // A pin clicked on the map is already in front of the reader; only a pin
+  // reached for from a panel is worth moving the camera for, and only that
+  // move is worth being able to undo.
   if (focus) {
+    holdCameraReturn();
     const view = state.engine.getView();
     view.animate({
       center: pin.coordinate,
@@ -346,4 +350,8 @@ export function closeDetail() {
   }
   elements.detail.hidden = true;
   if (hadSelection) renderSearchResults();
+  // The card is done with the camera it borrowed. If the reader has steered
+  // since, or never left where they were, there is nothing held and this is
+  // no move at all.
+  returnCamera();
 }

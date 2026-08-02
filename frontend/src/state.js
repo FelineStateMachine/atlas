@@ -62,6 +62,10 @@ export const state = {
   worldRun: 0,
   textByWorld: new Map(),
   restore: null,
+  // Where the camera was standing before a panel sent it somewhere: the view
+  // a jump from the dock or the legend borrowed, given back when the card it
+  // was opened for is closed. Null whenever the reader is steering.
+  cameraReturn: null,
   settling: false,
   styleCache: new Map(),
   markerIcons: new Map(),

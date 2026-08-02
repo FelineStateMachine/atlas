@@ -22,7 +22,7 @@ import {
   zoneTitleDetailStyle,
   zoneTitleStyle,
 } from "./styles.js";
-import { settleView } from "./navigation.js";
+import { releaseCameraReturn, settleView } from "./navigation.js";
 import { updateOverviewViewport } from "./overview.js";
 import { selectGridCell } from "./grid.js";
 import { setHoveredPin } from "./features.js";
@@ -161,10 +161,16 @@ export function initializeMap() {
   // The locator follows the view as it moves rather than only once it settles.
   // Repeated calls that would draw the same rectangle cost nothing.
   state.engine.on("postrender", updateOverviewViewport);
+  // A hand on the map is the reader choosing where they are, which retires
+  // whatever view a panel's jump was holding for them: dragging, the wheel,
+  // and the double-click that zooms all say the same thing.
+  state.engine.on("pointerdrag", releaseCameraReturn);
+  state.engine.on("dblclick", releaseCameraReturn);
   // OpenLayers can condition wheel handling on focus when its target is
   // keyboard-focusable. Refocus during the wheel's capture phase so returning
   // from any sidebar control never costs a discarded scroll gesture.
   elements.viewport.addEventListener("wheel", () => {
+    releaseCameraReturn();
     if (document.activeElement !== elements.viewport) {
       elements.viewport.focus({ preventScroll: true });
     }

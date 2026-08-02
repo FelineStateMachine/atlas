@@ -111,6 +111,8 @@ export async function selectWorld(slug) {
   state.search = "";
   elements.search.value = "";
   elements.dock.hidden = false;
+  // A way back into the map being left behind is no way back at all.
+  releaseCameraReturn();
   closeDetail();
   renderLegend();
   renderShapes();
@@ -324,6 +326,7 @@ export function activeExtent() {
 
 export function fitMap() {
   if (!state.engine || !state.lens) return;
+  releaseCameraReturn();
   const view = state.engine.getView();
   view.fit(activeExtent(), {
     size: state.engine.getSize(),
@@ -336,6 +339,7 @@ export function fitMap() {
 }
 
 export function changeZoom(delta) {
+  releaseCameraReturn();
   const view = state.engine.getView();
   const current = view.getZoom() || 0;
   view.animate({
@@ -378,4 +382,49 @@ export function updateVisibleCount() {
   }
   elements.visibleCount.textContent = `${formatNumber(inView)} of ` +
     `${formatNumber(shown)} ${shown === 1 ? "feature" : "features"} in view`;
+}
+
+// A jump made from a panel is a detour. The reader asked to look at one
+// feature, not to give up the view they were reading it against -- and until
+// now the only way back from a row in the list was to find their place again
+// by hand. The camera the jump left is held for as long as the card is open,
+// and closing the card hands it back.
+//
+// Each jump holds afresh, overwriting whatever the last one left: closing a
+// card undoes that card's own move and nothing older. Reading three rows in
+// turn steps back through them one view at a time, and none of the three can
+// hand back a place from before the reader went looking. Anything that steers
+// the map -- a drag, the wheel, the zoom buttons, the overview, a cell -- lets
+// the hold go entirely, because after that the view they are in is the view
+// they chose, and returning from it would be the map arguing with them.
+export function holdCameraReturn() {
+  if (!state.engine) return;
+  const view = state.engine.getView();
+  const center = view.getCenter();
+  const zoom = view.getZoom();
+  if (!center || !Number.isFinite(zoom)) return;
+  state.cameraReturn = {
+    center: center.slice(),
+    zoom,
+    world: state.world,
+    lens: state.lens,
+  };
+}
+
+export function releaseCameraReturn() {
+  state.cameraReturn = null;
+}
+
+export function returnCamera() {
+  const held = state.cameraReturn;
+  state.cameraReturn = null;
+  if (!held || !state.engine) return;
+  // A view belonging to another map, or to another layer of this one, is not
+  // this camera's to give back.
+  if (held.world !== state.world || held.lens !== state.lens) return;
+  state.engine.getView().animate({
+    center: held.center,
+    zoom: held.zoom,
+    duration: 220,
+  });
 }

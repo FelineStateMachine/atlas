@@ -18,7 +18,7 @@ import {
 import { gridTheme, palette } from "./constants.js";
 import { closeDetail } from "./detail.js";
 import { elements } from "./dom.js";
-import { viewMaxZoom } from "./navigation.js";
+import { releaseCameraReturn, viewMaxZoom } from "./navigation.js";
 import { refreshPinRendering } from "./features.js";
 import { state } from "./state.js";
 
@@ -102,6 +102,10 @@ export function selectGridCell(raw) {
   renderGrid();
   refreshPinRendering();
   if (!changed) return;
+  // Descending is the reader saying where they want to be, so the view a
+  // panel's jump was holding is spent -- and the card closing must not hand
+  // it back over the top of the cell being flown to.
+  releaseCameraReturn();
   closeDetail();
   state.engine.getView().fit(currentGridExtent(), {
     size: state.engine.getSize(),

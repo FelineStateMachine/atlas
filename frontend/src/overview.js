@@ -1,7 +1,7 @@
 import { overviewTargetSize } from "./constants.js";
 import { elements } from "./dom.js";
 import { aimGlobe, globeCamera } from "./globe.js";
-import { activeExtent, settleView, tileExists } from "./navigation.js";
+import { activeExtent, releaseCameraReturn, settleView, tileExists } from "./navigation.js";
 import { equirectMapping } from "./semconv.js";
 import { saveSession } from "./session.js";
 import { state } from "./state.js";
@@ -140,6 +140,9 @@ export function setOverviewDocked(docked, remember = true) {
 // move rather than a cut. Everything after it lands at once: a view that eased
 // its way to each new position would trail behind the hand steering it.
 export function overviewNavigate(event, ease) {
+  // Steering from the corner is steering: whatever view a panel's jump was
+  // holding is the reader's to give up here as much as on the map itself.
+  releaseCameraReturn();
   const rect = elements.overviewCanvas.getBoundingClientRect();
   const extent = activeExtent();
   const fraction = (value, low, high) => clamp((value - low) / (high - low), 0, 1);
