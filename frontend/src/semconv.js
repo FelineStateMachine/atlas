@@ -4,6 +4,22 @@
 // used to carry the meaning; a key this build has never heard of is simply
 // ignored, because a bundle is never refused over vocabulary.
 
+import { collectionOf } from "./collections.js";
+import { state } from "./state.js";
+
+// labelPolicy answers whether a zone's name draws on its own or waits to be
+// asked: "always" or "quiet". The reader's per-collection override wins,
+// then the collection's declared word, then the zone's own. The v2 wire has
+// no collections to speak, so today the zone answers for its collection --
+// and silence means "always", which is what every bundle from before the
+// key already meant.
+export function labelPolicy(zone, collection) {
+  return state.labelOverrides.get(collection?.id ?? collectionOf(zone)) ??
+    collection?.attrs?.["atlas.label.policy"] ??
+    zone?.attrs?.["atlas.label.policy"] ??
+    "always";
+}
+
 // renderAs answers how a category draws: "pin" or "text". This is the one
 // display rule the viewer holds, spelled once.
 export function renderAs(category) {

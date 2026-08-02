@@ -124,6 +124,10 @@ export function setLabelsHeld(held) {
   elements.labelsHint.textContent = held ? "Z · labels shown" : "Z · hold for labels";
   state.layers.pinLabels.changed();
   state.layers.text.changed();
+  // Quiet zone names answer the same key, so the title layers must hear it
+  // the moment the pin labels do.
+  state.layers.zoneTitles.changed();
+  state.layers.zoneTitleDetail.changed();
   // Anything else writing names beside its pins -- the globe -- holds and
   // releases them the same moment the chart does.
   document.dispatchEvent(new Event("atlas:labels"));

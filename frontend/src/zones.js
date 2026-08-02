@@ -10,6 +10,7 @@ import { state } from "./state.js";
 import { showZone } from "./detail.js";
 import { viewMaxZoom } from "./navigation.js";
 import { onActiveShard, refreshPinRendering, updateZonePinFocus } from "./pins.js";
+import { labelPolicy } from "./semconv.js";
 import { colorFor } from "./theme.js";
 import { formatNumber } from "./util.js";
 
@@ -62,7 +63,11 @@ export function renderZones() {
       color,
     });
   }
-  state.zoneTitleCount = state.sources.zoneTitles.getFeatures().length;
+  // Only names that draw on their own crowd the map, so only they press on
+  // the threshold that starts thinning them. A hundred quiet zones cost the
+  // spoken ones nothing.
+  state.zoneTitleCount = state.sources.zoneTitles.getFeatures()
+    .filter((feature) => labelPolicy(feature.get("zone")) !== "quiet").length;
   renderZoneScrim();
   renderZoneIndex();
 }

@@ -98,6 +98,10 @@ export function showZone(zone) {
   refreshPrioritySource();
   state.layers.pins.changed();
   state.layers.priority.changed();
+  // A quiet zone speaks its name for as long as it is the one being read
+  // about, so selection repaints the chips.
+  state.layers.zoneTitles.changed();
+  state.layers.zoneTitleDetail.changed();
   elements.detailTitle.textContent = zone.title;
   elements.detailCategory.textContent = zone.subtitle || "Zone";
   elements.detailDescription.textContent = "";
@@ -210,6 +214,9 @@ export function closeDetail() {
     state.layers.text.changed();
     state.layers.textDetail.changed();
     state.layers.priority.changed();
+    // A quiet zone that spoke while selected falls silent again.
+    state.layers.zoneTitles.changed();
+    state.layers.zoneTitleDetail.changed();
   }
   elements.detail.hidden = true;
   if (hadSelection) renderSearchResults();

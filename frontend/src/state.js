@@ -31,6 +31,10 @@ export const state = {
   zoneRecords: new Map(),
   highlightedZones: new Set(),
   focusedZoneID: null,
+  // The reader's word over a collection's label policy, keyed by collection
+  // id. Empty until the legend grows the toggle that writes it; the policy
+  // reader already listens.
+  labelOverrides: new Map(),
   search: "",
   fitZoom: 0,
   zoneTitleCount: 0,

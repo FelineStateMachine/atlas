@@ -9,7 +9,7 @@ import {
 
 import { gridTheme } from "./constants.js";
 import { gridCellVisual } from "./grid.js";
-import { renderAs } from "./semconv.js";
+import { labelPolicy, renderAs } from "./semconv.js";
 import { state } from "./state.js";
 import {
   atMaximumNativeZoom,
@@ -468,8 +468,13 @@ function pathZoneStyle(zone, color, width, highlighted, dimmed) {
 
 export function zoneTitleStyle(feature) {
   if (!state.zonesVisible || atMaximumNativeZoom()) return null;
+  const zone = feature.get("zone");
+  if (quietChipHidden(zone)) return null;
+  const highlighted = state.highlightedZones.has(zone.id);
+  // A quiet name, once asked for, skips the crowd-thinning below: like
+  // holding Z for pin labels, asking means every one of them.
+  if (labelPolicy(zone) === "quiet") return renderedZoneTitleStyle(feature);
   const child = feature.get("child");
-  const highlighted = state.highlightedZones.has(feature.get("zone").id);
   const zoom = state.engine.getView().getZoom() || 0;
   if (!highlighted && child && zoom < state.fitZoom + 3) return null;
   const spanPixels = feature.get("span") / state.engine.getView().getResolution();
@@ -479,7 +484,17 @@ export function zoneTitleStyle(feature) {
 
 export function zoneTitleDetailStyle(feature) {
   if (!state.zonesVisible || !atMaximumNativeZoom()) return null;
+  if (quietChipHidden(feature.get("zone"))) return null;
   return renderedZoneTitleStyle(feature);
+}
+
+// A quiet zone's name is context, not headline: the chip waits until the
+// reader asks after that zone in particular -- highlighting it, selecting it
+// -- or asks after every name at once by holding Z.
+function quietChipHidden(zone) {
+  if (labelPolicy(zone) !== "quiet") return false;
+  return !state.highlightedZones.has(zone.id) && state.selectedZone !== zone &&
+    !state.labelsHeld;
 }
 
 export function renderedZoneTitleStyle(feature) {
