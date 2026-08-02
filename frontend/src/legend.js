@@ -3,15 +3,17 @@ import { state } from "./state.js";
 import { saveSession } from "./session.js";
 import { applyPinFilters } from "./pins.js";
 import { renderSearchResults } from "./search.js";
-import { renderAs } from "./semconv.js";
+import { labelPolicy, renderAs } from "./semconv.js";
+import { recountZoneTitles, syncZoneLayers } from "./zones.js";
 import { applyCategoryVisual, applyCategoryGlyph, initials } from "./theme.js";
 import { formatNumber } from "./util.js";
 
-// Categories drawn as text are labels for the ground itself -- Area, Region,
-// Province -- and are read and edited as one set. Gathered here rather than
-// left in place, where "Area" sits between Altar and Bank and reads like
-// another kind of marker.
-export function legendSections(groups) {
+// The sidebar is one legend tree now: shape collections, text labels, and pin
+// groups are all sections of the same list, each holding rows of the same
+// shape. On the v2 wire the zones have no collection of their own, so they
+// stand as one synthetic "Zones" pseudo-collection -- the same section key
+// navigation pre-collapses -- until the v3 wire names the real ones.
+export function legendSections(groups, zones = []) {
   const sections = [];
   const text = [];
   for (const group of groups) {
@@ -20,13 +22,49 @@ export function legendSections(groups) {
       (renderAs(category) === "text" ? text : drawn).push(category);
     }
     if (drawn.length) {
-      sections.push({ key: `group-${group.id}`, title: group.title, categories: drawn });
+      sections.push({ key: `group-${group.id}`, title: group.title, collections: drawn });
     }
   }
-  // Above the pin groups, under the zones: labels and boundaries both say where
-  // you are, rather than what is worth going to.
-  if (text.length) sections.unshift({ key: "text", title: "Text", categories: text });
+  // Categories drawn as text are labels for the ground itself -- Area, Region,
+  // Province -- and are read and edited as one set. Gathered here rather than
+  // left in place, where "Area" sits between Altar and Bank and reads like
+  // another kind of marker. Above the pin groups, under the zones: labels and
+  // boundaries both say where you are, rather than what is worth going to.
+  if (text.length) sections.unshift({ key: "text", title: "Text", collections: text });
+  if (zones.length) {
+    sections.unshift({
+      key: "zones",
+      title: "Zones",
+      collections: [{ id: "zones", title: "Zones", kind: "area", features: zones }],
+    });
+  }
   return sections;
+}
+
+// A collection either packs its members as pin locations or carries them
+// inline as shape features; either way the row's count is how many there are.
+export function collectionKind(collection) {
+  return collection.kind || "point";
+}
+
+export function collectionCount(collection) {
+  return (collection.features || collection.locations).length;
+}
+
+// Collection ids ride the DOM as strings, but point categories are known
+// everywhere by number. One reader turns the attribute back into the id the
+// state sets actually hold.
+export function collectionID(value) {
+  return /^\d+$/.test(value) ? Number(value) : value;
+}
+
+export function findCollection(collectionID) {
+  for (const section of state.world?.sections || []) {
+    for (const collection of section.collections) {
+      if (collection.id === collectionID) return collection;
+    }
+  }
+  return null;
 }
 
 export function renderLegend() {
@@ -35,21 +73,33 @@ export function renderLegend() {
     const element = document.createElement("section");
     element.className = "layer-section";
     element.dataset.layerSection = section.key;
-    const locations = section.categories.reduce((total, category) => total + category.locations.length, 0);
-    element.append(layerHeader(section.key, section.title, locations));
+    const members = section.collections.reduce((total, collection) => total + collectionCount(collection), 0);
+    element.append(layerHeader(section.key, section.title, members));
     const toggles = document.createElement("div");
     toggles.className = "category-toggles";
-    for (const category of section.categories) toggles.append(categoryToggle(category));
+    for (const collection of section.collections) {
+      toggles.append(collectionRow(collection));
+      // A shape row unfolds into its feature index. The container is laid
+      // down empty here and filled by renderZoneIndex once the zone records
+      // exist -- the legend renders before the zones do.
+      if (collectionKind(collection) !== "point") {
+        const index = document.createElement("div");
+        index.className = "feature-index";
+        index.dataset.featureIndex = String(collection.id);
+        toggles.append(index);
+      }
+    }
     element.append(toggles);
     fragment.append(element);
   }
   elements.legend.replaceChildren(fragment);
   syncSectionCollapse();
+  syncCollectionExpansion();
   syncSectionSwitches();
 }
 
-// Mirrors the markup of the static zones header so every layer section reads the
-// same: disclosure on the left, one switch on the right.
+// Mirrors the markup every layer section reads the same by: disclosure on the
+// left, one switch on the right.
 export function layerHeader(key, title, count) {
   const header = document.createElement("div");
   header.className = "layer-header";
@@ -102,42 +152,79 @@ export function onlyButton(label) {
   return button;
 }
 
-export function categoryToggle(category) {
-  const isText = renderAs(category) === "text";
+// One row for every kind of collection: checkbox, an icon cell -- the
+// category's glyph for points, an unfolding chevron for shapes -- the name,
+// the isolate target, the label-policy toggle where names are drawn on the
+// ground, and the count. The columns are fixed so every row lines up whether
+// or not it uses them all.
+export function collectionRow(collection) {
+  const kind = collectionKind(collection);
   const row = document.createElement("label");
   row.className = "category-row";
-  applyCategoryVisual(row, category);
   const checkbox = document.createElement("input");
   checkbox.type = "checkbox";
-  checkbox.dataset.category = String(category.id);
-  checkbox.checked = !state.hiddenCategories.has(category.id);
-  const icon = document.createElement("span");
-  if (isText) {
+  checkbox.dataset.collection = String(collection.id);
+  checkbox.checked = !state.hiddenCollections.has(collection.id);
+  let icon;
+  if (kind !== "point") {
+    icon = document.createElement("button");
+    icon.type = "button";
+    icon.className = "collection-expand";
+    icon.dataset.expandCollection = String(collection.id);
+    icon.setAttribute("aria-label", `Unfold the ${collection.title} index`);
+    icon.innerHTML =
+      '<svg class="collection-chevron" viewBox="0 0 16 16" aria-hidden="true"><path d="m6 4 4 4-4 4"/></svg>' +
+      (kind === "path"
+        ? '<svg class="collection-kind" viewBox="0 0 16 16" aria-hidden="true"><path d="M2.5 12.5c3-6 8-2 11-9"/></svg>'
+        : '<svg class="collection-kind" viewBox="0 0 16 16" aria-hidden="true"><path d="M3.5 4.5h9v7h-9z"/></svg>');
+  } else if (renderAs(collection) === "text") {
+    icon = document.createElement("span");
     icon.className = "text-symbol";
     icon.textContent = "Tt";
     icon.title = "Drawn as a text label";
+    applyCategoryVisual(row, collection);
   } else {
+    icon = document.createElement("span");
     icon.className = "category-icon";
-    applyCategoryGlyph(icon, category, initials(category.title));
-    icon.title = category.icon || category.title;
+    applyCategoryVisual(row, collection);
+    applyCategoryGlyph(icon, collection, initials(collection.title));
+    icon.title = collection.icon || collection.title;
   }
   const name = document.createElement("span");
   name.className = "category-name";
-  name.textContent = category.title;
-  const locations = document.createElement("span");
-  locations.className = "category-count";
-  locations.textContent = formatNumber(category.locations.length);
+  name.textContent = collection.title;
   // Overlaid on the count rather than appended: these pills wrap, and a row
   // that grows on hover would shove the one under the cursor somewhere else.
-  const only = onlyButton(`Show only ${category.title}`);
-  only.dataset.onlyCategory = String(category.id);
-  row.append(checkbox, icon, name, only, locations);
+  const only = onlyButton(`Show only ${collection.title}`);
+  only.dataset.onlyCollection = String(collection.id);
+  // Areas draw their names on the ground, and whether they speak unasked is
+  // the reader's to override. The other kinds keep the column as space, so
+  // the count stays a column no row disagrees about.
+  let labels;
+  if (kind === "area") {
+    labels = document.createElement("button");
+    labels.type = "button";
+    labels.className = "label-toggle";
+    labels.dataset.labelToggle = String(collection.id);
+    labels.dataset.label = `Label ${collection.title} on the map`;
+    labels.setAttribute("aria-label", `Label ${collection.title} on the map`);
+    labels.setAttribute("aria-pressed", String(labelPolicy(null, collection) === "always"));
+    labels.innerHTML =
+      '<svg viewBox="0 0 16 16" aria-hidden="true"><path d="M3.5 3.5h9M8 3.5v9"/></svg>';
+  } else {
+    labels = document.createElement("span");
+    labels.className = "label-toggle-spacer";
+  }
+  const count = document.createElement("span");
+  count.className = "category-count";
+  count.textContent = formatNumber(collectionCount(collection));
+  row.append(checkbox, icon, name, only, labels, count);
   return row;
 }
 
-// There is one level of nesting here -- sections hold rows, not more sections --
-// so folding by a depth and folding entirely are the same move, and only the
-// one exists.
+// There is one level of nesting per move here -- sections hold rows, rows may
+// hold a feature index -- so folding by a depth and folding entirely are the
+// same move, and only the one exists.
 export function setAllSectionsCollapsed(collapsed) {
   state.collapsedSections.clear();
   if (collapsed) {
@@ -157,34 +244,83 @@ export function syncSectionCollapse() {
   saveSession();
 }
 
-export function setAllCategories(visible) {
-  state.hiddenCategories.clear();
+export function toggleCollectionExpanded(collectionID) {
+  if (state.expandedCollections.has(collectionID)) state.expandedCollections.delete(collectionID);
+  else state.expandedCollections.add(collectionID);
+  syncCollectionExpansion();
+}
+
+export function syncCollectionExpansion() {
+  for (const button of elements.legend.querySelectorAll("[data-expand-collection]")) {
+    const expanded = state.expandedCollections.has(collectionID(button.dataset.expandCollection));
+    button.setAttribute("aria-expanded", String(expanded));
+    button.closest(".category-row").classList.toggle("is-expanded", expanded);
+  }
+  for (const index of elements.legend.querySelectorAll(".feature-index")) {
+    index.hidden = !state.expandedCollections.has(collectionID(index.dataset.featureIndex));
+  }
+  saveSession();
+}
+
+// The label toggle is a two-state affair around the effective policy: press
+// it and the collection's names flip to the other word; if the other word is
+// what the producer curated anyway, the override has nothing left to say and
+// is dropped rather than stored.
+export function toggleLabelPolicy(id) {
+  const collection = findCollection(id);
+  if (!collection) return;
+  const flipped = labelPolicy(null, collection) === "always" ? "quiet" : "always";
+  const curated = collection.attrs?.["atlas.label.policy"] ?? "always";
+  if (flipped === curated) state.labelOverrides.delete(collection.id);
+  else state.labelOverrides.set(collection.id, flipped);
+  syncLabelToggles();
+  // The crowd-thinning threshold counts spoken names only, and the toggle
+  // just changed which names speak.
+  recountZoneTitles();
+  // The names are drawn by the title layers, at either zoom depth.
+  state.layers.zoneTitles.changed();
+  state.layers.zoneTitleDetail.changed();
+  saveSession();
+}
+
+export function syncLabelToggles() {
+  for (const button of elements.legend.querySelectorAll("[data-label-toggle]")) {
+    const collection = findCollection(collectionID(button.dataset.labelToggle));
+    if (!collection) continue;
+    button.setAttribute("aria-pressed", String(labelPolicy(null, collection) === "always"));
+  }
+}
+
+export function setAllCollections(visible) {
+  state.hiddenCollections.clear();
   if (!visible) {
-    for (const group of state.world.groups) {
-      for (const category of group.categories) state.hiddenCategories.add(category.id);
+    for (const section of state.world.sections) {
+      for (const collection of section.collections) state.hiddenCollections.add(collection.id);
     }
   }
   syncLegendCheckboxes();
+  syncZoneLayers();
   applyPinFilters();
   renderSearchResults();
   syncSectionSwitches();
 }
 
 export function syncLegendCheckboxes() {
-  for (const checkbox of document.querySelectorAll("[data-category]")) {
-    checkbox.checked = !state.hiddenCategories.has(Number(checkbox.dataset.category));
+  for (const checkbox of document.querySelectorAll("[data-collection]")) {
+    checkbox.checked = !state.hiddenCollections.has(collectionID(checkbox.dataset.collection));
   }
 }
 
 export function toggleSection(key) {
   const section = state.world.sections.find((item) => item.key === key);
   if (!section) return;
-  const hasVisible = section.categories.some((category) => !state.hiddenCategories.has(category.id));
-  for (const category of section.categories) {
-    if (hasVisible) state.hiddenCategories.add(category.id);
-    else state.hiddenCategories.delete(category.id);
+  const hasVisible = section.collections.some((collection) => !state.hiddenCollections.has(collection.id));
+  for (const collection of section.collections) {
+    if (hasVisible) state.hiddenCollections.add(collection.id);
+    else state.hiddenCollections.delete(collection.id);
   }
   syncLegendCheckboxes();
+  syncZoneLayers();
   applyPinFilters();
   syncSectionSwitches();
 }
@@ -197,19 +333,20 @@ export function showOnly(target) {
   // Asking to isolate what is already isolated means the reader is done with
   // it, so the same control lets them back out.
   if (isOnly(target)) {
-    setAllCategories(true);
+    setAllCollections(true);
     return;
   }
-  state.hiddenCategories.clear();
+  state.hiddenCollections.clear();
   for (const section of state.world.sections) {
     const wanted = target.section === section.key;
-    for (const category of section.categories) {
-      if (!wanted && target.category !== category.id) {
-        state.hiddenCategories.add(category.id);
+    for (const collection of section.collections) {
+      if (!wanted && target.collection !== collection.id) {
+        state.hiddenCollections.add(collection.id);
       }
     }
   }
   syncLegendCheckboxes();
+  syncZoneLayers();
   applyPinFilters();
   renderSearchResults();
   syncSectionSwitches();
@@ -218,16 +355,16 @@ export function showOnly(target) {
 // True when what is on screen is already exactly what this target would isolate.
 export function isOnly(target) {
   for (const section of state.world.sections) {
-    for (const category of section.categories) {
-      const wanted = target.section === section.key || target.category === category.id;
-      if (wanted === state.hiddenCategories.has(category.id)) return false;
+    for (const collection of section.collections) {
+      const wanted = target.section === section.key || target.collection === collection.id;
+      if (wanted === state.hiddenCollections.has(collection.id)) return false;
     }
   }
   return true;
 }
 
 // Derived rather than remembered, so the chip is right however the state was
-// reached -- including by switching categories off one at a time.
+// reached -- including by switching collections off one at a time.
 export function updateSoloChip() {
   const chip = elements.soloChip;
   if (!state.world) {
@@ -240,15 +377,15 @@ export function updateSoloChip() {
   let sectionsShowing = 0;
   for (const section of state.world.sections) {
     let shown = 0;
-    for (const category of section.categories) {
-      if (state.hiddenCategories.has(category.id)) continue;
+    for (const collection of section.collections) {
+      if (state.hiddenCollections.has(collection.id)) continue;
       shown++;
       visibleCount++;
-      onlyVisible = category;
+      onlyVisible = collection;
     }
     if (shown > 0) {
       sectionsShowing++;
-      soleSection = shown === section.categories.length ? section : null;
+      soleSection = shown === section.collections.length ? section : null;
     }
   }
   let label = "";
@@ -264,7 +401,7 @@ export function syncSectionSwitches() {
   for (const section of state.world.sections) {
     const input = elements.legend.querySelector(`input[data-section-toggle="${section.key}"]`);
     if (input) {
-      input.checked = section.categories.some((category) => !state.hiddenCategories.has(category.id));
+      input.checked = section.collections.some((collection) => !state.hiddenCollections.has(collection.id));
     }
   }
   updateSoloChip();

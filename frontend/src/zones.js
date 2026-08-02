@@ -5,14 +5,15 @@ import MultiLineString from "ol/geom/MultiLineString.js";
 import MultiPolygon from "ol/geom/MultiPolygon.js";
 import Polygon from "ol/geom/Polygon.js";
 
+import { collectionOf, isCollectionHidden } from "./collections.js";
 import { elements } from "./dom.js";
 import { state } from "./state.js";
 import { showZone } from "./detail.js";
+import { syncLegendCheckboxes, syncSectionSwitches } from "./legend.js";
 import { viewMaxZoom } from "./navigation.js";
 import { onActiveShard, refreshPinRendering, updateZonePinFocus } from "./pins.js";
 import { labelPolicy } from "./semconv.js";
 import { colorFor } from "./theme.js";
-import { formatNumber } from "./util.js";
 
 export function renderZones() {
   const zones = (state.world.zones || []).filter(onActiveShard);
@@ -23,9 +24,7 @@ export function renderZones() {
   state.highlightedZones.clear();
   state.focusedZoneID = null;
   state.zoneTitleCount = 0;
-  setZonesVisible(true);
-  elements.zoneIndex.hidden = zones.length === 0;
-  elements.zoneCount.textContent = formatNumber(zones.length);
+  syncZoneLayers();
 
   for (const zone of zones) {
     const zoneExtent = createEmpty();
@@ -63,13 +62,18 @@ export function renderZones() {
       color,
     });
   }
-  // Only names that draw on their own crowd the map, so only they press on
-  // the threshold that starts thinning them. A hundred quiet zones cost the
-  // spoken ones nothing.
-  state.zoneTitleCount = state.sources.zoneTitles.getFeatures()
-    .filter((feature) => labelPolicy(feature.get("zone")) !== "quiet").length;
+  recountZoneTitles();
   renderZoneScrim();
   renderZoneIndex();
+}
+
+// Only names that draw on their own crowd the map, so only they press on
+// the threshold that starts thinning them. A hundred quiet zones cost the
+// spoken ones nothing. Recounted whenever the policy moves -- the legend's
+// label toggle changes the answer without rebuilding a single zone.
+export function recountZoneTitles() {
+  state.zoneTitleCount = state.sources.zoneTitles.getFeatures()
+    .filter((feature) => labelPolicy(feature.get("zone")) !== "quiet").length;
 }
 
 // Highlighting a zone is a request to look at one place, so everything else
@@ -113,30 +117,36 @@ export function orientRing(ring, clockwise) {
   return (area < 0) === clockwise ? ring : ring.slice().reverse();
 }
 
+// The feature index under an unfolded shape row: one button per zone, in the
+// parent-first order of the ground itself. On the v2 wire every zone belongs
+// to the one pseudo-collection, so every container in the legend gets the
+// same list; at flag day each container asks for its own collection's
+// features.
 export function renderZoneIndex() {
-  const fragment = document.createDocumentFragment();
-  for (const { zone, depth } of orderedZones()) {
-    const record = state.zoneRecords.get(zone.id);
-    if (!record) continue;
-    const button = document.createElement("button");
-    button.type = "button";
-    button.className = "zone-index-item";
-    button.dataset.zone = String(zone.id);
-    button.style.setProperty("--zone-color", record.color);
-    button.style.setProperty("--zone-depth", String(depth));
-    button.setAttribute("aria-pressed", "false");
-    button.title = `${zone.title}: click to jump; right-click to toggle highlight`;
+  for (const container of elements.legend.querySelectorAll(".feature-index")) {
+    const fragment = document.createDocumentFragment();
+    for (const { zone, depth } of orderedZones()) {
+      const record = state.zoneRecords.get(zone.id);
+      if (!record) continue;
+      const button = document.createElement("button");
+      button.type = "button";
+      button.className = "zone-index-item";
+      button.dataset.zone = String(zone.id);
+      button.style.setProperty("--zone-color", record.color);
+      button.style.setProperty("--zone-depth", String(depth));
+      button.setAttribute("aria-pressed", "false");
+      button.title = `${zone.title}: click to jump; right-click to toggle highlight`;
 
-    const marker = document.createElement("span");
-    marker.className = "zone-index-marker";
-    marker.setAttribute("aria-hidden", "true");
-    const title = document.createElement("span");
-    title.textContent = zone.title;
-    button.append(marker, title);
-    fragment.append(button);
+      const marker = document.createElement("span");
+      marker.className = "zone-index-marker";
+      marker.setAttribute("aria-hidden", "true");
+      const title = document.createElement("span");
+      title.textContent = zone.title;
+      button.append(marker, title);
+      fragment.append(button);
+    }
+    container.replaceChildren(fragment);
   }
-  elements.zoneList.replaceChildren(fragment);
-  elements.zoneIndex.hidden = state.zoneRecords.size === 0;
 }
 
 export function orderedZones() {
@@ -168,13 +178,29 @@ export function orderedZones() {
   return ordered;
 }
 
-export function setZonesVisible(visible) {
-  state.zonesVisible = visible;
-  elements.zoneToggle.checked = visible;
+// The four zone layers answer the ledger the same way the pins do: drawn
+// while their collection is shown, and away while it is hidden. Hiding also
+// withdraws the hidden collection's highlights -- a filter must not keep
+// conditioning the map from under a layer the reader has put away.
+export function syncZoneLayers() {
+  const visible = !isCollectionHidden("zones");
   state.layers.zoneScrim.setVisible(visible);
   state.layers.zones.setVisible(visible);
   state.layers.zoneTitles.setVisible(visible);
   state.layers.zoneTitleDetail.setVisible(visible);
+  let pruned = false;
+  for (const zoneID of [...state.highlightedZones]) {
+    const record = state.zoneRecords.get(zoneID);
+    if (!record || isCollectionHidden(collectionOf(record.zone))) {
+      state.highlightedZones.delete(zoneID);
+      pruned = true;
+    }
+  }
+  if (pruned) {
+    updateZonePinFocus();
+    renderZoneScrim();
+    updateZoneIndexState();
+  }
 }
 
 export function jumpToZone(zoneID) {
@@ -194,11 +220,18 @@ export function jumpToZone(zoneID) {
 }
 
 export function toggleZoneHighlight(zoneID) {
-  if (!state.zoneRecords.has(zoneID)) return;
+  const record = state.zoneRecords.get(zoneID);
+  if (!record) return;
   if (state.highlightedZones.has(zoneID)) state.highlightedZones.delete(zoneID);
   else {
     state.highlightedZones.add(zoneID);
-    setZonesVisible(true);
+    // Highlighting unhides: asking to look at a zone and keeping its layer
+    // away cannot both be meant.
+    if (state.hiddenCollections.delete(collectionOf(record.zone))) {
+      syncLegendCheckboxes();
+      syncSectionSwitches();
+    }
+    syncZoneLayers();
   }
   state.hoveredPin = null;
   updateZonePinFocus();
@@ -211,8 +244,10 @@ export function toggleZoneHighlight(zoneID) {
 }
 
 export function updateZoneIndexState() {
-  elements.zoneIndex.classList.toggle("has-highlights", state.highlightedZones.size > 0);
-  for (const button of elements.zoneList.querySelectorAll("[data-zone]")) {
+  for (const container of elements.legend.querySelectorAll(".feature-index")) {
+    container.classList.toggle("has-highlights", state.highlightedZones.size > 0);
+  }
+  for (const button of elements.legend.querySelectorAll("[data-zone]")) {
     const zoneID = Number(button.dataset.zone);
     const highlighted = state.highlightedZones.has(zoneID);
     button.classList.toggle("is-highlighted", highlighted);

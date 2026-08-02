@@ -89,7 +89,7 @@ async function tour() {
   // begins in the same place regardless of what was explored beforehand.
   await waitForBoot();
   localStorage.clear();
-  const gameSelect = tourQuery("#game-select");
+  const gameSelect = tourQuery("#volume-select");
   const firstGame = gameSelect.options[0].value;
   change(gameSelect, firstGame);
   await record("initial");
@@ -194,14 +194,14 @@ async function tour() {
   await record("viewport-escape");
 
   // Variant, map, and game switching, then return to the start.
-  const variant = tourQuery("#variant-select");
+  const variant = tourQuery("#lens-select");
   if (variant.options.length > 1) {
     change(variant, variant.options[1].value);
     await record("variant-second");
     change(variant, variant.options[0].value);
     await record("variant-first");
   }
-  const mapSelect = tourQuery("#map-select");
+  const mapSelect = tourQuery("#world-select");
   if (mapSelect.options.length > 1) {
     change(mapSelect, mapSelect.options[1].value);
     await record("map-second");

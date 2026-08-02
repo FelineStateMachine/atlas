@@ -26,7 +26,10 @@ export function exposeDiagnostics() {
     selectedPin: state.selectedPin?.location.title || null,
     fitZoom: state.fitZoom,
     filters: {
-      hiddenCategories: [...state.hiddenCategories].sort(),
+      // The state holds one hiddenCollections set now, but the snapshot keeps
+      // the key the parity diffs already know, so cross-build comparisons
+      // stay line-for-line readable.
+      hiddenCategories: [...state.hiddenCollections].sort(),
       collapsedSections: [...state.collapsedSections].sort(),
     },
     ui: {
@@ -46,7 +49,7 @@ export function exposeDiagnostics() {
       subgridVisible: state.subgridVisible,
     },
     zones: {
-      visible: state.zonesVisible,
+      visible: !state.hiddenCollections.has("zones"),
       count: state.zoneRecords.size,
       focused: state.zoneRecords.get(state.focusedZoneID)?.zone.title || null,
       highlighted: [...state.highlightedZones]

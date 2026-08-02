@@ -26,6 +26,7 @@ import { Line2 } from "three/examples/jsm/lines/Line2.js";
 import { LineGeometry } from "three/examples/jsm/lines/LineGeometry.js";
 import { LineMaterial } from "three/examples/jsm/lines/LineMaterial.js";
 
+import { isCollectionHidden } from "./collections.js";
 import { gridTheme, overzoomLevels } from "./constants.js";
 import { showPin } from "./detail.js";
 import { elements } from "./dom.js";
@@ -884,7 +885,7 @@ function syncSelection() {
 // legend's and search's filters, and the chosen geohash cell, exactly as
 // the chart holds them.
 function pinShown(pin) {
-  if (pin.filteredHidden || state.hiddenCategories.has(pin.category.id)) return false;
+  if (pin.filteredHidden || isCollectionHidden(pin.category.id)) return false;
   if (state.gridEnabled && state.gridCell && !pinInGridCell(pin)) return false;
   return true;
 }

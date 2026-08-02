@@ -7,6 +7,7 @@ import {
   Text,
 } from "ol/style.js";
 
+import { collectionOf, isCollectionHidden } from "./collections.js";
 import { gridTheme } from "./constants.js";
 import { gridCellVisual } from "./grid.js";
 import { labelPolicy, renderAs } from "./semconv.js";
@@ -353,13 +354,16 @@ export function measureLabel(text, font) {
 
 export const zoneScrimFill = new Style({ fill: new Fill({ color: "rgba(5, 8, 16, 0.62)" }) });
 
+// The scrim exists only while something is highlighted, and hiding a
+// collection withdraws its highlights, so an all-hidden map has no scrim
+// feature left to draw; the check covers the moment in between.
 export function zoneScrimStyle() {
-  return state.zonesVisible ? zoneScrimFill : null;
+  return isCollectionHidden("zones") ? null : zoneScrimFill;
 }
 
 export function zoneStyle(feature, resolution) {
-  if (!state.zonesVisible) return null;
   const zone = feature.get("zone");
+  if (isCollectionHidden(collectionOf(zone))) return null;
   const child = feature.get("child");
   const highlighted = state.highlightedZones.has(zone.id);
   const dimmed = zoneContextDimmed(zone.id);
@@ -467,8 +471,9 @@ function pathZoneStyle(zone, color, width, highlighted, dimmed) {
 }
 
 export function zoneTitleStyle(feature) {
-  if (!state.zonesVisible || atMaximumNativeZoom()) return null;
+  if (atMaximumNativeZoom()) return null;
   const zone = feature.get("zone");
+  if (isCollectionHidden(collectionOf(zone))) return null;
   if (quietChipHidden(zone)) return null;
   const highlighted = state.highlightedZones.has(zone.id);
   // A quiet name, once asked for, skips the crowd-thinning below: like
@@ -483,8 +488,10 @@ export function zoneTitleStyle(feature) {
 }
 
 export function zoneTitleDetailStyle(feature) {
-  if (!state.zonesVisible || !atMaximumNativeZoom()) return null;
-  if (quietChipHidden(feature.get("zone"))) return null;
+  if (!atMaximumNativeZoom()) return null;
+  const zone = feature.get("zone");
+  if (isCollectionHidden(collectionOf(zone))) return null;
+  if (quietChipHidden(zone)) return null;
   return renderedZoneTitleStyle(feature);
 }
 

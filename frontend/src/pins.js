@@ -1,7 +1,7 @@
 import Feature from "ol/Feature.js";
 import Point from "ol/geom/Point.js";
 
-import { groupByCollection, passesZoneFilters } from "./collections.js";
+import { groupByCollection, isCollectionHidden, passesZoneFilters } from "./collections.js";
 import { closeDetail } from "./detail.js";
 import { elements } from "./dom.js";
 import { pinInGridCell } from "./grid.js";
@@ -49,10 +49,10 @@ export function buildPins() {
 
 export function applyPinFilters() {
   for (const pin of state.pins) {
-    const categoryHidden = state.hiddenCategories.has(pin.category.id);
+    const collectionHidden = isCollectionHidden(pin.category.id);
     const searchHidden = state.search &&
       !pin.location.title.toLocaleLowerCase().includes(state.search);
-    pin.filteredHidden = Boolean(categoryHidden || searchHidden);
+    pin.filteredHidden = Boolean(collectionHidden || searchHidden);
   }
   updateZonePinFocus();
   refreshPinRendering();

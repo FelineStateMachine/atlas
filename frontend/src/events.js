@@ -10,16 +10,19 @@ import {
   toggleSidebar,
 } from "./navigation.js";
 import {
-  setAllCategories,
+  collectionID,
+  setAllCollections,
   setAllSectionsCollapsed,
   showOnly,
   syncSectionCollapse,
   syncSectionSwitches,
+  toggleCollectionExpanded,
+  toggleLabelPolicy,
   toggleSection,
 } from "./legend.js";
 import { applyPinFilters, setLabelsHeld } from "./pins.js";
 import { changeGlobeZoom, refreshGlobe, resizeGlobe, toggleGlobe } from "./globe.js";
-import { jumpToZone, setZonesVisible, toggleZoneHighlight } from "./zones.js";
+import { jumpToZone, syncZoneLayers, toggleZoneHighlight } from "./zones.js";
 import { foldDockByHand, revealDock } from "./search.js";
 import { importBundles } from "./library.js";
 import { closeDetail, revealPin } from "./detail.js";
@@ -55,10 +58,11 @@ export function bindUIEvents() {
       toggleSection(input.dataset.sectionToggle);
       return;
     }
-    if (!input.dataset.category) return;
-    const categoryID = Number(input.dataset.category);
-    if (input.checked) state.hiddenCategories.delete(categoryID);
-    else state.hiddenCategories.add(categoryID);
+    if (!input.dataset.collection) return;
+    const id = collectionID(input.dataset.collection);
+    if (input.checked) state.hiddenCollections.delete(id);
+    else state.hiddenCollections.add(id);
+    syncZoneLayers();
     applyPinFilters();
     syncSectionSwitches();
   });
@@ -90,15 +94,36 @@ export function bindUIEvents() {
   elements.layers.addEventListener("scroll", markHoveredRow, { passive: true });
 
   elements.layers.addEventListener("click", (event) => {
-    const only = event.target.closest("[data-only-category], [data-only-section]");
+    const only = event.target.closest("[data-only-collection], [data-only-section]");
     if (only) {
       // The button sits inside the row's label, whose default action would
       // otherwise toggle the very checkbox this is meant to override.
       event.preventDefault();
       event.stopPropagation();
-      showOnly(only.dataset.onlyCategory
-        ? { category: Number(only.dataset.onlyCategory) }
+      showOnly(only.dataset.onlyCollection
+        ? { collection: collectionID(only.dataset.onlyCollection) }
         : { section: only.dataset.onlySection });
+      return;
+    }
+    // The unfolding chevron and the label toggle also live inside the row's
+    // label, and mean themselves rather than the checkbox under it.
+    const expand = event.target.closest("[data-expand-collection]");
+    if (expand) {
+      event.preventDefault();
+      event.stopPropagation();
+      toggleCollectionExpanded(collectionID(expand.dataset.expandCollection));
+      return;
+    }
+    const labels = event.target.closest("[data-label-toggle]");
+    if (labels) {
+      event.preventDefault();
+      event.stopPropagation();
+      toggleLabelPolicy(collectionID(labels.dataset.labelToggle));
+      return;
+    }
+    const zone = event.target.closest("[data-zone]");
+    if (zone) {
+      jumpToZone(Number(zone.dataset.zone));
       return;
     }
     const button = event.target.closest("[data-section]");
@@ -108,26 +133,20 @@ export function bindUIEvents() {
     else state.collapsedSections.add(key);
     syncSectionCollapse();
   });
+  // The right button asks after a zone in particular: toggle its highlight
+  // rather than jumping to it.
+  elements.layers.addEventListener("contextmenu", (event) => {
+    const zone = event.target.closest("[data-zone]");
+    if (!zone) return;
+    event.preventDefault();
+    toggleZoneHighlight(Number(zone.dataset.zone));
+  });
 
-  elements.soloChip.addEventListener("click", () => setAllCategories(true));
+  elements.soloChip.addEventListener("click", () => setAllCollections(true));
   $("#expand-all").addEventListener("click", () => setAllSectionsCollapsed(false));
   $("#collapse-all").addEventListener("click", () => setAllSectionsCollapsed(true));
-  $("#show-all").addEventListener("click", () => setAllCategories(true));
-  $("#hide-all").addEventListener("click", () => setAllCategories(false));
-  elements.zoneToggle.addEventListener("change", () => {
-    setZonesVisible(elements.zoneToggle.checked);
-  });
-  elements.zoneIndex.addEventListener("click", (event) => {
-    const button = event.target.closest("[data-zone]");
-    if (!button) return;
-    jumpToZone(Number(button.dataset.zone));
-  });
-  elements.zoneIndex.addEventListener("contextmenu", (event) => {
-    const button = event.target.closest("[data-zone]");
-    if (!button) return;
-    event.preventDefault();
-    toggleZoneHighlight(Number(button.dataset.zone));
-  });
+  $("#show-all").addEventListener("click", () => setAllCollections(true));
+  $("#hide-all").addEventListener("click", () => setAllCollections(false));
   elements.search.addEventListener("input", () => {
     state.search = elements.search.value.trim().toLocaleLowerCase();
     // applyPinFilters refreshes the dock list along with the canvas.

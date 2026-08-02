@@ -7,8 +7,14 @@ export const state = {
   projection: null,
   layers: null,
   sources: null,
-  hiddenCategories: new Set(),
+  // One hide-set across every kind of collection: point categories by their
+  // numeric ids, and -- until the v3 wire names real shape collections -- the
+  // implicit "zones" pseudo-collection by that string. Nothing downstream
+  // cares which kind an id names; it only asks isCollectionHidden.
+  hiddenCollections: new Set(),
   collapsedSections: new Set(),
+  // Which area and path rows have their feature index unfolded in the legend.
+  expandedCollections: new Set(),
   pins: [],
   pinByID: new Map(),
   selectedPin: null,
@@ -27,13 +33,11 @@ export const state = {
   // of them is holding the view to a place.
   subgridVisible: true,
   gridCell: "",
-  zonesVisible: true,
   zoneRecords: new Map(),
   highlightedZones: new Set(),
   focusedZoneID: null,
   // The reader's word over a collection's label policy, keyed by collection
-  // id. Empty until the legend grows the toggle that writes it; the policy
-  // reader already listens.
+  // id. Written by the legend's label toggle, read by the policy ladder.
   labelOverrides: new Map(),
   search: "",
   fitZoom: 0,

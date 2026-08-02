@@ -21,7 +21,7 @@ export async function loadWorld(entry) {
   ]);
   const categories = detail.groups.flatMap((group) => group.categories);
   unpackLocations(packed, categories);
-  const sections = legendSections(detail.groups);
+  const sections = legendSections(detail.groups, detail.zones || []);
   return {
     ...entry,
     grid: detail.grid,

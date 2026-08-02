@@ -82,7 +82,7 @@ function updateDockReadout(count) {
   if (state.search) {
     elements.dockFlag.textContent = `“${state.search}”`;
     elements.dockFlag.hidden = false;
-  } else if (state.hiddenCategories.size > 0) {
+  } else if (state.hiddenCollections.size > 0) {
     elements.dockFlag.textContent = "filtered";
     elements.dockFlag.hidden = false;
   } else {

@@ -7,11 +7,20 @@
 // single collection the AND is exactly the union the map has always drawn,
 // so nothing looks different until a second collection exists to conjoin.
 
+import { state } from "./state.js";
+
 // collectionOf names the collection a zone belongs to. The v2 wire never
 // says, so there is exactly one answer; at flag day this reads what the wire
 // declares, and nothing else has to learn the new vocabulary.
 export function collectionOf(zone) {
   return "zones";
+}
+
+// isCollectionHidden is the one question every renderer asks about a
+// collection: pins ask by their category's id, shape features ask through
+// collectionOf. Nothing outside the legend touches the set directly.
+export function isCollectionHidden(collectionID) {
+  return state.hiddenCollections.has(collectionID);
 }
 
 // groupByCollection buckets highlighted zone records under their collections,

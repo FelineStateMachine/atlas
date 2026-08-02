@@ -10,7 +10,10 @@
   display: grid;
   width: 100%;
   align-items: center;
-  grid-template-columns: 22px minmax(0, 1fr) 22px 46px;
+  /* icon-or-chevron · name · isolate · label toggle · count. Every kind of
+     row keeps all five columns -- rows that have nothing for a column hold
+     it as space -- so counts and controls line up down the whole tree. */
+  grid-template-columns: 22px minmax(0, 1fr) 22px 22px 46px;
   gap: 8px;
   min-height: 26px;
   padding: 0 4px;
@@ -102,5 +105,95 @@
   font-size: 10px;
   font-variant-numeric: tabular-nums;
   text-align: right;
+}
+
+/* A shape collection's icon cell is its disclosure: a chevron that turns
+   when the feature index below is unfolded, beside a small glyph saying
+   what kind of ground the collection is. */
+.collection-expand {
+  display: flex;
+  width: 22px;
+  height: 22px;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  border: 0;
+  border-radius: 3px;
+  background: transparent;
+  color: inherit;
+  cursor: pointer;
+}
+
+.collection-expand:hover {
+  background: rgba(255, 255, 255, 0.06);
+}
+
+.collection-expand:focus-visible {
+  outline: 1px solid var(--accent);
+  outline-offset: -1px;
+}
+
+.collection-expand svg {
+  fill: none;
+  stroke: currentColor;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.collection-chevron {
+  width: 8px;
+  flex: none;
+  stroke-width: 2.2;
+  transition: transform 140ms ease;
+}
+
+.category-row.is-expanded .collection-chevron {
+  transform: rotate(90deg);
+}
+
+.collection-kind {
+  width: 11px;
+  flex: none;
+  stroke-width: 1.5;
+}
+
+/* The reader's word over whether a collection speaks its names unasked.
+   Revealed on rest like the isolate target beside it; lit while the
+   effective policy is "always". */
+.label-toggle {
+  display: grid;
+  justify-self: end;
+  width: 20px;
+  height: 20px;
+  padding: 0;
+  place-items: center;
+  border: 0;
+  border-radius: 3px;
+  opacity: 0;
+  background: none;
+  color: var(--muted);
+  cursor: pointer;
+  transition: opacity 110ms ease;
+}
+
+.category-row.is-hovered .label-toggle,
+.label-toggle:focus-visible {
+  opacity: 1;
+}
+
+.label-toggle:hover {
+  background: rgba(58, 165, 201, 0.14);
+}
+
+.label-toggle[aria-pressed="true"] {
+  color: var(--accent);
+}
+
+.label-toggle svg {
+  width: 12px;
+  fill: none;
+  stroke: currentColor;
+  stroke-linecap: round;
+  stroke-width: 1.7;
 }
 

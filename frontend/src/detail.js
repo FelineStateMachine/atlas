@@ -11,7 +11,7 @@ import { applyCategoryVisual, applyCategoryGlyph, colorFor, initials } from "./t
 import { cleanDescription } from "./util.js";
 
 export function revealPin(pin) {
-  state.hiddenCategories.delete(pin.category.id);
+  state.hiddenCollections.delete(pin.category.id);
   syncLegendCheckboxes();
   applyPinFilters();
   syncSectionSwitches();

@@ -1,6 +1,8 @@
+import { intersects } from "ol/extent.js";
 import XYZ from "ol/source/XYZ.js";
 import TileGrid from "ol/tilegrid/TileGrid.js";
 
+import { isCollectionHidden } from "./collections.js";
 import { state } from "./state.js";
 import { elements, populateSelect } from "./dom.js";
 import { overzoomLevels } from "./constants.js";
@@ -76,20 +78,28 @@ export async function selectWorld(slug) {
   setHoveredPin(null);
   state.gridCell = "";
   state.gridSystem = "geohash";
-  state.hiddenCategories.clear();
+  state.hiddenCollections.clear();
+  state.labelOverrides.clear();
   // Zones are a navigation aid, not the primary filter surface: keep boundaries
-  // drawn but fold the index away so pin groups stay above the fold.
+  // drawn but fold the section away so pin groups stay above the fold. The
+  // pseudo-collection's own row starts unfolded, so the feature index is
+  // there the moment the section is opened -- and in the DOM for anything
+  // that reaches for a zone row without unfolding first.
   state.collapsedSections.clear();
   state.collapsedSections.add("zones");
+  state.expandedCollections.clear();
+  state.expandedCollections.add("zones");
   for (const group of state.world.groups) {
     for (const category of group.categories) {
-      if (!category.visible) state.hiddenCategories.add(category.id);
+      if (!category.visible) state.hiddenCollections.add(category.id);
     }
   }
   const restore = state.restore?.world === state.world.slug ? state.restore : null;
   if (restore) {
-    state.hiddenCategories = new Set(restore.hidden);
+    state.hiddenCollections = new Set(restore.hidden);
     state.collapsedSections = new Set(restore.collapsed);
+    state.expandedCollections = new Set(restore.expanded || []);
+    state.labelOverrides = new Map(restore.labels || []);
   }
   // Where the corner of the screen is wanted is a preference about the volume
   // rather than about one of its maps, so it carries across them.
@@ -336,20 +346,30 @@ export function changeZoom(delta) {
   });
 }
 
+// The footer counts features of every kind: pins by their coordinate, zones
+// by whether their ground reaches into the view. "Enabled" is what the
+// legend's ledger lets draw; "in view" is the part of it under the window.
 export function updateVisibleCount() {
   const zoom = state.engine?.getView().getZoom();
   elements.viewport.dataset.zoom = Number.isFinite(zoom) ? zoom.toFixed(3) : "";
-  if (!state.engine || !state.pins.length) {
-    elements.visibleCount.textContent = "0 locations visible";
+  if (!state.engine || !state.world) {
+    elements.visibleCount.textContent = "0 features enabled";
     return;
   }
   const extent = state.engine.getView().calculateExtent(state.engine.getSize());
+  let enabled = state.eligibleLocations;
   let inView = 0;
   for (const pin of state.pins) {
     if (pinIsHidden(pin)) continue;
     const [x, y] = pin.coordinate;
     if (x >= extent[0] && x <= extent[2] && y >= extent[1] && y <= extent[3]) inView++;
   }
+  if (!isCollectionHidden("zones")) {
+    enabled += state.zoneRecords.size;
+    for (const record of state.zoneRecords.values()) {
+      if (intersects(record.extent, extent)) inView++;
+    }
+  }
   elements.visibleCount.textContent =
-    `${formatNumber(state.eligibleLocations)} enabled · ${formatNumber(inView)} in view`;
+    `${formatNumber(enabled)} features enabled · ${formatNumber(inView)} in view`;
 }
