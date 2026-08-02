@@ -10,6 +10,12 @@ enough that the code is replaceable.
 The implementation is `render/`. Where this document and the code disagree,
 take it as a defect in one of them and say so.
 
+That standard was tested at M7 close-out rather than asserted, and it holds for
+the contracts and not yet for the numbers: §10.1 is the list of what a rewriter
+would still have to read out of `render/`. Every disagreement the test found
+between this document and the code has been resolved in favour of the code and
+is marked where it mattered.
+
 ---
 
 ## 1. What the seam is
@@ -48,8 +54,10 @@ never learns a route beyond the two it posts to, and **nothing imports it**
 - **`strict`, `noUncheckedIndexedAccess`, `exactOptionalPropertyTypes`, ESM,
   no `any`** outside a typed browser-API escape hatch.
 - **~3,000 authored lines** is the guideline. `render/tools/lines.mjs` counts
-  and warns; it never fails a build. Today: 2,800 code lines, 992 of prose,
-  tests counted separately.
+  and warns; it never fails a build. Today: 3,024 code lines, 1,288 of prose,
+  and 630 more of tests counted separately — 24 lines past the guideline, which
+  the lane gate prints as a warning on every run. Read the number from the tool
+  rather than from this sentence.
 
 ### 1.2 Progressive by construction
 
@@ -90,8 +98,20 @@ seam draws into:
 | Element | Whose | What the seam does |
 |---|---|---|
 | `#overview-canvas`, `#overview-viewport` | rendered by `overview.tmpl` | draws the world once per lens; writes the camera rectangle in whole pixels |
+| `#atlas-overview` | `overview.tmpl` | the shelf: marks it, and hides it when the camera has the whole world |
 | `#globe-toggle` | rendered by `topbar.tmpl` | binds the click; flips the panes; writes `aria-pressed` |
-| `#labels-hint` | rendered by `viewport-surface` | writes the held-key hint text |
+| `#labels-hint` | rendered by `shell.tmpl` | writes the held-key hint text |
+| `#visible-count` | `shell.tmpl`'s footer | writes the standing count — the seam's half of a number the server also renders |
+| `#atlas-camera-*` | `shell.tmpl`'s hidden form | writes the five camera fields the form posts (§5) |
+
+One more element sits in the same box and is **not** the seam's: `<div
+id="map">`, rendered first by `viewport-surface`, morph-skipped, carrying the
+page's backdrop, the keyboard focus and the loading scrim. In the reference
+implementation it *was* the map. Here the panes are the custom elements and
+`#map` is what is left, which is why paint order is load-bearing — rendered
+after the panes its backdrop covers them, every count reads correct and the
+page shows an empty rectangle. `checkCanvas` in the parity tour exists because
+that happened.
 
 Which pane is up is **seam-local state** (issue #5 §4.1): the same world, the
 same filters, the same camera, seen from a different distance. The application
@@ -225,18 +245,36 @@ new CustomEvent("atlas:pick", { bubbles: true, composed: true,
   detail: { feature: "1849", kind: "point" } })   // kind: point | path | area
 ```
 
-The seam resolves the hit and submits nothing. The page's one glue listener
-turns it into an ordinary `POST /session/select`, and the new selection comes
-back as a new scene. An empty `feature` is a click on nothing.
+The seam resolves the hit and submits nothing: **the page is meant to turn it
+into an ordinary `POST /session/select`**, and the new selection comes back as
+a new scene. A click on nothing dispatches too, with `feature` and `kind` both
+empty — a deselection is a decision and the page should hear it. *Today
+nothing listens: `atlas:pick` is dispatched by both panes and consumed by no
+template, so a canvas pick is inert and selection happens through the dock and
+the card. That is an application-side hole, not a seam one, and it is §10's
+last entry.*
 
-**The camera report** — `POST /session/view`, form-encoded
+**The camera report** is `POST /session/view`, form-encoded
 (`volume world x y zoom rotation`), debounced 400 ms after the camera settles,
-answered `204`. It exists so a volume reopens where the reader left it. The
-server stores it and hands it back in `data-camera`; it never reasons about
-it.
+answered `204` — but **the seam does not make the request**. It writes the
+five values into the hidden inputs `#atlas-camera-world|-x|-y|-zoom|-rotation`
+and dispatches `atlas:camera` on `window` (not bubbling); `shell.tmpl` carries
+a hidden form with `hx-post="/session/view" hx-trigger="atlas:camera
+from:window"` that does the posting. The seam therefore owns no request at
+all, which is the stricter reading of "fetch lives in one place" and the reason
+the seam never sees the answer. One report is unconditional at `show()`,
+because a `view.fit()` with no animation raises no settle event and the opening
+camera would otherwise never be told.
 
-That is the whole outward surface. No other request, no other event, no
-writes to the scene node, ever.
+That is the whole outward surface: two DOM events and a set of hidden inputs.
+No request the page did not make, and no write to the scene node, ever.
+
+**Inbound, there is one.** After an htmx swap the seam must re-resolve the
+scene node by selector, re-assert the chrome it wired, and rewrite the standing
+count. `boot.ts` listens on `document.body` for `htmx:after:swap`,
+`htmx:after:settle`, their htmx-2 camel-case spellings, and `atlas:rescan` —
+the event a harness or a host raises to say "look again" without an htmx swap
+behind it. All five call the same `rescan()`.
 
 ---
 
@@ -375,22 +413,26 @@ and `pane.globeBuilt` in the baselines is exactly the question "does the
 - **Sprites** — one per pin, built once, afterwards only shown or hidden, so a
   filter costs a boolean per pin.
 
-**The camera round trip** is the pane's one contract with the chart. The
-pairing is invertible arithmetic through the declared mapping:
+**The camera round trip** is the pane's one contract with the chart. Position
+is invertible arithmetic through the declared mapping; the distance is a
+**calibrated power law, not a field-of-view calculation**:
 
 ```
-lat, lng          = mapping.toLatLng(camera.x, −camera.y)
-degrees visible   = resolution · viewportHeight / equirect.px.h · |north − south|
-altitude          = degrees / 180 · 2.5          (2.5 = globe.gl's own full view)
+lat, lng        = mapping.toLatLng(camera.x, −camera.y)      and toWorld back, y negated
+altitude(zoom)  = clamp(2.5 / 2^(zoom − 2), 0.08, 4)
+zoom(altitude)  = clamp(2 + log2(2.5 / max(altitude, 0.04)), 0, lens.maxZoom + 2)
+rotation        = 0, always
 ```
 
-and back the other way. A flip to the sphere and straight back hands the chart
-the camera it was given — the same numbers, not numbers that round-trip to
-within a float of them — unless the reader actually moved the sphere, in which
-case the inverse is taken honestly.
+Deriving the altitude from the viewport height, the resolution and the
+equirect pixel span is defensible arithmetic and reproduces none of the
+recorded numbers; §10 shows the two Mars baseline readings the power law falls
+out of. The clamps are load-bearing rather than hygiene.
 
-*The constant 2.5 and the locator rectangle the globe writes are **not**
-calibrated against the reference implementation's own pairing; see §10.*
+A flip to the sphere and straight back hands the chart the camera it was given
+— the **identical object**, when latitude, longitude and altitude have all
+moved less than 1e-9, rather than numbers that round-trip to within a float of
+them — and otherwise inverts honestly.
 
 ---
 
@@ -478,16 +520,14 @@ Recorded here rather than papered over.
   node in place and replacing it whole both land: a search narrows the
   standing set, a `<data>` child hides a collection, a replaced node plus one
   `atlas:rescan` opens the grid on the held cell with the extent the Mars
-  baseline records, and the selected feature survives the cell's cull. What is
-  *not* verified is the same journey through the application's own controls,
-  because the legend's checkboxes currently post without a volume and answer
-  `400` — an application-side defect, not the seam's.
+  baseline records, and the selected feature survives the cell's cull. The
+  same journey through the application's own controls was walked by hand at
+  M7 close-out — search, a legend checkbox, a solo chip — and lands; what is
+  still missing is a tour that walks it every time.
 - **The globe's altitude pairing is calibrated.** It is a power law anchored at
-  one point, not a field-of-view calculation:
+  one point, not a field-of-view calculation (§7):
 
   ```
-  altitude(zoom)     = clamp(2.5 / 2^(zoom − 2), 0.08, 4)
-  zoom(altitude)     = clamp(2 + log2(2.5 / max(altitude, 0.04)), 0, lens.maxZoom + 2)
   one zoom press     = altitude ÷ 2^±1, read off the camera, eased over 180 ms
   ```
 
@@ -517,6 +557,76 @@ Recorded here rather than papered over.
   desktop application served from its own binary, so this is a note rather
   than a problem — but it is the obvious thing to measure first if it ever
   becomes one.
+- **`atlas:pick` has no consumer.** Both panes dispatch it (§5); no template
+  listens. Canvas selection is therefore inert, and selection reaches the
+  session through the dock and the detail card instead. The seam's half of the
+  contract is kept; the page's half is not written yet.
+
+## 10.1 What this document does not give you
+
+The M7 close-out ran the blind-rewrite test against this document and found the
+line where it stops being sufficient. §§1–9 are enough to build a seam that is
+*correct* — right contracts, right flows, right arithmetic, right budgets. They
+are **not** enough to build one whose diagnostics equal a recorded baseline,
+because a baseline is full of numbers this document does not carry. The gap is
+named here rather than left for the next person to discover step by step.
+
+What a rewriter would still have to take from `render/`, `golden/parity/`, or a
+run of the tour:
+
+- **Every drawn dimension.** Pin radii by state, rim stroke widths, icon pixel
+  size and anchor, label fonts and halo widths, area fill opacities, sprite
+  geometry and colours on the sphere. None of it is here and none of it is in a
+  golden either — `golden/parity/SCHEMA.md` §7 says plainly that almost nothing
+  checks pixels, so a rewrite could differ in all of it and pass.
+- **`atlas.icon.outset`.** §2 does not mention it; the seam reads the world's
+  declaration and uses it for the pin rim. *It also uses it wrong* — the
+  `light`/`dark` vocabulary is passed to the renderer as a literal colour
+  string, and the colour table beside it is dead code. A rewriter following the
+  semantics would draw different rims from the ones shipping today, and would
+  be right to.
+- **`atlas.render.as`.** The seam reads `pin` and `text` and nothing else, and
+  today `text` only forces a collection's labels always-on — the "name and no
+  marker" branch exists and is never reached. The registry's meaning and the
+  seam's behaviour do not agree; the registry is the one to build to.
+- **Search semantics.** Case-insensitive substring over a feature's `title`
+  alone; a non-empty query is a hard filter on points and no filter at all on
+  shapes, which nevertheless drop out of the *listable* count.
+- **Hit testing.** Four CSS pixels of tolerance, resolved top-down through the
+  z-order of §6.2 so a promoted pin beats a plain pin beats ground; a hidden
+  feature does not swallow the hit. On the sphere it is nearest standing point
+  within roughly two degrees. Hover shares the chart's rule and changes only
+  the pin's radius — it deliberately does *not* rebuild the standing set.
+- **Declutter is OpenLayers' own**, enabled on exactly one layer (`pinLabels`),
+  ordered by the label style's `zIndex`. "Ordered by priority" in §6.4 is that
+  zIndex, not a hand-written pass.
+- **`members` in the priority formula** (§4.2) is the number of packed rows
+  sharing a point's `owner` column — counted over the whole `.bin`, across
+  every shard, before any filter. Not the standing count, not the legend's.
+- **The overview's 168** (§6.6) is a *level-selection* threshold, not a canvas
+  size: the canvas is the lens's window at the chosen level, which for a
+  full-world lens on the standard grid is 256 px — the number §10's locator
+  arithmetic quietly depends on.
+- **Diagnostics that are not what their names suggest.** `fitZoom` is captured
+  once, when a lens is opened fresh, and never recomputed. `zones.focused` is
+  deliberately *not* emitted by the seam — the application's half supplies it
+  and a seam that emitted `null` would clobber it. `grid.maximumDepth` reports
+  the default system's depth even with the grid off. `sync.listable` counts
+  only shapes that have a title.
+- **The chart `View`'s explicit resolution ladder.** Enumerating
+  `size/tileSize / 2^z` per level rather than deriving from a max and a factor
+  is what makes a candidate's camera *equal* a baseline's rather than close to
+  it. This one is the difference between eighty-one differing fields and one.
+- **The rest of the constants**: focus zoom 4 and the 220 ms flight, the
+  "steered" thresholds that decide whether a closing card gives the camera
+  back, the grid fit's 52 px padding, the 46 × 23 px test that decides whether
+  a cell wears its label, the raster caches at 64, the renderer buffers, and
+  the globe's texture size, detail budget and horizon arithmetic.
+
+Two of those are contract-level rather than cosmetic and are the ones to write
+down next, in this document: the outset vocabulary and `atlas.render.as`, both
+of which are `format/semconv` keys whose *meaning* is normative even where the
+current seam's reading of them is not.
 
 ## 11. Where each named behaviour lives
 
