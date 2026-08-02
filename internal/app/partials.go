@@ -84,7 +84,18 @@ var partialTargets = map[string]partialTarget{
 	// worth preserving, and morphing one leaves its text where it was.
 	"island":      {target: "#atlas-session-island", swap: "outerHTML"},
 	"empty-state": {target: "#atlas-shell", swap: "innerMorph"},
-	"import":      {target: "#atlas-import", swap: "beforeend"},
+	// One import is one row, and the row is this region's whole content: an
+	// import answers with the region rendered again for every state it
+	// reaches, and the morph carries the row from "choosing a bundle" to
+	// "installed" in place. It is an *outer* morph for the reason every other
+	// morph here is one -- the template renders the region's own container --
+	// and the container is what makes a run that came to nothing possible to
+	// undo: the last render of a cancelled import holds no row at all.
+	//
+	// It used to be a beforeend append, which made every state of every run a
+	// line of its own, immortal until the next full page render, and a
+	// cancelled picker two of them (issue #5 §4.2).
+	"import": {target: "#atlas-import", swap: "outerMorph"},
 }
 
 // renderPartials builds the <hx-partial> set for a list of regions.
