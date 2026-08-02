@@ -32,6 +32,14 @@ const (
 	// nothing but the committed extractions.
 	registryDirEnv = "ATLAS_REGISTRY_DIR"
 
+	// cityDirEnv and cityDirDefault are golden/capture/capture.sh's own
+	// convention for the fixture volume the library never held: the public
+	// proof city was built for the fixture, and is read from where it was
+	// built. A volume whose FIXTURES.json entry carries builtFor is one of
+	// those; nothing here carries a list of slugs.
+	cityDirEnv     = "ATLAS_GOLDEN_CITY_DIR"
+	cityDirDefault = "../../dist/bundles"
+
 	// locationsNote and packedForm are constants of the extraction format,
 	// copied from golden/capture/bundles so the gate can write the header
 	// again rather than trusting the one it is checking.
@@ -60,6 +68,11 @@ type fixtureVolume struct {
 	Conventions   int           `json:"conventions"`
 	Counts        fixtureCounts `json:"counts"`
 	Fixture       string        `json:"fixture"`
+
+	// BuiltFor, when present, says this volume was built for the fixture
+	// rather than found installed, and records how. It is what sends the
+	// gate to the city directory for the file.
+	BuiltFor json.RawMessage `json:"builtFor,omitempty"`
 }
 
 type fixtureCounts struct {
@@ -316,7 +329,7 @@ func registryDir(t *testing.T) (string, fixtureSet) {
 	set := readFixtureSet(t)
 	var held int
 	for _, volume := range set.Volumes {
-		if _, err := os.Stat(filepath.Join(dir, volume.File)); err == nil {
+		if _, err := os.Stat(filepath.Join(sourceDir(dir, volume), volume.File)); err == nil {
 			held++
 		}
 	}
@@ -327,11 +340,31 @@ func registryDir(t *testing.T) (string, fixtureSet) {
 	return dir, set
 }
 
+// sourceDir is where one fixture build is read from. Nearly always the
+// library; for a volume built for the fixture rather than found installed, the
+// directory it was built into. This is capture.sh's own rule, and the reason
+// the gate does not need to know the city's name.
+func sourceDir(dir string, v fixtureVolume) string {
+	if len(v.BuiltFor) == 0 {
+		return dir
+	}
+	if city := os.Getenv(cityDirEnv); city != "" {
+		return city
+	}
+	return cityDirDefault
+}
+
 // openFixture opens one fixture build out of the registry.
 func openFixture(t *testing.T, dir string, v fixtureVolume) *bundle.Reader {
 	t.Helper()
-	path := filepath.Join(dir, v.File)
+	from := sourceDir(dir, v)
+	path := filepath.Join(from, v.File)
 	if _, err := os.Stat(path); err != nil {
+		if len(v.BuiltFor) > 0 {
+			t.Skipf("%s: %s was built for the fixture and is not in %s; build it (golden/fixtures/README.md) or point %s at it",
+				v.Slug, v.File, from, cityDirEnv)
+			return nil
+		}
 		t.Errorf("%s: %s is missing from the library the other fixtures are in", v.Slug, v.File)
 		return nil
 	}

@@ -520,7 +520,7 @@ func TestRealPartsHashAsTheFixtureRecorded(t *testing.T) {
 			}
 			header := readVolumeHeader(t, volume)
 
-			info, err := os.Stat(filepath.Join(dir, volume.File))
+			info, err := os.Stat(filepath.Join(sourceDir(dir, volume), volume.File))
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -786,6 +786,16 @@ func TestRealLibraryStillHoldsTheFixtureBuilds(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	// The city was built for the fixture and lives where it was built, so the
+	// set the fold has to answer for is the two directories together -- which
+	// is exactly the registry capture.sh assembles before it records.
+	if city := sourceDir(dir, fixtureVolume{BuiltFor: json.RawMessage("{}")}); city != dir {
+		found, alsoSkipped, err := bundle.Scan(city)
+		if err == nil {
+			descriptors = append(descriptors, found...)
+			skipped = append(skipped, alsoSkipped...)
+		}
+	}
 	byStamp := map[string]bundle.Descriptor{}
 	for _, descriptor := range descriptors {
 		byStamp[descriptor.Stamp] = descriptor
@@ -794,6 +804,11 @@ func TestRealLibraryStillHoldsTheFixtureBuilds(t *testing.T) {
 	for _, volume := range set.Volumes {
 		descriptor, held := byStamp[volume.Stamp]
 		if !held {
+			if len(volume.BuiltFor) > 0 {
+				t.Logf("%s: no build stamped %s where the city fixture is built; set %s or build it",
+					volume.Slug, volume.Stamp12, cityDirEnv)
+				continue
+			}
 			t.Errorf("%s: the library holds no build stamped %s", volume.Slug, volume.Stamp12)
 			continue
 		}
