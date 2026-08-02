@@ -1,0 +1,23 @@
+{
+  "name": "@atlas/render",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "description": "Lane 4 of issue #5 §5.5: the deletable rendering seam. Two custom elements picture a volume from three published contracts — the /data plane, the scene description, the analysis API — and nothing imports it.",
+  "exports": {
+    ".": "./index.ts"
+  },
+  "scripts": {
+    "build": "node build.mjs",
+    "lines": "node tools/lines.mjs"
+  },
+  "dependencies": {
+    "@atlas/analysis": "*",
+    "globe.gl": "2.46.1",
+    "ol": "10.10.0",
+    "three": "0.185.1"
+  },
+  "devDependencies": {
+    "esbuild": "0.28.1"
+  }
+}

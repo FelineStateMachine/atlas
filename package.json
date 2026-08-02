@@ -3,9 +3,10 @@
   "private": true,
   "version": "0.0.0",
   "type": "module",
-  "description": "The clean-room rewrite's TypeScript lanes (issue #5 §3.1). The pre-rewrite frontend/ keeps its own package and its own lock file; nothing here builds it.",
+  "description": "The clean-room rewrite's TypeScript lanes (issue #5 \u00a73.1). The pre-rewrite frontend/ keeps its own package and its own lock file; nothing here builds it.",
   "workspaces": [
-    "analysis"
+    "analysis",
+    "render"
   ],
   "engines": {
     "node": ">=22.18"
