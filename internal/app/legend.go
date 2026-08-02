@@ -122,7 +122,26 @@ type LabelToggle struct {
 	Action     string // "Hide labels" or "Show labels"
 	Label      string // the spoken label, which carries the collection's name
 	Policy     string // the policy pressing it would set
+
+	// Glyph is which mark the button wears, because the two kinds of row
+	// that wear one are not asking the same question. An area's names are
+	// drawn *on* the ground and the toggle is whether they speak unasked,
+	// which the reference drew as a bar and a stem. A point collection
+	// curated as text has no marker to fall back to -- its names are the
+	// whole of how it draws -- so the toggle is whether the collection is a
+	// row of tags at all, and the reference drew a luggage tag. It is a word
+	// rather than a boolean because the template renders a glyph per name
+	// and a third kind would be a third name, not a nested `if`.
+	Glyph string // glyphLabelBar or glyphLabelTag
 }
+
+// The two marks a label toggle wears. They are the reference's own
+// (frontend/src/legend.js), spelled here so the template names them rather
+// than deciding between them.
+const (
+	glyphLabelBar = "bar"
+	glyphLabelTag = "tag"
+)
 
 // IndexEntry is one feature under an unfolded shape row.
 type IndexEntry struct {
@@ -210,13 +229,20 @@ func labelPolicy(collection *collectionModel, session Session) string {
 // area, or a point collection whose curation granted it text. A plain pin row
 // simply has no button to press.
 func labelToggle(collection *collectionModel, session Session) (LabelToggle, bool) {
-	drawsNames := collection.Kind == semconv.GeometryArea ||
-		(collection.Kind == semconv.GeometryPoint && collection.RenderAs == semconv.RenderAsText)
-	if !drawsNames {
+	glyph := ""
+	switch {
+	case collection.Kind == semconv.GeometryArea:
+		glyph = glyphLabelBar
+	case collection.Kind == semconv.GeometryPoint && collection.RenderAs == semconv.RenderAsText:
+		glyph = glyphLabelTag
+	default:
 		return LabelToggle{}, false
 	}
 	speaking := labelPolicy(collection, session) == semconv.LabelAlways
-	toggle := LabelToggle{Collection: collection.ID, Speaking: speaking, Policy: semconv.LabelAlways}
+	toggle := LabelToggle{
+		Collection: collection.ID, Speaking: speaking,
+		Policy: semconv.LabelAlways, Glyph: glyph,
+	}
 	if speaking {
 		toggle.Action, toggle.Policy = "Hide labels", semconv.LabelQuiet
 		toggle.Label = "Hide " + collection.Title + " labels"

@@ -93,7 +93,16 @@
             {{with .Labels}}<button type="button" class="label-toggle" data-label-toggle="{{.Collection}}"
                     data-label="{{.Action}}" aria-label="{{.Label}}" aria-pressed="{{.Speaking}}"
                     hx-post="/session/labels" hx-vals:append='{"collection":"{{.Collection}}","flip":"1"}'>
-              <svg viewBox="0 0 16 16" aria-hidden="true"><path d="M3.5 3.5h9M8 3.5v9"/></svg>
+              {{/*
+                The mark says which question the button is asking. A bar and a
+                stem for ground that draws its names on itself; a luggage tag
+                for a point collection curated as text, whose names are the
+                whole of how it draws. Which one is Go's answer (legend.go,
+                labelToggle) -- this only spells them.
+              */}}
+              {{if eq .Glyph "tag"}}<svg viewBox="0 0 16 16" aria-hidden="true"><path d="M8.6 2.5H2.5v6.1l5.4 5.4a1.2 1.2 0 0 0 1.7 0l4.4-4.4a1.2 1.2 0 0 0 0-1.7z"/><path d="M5.6 5.6h.01"/></svg>
+              {{else}}<svg viewBox="0 0 16 16" aria-hidden="true"><path d="M3.5 3.5h9M8 3.5v9"/></svg>
+              {{end}}
             </button>
             {{else}}<span class="label-toggle-spacer"></span>
             {{end}}
