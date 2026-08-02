@@ -1,0 +1,434 @@
+# The semantic conventions of the .atlas format, as one machine-readable
+# source (issue #5 §8, an M7 fast-follow of §10 decision 9).
+#
+# Three artifacts are generated from this file and from nothing else:
+#
+#   format/semconv/registry_gen.go   the Go registry: namespace, version,
+#                                    entities, stability tiers, key constants,
+#                                    the vocabularies, and the registry map
+#   analysis/semconv/keys.ts         the TypeScript lanes' key constants
+#   docs/semconv/REGISTRY.md         the document a reader learns the
+#                                    vocabulary from
+#
+#   go generate ./format/semconv     # or: go run ./spec/gen
+#
+# The value checkers are hand-written in format/semconv/registry.go and are
+# referenced here by name (`check:`). A `check:` naming a function the
+# generator does not know fails codegen, so a typo cannot become a key that
+# checks nothing.
+#
+# Adding a key: add an entry to `keys`, regenerate, commit all four files. The
+# `spec/gen` test compares the committed artifacts against the generator's
+# output, so a spec edit without a regeneration is a red gate rather than a
+# quiet drift.
+
+version: 2
+version_doc: >-
+  Version names the vocabulary a bundle was written against. It rides the
+  manifest as "conventions" and moves only when an existing key's meaning
+  breaks -- additions ride on per-key stability instead.
+
+
+  v2 collapsed the v1 entities zone, category, and location into collection
+  and feature when the format unified them, and renamed atlas.category.key to
+  atlas.collection.key to match.
+
+namespace: "atlas."
+namespace_doc: >-
+  Namespace prefixes every key the registry governs. An attribute outside it
+  is not this registry's business and passes through untouched.
+
+# The document's prose. Everything in docs/semconv/REGISTRY.md that is not a
+# table row lives here, so the document has exactly one source.
+document:
+  title: Atlas semantic conventions — registry v{{version}}
+  intro: |
+    The shared language of the format: attribute keys that carry display and
+    geometry meaning from a producer, through composition, into the bundle, and
+    out to every reader.
+
+    **This document is generated from `spec/registry.yaml`.** So is
+    `format/semconv`'s registry, and so are the TypeScript lanes' key constants.
+    Edit the spec, run `go generate ./format/semconv`, and commit what changes;
+    `spec/gen`'s test holds the committed artifacts to the generator's output,
+    so the three can never disagree.
+
+    A bundle declares the vocabulary it was written against in its manifest:
+    `"conventions": {{version}}`. The number moves only when an existing key's
+    meaning breaks; new keys arrive as `experimental` and earn `stable`. v2 is
+    such a break: it collapsed the v1 entities `zone`, `category`, and
+    `location` into `collection` and `feature` when the format unified them —
+    every kind of thing on a world is a feature, every named set of them a
+    collection — and renamed `atlas.category.key` to `atlas.collection.key` to
+    match.
+  rules: |
+    - **Producer-side (strict):** any `atlas.*` key not in this registry, attached
+      to the wrong entity, or carrying a value outside its vocabulary **fails the
+      build**. `semconv.Validate` and `semconv.Check` are that gate.
+    - **Reader-side (lenient):** unknown keys are ignored. A bundle is never
+      refused over conventions. `semconv.EntityOf` reporting `false` is a cue to
+      skip an attribute, not to fail.
+    - Keys outside the `atlas.` namespace are not this registry's business and
+      pass through untouched.
+    - `sphere` requires `projection` and both `equirect.*` mappings; the declared
+      mapping must invert — a packed position run backward through it recovers the
+      source's published coordinates.
+    - `atlas.icon.std`, once declared, must be resolved to a real icon asset by
+      the time the bundle is written.
+    - A collection's `atlas.geometry.kind`, when declared, must agree with the
+      `kind` field on the wire.
+    - `atlas.label.policy` attaches only to area collections; a declaration on any
+      other kind fails validation.
+
+entities_doc: >-
+  The entities attributes attach to, from the widest to the narrowest.
+entities:
+  - name: bundle
+    const: EntityBundle
+    what: "one `.atlas` file: one volume"
+    where: reserved; no key attaches here yet
+  - name: world
+    const: EntityWorld
+    what: one ground within the volume
+    where: "`worlds/<slug>.json` → `attrs`"
+  - name: collection
+    const: EntityCollection
+    what: one ordered group of features
+    where: "`worlds/<slug>.json` → `collections[].attrs`"
+  - name: feature
+    const: EntityFeature
+    what: one point, path, or area
+    where: "inline `features[].attrs`, or `worlds/<slug>.text` → `<id>.a`"
+
+stabilities_doc: >-
+  The stability tiers.
+stabilities:
+  - name: stable
+    const: Stable
+  - name: experimental
+    const: Experimental
+
+vocabularies_doc: >-
+  The vocabularies the registered keys admit.
+
+keys_doc: >-
+  The registered keys.
+
+# The registry itself. Order is the order a reader meets these keys, and it is
+# the order the generated const blocks carry; the map and every listing sort
+# themselves, so nothing downstream depends on it.
+#
+# Fields:
+#   key        the attribute key as it rides a payload
+#   const      the Go constant; the TypeScript constant is derived from it
+#   entity     bundle | world | collection | feature
+#   stability  stable | experimental
+#   check      the hand-written checker in format/semconv/registry.go
+#   values     for check: enum — the vocabulary, each with its Go constant
+#   arity      for check: numbers — how many comma-separated numbers
+#   doc        the Go doc comment. Omit to join the previous key's comment.
+#   values_md  the document's "Values" cell
+#   meaning    the document's "Meaning" cell
+keys:
+  - key: atlas.geometry.kind
+    const: KeyGeometryKind
+    entity: collection
+    stability: stable
+    check: enum
+    values:
+      - {const: GeometryPoint, value: point}
+      - {const: GeometryPath, value: path}
+      - {const: GeometryArea, value: area}
+    doc: >-
+      KeyGeometryKind says what shape of thing a collection holds: points,
+      paths, or areas. Every collection declares one kind and every feature in
+      it is that kind; readers pick their rendering and UX by this key instead
+      of sniffing geometry types at draw time.
+    values_md: '`point` \| `path` \| `area`'
+    meaning: >-
+      What shape of thing the collection holds. Declared once per collection;
+      every feature in it is that kind, and readers pick rendering and UX by
+      this key instead of sniffing geometry types.
+
+  - key: atlas.label.policy
+    const: KeyLabelPolicy
+    entity: collection
+    stability: experimental
+    check: enum
+    values:
+      - {const: LabelAlways, value: always}
+      - {const: LabelQuiet, value: quiet}
+    doc: >-
+      KeyLabelPolicy says whether an area collection's features wear their
+      names on the map always, or quietly -- only on highlight, selection, or
+      an explicit reveal. Area collections only: absent means always for
+      areas, and paths are always quiet.
+    values_md: '`always` \| `quiet`'
+    meaning: >-
+      Whether an area collection's features wear their names on the map always,
+      or quietly — only on highlight, selection, or an explicit reveal. Area
+      collections only; absent means `always` for areas, and paths are always
+      quiet.
+
+  - key: atlas.render.as
+    const: KeyRenderAs
+    entity: collection
+    stability: stable
+    check: enum
+    values:
+      - {const: RenderAsPin, value: pin}
+      - {const: RenderAsText, value: text}
+    doc: >-
+      KeyRenderAs says how a point collection's features are drawn: as markers
+      or as floating text labels.
+    values_md: '`pin` \| `text`'
+    meaning: >-
+      How a point collection's features draw: markers, or floating text labels.
+      Absent means `pin`; no payload carries a display-type field, and only
+      ingestion still reads one to speak this key for old captures.
+
+  - key: atlas.icon.std
+    const: KeyIconStd
+    entity: collection
+    stability: stable
+    check: setName
+    doc: >-
+      KeyIconStd names a standard-library icon for a collection that has no
+      artwork of its own, as set/name, e.g. "maki/mountain". A producer
+      resolves it to embedded bytes; a reader only ever sees the resolved
+      asset.
+    values_md: '`set/name`, e.g. `maki/mountain`'
+    meaning: >-
+      Standard-library icon for a collection without artwork. Resolved to
+      embedded bytes at build time; a reader only sees the resolved asset.
+
+  - key: atlas.icon.kind
+    const: KeyIconKind
+    entity: collection
+    stability: stable
+    check: enum
+    values:
+      - {const: IconKindGlyph, value: glyph}
+      - {const: IconKindPicture, value: picture}
+    doc: >-
+      KeyIconKind says whether a collection's icon asset is a monochrome glyph
+      the reader tints, or a picture drawn as-is.
+    values_md: '`glyph` \| `picture`'
+    meaning: >-
+      Whether the icon asset is a monochrome glyph the reader tints, or a
+      picture drawn as-is. Names what a file suffix used to imply.
+
+  - key: atlas.icon.outset
+    const: KeyIconOutset
+    entity: world
+    stability: stable
+    check: enum
+    values:
+      - {const: OutsetLight, value: light}
+      - {const: OutsetDark, value: dark}
+    doc: >-
+      KeyIconOutset says which rim a world's markers wear so they stay legible
+      against its art: the light rim of a dark raster or the dark rim of a
+      light one.
+    values_md: '`light` \| `dark`'
+    meaning: >-
+      The rim a world's markers wear to stay legible against its art.
+
+  - key: atlas.geometry.surface
+    const: KeyGeometrySurface
+    entity: world
+    stability: stable
+    check: enum
+    values:
+      - {const: SurfacePlane, value: plane}
+      - {const: SurfaceSphere, value: sphere}
+    doc: >-
+      KeyGeometrySurface declares what a world's raster is a picture of: a
+      plane or a sphere. A world that says nothing is a plane.
+    values_md: '`plane` \| `sphere`'
+    meaning: >-
+      What the raster pictures. Absent means `plane`.
+
+  - key: atlas.geometry.projection
+    const: KeyGeometryProjection
+    entity: world
+    stability: stable
+    check: enum
+    values:
+      - {const: ProjectionEquirect, value: equirect}
+    doc: >-
+      KeyGeometryProjection says how a spherical surface was flattened into
+      the raster. Equirectangular is the only vocabulary so far.
+    values_md: '`equirect`'
+    meaning: >-
+      How a sphere was flattened. Required when surface is `sphere`.
+
+  - key: atlas.geometry.equirect.px
+    const: KeyGeometryEquirectPx
+    entity: world
+    stability: stable
+    check: numbers
+    arity: 4
+    doc: >-
+      KeyGeometryEquirectPx is the raster window the projection fills, in
+      world pixels, as "x,y,w,h".
+    values_md: '`x,y,w,h` (world px)'
+    meaning: >-
+      The raster window the projection fills.
+
+  - key: atlas.geometry.equirect.deg
+    const: KeyGeometryEquirectDeg
+    entity: world
+    stability: stable
+    check: numbers
+    arity: 4
+    doc: >-
+      KeyGeometryEquirectDeg is the ground that window pictures, in degrees,
+      as "west,north,east,south".
+    values_md: '`west,north,east,south` (degrees)'
+    meaning: >-
+      The ground that window pictures.
+
+  - key: atlas.geometry.mercator.px
+    const: KeyGeometryMercatorPx
+    entity: world
+    stability: experimental
+    check: numbers
+    arity: 4
+    doc: >-
+      KeyGeometryMercatorPx is the raster window a Web-Mercator cut fills, in
+      world pixels, as "x,y,w,h". Where equirect declares y linear in degrees,
+      mercator declares y linear in the projected latitude -- asinh(tan
+      latitude) -- which is the flattening a real-world tile window actually
+      is.
+    values_md: '`x,y,w,h` (world px)'
+    meaning: >-
+      The raster window a Web-Mercator cut fills. Where `equirect` declares y
+      linear in degrees, `mercator` declares y linear in projected latitude —
+      `asinh(tan lat)` — the flattening a real-world tile window actually is.
+
+  - key: atlas.geometry.mercator.deg
+    const: KeyGeometryMercatorDeg
+    entity: world
+    stability: experimental
+    check: numbers
+    arity: 4
+    doc: >-
+      KeyGeometryMercatorDeg is the ground a Mercator window pictures, in
+      degrees at the window's edges, as "west,north,east,south".
+    values_md: '`west,north,east,south` (degrees)'
+    meaning: >-
+      The ground the Mercator window pictures, in degrees at its edges.
+
+  - key: atlas.geometry.body
+    const: KeyGeometryBody
+    entity: world
+    stability: experimental
+    check: slug
+    doc: >-
+      KeyGeometryBody names the body pictured, e.g. "mars".
+    values_md: 'slug, e.g. `mars`'
+    meaning: >-
+      The body pictured.
+
+  - key: atlas.geometry.radius_km
+    const: KeyGeometryRadiusKM
+    entity: world
+    stability: experimental
+    check: decimal
+    doc: >-
+      KeyGeometryRadiusKM is the body's mean radius in kilometers, as a
+      decimal string.
+    values_md: 'decimal string'
+    meaning: >-
+      The body's mean radius.
+
+  - key: atlas.geo.lat
+    const: KeyGeoLat
+    entity: feature
+    stability: experimental
+    check: decimal
+    doc: >-
+      KeyGeoLat and KeyGeoLon carry a feature's true planetary coordinates as
+      the source published them: planetocentric degrees, east-positive
+      longitude. They are provenance and card material; rendering derives
+      positions from the world-level mapping instead.
+    values_md: 'decimal degrees'
+    meaning: >-
+      True planetary latitude as published (planetocentric). Provenance and
+      card material; rendering derives from the world-level mapping.
+
+  # No doc: this key joins the comment above, the way the two read together.
+  - key: atlas.geo.lon
+    const: KeyGeoLon
+    entity: feature
+    stability: experimental
+    check: decimal
+    values_md: 'decimal degrees'
+    meaning: >-
+      True planetary longitude as published (east-positive).
+
+  - key: atlas.hydro.huc12
+    const: KeyHydroHUC12
+    entity: feature
+    stability: experimental
+    check: huc12
+    doc: >-
+      KeyHydroHUC12 names the USGS twelve-digit hydrologic unit -- the
+      subwatershed -- a feature's ground lies wholly within. A feature
+      spanning subwatersheds carries no key rather than a misleading one.
+    values_md: 'twelve digits'
+    meaning: >-
+      The USGS twelve-digit hydrologic unit — the subwatershed — the feature's
+      ground lies wholly within, from the national Watershed Boundary Dataset.
+      A feature spanning subwatersheds carries no key rather than a misleading
+      one.
+
+  - key: atlas.stroke.width_px
+    const: KeyStrokeWidthPx
+    entity: collection
+    stability: experimental
+    check: positiveDecimal
+    doc: >-
+      KeyStrokeWidthPx is the ground width of a path collection's features, in
+      world pixels: a trail is a line and a weight, and declaring the weight
+      lets a reader draw the path as one continuous stroke instead of an area
+      faked around it.
+    values_md: 'positive decimal (world px)'
+    meaning: >-
+      The ground width of a path collection's features: a trail is a line and a
+      weight, and the weight lets a reader draw the path as one continuous
+      stroke.
+
+  - key: atlas.collection.key
+    const: KeyCollectionKey
+    entity: collection
+    stability: experimental
+    check: slug
+    doc: >-
+      KeyCollectionKey is a collection's merge identity: the slug collections
+      from different sources meet under when they mean the same concept.
+      Absent, the icon key stands in.
+    values_md: 'slug'
+    meaning: >-
+      A collection's merge identity across sources. Absent, the icon key stands
+      in.
+
+# Names the vocabulary uses that never ride a payload. They are deliberately
+# unregistered: Validate refuses them on every entity.
+policy_keys_doc: >-
+  Policy names (never written to a payload)
+policy_keys:
+  - key: atlas.note.text
+    const: KeyNoteText
+    doc: >-
+      KeyNoteText never appears in a payload. It is the name a merge policy
+      table and its ledger use for a feature's description, so "which
+      description wins" is decided and recorded in the same vocabulary as
+      everything else. It is deliberately unregistered: [Validate] refuses it
+      on any entity.
+    meaning: >-
+      A feature's description, as a merge policy table and its ledger name it,
+      so "which description wins" is decided and recorded in the same
+      vocabulary as everything else. It is deliberately unregistered:
+      `Validate` refuses it on any entity.

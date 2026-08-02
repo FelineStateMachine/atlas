@@ -103,6 +103,12 @@ func TestHostenvEdge(t *testing.T) {
 		{"including the Wails host", "internal/app/hostenv/wails", "github.com/wailsapp/wails/v2", ""},
 		{"io/fs is the portable shape", "internal/app/handler", "io/fs", ""},
 		{"the rule is about the app", "internal/generate/crawl", "os", ""},
+		// The workbench is a developer's tool on a developer's machine, and it
+		// exists to run the lane CLIs (issue #5 §3.1, §5.6): shelling out is
+		// its contract, not a leak. The portability amendment is about the
+		// application the three hosts mount, and only about that.
+		{"the workbench shells out by contract", "internal/workbench/oprunner", "os/exec", ""},
+		{"and reads the registry it measures", "internal/workbench", "os", ""},
 	}
 
 	for _, tt := range tests {

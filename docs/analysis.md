@@ -114,9 +114,14 @@ the session values per step rather than folding them into the ground.
 | `atlas.geometry.<p>.deg` | `geoMapping` | `west,north,east,south` — what it pictures |
 
 A declaration that cannot be read — wrong arity, a non-number, a zero-sized
-window, a degenerate degree range — produces `null`, never a plausible NaN. The
-reader is hand-written and will be generated from `spec/registry.yaml` when
-that lands (§8, an M7 fast-follow).
+window, a degenerate degree range — produces `null`, never a plausible NaN.
+
+The reader is the lane's own; the **keys it reads are not**. They come from
+`analysis/semconv/keys.ts`, generated from `spec/registry.yaml` — the one
+machine-readable source `format/semconv` and
+[`docs/semconv/REGISTRY.md`](semconv/REGISTRY.md) are cut from too (issue #5
+§8). The seam imports the same module, as `@atlas/analysis/semconv/keys`, so
+no lane spells a convention key for itself.
 
 ---
 

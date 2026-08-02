@@ -2,8 +2,6 @@ package semconv_test
 
 import (
 	"math"
-	"os"
-	"regexp"
 	"strings"
 	"testing"
 
@@ -256,41 +254,13 @@ func TestEquirectOfReadsAWorldsAttributes(t *testing.T) {
 	}
 }
 
-// TestRegistryAgreesWithItsDocument holds the code registry and its prose
-// twin to the same vocabulary: every registered key appears in the document's
-// attribute table with the same entity and stability, and the document names
-// no attribute the registry does not know. The generated single source
-// arrives later; until then, this test is the agreement.
-func TestRegistryAgreesWithItsDocument(t *testing.T) {
-	doc, err := os.ReadFile("../../docs/semconv/REGISTRY.md")
-	if err != nil {
-		t.Fatal(err)
-	}
-	row := regexp.MustCompile("(?m)^\\| `(atlas\\.[a-z0-9_.]+)` \\| (bundle|world|collection|feature) \\|.*\\| (stable|experimental) \\|")
-	documented := make(map[string][2]string)
-	for _, match := range row.FindAllStringSubmatch(string(doc), -1) {
-		documented[match[1]] = [2]string{match[2], match[3]}
-	}
-	for _, key := range semconv.Keys() {
-		entry, found := documented[key]
-		if !found {
-			t.Errorf("%s is registered but not documented", key)
-			continue
-		}
-		entity, _ := semconv.EntityOf(key)
-		stability, _ := semconv.StabilityOf(key)
-		if entry[0] != string(entity) || entry[1] != string(stability) {
-			t.Errorf("%s documented as %s/%s, registered as %s/%s",
-				key, entry[0], entry[1], entity, stability)
-		}
-		delete(documented, key)
-	}
-	for key := range documented {
-		t.Errorf("%s is documented but not registered", key)
-	}
-	// The document must also declare the version the code carries, so a
-	// vocabulary break cannot land in one twin alone.
-	if !strings.Contains(string(doc), "registry v2") || semconv.Version != 2 {
-		t.Errorf("the document heads registry v2 while the code carries v%d", semconv.Version)
-	}
-}
+// The registry used to have a prose twin -- docs/semconv/REGISTRY.md, written
+// by hand -- and a test here that read the document with a regular expression
+// and held the two to the same list of keys, entities and stability tiers.
+// Both are now cut from spec/registry.yaml, along with the TypeScript lanes'
+// key constants, so there is nothing left for two twins to disagree about.
+// What replaced the agreement test is spec/gen's TestTheCommittedArtifactsAre
+// WhatTheSpecSays: the committed artifacts must equal what a generation run
+// produces. The check moved from "do these two say the same thing" to "is the
+// derivation current", which is the only question a generated file can be
+// wrong about.

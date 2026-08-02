@@ -15,12 +15,12 @@
 // into the globals the engine reads, so the fixtures can be language-neutral
 // while the engine under test still is not.
 import { createRequire, register, registerHooks } from "node:module";
-import { pathToFileURL } from "node:url";
+import { fileURLToPath, pathToFileURL } from "node:url";
 import path from "node:path";
 
 import { stubbed } from "./hooks.mjs";
 
-const here = path.dirname(new URL(import.meta.url).pathname);
+const here = path.dirname(fileURLToPath(import.meta.url));
 const repoRoot = path.resolve(here, "..", "..", "..");
 const frontend = path.join(repoRoot, "frontend");
 

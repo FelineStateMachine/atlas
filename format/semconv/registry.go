@@ -8,130 +8,15 @@ import (
 	"strings"
 )
 
-// Namespace prefixes every key the registry governs. An attribute outside it
-// is not this registry's business and passes through untouched.
-const Namespace = "atlas."
-
-// The registered keys.
-const (
-	// KeyGeometryKind says what shape of thing a collection holds: points,
-	// paths, or areas. Every collection declares one kind and every feature in
-	// it is that kind; readers pick their rendering and UX by this key instead
-	// of sniffing geometry types at draw time.
-	KeyGeometryKind = "atlas.geometry.kind"
-
-	// KeyLabelPolicy says whether an area collection's features wear their
-	// names on the map always, or quietly -- only on highlight, selection, or
-	// an explicit reveal. Area collections only: absent means always for
-	// areas, and paths are always quiet.
-	KeyLabelPolicy = "atlas.label.policy"
-
-	// KeyRenderAs says how a point collection's features are drawn: as markers
-	// or as floating text labels.
-	KeyRenderAs = "atlas.render.as"
-
-	// KeyIconStd names a standard-library icon for a collection that has no
-	// artwork of its own, as set/name, e.g. "maki/mountain". A producer
-	// resolves it to embedded bytes; a reader only ever sees the resolved
-	// asset.
-	KeyIconStd = "atlas.icon.std"
-
-	// KeyIconKind says whether a collection's icon asset is a monochrome glyph
-	// the reader tints, or a picture drawn as-is.
-	KeyIconKind = "atlas.icon.kind"
-
-	// KeyIconOutset says which rim a world's markers wear so they stay legible
-	// against its art: the light rim of a dark raster or the dark rim of a
-	// light one.
-	KeyIconOutset = "atlas.icon.outset"
-
-	// KeyGeometrySurface declares what a world's raster is a picture of: a
-	// plane or a sphere. A world that says nothing is a plane.
-	KeyGeometrySurface = "atlas.geometry.surface"
-
-	// KeyGeometryProjection says how a spherical surface was flattened into
-	// the raster. Equirectangular is the only vocabulary so far.
-	KeyGeometryProjection = "atlas.geometry.projection"
-
-	// KeyGeometryEquirectPx is the raster window the projection fills, in
-	// world pixels, as "x,y,w,h".
-	KeyGeometryEquirectPx = "atlas.geometry.equirect.px"
-
-	// KeyGeometryEquirectDeg is the ground that window pictures, in degrees,
-	// as "west,north,east,south".
-	KeyGeometryEquirectDeg = "atlas.geometry.equirect.deg"
-
-	// KeyGeometryMercatorPx is the raster window a Web-Mercator cut fills, in
-	// world pixels, as "x,y,w,h". Where equirect declares y linear in degrees,
-	// mercator declares y linear in the projected latitude -- asinh(tan
-	// latitude) -- which is the flattening a real-world tile window actually
-	// is.
-	KeyGeometryMercatorPx = "atlas.geometry.mercator.px"
-
-	// KeyGeometryMercatorDeg is the ground a Mercator window pictures, in
-	// degrees at the window's edges, as "west,north,east,south".
-	KeyGeometryMercatorDeg = "atlas.geometry.mercator.deg"
-
-	// KeyGeometryBody names the body pictured, e.g. "mars".
-	KeyGeometryBody = "atlas.geometry.body"
-
-	// KeyGeometryRadiusKM is the body's mean radius in kilometers, as a
-	// decimal string.
-	KeyGeometryRadiusKM = "atlas.geometry.radius_km"
-
-	// KeyGeoLat and KeyGeoLon carry a feature's true planetary coordinates as
-	// the source published them: planetocentric degrees, east-positive
-	// longitude. They are provenance and card material; rendering derives
-	// positions from the world-level mapping instead.
-	KeyGeoLat = "atlas.geo.lat"
-	KeyGeoLon = "atlas.geo.lon"
-
-	// KeyHydroHUC12 names the USGS twelve-digit hydrologic unit -- the
-	// subwatershed -- a feature's ground lies wholly within. A feature
-	// spanning subwatersheds carries no key rather than a misleading one.
-	KeyHydroHUC12 = "atlas.hydro.huc12"
-
-	// KeyStrokeWidthPx is the ground width of a path collection's features, in
-	// world pixels: a trail is a line and a weight, and declaring the weight
-	// lets a reader draw the path as one continuous stroke instead of an area
-	// faked around it.
-	KeyStrokeWidthPx = "atlas.stroke.width_px"
-
-	// KeyCollectionKey is a collection's merge identity: the slug collections
-	// from different sources meet under when they mean the same concept.
-	// Absent, the icon key stands in.
-	KeyCollectionKey = "atlas.collection.key"
-)
-
-// KeyNoteText never appears in a payload. It is the name a merge policy table
-// and its ledger use for a feature's description, so "which description wins"
-// is decided and recorded in the same vocabulary as everything else. It is
-// deliberately unregistered: [Validate] refuses it on any entity.
-const KeyNoteText = "atlas.note.text"
-
-// The vocabularies the registered keys admit.
-const (
-	GeometryPoint = "point"
-	GeometryPath  = "path"
-	GeometryArea  = "area"
-
-	LabelAlways = "always"
-	LabelQuiet  = "quiet"
-
-	RenderAsPin  = "pin"
-	RenderAsText = "text"
-
-	IconKindGlyph   = "glyph"
-	IconKindPicture = "picture"
-
-	OutsetLight = "light"
-	OutsetDark  = "dark"
-
-	SurfacePlane  = "plane"
-	SurfaceSphere = "sphere"
-
-	ProjectionEquirect = "equirect"
-)
+// This file is the hand-written half of the registry: the value checkers, and
+// the reading and validating surface over them. The vocabulary itself --
+// namespace, version, entities, stability tiers, key constants and the
+// registry map -- is generated into registry_gen.go from spec/registry.yaml.
+//
+// The split is deliberate. A checker is code and stays code; the spec
+// references it by name, so adding a checker is a Go edit and using one is a
+// spec edit, and a spec naming a checker nobody wrote fails codegen rather
+// than admitting a key that checks nothing.
 
 // definition is one registered key: where it attaches, how settled it is, and
 // what values it admits.
@@ -139,30 +24,6 @@ type definition struct {
 	entity    Entity
 	stability Stability
 	check     func(value string) error
-}
-
-// registry is the whole vocabulary. docs/semconv/REGISTRY.md is its prose
-// twin, and TestRegistryAgreesWithItsDocument holds the two to the same list.
-var registry = map[string]definition{
-	KeyGeometryKind:        {EntityCollection, Stable, enum(GeometryPoint, GeometryPath, GeometryArea)},
-	KeyLabelPolicy:         {EntityCollection, Experimental, enum(LabelAlways, LabelQuiet)},
-	KeyRenderAs:            {EntityCollection, Stable, enum(RenderAsPin, RenderAsText)},
-	KeyIconStd:             {EntityCollection, Stable, setName},
-	KeyIconKind:            {EntityCollection, Stable, enum(IconKindGlyph, IconKindPicture)},
-	KeyIconOutset:          {EntityWorld, Stable, enum(OutsetLight, OutsetDark)},
-	KeyGeometrySurface:     {EntityWorld, Stable, enum(SurfacePlane, SurfaceSphere)},
-	KeyGeometryProjection:  {EntityWorld, Stable, enum(ProjectionEquirect)},
-	KeyGeometryEquirectPx:  {EntityWorld, Stable, numbers(4)},
-	KeyGeometryEquirectDeg: {EntityWorld, Stable, numbers(4)},
-	KeyGeometryMercatorPx:  {EntityWorld, Experimental, numbers(4)},
-	KeyGeometryMercatorDeg: {EntityWorld, Experimental, numbers(4)},
-	KeyGeometryBody:        {EntityWorld, Experimental, slug},
-	KeyGeometryRadiusKM:    {EntityWorld, Experimental, decimal},
-	KeyGeoLat:              {EntityFeature, Experimental, decimal},
-	KeyGeoLon:              {EntityFeature, Experimental, decimal},
-	KeyHydroHUC12:          {EntityFeature, Experimental, huc12},
-	KeyStrokeWidthPx:       {EntityCollection, Experimental, positiveDecimal},
-	KeyCollectionKey:       {EntityCollection, Experimental, slug},
 }
 
 // Keys lists every registered key in a stable order, for the tools that

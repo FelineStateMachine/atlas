@@ -18,10 +18,19 @@
 // the lane.
 //
 //	ATLAS_ARCHIVE_DIR   the capture archive root, holding archive.json
+//	ATLAS_CITY_ARCHIVE_DIR  the city's archive, staged beside it
 //	ATLAS_TILES_INDEX   the derived tile set's index.json
 //
-// Both default to the repository's own gitignored copies -- crawl/fmg-archive
-// and tiles/index.json -- so the usual case needs no environment at all.
+// All three default to the repository's own gitignored copies -- crawl/fmg-archive,
+// crawl/bend-or/fmg-archive and tiles/index.json -- so the usual case needs no
+// environment at all.
+//
+// The city has an archive of its own because the corpus's holds whatever its
+// operator has crawled, and for a city that is allowed to be a city the public
+// curation table may not name (issue #5's privacy rule: the proof city is
+// committed, an operator's own city is not). Staging the proof city apart keeps
+// a checkout able to rebuild it without a library-sized capture, and keeps the
+// gate from depending on what else is in somebody's archive.
 package pipeline
 
 import (
@@ -66,6 +75,7 @@ var singleSource = []struct {
 	{"fallout-new-vegas", "split sheet: thirteen worlds, eight of them insets of the first"},
 	{"zelda-tears-of-the-kingdom", "lens shards: one world offered three elevations at a time"},
 	{"mars", "a sphere, a derived id space, and artwork named rather than shipped"},
+	{"bend-or", "a city: dated worlds, national layers, and a lens drawn rather than fetched"},
 }
 
 // fixturePath is where a volume's captured extractions sit.
@@ -403,38 +413,85 @@ func translateFixture(t *testing.T, want string) doc.Document {
 // "whoever answers" names none.
 func translateFrom(t *testing.T, from, want string) doc.Document {
 	t.Helper()
-	store, err := archive.Open(archiveDir(t))
-	if err != nil {
-		t.Fatalf("archive: %v", err)
-	}
-	for _, volume := range store.Volumes() {
-		if from != "" && volume.Source != from {
-			continue
-		}
-		source, err := sources.For(volume.Source)
+	roots := archiveDirs(t)
+	for _, root := range roots {
+		store, err := archive.Open(root)
 		if err != nil {
-			continue
+			t.Fatalf("archive %s: %v", root, err)
 		}
-		document, err := source.Translate(store, volume, slog.New(slog.DiscardHandler))
-		if err != nil {
-			if errors.Is(err, sources.ErrNotReady) {
+		for _, volume := range store.Volumes() {
+			if from != "" && volume.Source != from {
 				continue
 			}
-			t.Fatalf("translate %s: %v", volume.Title, err)
-		}
-		if document.Volume.Slug == want {
-			return document
+			source, err := sources.For(volume.Source)
+			if err != nil {
+				continue
+			}
+			document, err := source.Translate(store, volume, slog.New(slog.DiscardHandler))
+			if err != nil {
+				if errors.Is(err, sources.ErrNotReady) {
+					continue
+				}
+				t.Fatalf("translate %s: %v", volume.Title, err)
+			}
+			if document.Volume.Slug == want {
+				return document
+			}
 		}
 	}
-	t.Fatalf("the archive at %s holds no readable %s", archiveDir(t), want)
+	t.Fatalf("no archive of %s holds a readable %s", strings.Join(roots, ", "), want)
 	return doc.Document{}
 }
 
-// archiveDir and tileIndex resolve the two inputs, and skip the test rather
-// than failing it when neither the environment nor the repository has them.
+// archiveOf, archiveDir and tileIndex resolve this gate's inputs, and skip the
+// test rather than failing it when neither the environment nor the repository
+// has them.
+
+// archiveOf is where one volume was captured. Everything but the city comes out
+// of the corpus's archive; the city is staged beside it, for the reason the
+// package comment gives.
+func archiveOf(t *testing.T, volume string) string {
+	t.Helper()
+	if volume == "bend-or" {
+		return required(t, "ATLAS_CITY_ARCHIVE_DIR", "../../crawl/bend-or/fmg-archive", "archive.json")
+	}
+	return archiveDir(t)
+}
+
 func archiveDir(t *testing.T) string {
 	t.Helper()
 	return required(t, "ATLAS_ARCHIVE_DIR", "../../crawl/fmg-archive", "archive.json")
+}
+
+// archiveDirs is every capture archive staged in this checkout, the games
+// archive first.
+//
+// One archive is the usual case and the one ATLAS_ARCHIVE_DIR names. It is not
+// the only case: a volume whose captures were crawled on their own -- the city,
+// re-crawled after its first archive was lost -- is staged beside the games
+// archive as its own one-volume archive of the same shape, so it can be rebuilt
+// without walking a library-sized capture. A test that wants a reading asks for
+// the volume, not for the directory somebody happened to put it in.
+func archiveDirs(t *testing.T) []string {
+	t.Helper()
+	roots := []string{archiveDir(t)}
+	if os.Getenv("ATLAS_ARCHIVE_DIR") != "" {
+		return roots
+	}
+	entries, err := os.ReadDir("../../crawl")
+	if err != nil {
+		return roots
+	}
+	for _, entry := range entries {
+		staged := filepath.Join("../../crawl", entry.Name(), "fmg-archive")
+		if staged == roots[0] {
+			continue
+		}
+		if _, err := os.Stat(filepath.Join(staged, "archive.json")); err == nil {
+			roots = append(roots, staged)
+		}
+	}
+	return roots
 }
 
 func tileIndex(t *testing.T) string {

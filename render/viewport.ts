@@ -15,6 +15,7 @@
 // Two things leave: the pick, as a DOM event the page's glue submits, and the
 // settled camera, debounced. Nothing else, ever.
 
+import { KEY_ICON_OUTSET } from "@atlas/analysis/semconv/keys";
 import { applicableSystems, cellSystems } from "@atlas/analysis";
 import type { CellSystem } from "@atlas/analysis";
 import { logger } from "./log.ts";
@@ -314,5 +315,5 @@ export class AtlasViewport extends HTMLElement {
 }
 
 function outsetOf(model: WorldModel): string {
-  return model.payload.attrs?.["atlas.icon.outset"] ?? "";
+  return model.payload.attrs?.[KEY_ICON_OUTSET] ?? "";
 }

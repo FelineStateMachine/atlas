@@ -119,7 +119,7 @@ func foldVolume(working, donor *enrich.Volume, ctx enrich.Context, log *slog.Log
 			ops = append(ops, contributed...)
 			continue
 		}
-		folded, account, merged, err := foldWorld(target, donor, donorWorld, ctx, log)
+		folded, account, merged, err := foldWorld(working, target, donor, donorWorld, ctx, log)
 		if err != nil {
 			return nil, err
 		}
@@ -185,7 +185,7 @@ func wholeWorld(working, donor *enrich.Volume, donorWorld *enrich.World) ([]enri
 		}}
 	}
 	tag := slugify(donor.Source.Label)
-	carried := newArtwork(working, donor, tag)
+	carried := newArtwork(working, donor, tag, false)
 	for index := range contributed.Collections {
 		collection := &contributed.Collections[index]
 		key, err := carried.carry(collection.Icon)
@@ -200,6 +200,7 @@ func wholeWorld(working, donor *enrich.Volume, donorWorld *enrich.World) ([]enri
 
 // foldWorld resolves one donor world into one serving world.
 func foldWorld(
+	working *enrich.Volume,
 	serving *enrich.World,
 	donor *enrich.Volume,
 	donorWorld *enrich.World,
@@ -232,10 +233,10 @@ func foldWorld(
 	// the radius listens to the fit rather than assuming precision.
 	nearbyRadius := math.Max(ctx.Curation.NearbyFloorPx(), 2*report.P90Px)
 	index := indexServing(serving)
-	// Artwork carried into a world that already has its own always takes a
-	// source-prefixed key, so a contributed collection's icon can never
-	// displace one the serving reading spells the same way.
-	carried := newArtwork(nil, donor, slugify(donor.Source.Label))
+	// Artwork carried into a world that already draws its own always lands
+	// under a source-tagged file, so a contributed picture can never be
+	// written over one the serving reading ships under the same name.
+	carried := newArtwork(working, donor, slugify(donor.Source.Label), true)
 
 	var ops []enrich.Op
 	var kept []enrich.Collection
@@ -618,23 +619,38 @@ func anchorsOf(w *enrich.World) []align.Anchor {
 	return anchors
 }
 
-// artwork carries a donor's icons across, under keys that cannot displace the
-// serving volume's own.
+// artwork carries a donor's icons across, so that nothing a donor ships can
+// displace what the serving reading already drew.
+//
+// Two names travel with one picture, and they are tagged on different rules
+// because they answer different questions. The **file** is where the bytes land
+// in the volume's icons directory, and a contribution's bytes may never land on
+// the serving volume's: when a donor's collections are folded into a ground the
+// serving reading already draws, the file always takes the source's tag. The
+// **key** is what a collection names its artwork by, and it stays the donor's
+// own -- there is nothing to displace unless the serving volume already names
+// different artwork with it, and only then is the key tagged too.
 type artwork struct {
-	into    *enrich.Volume
-	donor   *enrich.Volume
-	tag     string
-	byKey   map[string]enrich.Icon
-	renamed map[string]string
-	ops     []enrich.Op
+	into  *enrich.Volume
+	donor *enrich.Volume
+	tag   string
+	// tagFiles marks a contribution into a volume that is already drawing:
+	// every file it carries is tagged, whether or not the name was free.
+	tagFiles bool
+	byKey    map[string]enrich.Icon
+	renamed  map[string]string
+	ops      []enrich.Op
 }
 
-func newArtwork(into, donor *enrich.Volume, tag string) *artwork {
+func newArtwork(into, donor *enrich.Volume, tag string, tagFiles bool) *artwork {
 	byKey := make(map[string]enrich.Icon, len(donor.Icons))
 	for _, icon := range donor.Icons {
 		byKey[icon.Key] = icon
 	}
-	return &artwork{into: into, donor: donor, tag: tag, byKey: byKey, renamed: map[string]string{}}
+	return &artwork{
+		into: into, donor: donor, tag: tag, tagFiles: tagFiles,
+		byKey: byKey, renamed: map[string]string{},
+	}
 }
 
 // carry brings one icon across and answers with the key the contributed
@@ -653,25 +669,24 @@ func (a *artwork) carry(key string) (string, error) {
 		a.renamed[key] = ""
 		return "", nil
 	}
-	name := key
-	file := icon.File
-	if a.into != nil {
-		for _, standing := range a.into.Icons {
-			if standing.Key != key {
-				continue
-			}
-			if string(standing.Data) == string(icon.Data) {
-				// The same artwork under the same name is the same artwork.
-				a.renamed[key] = key
-				return key, nil
-			}
-			name = a.tag + "--" + key
-			file = a.tag + "--" + icon.File
-			break
+	name, file := key, icon.File
+	if a.tagFiles {
+		file = a.tag + "--" + icon.File
+	}
+	for _, standing := range a.into.Icons {
+		if standing.Key != key {
+			continue
 		}
-	} else {
+		if string(standing.Data) == string(icon.Data) {
+			// The same artwork under the same name is the same artwork.
+			a.renamed[key] = key
+			return key, nil
+		}
+		// The name is spoken for by something else, so the contribution
+		// answers to a tagged one instead.
 		name = a.tag + "--" + key
 		file = a.tag + "--" + icon.File
+		break
 	}
 	carried := enrich.Icon{Key: name, File: file, Data: icon.Data}
 	a.ops = append(a.ops, enrich.Op{Kind: enrich.OpAddAsset, Asset: &carried})

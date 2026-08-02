@@ -3,16 +3,22 @@
 # Deliberately separate from CI: that workflow builds and ships the current
 # desktop app, which needs GTK and WebKitGTK headers and the whole frontend
 # toolchain. This one judges the rewrite and stays green from the day the
-# harness lands — the gates whose lane does not exist yet skip, and the four
-# that run (depcheck, format-roundtrip, analysis-vectors, analysis-lane) run
-# for real.
+# harness lands — the gates whose lane does not exist yet skip, and the ones
+# that run (depcheck, format-roundtrip, the semconv codegen, the analysis and
+# render lanes, the state island, http-replay) run for real.
 #
-# It needs Go, and node with the analysis lane's own dependency: the analysis
-# gates re-execute the cell systems against every recorded vector and plan and
-# then hold the lane to its own boundary rules, type checker and conformance
-# suite. Since M6 the implementation being driven is `analysis/cellsystems`,
-# whose whole dependency surface is s2js, and whose TypeScript node strips on
-# import. No browser is involved and no bundle is built.
+# It needs Go, and node with the TypeScript lanes' own dependencies: the
+# analysis gates re-execute the cell systems against every recorded vector and
+# plan, and then hold both lanes to their boundary rules, type checker, tests
+# and conformance suite. Node strips the TypeScript types on import. No browser
+# is involved and no bundle is built.
+#
+# It runs on all three platforms (§7, M7). The harness compares bytes for a
+# living — fixtures against captures, generated artifacts against committed
+# ones — so a platform that rewrote a line ending or built a path with the
+# wrong separator is caught here rather than by a user. `/.gitattributes` is
+# the other half of that: LF in every working tree, fixtures never transformed
+# at all.
 
 name: Golden
 
@@ -36,7 +42,14 @@ env:
 
 jobs:
   harness:
-    runs-on: ubuntu-24.04
+    name: harness (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      # One platform's failure is a finding about that platform, not a reason
+      # to stop learning what the other two think.
+      fail-fast: false
+      matrix:
+        os: [ubuntu-24.04, macos-15, windows-2022]
     steps:
       - uses: actions/checkout@v5
       - uses: actions/setup-go@v5
@@ -53,16 +66,22 @@ jobs:
       # The clean-room TypeScript lanes install at the repository root as npm
       # workspaces: s2js for the analysis lane, eslint and tsc for its gate.
       # `--ignore-scripts` because nothing here has a postinstall worth running.
-      - name: Install the analysis lane's dependencies
+      - name: Install the TypeScript lanes' dependencies
         run: npm ci --ignore-scripts
+
+      # A checkout that rewrote line endings would fail the byte comparisons
+      # below with an unreadable diff. Say so here instead, in one line.
+      - name: Confirm the working tree came through unmodified
+        run: git diff --exit-code
 
       # The guardrails are tested like anything else: the import matrix is a
       # pure function of two package paths, and its table lives here.
       - name: Test the harness itself
         run: go test ./golden/...
 
-      # One entrypoint, same one a developer runs locally with `make golden`.
-      # Prints the waiver file on every run: an accepted divergence from a
-      # golden is a standing cost, not a silent one.
+      # What `make golden` runs, spelled out because the Windows runner has no
+      # make. One entrypoint, the same gates in the same order, on all three
+      # platforms. It prints the waiver file on every run: an accepted
+      # divergence from a golden is a standing cost, not a silent one.
       - name: Run the golden gates
-        run: make golden
+        run: go run ./golden/harness

@@ -26,7 +26,14 @@ import (
 // than "these bytes are these bytes". golden/format/STAMPS.md carries what that
 // costs and what is proven instead.
 //
-//go:embed plan.go stamp.go derive.go
+// The deriving code is every file that decides what a pyramid's bytes are --
+// which now includes the renderer, because a city's deepest level is drawn
+// rather than copied and a change to the drawing has to invalidate that city's
+// pyramid the same way a change to the reduction invalidates every other one,
+// and the warp, because the same donor through a different transformation is a
+// different picture.
+//
+//go:embed plan.go stamp.go derive.go draw.go warp.go basemap
 var toolSource embed.FS
 
 // ToolStamp is the hash of the deriving code itself, computed once. It is
@@ -35,19 +42,24 @@ var toolSource embed.FS
 // sources, and proving the plan half of the stamp means substituting that hash
 // for this one.
 var ToolStamp = sync.OnceValue(func() string {
-	sum := sha256.New()
-	entries, err := fs.ReadDir(toolSource, ".")
+	var names []string
+	err := fs.WalkDir(toolSource, ".", func(path string, entry fs.DirEntry, err error) error {
+		if err != nil {
+			return err
+		}
+		if !entry.IsDir() {
+			names = append(names, path)
+		}
+		return nil
+	})
 	if err != nil {
 		// The files are embedded at build time, so this cannot fail in a built
 		// binary. Falling back to a random-looking constant would defeat the
 		// point of the stamp, and rebuilding everything is the safe answer.
 		return "unstamped"
 	}
-	names := make([]string, 0, len(entries))
-	for _, entry := range entries {
-		names = append(names, entry.Name())
-	}
 	sort.Strings(names)
+	sum := sha256.New()
 	for _, name := range names {
 		data, err := toolSource.ReadFile(name)
 		if err != nil {

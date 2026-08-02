@@ -40,13 +40,17 @@ type Account struct {
 	// DonorFeatures is the whole offering counted per kind. On an origin
 	// account it is simply the world's own tally.
 	DonorFeatures Counts `json:"donorFeatures"`
+	// The order of the fields from here down is the order they are written in,
+	// and it is frozen rather than incidental: an account rides a world payload
+	// and a world payload is a stamped part, so re-spelling one restamps every
+	// build in every library.
+	Matched []MatchedPair `json:"matched,omitempty"`
 	// Added is how many point features the world did not have and now has.
 	Added int `json:"added"`
 	// AddedShapes holds the ledger's place for the day a shape feature merges.
 	// Nothing writes it yet, and the gate refuses a non-zero value rather than
 	// letting a number nobody produced pass for an account.
 	AddedShapes int              `json:"addedShapes,omitempty"`
-	Matched     []MatchedPair    `json:"matched,omitempty"`
 	Adopted     []AdoptedItem    `json:"adopted,omitempty"`
 	Held        []HeldItem       `json:"held,omitempty"`
 	Rejected    []HeldItem       `json:"rejected,omitempty"`

@@ -20,38 +20,24 @@
 // breaking change to an existing key's meaning moves [Version].
 //
 // The package depends on the Go standard library alone and knows nothing of
-// Atlas the application. docs/semconv/REGISTRY.md is its prose twin; a test
-// holds the two to the same vocabulary.
+// Atlas the application.
+//
+// The vocabulary has one machine-readable source, spec/registry.yaml, from
+// which three artifacts are cut: registry_gen.go here, the TypeScript lanes'
+// key constants, and docs/semconv/REGISTRY.md, the document a reader learns
+// the conventions from. Edit the spec, not the artifacts.
 package semconv
 
-// Version names the vocabulary a bundle was written against. It rides the
-// manifest as "conventions" and moves only when an existing key's meaning
-// breaks -- additions ride on per-key stability instead.
-//
-// v2 collapsed the v1 entities zone, category, and location into collection
-// and feature when the format unified them, and renamed atlas.category.key to
-// atlas.collection.key to match.
-const Version = 2
+//go:generate go run ../../spec/gen
 
 // Entity is what an attribute attaches to. A key registered against one
 // entity is a producer error on any other, which is what keeps a collection's
 // vocabulary from drifting onto its features.
+// The entities themselves are in registry_gen.go: which entities exist is
+// vocabulary, and vocabulary comes from the spec.
 type Entity string
 
-// The entities attributes attach to, from the widest to the narrowest.
-const (
-	EntityBundle     Entity = "bundle"
-	EntityWorld      Entity = "world"
-	EntityCollection Entity = "collection"
-	EntityFeature    Entity = "feature"
-)
-
 // Stability says how settled a key is. Experimental keys may still change
-// spelling or vocabulary; stable keys only break with a [Version] move.
+// spelling or vocabulary; stable keys only break with a [Version] move. The
+// tiers, like the entities, are generated.
 type Stability string
-
-// The stability tiers.
-const (
-	Stable       Stability = "stable"
-	Experimental Stability = "experimental"
-)

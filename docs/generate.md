@@ -363,7 +363,8 @@ difference in the city.
   never fetched, so the pyramid is reproducible from the archived capture alone.
   Its frame declares every level complete, which is what lands the derivation on
   the translated world's own grid rather than on the shared window a city does
-  not sit in. The renderer itself is not built yet — see §4.4.
+  not sit in, and the lens carries the drawing the deriver rasterizes it from —
+  see §4.4.
 - `idSpace: "derived"`: a hub's object ids are load artifacts that churn between
   refreshes, and nothing above a row is numbered at all.
 
@@ -528,8 +529,13 @@ somebody else's server is having a bad afternoon.
 The game sources' captures are archived and their endpoints are somebody else's
 editorial work, so their crawlers are kept complete and are not run against live
 endpoints. The ArcGIS/USGS crawler is the one that may run, because its data is
-public — it lands with the offline basemap renderer it feeds (§4.4), since what
-that renders is exactly what that crawl fetches.
+public, and it is the one still outstanding. The renderer it would feed landed
+first (§4.4), which leaves the city's archive an input rather than something
+this lane can take: the proof city was crawled back by the reference tree and is
+staged at `crawl/bend-or/fmg-archive`, and the clean room reads, draws and
+composes from there. What the crawler adds is the ability to take a *new* day —
+a second world in the city's version history — rather than the ability to
+rebuild the one that is there.
 
 The IGN crawler carries this lane's most consequential gate. Some IGN wikimap
 pages are MapGenie maps in an IGN frame: the page declares a MapGenie game id
@@ -651,43 +657,161 @@ derivation.
 The consequence is that clean-room stamp identity for a pyramid is impossible by
 construction. What is proven instead, in `golden/pipeline/derive_test.go`, is the
 plan and the tiles: every field of the stamp except the tool hash is reproduced
-bit for bit against the reference implementation's recorded stamps, for all nine
-pyramids of the four single-source fixtures; and tunic's 741 tiles are rebuilt
-from the archive byte for byte, along with its zoom range, window, formats,
-bounds, background and coverage bitsets. `golden/format/STAMPS.md` carries the
-accounting.
+bit for bit against the reference implementation's recorded stamps, for all ten
+pyramids of the five single-source fixtures; and two whole pyramids are rebuilt
+from the archive byte for byte, along with their zoom range, window, formats,
+bounds, background and coverage bitsets — tunic's 741 tiles for the copied path,
+and the city's 2,316 for the drawn one (§4.4). `golden/format/STAMPS.md` carries
+the accounting.
 
-### 4.4 What the deriver does not do yet
+### 4.4 The drawn level
 
-Two of the contract's clauses are declared but not built, and both are named
-where they would be used rather than left to be discovered:
+Most pictures in the corpus arrive as tiles from somebody's tile server, and a
+pyramid's deepest level is those tiles copied through. A city has no tile
+server: a municipal open-data hub publishes geometry, and the offline invariant
+forbids reaching for anybody else's raster. So a city's deepest level is
+**drawn**, from the geometry the city publishes about itself, and every
+shallower level folds down from it exactly as any other pyramid's does. Nothing
+downstream of `Derive` can tell a drawn level from a copied one, which is the
+design.
 
-- **Warp variants.** The plan carries a `Warp` — a donor picture resampled
-  through an affine into another picture's world, so two sources' rasters answer
-  to one grid — and the stamp covers it, because the same donor through a
-  different transformation is a different picture. Fitting the affine is
-  alignment work: it stands on the names two sources share, and it is the same
-  machinery cross-source merge stands on. It lands with the enrich lane's `merge`
-  enricher rather than being written twice. `Derive` refuses a warp plan by name.
-- **Offline basemap rendering.** A city has no tile server: its deepest level is
-  rendered from the vectors its open data publishes, and every shallower level
-  folds down from there exactly as any other pyramid does. The renderer is a
-  deterministic rasterizer — a fixed role z-order, capsule strokes unioned by a
-  saturating rasterizer, Sutherland–Hodgman rings and Liang–Barsky segments
-  clipped against a window bled eight pixels past the tile edge, opaque
-  truecolour PNG — and it belongs beside the ArcGIS source's own crawl, since
-  what it renders is what that crawl fetched.
+`internal/generate/tiles/basemap` is the renderer, and it draws one tile from
+one small vocabulary.
 
-  This is now the **only** thing between the clean room and the city fixture.
-  The reader is in place (§2.6) and agrees with the reference translator on
-  every identity, position, bucket and attribute; the capture archive it reads
-  has been crawled back and is staged at `crawl/bend-or/fmg-archive`; the
-  lens declares its frame. What is missing is the rasters the frame names, so
-  `golden/pipeline`'s `singleSource` table cannot yet carry `bend-or` — nothing
-  would have a pyramid to compose. The curation the renderer answers to already
-  travels with the rest of a layer's judgement: each dataset carries a `Role`
-  and an optional `Emphasis`, unread by translation, so the renderer will not
-  need a second table that could drift from the first.
+- **Roles, not datasets.** A shape says what it is to the ground — `parcel`,
+  `park`, `water`, `street`, `trail`, `boundary` — and nothing about where it
+  came from, so no publisher's vocabulary reaches the renderer (issue #5 §5.1).
+  A role the style table does not know draws nothing, rather than being given an
+  invented look.
+- **The z-order is the drawing's only opinion about layering:** parcel texture
+  first, then ground covers, water over parks so a lake punches through one,
+  streets over water so a bridge reads as a bridge, trails above streets, and
+  the boundary last as the one accent colour. Within a role nothing is ordered:
+  a role's shapes accumulate into a single path and the rasterizer saturates, so
+  they are unioned rather than painted over one another.
+- **Widths are world-true.** The style table's widths are spelled at local zoom
+  6 and scale with depth, so a street keeps its width on the ground however deep
+  the pyramid goes — which, folded back down, is one width on the screen. A
+  shape's emphasis scales its own stroke, so an arterial is a street drawn wider
+  rather than a role of its own.
+- **Ground is rings; linework is capsules.** Rings clip Sutherland–Hodgman, the
+  first ring ground and every ring after it a hole — a positional convention,
+  because publishers do not reliably wind holes the way GeoJSON asks. Lines clip
+  Liang–Barsky a segment at a time, and each surviving segment joins the path as
+  its own closed capsule: the segment widened to the stroke, with a semicircular
+  cap at each end. Every capsule winds the same way, so capsules overlapping at a
+  vertex union into one continuous line with a round join for free. There is no
+  stroker, no join table and no miter limit — it is the cheapest stroker that
+  never shows a seam.
+- **Eight pixels of bleed.** Both clippers cut against a window bled eight tile
+  pixels past the tile's own edge, so every cut lands outside the picture and two
+  neighbours drawn independently continue each other exactly. A dashed stroke
+  keeps its phase across the seam too: the rhythm advances by the whole of every
+  segment whether or not its middle was drawn here, and a segment whose head was
+  cut off begins at the phase its lost lead had already carried.
+- **Opaque truecolour PNG**, encoded at the slowest and smallest setting. A tile
+  has no transparency to carry, so the alpha channel is dropped rather than
+  spent on every pixel of every city; the setting is fixed rather than a knob,
+  because a knob is a way for two runs of one pipeline to disagree.
+
+**The curation is the source's, and it is the same curation.** A dataset's role
+and optional emphasis travel beside the rest of that layer's judgement in
+`generate/sources/arcgishub`, unread by translation, so the drawing and the
+legend cannot drift into two tables. What a source states is a `doc.Drawing` on
+the lens: shapes in world pixels, projected through the very window the pins are
+projected through, so the raster and the features cannot disagree about where
+the ground is. It is stated *beside* the world's collections rather than derived
+from them, because the two do not line up — every road centreline draws and none
+of them is a legend row, only named trails are legend rows and every trail
+segment draws, and emphasis varies row by row where a collection's features are
+buckets of many rows.
+
+**The capture is the witness.** The crawl that first drew a city wrote its
+rasters into the archive, and a drawn lens's plan still names their content
+hashes, so the deriver holds every tile it draws against what the capture
+recorded and refuses the derivation by name if the two disagree. That is a
+stronger thing to check than a suite could: not "these bytes look right" but
+"these bytes are what a different implementation made of the same vectors",
+checked on every derivation rather than in a test that could be skipped. It also
+means a drawn level's plan — and therefore its stamp — is the ordinary one, with
+the level's tiles listed and hashed like any other level's.
+
+**And the renderer is part of the tool.** A derivation stamp covers the deriving
+code because a change to how a level is made has to invalidate that level; a
+city's deepest level is now made here, so `basemap`'s sources sit inside the
+`ToolStamp` embed beside `plan.go`, `stamp.go`, `derive.go` and `draw.go`.
+
+### 4.5 Warped variants
+
+When two sources picture one ground, one raster is usually the finer — a
+publisher's own map beside a wiki's rasterized in-game rendering — and a registry
+that simply served the finer one would throw the other away. Instead the lesser
+raster is **resampled into the finer one's world** and offered as one more
+picture of the same ground. Nothing is discarded, both rasters answer to one
+grid, and every feature lands on either.
+
+Three decisions make a warp, and they happen in this order.
+
+**Names are settled first.** Two sources capturing one volume name the same
+ground the same thing, so their pyramids would land in one directory.
+`tiles.Settle` gives *every* colliding plan its publisher's own path as a
+suffix — all of them, never just the later one — so which pyramid is called what
+does not depend on the order an archive listed its captures in. Cyberpunk's two
+readings settle as `cyberpunk-2077__night-city__cbp` and
+`cyberpunk-2077__night-city__cyberpunk-2077-night-city`. A warped variant is
+named after the picture it aligns onto, so it can only be planned once the names
+have stopped moving.
+
+**The pairing is decided from the whole set.** One reading per ground — the
+deepest, since a world's other lenses are alternate art already sharing its
+window — and, among the readings of one volume, the one that draws its world at
+the most pixels is the base every other is brought into. Resampling into a
+coarser world would throw away detail that was captured. Only readings from
+*different* sources are ever paired: a source that divided its own world into
+several grounds did so deliberately. This policy lives in `cmd/atlas/warp.go`.
+
+**The alignment is an input, not a derivation.** `tiles.PlanWarp` is handed the
+fitted affine as six numbers. Fitting one stands on the names two readings share
+and belongs to `internal/enrich/align` — the same fit the cross-source merge
+folds features by, so a raster and the features drawn on it can never disagree
+about where the ground is. Neither lane imports the other; `cmd/atlas` holds
+both, and the seam is the one `adapt.go` opens for documents and volumes. Nothing
+is duplicated to arrange it: the deriver needs a fitted transformation, not the
+ability to fit one, so only the arithmetic of *using* one — apply, invert,
+scale — sits beside `tiles.Affine`.
+
+What the deriver then does:
+
+- **The target zoom** is the base-frame zoom nearest the donor's real resolution
+  after the alignment's own scaling, clamped to the base's deepest complete
+  level: deep enough to keep what the donor drew, never so deep as to invent
+  detail that was never there.
+- **The deepest level is rendered, not copied.** Every pixel of every tile in the
+  window the warped content falls in asks the inverse transformation where in the
+  donor it came from, and samples the donor's deepest complete level bilinearly,
+  clamped inside the tile that holds it. A tile no donor pixel reached is not
+  written at all: coverage says nothing about it, and a reader falls back to the
+  parent.
+- **Everything shallower folds down** from that level exactly as any other
+  pyramid folds, as a photograph.
+- **The donor's own background** paints wherever the donor never drew, so a
+  warped tile is opaque and a picture that simply ends does not end in black.
+- **The bounds are the warped content's**, measured through the alignment and
+  clipped to the world square — reported even when they come to the whole square,
+  because what the alignment reached is a fact about this picture rather than a
+  default that can be left out.
+- **The plan lists one captured level**, the donor's deepest complete one, which
+  is what the warp samples: a stamp naming the donor's other levels would rebuild
+  for a change that could not reach these tiles.
+- **The stamp carries the alignment** — the base's tile set, the target zoom, the
+  base frame, and the six coefficients to nine decimal places — because the same
+  donor through a different transformation is a different picture.
+
+`golden/pipeline/derive_test.go` holds this to the reference cache both ways.
+Cyberpunk's aligned pyramid plans to the recorded stamp under the reference
+tool's hash — which says the anchors, the name matching, the trimming, the
+least-squares fit and the target zoom all came out identical from the captures
+alone — and its 1,365 tiles are rebuilt byte for byte.
 
 ---
 
@@ -928,7 +1052,7 @@ and holds the result against every extraction the reference build was captured
 into: part hashes, the canonicalized manifest, the world payloads, the unpacked
 locations, the deferred prose, the icon set, the tile inventory and the
 archive's entry order. Canonical-content equality is mandatory; stamp identity
-was tracked as an aspiration and, for these four, is now held.
+was tracked as an aspiration and, for all five, is now held.
 
 | fixture | shape it is a fixture of | source | result |
 | --- | --- | --- | --- |
@@ -936,31 +1060,57 @@ was tracked as an aspiration and, for these four, is now held.
 | `fallout-new-vegas` | a split sheet: 13 worlds, 8 of them insets | mapgenie | byte-identical, 23,188,369 bytes |
 | `zelda-tears-of-the-kingdom` | lens shards: three elevations of one ground | mapgenie | byte-identical, 58,031,657 bytes |
 | `mars` | a sphere, a derived id space, named artwork | nasa-trek | byte-identical, 255,455,078 bytes |
-| `cyberpunk-2077` | two sources merged | ign ⊕ piggyback | M3 — this lane is single-source |
-| `bend-or` | a city, basemap and national layers | arcgis-hub | blocked: the capture is gone |
+| `bend-or` | a city: dated worlds, national layers, a drawn lens | arcgis-hub | byte-identical, 13,642,843 bytes |
+| `cyberpunk-2077` | two sources merged | ign-wiki ⊕ piggyback | canonically identical; the stamp is waived (§8.2) |
 
 Every source is held against the reference tree's own reading of the same
 archived capture — what the two documents *mean*, since the shapes deliberately
 differ — collection for collection, feature for feature, attribute for
-attribute. All five have such a fixture; four of the five are checked against
-one today, and the ArcGIS one waits with its volume.
+attribute. All five have such a fixture and all five are checked against one.
 
-The tile deriver is proven in two halves, for the reason §4.3 gives: the plan
-is bit-identical to the reference's for all nine pyramids of the four
-single-source fixtures, and tunic's 741 tiles rebuild from the archive byte for
-byte. `golden/format/STAMPS.md` carries the accounting and the ceiling.
+The tile deriver is proven in two halves, for the reason §4.3 gives: the plan is
+bit-identical to the reference's for all ten pyramids of the five single-source
+fixtures and for cyberpunk's warped variant — alignment and all — and three
+whole pyramids rebuild from the archive byte for byte, one per path a level's
+pixels can take. Tunic's 741 tiles are the copied path, a captured level carried
+through and reduced; the city's 2,316 are the drawn one, rasterized from its own
+vectors; the warp's 1,365 are the fitted one, rendered through the affine and
+folded down. `golden/format/STAMPS.md` carries the accounting and the ceiling.
 
-The tests are gated on the two inputs that are deliberately not in git — the
-capture archive and the derived tile set — and skip with an explanation when
-neither `ATLAS_ARCHIVE_DIR`/`ATLAS_TILES_INDEX` nor the repository's own
-gitignored copies are present.
+The tests are gated on the inputs that are deliberately not in git — the capture
+archives and the derived tile set — and skip with an explanation when neither
+`ATLAS_ARCHIVE_DIR`/`ATLAS_CITY_ARCHIVE_DIR`/`ATLAS_TILES_INDEX` nor the
+repository's own gitignored copies are present. The city's archive is resolved
+separately from the corpus's because the corpus archive holds whatever its
+operator crawled, which may include a city the public curation table may not
+name (issue #5's privacy rule); staging the proof city apart keeps the gate
+independent of what else is on a machine.
 
-The harness's `generate-enrich` gate stays **skipped**: its contract is
-`generate ⊕ enrich` over every bundle fixture, and enrichment does not exist
-yet, so the merged fixture cannot be reproduced by anything. The single-source
-half runs as an ordinary test in the meantime.
+The harness's `generate-enrich` gate is **green over all six bundle
+fixtures**: the five single-source volumes reproduce through `golden/pipeline`
+and the merged volume through the shipped command below.
 
-### 8.1 What the city fixture is waiting for
+### 8.1 The merged volume
+
+`cyberpunk-2077` is the one fixture no single lane can answer for, and it is
+reproduced by the shipped command rather than by a test's own reassembly of it:
+`golden/pipeline` runs `atlas enrich` over the archive and holds what lands in an
+empty registry to the fixture. Every part is byte-identical — the world payload
+including its whole merge ledger, the packed locations, the deferred prose, all
+38 icons, both pyramids' 17,507 tiles, and the archive's entry order — except
+the manifest, whose `version` object carries the enriched build's revision.
+Against the reference build itself that is 17,549 entries in identical order, of
+which exactly one differs, in two fields of one object.
+
+That one difference is the `enriched-build-revision` waiver and it is a
+consequence, not a divergence: §5.3 of issue #5 requires an enrich write to bump
+the revision past the serving build's so the registry fold serves it, the
+revision rides the manifest, the manifest rides the stamp, and the stamp names
+the file. The gate asserts the shape of the difference rather than shrugging at
+it — the capture time is unmoved, the revision is exactly this lane's bump of the
+fixture's own, the stamp differs, and the file name follows.
+
+### 8.2 What the city fixture is waiting for
 
 `bend-or` was built during M0 from a live crawl of a public city's ArcGIS Hub,
 and that capture archive was not kept. The translator fixture is the reference
@@ -971,5 +1121,5 @@ format's own invariant, and the file name would differ even if every byte of
 the city's open data were unchanged.
 
 So the volume waits on three things, in this order: the ArcGIS/USGS crawler
-(§3.2), the offline basemap renderer (§4.4), and a fresh capture — after which
+(§3.2), the offline basemap renderer (§4.5), and a fresh capture — after which
 it reproduces from *that* archive rather than from the fixture's.

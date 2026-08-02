@@ -26,6 +26,7 @@
 // a searched-for name is what the reader asked to see. Highlighting is a way
 // of reading the map, not a way of losing your place.
 
+import { KEY_STROKE_WIDTH_PX } from "@atlas/analysis/semconv/keys";
 import type { Scene } from "../scene/read.ts";
 import type { Coordinate, Line, PointRecord, ShapeRecord, WorldModel } from "./model.ts";
 
@@ -159,7 +160,7 @@ function passes(groups: ReadonlyMap<number, ShapeRecord[]>, at: Coordinate): boo
  */
 export function shapeContains(shape: ShapeRecord, at: Coordinate): boolean {
   const grace = shape.kind === "path"
-    ? Math.max(1, Number(shape.collection.attrs?.["atlas.stroke.width_px"] ?? 0) / 2)
+    ? Math.max(1, Number(shape.collection.attrs?.[KEY_STROKE_WIDTH_PX] ?? 0) / 2)
     : 1;
   for (let i = 0; i < shape.lines.length; i++) {
     const outer = shape.lines[i];

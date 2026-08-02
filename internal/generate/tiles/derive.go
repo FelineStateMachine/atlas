@@ -43,15 +43,21 @@ import (
 // entry carries no stamp: stamping is the caller's, because a caller that
 // carried a pyramid over rather than deriving it stamps the same way.
 func Derive(root string, plan Plan) (Pyramid, error) {
+	// A warped variant is derived from another picture rather than from its own
+	// capture: it has no complete level of its own to fold down, so it renders
+	// its deepest level first and then folds down like anything else.
 	if plan.Warp != nil {
-		return Pyramid{}, fmt.Errorf(
-			"pyramid %s is a warped variant, which this deriver does not build yet "+
-				"(see docs/generate.md, the tile deriver)", plan.Name)
+		return deriveWarp(root, plan)
 	}
 	maxZoom := plan.MaxSourceZoom - plan.Frame.BaseZoom
 	fullZoom := plan.MaxFullZoom - plan.Frame.BaseZoom
 	formats := make([]string, maxZoom+1)
 	coverage := make(map[string]*Coverage)
+
+	drawn, err := drawingFor(plan, fullZoom)
+	if err != nil {
+		return Pyramid{}, err
+	}
 
 	full := plan.Levels[plan.MaxFullZoom]
 	filler := placeholder(full)
@@ -66,7 +72,7 @@ func Derive(root string, plan Plan) (Pyramid, error) {
 	}
 	background := parseHex(backgroundHex)
 
-	format, mask, err := copyLevel(root, plan, plan.MaxFullZoom, fullZoom, full, filler)
+	format, mask, err := writeLevel(root, plan, plan.MaxFullZoom, fullZoom, full, filler, drawn)
 	if err != nil {
 		return Pyramid{}, err
 	}
@@ -101,7 +107,7 @@ func Derive(root string, plan Plan) (Pyramid, error) {
 	// advertising a zoom with no tiles would only produce misses.
 	for localZoom := fullZoom + 1; localZoom <= maxZoom; localZoom++ {
 		sourceZoom := localZoom + plan.Frame.BaseZoom
-		format, mask, err := copyLevel(root, plan, sourceZoom, localZoom, plan.Levels[sourceZoom], filler)
+		format, mask, err := writeLevel(root, plan, sourceZoom, localZoom, plan.Levels[sourceZoom], filler, nil)
 		if err != nil {
 			return Pyramid{}, err
 		}
@@ -136,27 +142,43 @@ func Derive(root string, plan Plan) (Pyramid, error) {
 	}, nil
 }
 
-// copyLevel writes one captured level through, omitting tiles that are
-// byte-identical copies of the level's background.
-func copyLevel(
+// writeLevel puts one whole level on disk, omitting tiles that are copies of
+// the level's background. A level is either copied from the capture or drawn
+// from the source's own vectors; which one it is, is the only difference
+// between the two paths, and everything downstream of here cannot tell.
+func writeLevel(
 	root string,
 	plan Plan,
 	sourceZoom, localZoom int,
 	tiles []Tile,
 	filler string,
+	drawn *drawing,
 ) (string, *Coverage, error) {
 	if len(tiles) == 0 {
 		return "", nil, fmt.Errorf("captured level %d holds no tile", sourceZoom)
 	}
 	format := tiles[0].Format
-	origin := plan.Frame.Origin(sourceZoom)
-	span := 1 << localZoom
-	mask := &coverageMask{total: span * span}
-
 	for _, tile := range tiles {
 		if tile.Format != format {
 			return "", nil, fmt.Errorf("captured level %d mixes %s and %s", sourceZoom, format, tile.Format)
 		}
+	}
+	origin := plan.Frame.Origin(sourceZoom)
+	span := 1 << localZoom
+	mask := &coverageMask{total: span * span}
+
+	if drawn != nil {
+		if format != "png" {
+			return "", nil, fmt.Errorf(
+				"level %d is drawn, and a drawing is written as PNG, not %s", sourceZoom, format)
+		}
+		if err := drawn.level(root, plan.Name, localZoom, origin, tiles, filler, mask); err != nil {
+			return "", nil, err
+		}
+		return format, mask.build(), nil
+	}
+
+	for _, tile := range tiles {
 		if filler != "" && tile.Ref.ContentHash == filler {
 			continue
 		}

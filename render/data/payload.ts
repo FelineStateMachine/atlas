@@ -12,6 +12,12 @@
 // open — arrives through the scene description instead (`scene/`), because
 // data flows one way and the payload is not where a session lives.
 
+import {
+  KEY_LABEL_POLICY,
+  KEY_RENDER_AS,
+  KEY_STROKE_WIDTH_PX,
+} from "@atlas/analysis/semconv/keys";
+
 /** `atlas.*` keys to their values, flat, as every entity carries them. */
 export type Attrs = Readonly<Record<string, string>>;
 
@@ -156,16 +162,16 @@ export function tileFormat(lens: Lens, z: number): string | null {
 
 /** The label policy an area collection curates, `always` when it says nothing. */
 export function labelPolicy(collection: Collection): "always" | "quiet" {
-  return collection.attrs?.["atlas.label.policy"] === "quiet" ? "quiet" : "always";
+  return collection.attrs?.[KEY_LABEL_POLICY] === "quiet" ? "quiet" : "always";
 }
 
 /** How a point collection draws: markers, or floating text. Absent means pin. */
 export function renderAs(collection: Collection): "pin" | "text" {
-  return collection.attrs?.["atlas.render.as"] === "text" ? "text" : "pin";
+  return collection.attrs?.[KEY_RENDER_AS] === "text" ? "text" : "pin";
 }
 
 /** The ground width of a path collection's features, in world pixels. */
 export function strokeWidth(collection: Collection): number {
-  const declared = Number(collection.attrs?.["atlas.stroke.width_px"]);
+  const declared = Number(collection.attrs?.[KEY_STROKE_WIDTH_PX]);
   return Number.isFinite(declared) && declared > 0 ? declared : 0;
 }

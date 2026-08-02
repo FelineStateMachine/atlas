@@ -1,0 +1,10 @@
+{{/*
+  op-row — one line of an operation's voice.
+
+  The console swaps beforeend, so one row is one fragment and the page grows a
+  line at a time as the subprocess speaks. The kind, the level and the failure
+  are data attributes: the stylesheet decides what a warning looks like, and
+  this file decides nothing.
+*/}}
+{{define "op-row"}}<p class="op-row" data-kind="{{.Kind}}" data-stream="{{.Stream}}" data-level="{{.Level}}"{{if .Failed}} data-failed="true"{{end}}><span class="seq">{{.Seq}}</span>{{if .Level}}<span class="level">{{.Level}}</span>{{end}}<span class="msg">{{.Message}}</span>{{range .Attrs}}<span class="attr"><b>{{.Key}}</b>{{.Value}}</span>{{end}}</p>
+{{end}}

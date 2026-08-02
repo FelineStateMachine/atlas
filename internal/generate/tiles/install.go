@@ -32,20 +32,22 @@ func (s *Set) Carry(plan Plan, stamp string) (Pyramid, bool) {
 	if s == nil {
 		return Pyramid{}, false
 	}
-	for _, existing := range s.byTileSet[plan.TileSet] {
-		if existing.TileSet != plan.TileSet || existing.Name != plan.Name {
-			continue
-		}
-		if existing.Stamp == "" || existing.Stamp != stamp {
-			return Pyramid{}, false
-		}
-		if _, err := os.Stat(filepath.Join(s.dir, existing.Name)); err != nil {
-			// Whatever the last run left is not there to be kept.
-			return Pyramid{}, false
-		}
-		return existing, true
+	// By name rather than by tile set: an aligned variant is registered under
+	// the picture it hangs on, so a lookup through the tile set it was
+	// resampled from would never find one and every warp would be derived
+	// again on every run.
+	existing, held := s.byName[plan.Name]
+	if !held || existing.TileSet != plan.TileSet {
+		return Pyramid{}, false
 	}
-	return Pyramid{}, false
+	if existing.Stamp == "" || existing.Stamp != stamp {
+		return Pyramid{}, false
+	}
+	if _, err := os.Stat(filepath.Join(s.dir, existing.Name)); err != nil {
+		// Whatever the last run left is not there to be kept.
+		return Pyramid{}, false
+	}
+	return existing, true
 }
 
 // Install moves the pyramids that were derived into the tile set, takes out any
