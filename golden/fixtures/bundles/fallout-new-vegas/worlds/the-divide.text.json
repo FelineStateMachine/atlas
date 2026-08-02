@@ -1,0 +1,1860 @@
+{
+  "485270": {
+    "d": "Used to return to the Mojave Wasteland."
+  },
+  "485271": {
+    "d": "**Hostile?** Yes - Sentry Bots + Mark II Turrets\n\n**Notable NPCs:**\n- ED-E\n\n**Notable Loot:**\n- RALPHIE Poster\n- Eyebot Upgrade Circuit Board\n- Dean's Electronics\n- Hopeville Silo - 2nd Level Security Code\n- Hopeville Silo - 1st Level Security Code\n- US Army General Outfit\n- Silo Network Security Codes",
+    "l": [
+      {
+        "locationId": 485338,
+        "title": "ED-E"
+      },
+      {
+        "locationId": 490432,
+        "title": "RALPHIE Poster"
+      },
+      {
+        "locationId": 485309,
+        "title": "Eyebot Upgrade Circuit Board"
+      },
+      {
+        "locationId": 489680,
+        "title": "Dean's Electronics"
+      },
+      {
+        "locationId": 485310,
+        "title": "Hopeville Silo - 2nd Level Security Code"
+      },
+      {
+        "locationId": 485312,
+        "title": "Hopeville Silo - 1st Level Security Code"
+      },
+      {
+        "locationId": 485318,
+        "title": "US Army General Outfit"
+      },
+      {
+        "locationId": 485319,
+        "title": "Silo Network Security Codes"
+      }
+    ]
+  },
+  "485272": {
+    "d": "**Hostile?** Yes - Tunnelers  \n\n**Notable Loot:**\n- Eyebot Upgrade Circuit Board\n- Big Book of Science\n- Chinese Army: Spec. Ops. Training Manual\n- RALPHIE Poster",
+    "l": [
+      {
+        "locationId": 496107,
+        "title": "Eyebot Upgrade Circuit Board"
+      },
+      {
+        "locationId": 487945,
+        "title": "Big Book of Science"
+      },
+      {
+        "locationId": 487955,
+        "title": "Chinese Army: Spec. Ops. Training Manual"
+      },
+      {
+        "locationId": 496112,
+        "title": "RALPHIE Poster"
+      }
+    ]
+  },
+  "485274": {
+    "d": "**Hostile?** Yes - Tunnelers + Deathclaws\n\n**Notable Loot:**\n- Snow Globe - Lonesome Road",
+    "l": [
+      {
+        "locationId": 485795,
+        "title": "Snow Globe - Lonesome Road"
+      }
+    ]
+  },
+  "485275": {
+    "d": "**Hostile?** Yes - Deathclaws  \n\n**Notable Loot:**\n- None"
+  },
+  "485276": {
+    "d": "**Hostile?** No - but watch out for explosives  \n\n**Notable Loot:**\n- Advanced Riot Gear Helmet\n- Advanced Riot Gear\n- Ulysses Log: Y-17.16\n- RALPHIE Poster",
+    "l": [
+      {
+        "locationId": 496087,
+        "title": "Advanced Riot Gear Helmet"
+      },
+      {
+        "locationId": 496088,
+        "title": "Advanced Riot Gear"
+      },
+      {
+        "locationId": 496085,
+        "title": "Ulysses Log: Y-17.16"
+      },
+      {
+        "locationId": 496084,
+        "title": "RALPHIE Poster"
+      }
+    ]
+  },
+  "485277": {
+    "d": "**Hostile?** Yes - Tunnelers\r\n\r\n**Notable Loot:**\r\n- RALPHIE Poster\r\n- Bravo Team Mission Orders\r\n- Flash Bang Information\r\n- Duck and Cover!",
+    "l": [
+      {
+        "locationId": 490861,
+        "title": "RALPHIE Poster"
+      },
+      {
+        "locationId": 490873,
+        "title": "Bravo Team Mission Orders"
+      },
+      {
+        "locationId": 496083,
+        "title": "Flash Bang Information"
+      },
+      {
+        "locationId": 487950,
+        "title": "Duck and Cover!"
+      }
+    ]
+  },
+  "485278": {
+    "d": "**Hostile?** Yes - Tunnelers\n\n**Notable Loot:**\n- RALPHIE Poster\n- Bravo Team Mission Orders\n- Flash Bang Information\n- Duck and Cover!",
+    "l": [
+      {
+        "locationId": 490861,
+        "title": "RALPHIE Poster"
+      },
+      {
+        "locationId": 490873,
+        "title": "Bravo Team Mission Orders"
+      },
+      {
+        "locationId": 496083,
+        "title": "Flash Bang Information"
+      },
+      {
+        "locationId": 487950,
+        "title": "Duck and Cover!"
+      }
+    ]
+  },
+  "485279": {
+    "d": "**Hostile?** Yes - Marked Men + Blister\n\n**Notable Loot:**\n- Marked Beast Helmet",
+    "l": [
+      {
+        "locationId": 490825,
+        "title": "Marked Beast Helmet"
+      }
+    ]
+  },
+  "485280": {
+    "d": "**Hostile?** Yes - Marked Men  \n\n**Notable Loot:**\n- Red Glare\n- Laser Detonator",
+    "l": [
+      {
+        "locationId": 490538,
+        "title": "Red Glare"
+      },
+      {
+        "locationId": 490542,
+        "title": "Laser Detonator"
+      }
+    ]
+  },
+  "485281": {
+    "d": "Blocked by a Warhead.",
+    "l": [
+      {
+        "locationId": 490548,
+        "title": "Warhead"
+      }
+    ]
+  },
+  "485282": {
+    "d": "**Hostile?** Yes - Marked Men, but they may only appear after destroying a nearby Warhead.  \n\n**Notable Loot:**\n- Warehouse Stash Key",
+    "l": [
+      {
+        "locationId": 490805,
+        "title": "Warhead"
+      },
+      {
+        "locationId": 490792,
+        "title": "Warehouse Stash Key"
+      }
+    ]
+  },
+  "485289": {
+    "d": "**Hostile?** Yes - Marked Men  \n\n**Notable Loot:**\n- RALPHIE Poster (1)\n- Tales of a Junktown Jerky Vendor\n- RALPHIE Poster (2)",
+    "l": [
+      {
+        "locationId": 490583,
+        "title": "RALPHIE Poster"
+      },
+      {
+        "locationId": 487964,
+        "title": "Tales of a Junktown Jerky Vendor"
+      },
+      {
+        "locationId": 490585,
+        "title": "RALPHIE Poster"
+      }
+    ]
+  },
+  "485290": {
+    "d": "**Hostile?** No, but watch out for plasma mines!  \n\n**Notable NPCs:**\n- None\n\n**Notable Loot:**\n- Ulysses Log: Y-17.15",
+    "l": [
+      {
+        "locationId": 490468,
+        "title": "Ulysses Log: Y-17.15"
+      }
+    ]
+  },
+  "485291": {
+    "d": "**Hostile?** Yes - Marked Men  \n\n**Notable NPCs:**\n- None\n\n**Notable Loot:**\n- None"
+  },
+  "485292": {
+    "d": "**Hostile?** Yes - Sentry Bots + Mark II Turrets\r\n\r\n**Notable NPCs:**\r\n- ED-E\r\n\r\n**Notable Loot:**\r\n- RALPHIE Poster\r\n- Eyebot Upgrade Circuit Board\r\n- Dean's Electronics\r\n- Hopeville Silo - 2nd Level Security Code\r\n- Hopeville Silo - 1st Level Security Code\r\n- US Army General Outfit\r\n- Silo Network Security Codes",
+    "l": [
+      {
+        "locationId": 485338,
+        "title": "ED-E"
+      },
+      {
+        "locationId": 490432,
+        "title": "RALPHIE Poster"
+      },
+      {
+        "locationId": 485309,
+        "title": "Eyebot Upgrade Circuit Board"
+      },
+      {
+        "locationId": 489680,
+        "title": "Dean's Electronics"
+      },
+      {
+        "locationId": 485310,
+        "title": "Hopeville Silo - 2nd Level Security Code"
+      },
+      {
+        "locationId": 485312,
+        "title": "Hopeville Silo - 1st Level Security Code"
+      },
+      {
+        "locationId": 485318,
+        "title": "US Army General Outfit"
+      },
+      {
+        "locationId": 485319,
+        "title": "Silo Network Security Codes"
+      }
+    ]
+  },
+  "485293": {
+    "d": "**Hostile?** Yes - Marked Men  \n\n**Notable Loot:**\n- Nikola Tesla And You\n- Salesman Weekly\n- Future Weapons Today\n- Meeting People\n- Eyebot Upgrade Circuit Board\n- Hopeville Base - Armory Access Codes\n- Today's Physician",
+    "l": [
+      {
+        "locationId": 485357,
+        "title": "Nikola Tesla And You"
+      },
+      {
+        "locationId": 485352,
+        "title": "Salesman Weekly"
+      },
+      {
+        "locationId": 485353,
+        "title": "Future Weapons Today"
+      },
+      {
+        "locationId": 485369,
+        "title": "Meeting People"
+      },
+      {
+        "locationId": 485371,
+        "title": "Eyebot Upgrade Circuit Board"
+      },
+      {
+        "locationId": 485377,
+        "title": "Hopeville Base - Armory Access Codes"
+      },
+      {
+        "locationId": 485379,
+        "title": "Today's Physician"
+      }
+    ]
+  },
+  "485294": {
+    "d": "**Hostile?** Yes - Sentry Bots + Turrets\n\n**Notable NPCs:**\n- Ulysses\n\n**Notable Loot:**\n- None",
+    "l": [
+      {
+        "locationId": 496184,
+        "title": "Ulysses"
+      }
+    ]
+  },
+  "485296": {
+    "d": "**Hostile?** Yes - Marked Men + Tunnelers\n\n**Notable Loot:**\n- RALPHIE Poster\n- Pugilism Illustrated",
+    "l": [
+      {
+        "locationId": 496141,
+        "title": "RALPHIE Poster"
+      },
+      {
+        "locationId": 487961,
+        "title": "Pugilism Illustrated"
+      }
+    ]
+  },
+  "485297": {
+    "d": "**Hostile?** Yes - Tunnelers\n\n**Notable Loot:**\n- Wasteland Survival Guide\n- For whoever finds this...",
+    "l": [
+      {
+        "locationId": 487960,
+        "title": "Wasteland Survival Guide"
+      },
+      {
+        "locationId": 496150,
+        "title": "For whoever finds this..."
+      }
+    ]
+  },
+  "485298": {
+    "d": "**Hostile?** Yes - Deathclaws  \n\n**Notable Loot:**\n- ??"
+  },
+  "485299": {
+    "d": "**Hostile?** Yes - Marked Men + Deathclaws  \n\n**Notable Loot:**\n- Blood-Nap [Bowie Knife]\n- RALPHIE Poster\n\nReached via Path to the Courier's Mile.",
+    "l": [
+      {
+        "locationId": 496214,
+        "title": "Blood-Nap [Bowie Knife]"
+      },
+      {
+        "locationId": 496213,
+        "title": "RALPHIE Poster"
+      },
+      {
+        "locationId": 496211,
+        "title": "Path to the Courier's Mile"
+      }
+    ]
+  },
+  "485300": {
+    "d": "**Hostile?** Yes - Tunnelers + Marked Men\r\n\r\n**Notable Loot:**\r\n- Eyebot Upgrade Circuit Board\r\n- Big Book of Science\r\n- Chinese Army: Spec. Ops. Training Manual\r\n- RALPHIE Poster",
+    "l": [
+      {
+        "locationId": 496107,
+        "title": "Eyebot Upgrade Circuit Board"
+      },
+      {
+        "locationId": 487945,
+        "title": "Big Book of Science"
+      },
+      {
+        "locationId": 487955,
+        "title": "Chinese Army: Spec. Ops. Training Manual"
+      },
+      {
+        "locationId": 496112,
+        "title": "RALPHIE Poster"
+      }
+    ]
+  },
+  "485301": {
+    "d": "**Hostile?** No  \n\n**Notable Loot:**\n- Elite Riot Gear Helmet\n- Elite Riot Gear\n- Lying, Congressional Style\n- RALPHIE Poster",
+    "l": [
+      {
+        "locationId": 496128,
+        "title": "Elite Riot Gear Helmet"
+      },
+      {
+        "locationId": 496129,
+        "title": "Elite Riot Gear"
+      },
+      {
+        "locationId": 487956,
+        "title": "Lying, Congressional Style"
+      },
+      {
+        "locationId": 496127,
+        "title": "RALPHIE Poster"
+      }
+    ]
+  },
+  "485302": {
+    "d": "**Hostile?** Yes - Tunnelers\n\n**Notable Loot:**\n- Sunflower Summers' Diary",
+    "l": [
+      {
+        "locationId": 496132,
+        "title": "Sunflower Summers' Diary"
+      }
+    ]
+  },
+  "485304": {
+    "d": "**Location:** Hopeville Silo Bunker - On the Silo Blast Door Controls console found soon after entering.\n\n**Affected Skill:** Science",
+    "l": [
+      {
+        "locationId": 485271,
+        "title": "Hopeville Silo Bunker"
+      }
+    ]
+  },
+  "485305": {
+    "d": "**Location:** Hopeville Silo Bunker - In the Utility area, on a shelf.  \n\n**Category:** Two-Handed Energy Weapon  \n\n**Requirements:**\n- Energy Weapons 75\n- Strength 7",
+    "l": [
+      {
+        "locationId": 485271,
+        "title": "Hopeville Silo Bunker"
+      }
+    ]
+  },
+  "485309": {
+    "d": "**Location:** Hopeville Silo Bunker - In the inventory of a destroyed Eyebot, found in a corridor accessible after restoring the power and opening the door marked 'reactor'.",
+    "l": [
+      {
+        "locationId": 485271,
+        "title": "Hopeville Silo Bunker"
+      }
+    ]
+  },
+  "485310": {
+    "d": "**Location:** Hopeville Silo Bunker - Inside a locked (Easy) desk in a pile of rubble near the missile.\n\n**Used to Unlock:** Security Control Level Two terminal on the next floor up.",
+    "l": [
+      {
+        "locationId": 485271,
+        "title": "Hopeville Silo Bunker"
+      }
+    ]
+  },
+  "485312": {
+    "d": "**Location:** Hopeville Silo Bunker - Inside a locked (Hard) desk in the corner of a room where you encounter a Sentry Bot.\n\n**Used to Unlock:** Base Commander's Terminal on the next floor up.",
+    "l": [
+      {
+        "locationId": 485271,
+        "title": "Hopeville Silo Bunker"
+      }
+    ]
+  },
+  "485315": {
+    "d": "**Location:** Hopeville Silo Bunker - On the ground in a room marked 'Main Entrance' on one of the upper floors.  \n\n**Affected Skill:** Repair",
+    "l": [
+      {
+        "locationId": 485271,
+        "title": "Hopeville Silo Bunker"
+      }
+    ]
+  },
+  "485316": {
+    "d": "**Location:** Hopeville Silo Bunker - On the ground near Marked Men corpses in a room marked 'Main Entrance' on one of the upper floors.\n\n**Category:** Two-Handed Energy Weapon  \n\n**Requirements:**\n- Energy Weapons 75\n- Strength 7",
+    "l": [
+      {
+        "locationId": 485271,
+        "title": "Hopeville Silo Bunker"
+      }
+    ]
+  },
+  "485317": {
+    "d": "**Location:** Hopeville Silo Bunker - Inside a desk near some Marked Men corpses in a room marked 'Main Entrance' on one of the upper floors.\n\n**Affected Skill:** Dependent",
+    "l": [
+      {
+        "locationId": 485271,
+        "title": "Hopeville Silo Bunker"
+      }
+    ]
+  },
+  "485318": {
+    "d": "**Location:** Hopeville Silo Bunker - In the inventory of General Martin Retslaf, found dead at a desk in the room marked 'Security' on one of the upper floors.  \n\n**Repair With:**\n- Any Light Armor (w/ Jury Rigging perk)  \n\n**Statistics:**\n- DT +1\n- Speech +10\n- Guns +5",
+    "l": [
+      {
+        "locationId": 485271,
+        "title": "Hopeville Silo Bunker"
+      }
+    ]
+  },
+  "485319": {
+    "d": "**Location:** Hopeville Silo Bunker - Inside the Base Commander's Desk, found in the room marked 'Security' on one of the upper floors.\n\n**Used to Unlock:** Mainframe access in the other room on this floor.",
+    "l": [
+      {
+        "locationId": 485271,
+        "title": "Hopeville Silo Bunker"
+      }
+    ]
+  },
+  "485325": {
+    "d": "**Location:** Hopeville Silo Bunker - After using the Silo Network Security Codes to open all doors, enter the tunnels and take a left. The magazine is inside a desk in the corner of a room with a window.\n\n**Affected Skill:** Dependent",
+    "l": [
+      {
+        "locationId": 485271,
+        "title": "Hopeville Silo Bunker"
+      },
+      {
+        "locationId": 485319,
+        "title": "Silo Network Security Codes"
+      }
+    ]
+  },
+  "485327": {
+    "d": "**Location:** Hopeville Silo Bunker - In the room marked 'Security' on one of the upper floors. Use the terminal on the desk to open the security bot doors, then find it on the shelves behind one of the robots.\n\n**Category:** Two-Handed Energy Weapon\n\n**Requirements:**\n- Energy Weapons 25",
+    "l": [
+      {
+        "locationId": 485271,
+        "title": "Hopeville Silo Bunker"
+      }
+    ]
+  },
+  "485335": {
+    "d": "**Location:** The Divide\n\n**Quest Giver:** Automatically started when you enter the area\n\n**Reward:**\n- XP"
+  },
+  "485338": {
+    "d": "**Location:** Hopeville Silo Bunker\n\n**How to Recruit:** Interact with the maintenance computer near the pod.",
+    "l": [
+      {
+        "locationId": 485271,
+        "title": "Hopeville Silo Bunker"
+      }
+    ]
+  },
+  "485344": {
+    "d": "**Location:** The Divide\n\n**Quest Giver:** Automatically begins after exiting the Hopeville Silo Bunker Entrance\n\n**Quest Item(s):**\n- Laser Detonator\n\n**Reward:**\n- XP",
+    "l": [
+      {
+        "locationId": 485271,
+        "title": "Hopeville Silo Bunker Entrance"
+      },
+      {
+        "locationId": 490542,
+        "title": "Laser Detonator"
+      }
+    ]
+  },
+  "485352": {
+    "d": "**Location:** Hopeville Missile Base Headquarters - On an L-shaped desk in front of you as you enter.  \n\n**Affected Skill:** Barter",
+    "l": [
+      {
+        "locationId": 485293,
+        "title": "Hopeville Missile Base Headquarters"
+      }
+    ]
+  },
+  "485353": {
+    "d": "**Location:** Hopeville Missile Base Headquarters - Inside a desk near an AutoDoc pod.  \n\n**Affected Skill:** Dependent",
+    "l": [
+      {
+        "locationId": 485293,
+        "title": "Hopeville Missile Base Headquarters"
+      }
+    ]
+  },
+  "485357": {
+    "d": "**Location:** Hopeville Missile Base Headquarters - In the south-western corner of the lobby, partially hidden by another book on top of it.\n\n**Skill Increase:** +3 Energy Weapons (+4 with the Comprehension perk)",
+    "l": [
+      {
+        "locationId": 485293,
+        "title": "Hopeville Missile Base Headquarters"
+      }
+    ]
+  },
+  "485369": {
+    "d": "**Location:** Hopeville Missile Base Headquarters - Inside a desk in the corner of a room to the left of the entrance.\n\n**Affected Skill:** Dependent",
+    "l": [
+      {
+        "locationId": 485293,
+        "title": "Hopeville Missile Base Headquarters"
+      }
+    ]
+  },
+  "485371": {
+    "d": "**Location:** Hopeville Missile Base Headquarters - In the inventory of a Destroyed Eyebot underneath a desk in the corner of a room to the left of the entrance.",
+    "l": [
+      {
+        "locationId": 485293,
+        "title": "Hopeville Missile Base Headquarters"
+      }
+    ]
+  },
+  "485377": {
+    "d": "**Location:** Hopeville Missile Base Headquarters - Inside a locked (Hard) safe in the corner of a wrecked room on the left side of the building.\n\n**Used to Unlock:** A locked (Hard) terminal outside the Hopeville Armory.",
+    "l": [
+      {
+        "locationId": 485293,
+        "title": "Hopeville Missile Base Headquarters"
+      }
+    ]
+  },
+  "485379": {
+    "d": "**Location:** Hopeville Missile Base Headquarters - Inside a locked (Hard) safe in the corner of a wrecked room on the left side of the building.  \n\n**Affected Skill:** Medicine",
+    "l": [
+      {
+        "locationId": 485293,
+        "title": "Hopeville Missile Base Headquarters"
+      }
+    ]
+  },
+  "485795": {
+    "d": "**Location:** Junction 7 Rest Stop - On the shelves of a bookshelf on the upper floor of a ruined building.",
+    "l": [
+      {
+        "locationId": 485274,
+        "title": "Junction 7 Rest Stop"
+      }
+    ]
+  },
+  "487945": {
+    "d": "**Location:** Ashton Silo Control Station, Ashton Missile Silo - On a pile of rubble at the northern edge of Level 3. Look to the left of a locked (Hard) safe.\n\n**Skill Increase:** +3 Science (+4 with the Comprehension perk)",
+    "l": [
+      {
+        "locationId": 485272,
+        "title": "Ashton Silo Control Station"
+      }
+    ]
+  },
+  "487949": {
+    "d": "**Location:** Buried Buildings - On the floor right in front of the RALPHIE Poster.\n\n**Skill Increase:** +3 Medicine (+4 with the Comprehension perk)",
+    "l": [
+      {
+        "locationId": 496133,
+        "title": "Buried Buildings"
+      },
+      {
+        "locationId": 496134,
+        "title": "RALPHIE Poster"
+      }
+    ]
+  },
+  "487950": {
+    "d": "**Location:** Collapsed Overpass Tunnel - Right before using the High Road exit, turn to the south and look behind the sandbags. You'll find it in a box beneath a teddy bear.\n\n**Skill Increase:** +3 Explosives (+4 with the Comprehension perk)",
+    "l": [
+      {
+        "locationId": 485278,
+        "title": "Collapsed Overpass Tunnel"
+      }
+    ]
+  },
+  "487955": {
+    "d": "**Location:** Ashton Silo Control Station, Sunstone Tower - One floor up, on a bookshelf facing the wall in the corridor. To reach it, you'll need to throw explosives on top of the shelves; the book should end up against the wall in a position you can grab it.\n\n**Skill Increase:** +3 Stealth (+4 with the Comprehension perk)",
+    "l": [
+      {
+        "locationId": 485272,
+        "title": "Ashton Silo Control Station"
+      }
+    ]
+  },
+  "487956": {
+    "d": "**Location:** Third Street Municipal Building - On a high-up floor accessed through the Municipal Sewers, in the corner underneath a desk.\n\n**Skill Increase:** +3 Speech (+4 with the Comprehension perk)",
+    "l": [
+      {
+        "locationId": 485301,
+        "title": "Third Street Municipal Building"
+      },
+      {
+        "locationId": 496124,
+        "title": "Municipal Sewers"
+      }
+    ]
+  },
+  "487960": {
+    "d": "**Location:** Waste Disposal Station - On the ground behind a radioactive barrel that has a skeleton laying on top of it.\n\n**Skill Increase:** +3 Survival (+4 with the Comprehension perk)",
+    "l": [
+      {
+        "locationId": 485297,
+        "title": "Waste Disposal Station"
+      }
+    ]
+  },
+  "487961": {
+    "d": "**Location:** Wastewater Treatment Plant - In the corner of the room with the manager's terminal, on the ground behind some lockers.\n\n**Skill Increase:** +3 Unarmed (+4 with the Comprehension perk)",
+    "l": [
+      {
+        "locationId": 485296,
+        "title": "Wastewater Treatment Plant"
+      }
+    ]
+  },
+  "487964": {
+    "d": "**Location:** Marked Men Guard Outpost - In the basement, reached through a hatch to the east of the buildings. Once inside, the book is near the guts on a countertop in the corner.\n\n**Skill Increase:** +3 Barter (+4 with the Comprehension perk)",
+    "l": [
+      {
+        "locationId": 485289,
+        "title": "Marked Men Guard Outpost"
+      }
+    ]
+  },
+  "489668": {
+    "d": "**Location:** Junction 7 Rest Stop - Underneath a ruined book at the top of the stairs in a ruined building.\n\n**Affected Skill:** Survival",
+    "l": [
+      {
+        "locationId": 485274,
+        "title": "Junction 7 Rest Stop"
+      }
+    ]
+  },
+  "489669": {
+    "d": "**Location:** Junction 7 Rest Stop - On the shelves of a bookshelf on the upper floor of a ruined building.\n\n**Affected Skill:** Science",
+    "l": [
+      {
+        "locationId": 485274,
+        "title": "Junction 7 Rest Stop"
+      }
+    ]
+  },
+  "489670": {
+    "d": "**Location:** Junction 7 Rest Stop - In the corner of the upper floor of a ruined building, next to the bed with a skeleton on it.\n\n**Affected Skill:** Medicine",
+    "l": [
+      {
+        "locationId": 485274,
+        "title": "Junction 7 Rest Stop"
+      }
+    ]
+  },
+  "489671": {
+    "d": "**Location:** Third Street Municipal Building - On a high-up floor accessed through the Municipal Sewers, inside the Physician's Desk.\n\n**Affected Skill:** Medicine",
+    "l": [
+      {
+        "locationId": 485301,
+        "title": "Third Street Municipal Building"
+      },
+      {
+        "locationId": 496124,
+        "title": "Municipal Sewers"
+      }
+    ]
+  },
+  "489678": {
+    "d": "**Location:** Marked Men Guard Outpost - On top of a workbench in a small side-room on the ground floor.  \n\n**Affected Skill:** Repair",
+    "l": [
+      {
+        "locationId": 485289,
+        "title": "Marked Men Guard Outpost"
+      }
+    ]
+  },
+  "489680": {
+    "d": "**Location:** Hopeville Silo Bunker - In a pile of rubble directly left of the stairs on the level you enter the missile room.\n\n**Skill Increase:** +3 Repair (+4 with the Comprehension perk)",
+    "l": [
+      {
+        "locationId": 485271,
+        "title": "Hopeville Silo Bunker"
+      }
+    ]
+  },
+  "490432": {
+    "d": "**Location:** Hopeville Silo Bunker - On the wall right next to the terminal used to activate ED-E.",
+    "l": [
+      {
+        "locationId": 485271,
+        "title": "Hopeville Silo Bunker"
+      },
+      {
+        "locationId": 485338,
+        "title": "ED-E"
+      }
+    ]
+  },
+  "490468": {
+    "d": "**Location:** Hopeville Missile Base - Loading Station - Behind the gate, inside a toolbox among the crates and a truck laying on its side.\n\n_One of six Ulysses holotapes that must be collected to complete the **Ulysses' Odyssey** challenge and unlock XP._",
+    "l": [
+      {
+        "locationId": 485290,
+        "title": "Hopeville Missile Base - Loading Station"
+      }
+    ]
+  },
+  "490473": {
+    "d": "**Location:** Hopeville Missile Base - Loading Station - Behind the gate, near a skeleton at the back of  the area. Watch out for the mines!\n\n**Category:** One-Handed Melee Weapon  \n\n**Requirements:**\n- Melee Weapons 75\n- Strength 3",
+    "l": [
+      {
+        "locationId": 485290,
+        "title": "Hopeville Missile Base - Loading Station"
+      }
+    ]
+  },
+  "490477": {
+    "d": "**Location:** On the wall of a garage, next to a workbench."
+  },
+  "490485": {
+    "d": "**Location:** Hopeville Missile Base Headquarters - Inside a desk in the corner of a room to the left of the entrance, above a Destroyed Eyebot.\r\n\r\n**Affected Skill:** Dependent",
+    "l": [
+      {
+        "locationId": 485293,
+        "title": "Hopeville Missile Base Headquarters"
+      }
+    ]
+  },
+  "490494": {
+    "d": "**Location:** Hopeville Missile Base Headquarters - On the floor next to a skeleton in a bathroom, at the end of the hall directly opposite the entrance.  \n\n**Category:** One-Handed Gun  \n\n**Requirements:**\n- Strength 3",
+    "l": [
+      {
+        "locationId": 485293,
+        "title": "Hopeville Missile Base Headquarters"
+      }
+    ]
+  },
+  "490506": {
+    "d": "Accessed via Locked (Very Hard) door, or the terminal next to it (which can be unlocked via Hopeville Base - Armory Access Codes)\n\n**Notable Loot:**\n- Guns and Bullets",
+    "l": [
+      {
+        "locationId": 485377,
+        "title": "Hopeville Base - Armory Access Codes"
+      },
+      {
+        "locationId": 490509,
+        "title": "Guns and Bullets"
+      }
+    ]
+  },
+  "490509": {
+    "d": "**Location:** Hopeville Armory - Underneath a desk next to a bed in the far corner.\n\n**Skill Increase:** +3 Guns (+4 with the Comprehension perk)",
+    "l": [
+      {
+        "locationId": 490506,
+        "title": "Hopeville Armory"
+      }
+    ]
+  },
+  "490519": {
+    "d": "**Hostile?** Yes - Marked Men\n\n**Notable Loot:**\n- Tumblers Today",
+    "l": [
+      {
+        "locationId": 490522,
+        "title": "Tumblers Today"
+      }
+    ]
+  },
+  "490522": {
+    "d": "**Location:** Hopeville Men's Barracks - Underneath a box next to the toilets.\n\n**Skill Increase:** +3 Lockpick (+4 with the Comprehension perk)",
+    "l": [
+      {
+        "locationId": 490519,
+        "title": "Hopeville Men's Barracks"
+      }
+    ]
+  },
+  "490538": {
+    "d": "**Location:** Marked Men Camp - On a rooftop reached by climbing the rubble throughout the building.\n\n**Special Effects:**\n- None\n\n**Type:** Two-Handed Explosive  \n\n**Requirements:**\n- Explosives 100\n- Strength 6",
+    "l": [
+      {
+        "locationId": 485280,
+        "title": "Marked Men Camp"
+      }
+    ]
+  },
+  "490542": {
+    "d": "**Location:** Marked Men Camp - On top of a box on the rooftop, next to the Red Glare.\n\n**Related Quest:** The Job",
+    "l": [
+      {
+        "locationId": 485280,
+        "title": "Marked Men Camp"
+      },
+      {
+        "locationId": 490538,
+        "title": "Red Glare"
+      },
+      {
+        "locationId": 485344,
+        "title": "The Job"
+      }
+    ]
+  },
+  "490546": {
+    "d": "**Location:** Marked Men Camp - Inside a display case on the ground floor of a store.  \n\n**Affected Skill:** Lockpick",
+    "l": [
+      {
+        "locationId": 485280,
+        "title": "Marked Men Camp"
+      }
+    ]
+  },
+  "490548": {
+    "d": "On the back of a truck near the Hopeville Missile Base - East Entrance.",
+    "l": [
+      {
+        "locationId": 485281,
+        "title": "Hopeville Missile Base - East Entrance"
+      }
+    ]
+  },
+  "490558": {
+    "d": "Next to a pile of cars outside a building."
+  },
+  "490560": {
+    "d": "Initially blocked by a pile of cars until a Warhead is detonated. Two Marked Men will ambush you when you enter the back room.\n\n**Notable Loot:**\n- RALPHIE Poster\n- Grognak the Barbarian",
+    "l": [
+      {
+        "locationId": 490558,
+        "title": "Warhead"
+      },
+      {
+        "locationId": 490565,
+        "title": "RALPHIE Poster"
+      },
+      {
+        "locationId": 490568,
+        "title": "Grognak the Barbarian"
+      }
+    ]
+  },
+  "490565": {
+    "d": "**Location:** Hopeville Women's Barracks - On the back wall, to the right of the doorway.",
+    "l": [
+      {
+        "locationId": 490560,
+        "title": "Hopeville Women's Barracks"
+      }
+    ]
+  },
+  "490568": {
+    "d": "**Location:** Hopeville Women's Barracks - In the back room, underneath a book on the small table beside a lamp.\n\n**Skill Increase:** +3 Melee Weapons (+4 with the Comprehension perk)",
+    "l": [
+      {
+        "locationId": 490560,
+        "title": "Hopeville Women's Barracks"
+      }
+    ]
+  },
+  "490579": {
+    "d": "**Location:** Outside the Hopeville Missile Base Headquarters, on a boarded-up window.",
+    "l": [
+      {
+        "locationId": 485293,
+        "title": "Hopeville Missile Base Headquarters"
+      }
+    ]
+  },
+  "490581": {
+    "d": "**Location:** Next to a skeleton and duffle bag in a pipe.\n\n**Category:** One-Handed Gun  \n\n**Requirements:**\n- Strength 3"
+  },
+  "490582": {
+    "d": "**Location:** Inside a metal box in a pile of rubble between two buildings and behind a truck.\n\n**Used to Unlock:** Locked (Hard) gate at the end of the road to the south-east."
+  },
+  "490583": {
+    "d": "**Location:** Marked Men Guard Outpost - On the outer back wall, reached by climbing through a window on the top floor.",
+    "l": [
+      {
+        "locationId": 485289,
+        "title": "Marked Men Guard Outpost"
+      }
+    ]
+  },
+  "490585": {
+    "d": "**Location:** Marked Men Guard Outpost - In the basement, reached through a hatch to the east of the buildings. Once inside, the poster is beside some skeletons.",
+    "l": [
+      {
+        "locationId": 485289,
+        "title": "Marked Men Guard Outpost"
+      }
+    ]
+  },
+  "490791": {
+    "d": "Marked Men Supply Outpost - Among the trucks.",
+    "l": [
+      {
+        "locationId": 485282,
+        "title": "Marked Men Supply Outpost"
+      }
+    ]
+  },
+  "490792": {
+    "d": "**Location:** Marked Men Supply Outpost - Inside a metal box in the back of the truck.\n\n**Used to Unlock:** Locked gate between buildings north-east of the outpost.",
+    "l": [
+      {
+        "locationId": 485282,
+        "title": "Marked Men Supply Outpost"
+      }
+    ]
+  },
+  "490798": {
+    "d": "**Location:** On the wall in an alley directly opposite a locked gate. It can be unlocked via Warehouse Stash Key.",
+    "l": [
+      {
+        "locationId": 490792,
+        "title": "Warehouse Stash Key"
+      }
+    ]
+  },
+  "490802": {
+    "d": "**Location:** Behind a locked gate that can be unlocked via Warehouse Stash Key. Once you're through it, the holotape is on a shelf in the corner to your left.\n\n_One of six Ulysses holotapes that must be collected to complete the **Ulysses' Odyssey** challenge and unlock XP._",
+    "l": [
+      {
+        "locationId": 490792,
+        "title": "Warehouse Stash Key"
+      }
+    ]
+  },
+  "490805": {
+    "d": "On the back of a truck near a mass of wrecked vehicles."
+  },
+  "490825": {
+    "d": "**Location:** In the inventory of Blister, a unique Marked Man that appears after destroying the nearby Warhead.  \n\n**Repair With:**\n- Combat Helmet\n\n**Statistics:**\n- DT +3\n- Energy Resistance +10\n- Energy Weapons +2",
+    "l": [
+      {
+        "locationId": 490805,
+        "title": "Warhead"
+      }
+    ]
+  },
+  "490834": {
+    "d": "**Location:** In the inventory of Blister, a unique Marked Man that appears after destroying the nearby Warhead.  \n\n**Category:** Medium  \n\n**Statistics:**\n- DT +12\n- Energy Weapons +2\n- Perception +1",
+    "l": [
+      {
+        "locationId": 490805,
+        "title": "Warhead"
+      }
+    ]
+  },
+  "490837": {
+    "d": "**Location:** In the inventory of Blister, a unique Marked Man that appears after destroying the nearby Warhead.  \n\n**Category:** Two-Handed Energy Weapon  \n\n**Requirements:**\n- Energy Weapons 50\n- Strength 5",
+    "l": [
+      {
+        "locationId": 490805,
+        "title": "Warhead"
+      }
+    ]
+  },
+  "490839": {
+    "d": "Among the vehicles blocking the road."
+  },
+  "490861": {
+    "d": "**Location:** Collapsed Overpass Tunnel - Inside the first truck to your left after entering.",
+    "l": [
+      {
+        "locationId": 485278,
+        "title": "Collapsed Overpass Tunnel"
+      }
+    ]
+  },
+  "490870": {
+    "d": "**Location:** Marked Men Camp - On the wall of a building, at the end of a narrow alley.",
+    "l": [
+      {
+        "locationId": 485280,
+        "title": "Marked Men Camp"
+      }
+    ]
+  },
+  "490873": {
+    "d": "**Location:** Collapsed Overpass Tunnel - In the inventory of an NCR trooper laying on a metal sheet.",
+    "l": [
+      {
+        "locationId": 485278,
+        "title": "Collapsed Overpass Tunnel"
+      }
+    ]
+  },
+  "490877": {
+    "d": "**Location:** Collapsed Overpass Tunnel - In the inventory of an NCR trooper laying on a metal sheet.  \n\n**Category:** One-Handed Gun  \n\n**Requirements:**\n- Guns 75\n- Strength 2",
+    "l": [
+      {
+        "locationId": 485278,
+        "title": "Collapsed Overpass Tunnel"
+      }
+    ]
+  },
+  "490899": {
+    "d": "**Location:** The High Road\n\n**Quest Giver:** Automatically begins after emerging from the Collapsed Overpass Tunnel\n\n**Reward:**\n- XP",
+    "l": [
+      {
+        "locationId": 485278,
+        "title": "Collapsed Overpass Tunnel"
+      }
+    ]
+  },
+  "491205": {
+    "d": "**Location:** In the inventory of Beast, found soon after entering the High Road.  \n\n**Repair With:**\n- Combat Helmet\n\n**Statistics:**\n- DT +3\n- Melee Weapons +3\n- Critical Chance +2",
+    "l": [
+      {
+        "locationId": 485277,
+        "title": "High Road"
+      }
+    ]
+  },
+  "491206": {
+    "d": "**Location:** In the inventory of Beast, found soon after entering the High Road.  \n\n**Category:** Medium  \n\n**Statistics:**\n- DT +10\n- Melee Weapons +2\n- Strength +1",
+    "l": [
+      {
+        "locationId": 485277,
+        "title": "High Road"
+      }
+    ]
+  },
+  "491207": {
+    "d": "**Location:** In the inventory of Beast, found soon after entering the High Road.    \n\n**Category:** Two-Handed Gun  \n\n**Requirements:**\n- Guns 75\n- Strength 7",
+    "l": [
+      {
+        "locationId": 485277,
+        "title": "High Road"
+      }
+    ]
+  },
+  "491208": {
+    "d": "On the back of the truck."
+  },
+  "491209": {
+    "d": "On the road."
+  },
+  "491294": {
+    "d": "On the back of a truck by the roadside."
+  },
+  "491295": {
+    "d": "Sticking out of some debris on the hill leading to and from the High Road."
+  },
+  "491296": {
+    "d": "At the end of the road."
+  },
+  "491297": {
+    "d": "On a large pile of debris at the south end of the local map."
+  },
+  "491298": {
+    "d": "On a ruined building at the north-eastern end of the local map."
+  },
+  "491299": {
+    "d": "At the edge of a small camp."
+  },
+  "491300": {
+    "d": "Sticking out of the debris."
+  },
+  "491301": {
+    "d": "Sticking out of the rocks. Destroy it to clear a path."
+  },
+  "491302": {
+    "d": "Sticking out of the rocks. Destroy it to clear a path."
+  },
+  "491303": {
+    "d": "Sticking out of the rocks. Approach it from the western side to destroy it and clear a path."
+  },
+  "491304": {
+    "d": "Among the ruined buildings."
+  },
+  "491305": {
+    "d": "Sticking out of the rubble and rocks next to a building."
+  },
+  "491306": {
+    "d": "Appears as you enter Rawr's Cave, blocking your way out.",
+    "l": [
+      {
+        "locationId": 496135,
+        "title": "Rawr's Cave"
+      }
+    ]
+  },
+  "491307": {
+    "d": "Sticking out of the ceiling in Rawr's Cave."
+  },
+  "491308": {
+    "d": "On the rocks near the entrance to the Wastewater Treatment Plant",
+    "l": [
+      {
+        "locationId": 485296,
+        "title": "Wastewater Treatment Plant"
+      }
+    ]
+  },
+  "491309": {
+    "d": "Sticking out of a rock above the rooftop with a pool built into it."
+  },
+  "491310": {
+    "d": "Sticking out of the rubble high above the entrance to Ulysses' Temple.",
+    "l": [
+      {
+        "locationId": 485294,
+        "title": "Ulysses' Temple"
+      }
+    ]
+  },
+  "491311": {
+    "d": "Sticking out of the rocks high above the entrance to the Waste Disposal Station",
+    "l": [
+      {
+        "locationId": 485297,
+        "title": "Waste Disposal Station"
+      }
+    ]
+  },
+  "496083": {
+    "d": "**Location:** Collapsed Overpass Tunnel - Added to your inventory after finding Flash Bangs in an ammunition box near the NCR trooper holding Bravo Team Mission Orders.",
+    "l": [
+      {
+        "locationId": 485278,
+        "title": "Collapsed Overpass Tunnel"
+      },
+      {
+        "locationId": 490873,
+        "title": "Bravo Team Mission Orders"
+      }
+    ]
+  },
+  "496084": {
+    "d": "**Location:** The Crow's Nest - On the wall in the high-up room.",
+    "l": [
+      {
+        "locationId": 485276,
+        "title": "The Crow's Nest"
+      }
+    ]
+  },
+  "496085": {
+    "d": "**Location:** The Crow's Nest - On a chunk of debris next to the RALPHIE poster in a high-up room.",
+    "l": [
+      {
+        "locationId": 485276,
+        "title": "The Crow's Nest"
+      }
+    ]
+  },
+  "496086": {
+    "d": "**Location:** The Crow's Nest - Near two first aid boxes at the edge of the high-up room.  \n\n**Category:** Two-Handed Gun  \n\n**Requirements:**\n- Guns 75\n- Strength 6",
+    "l": [
+      {
+        "locationId": 485276,
+        "title": "The Crow's Nest"
+      }
+    ]
+  },
+  "496087": {
+    "d": "**Location:** The Crow's Nest - In the inventory of an NCR Riot Control corpse leaning over a window in a high-up room.\n\n**Repair With:**\n- Riot Helmet\n- Any Headgear (w/ Jury Rigging perk)  \n\n**Statistics:**\n- DT +5\n- Perception +2\n- Sneak Sight",
+    "l": [
+      {
+        "locationId": 485276,
+        "title": "The Crow's Nest"
+      }
+    ]
+  },
+  "496088": {
+    "d": "**Location:** The Crow's Nest - In the inventory of an NCR Riot Control corpse leaning over a window in a high-up room.\n\n**Repair With:**\n- NCR Ranger Combat Armor\n- Desert Ranger Combat Armor\n- NCR Ranger Patrol Armor\n- Riot Gear\n- Any Medium Armor (w/ Jury Rigging perk)  \n\n**Statistics:**\n- DT +21\n- Explosives +10\n- Endurance +1",
+    "l": [
+      {
+        "locationId": 485276,
+        "title": "The Crow's Nest"
+      }
+    ]
+  },
+  "496089": {
+    "d": "**Location:** The Crow's Nest - Inside a small wooden box next to a satchel charge in the high-up room. May be knocked out of it by the explosion.  \n\n**Affected Skill:** Melee Weapons",
+    "l": [
+      {
+        "locationId": 485276,
+        "title": "The Crow's Nest"
+      }
+    ]
+  },
+  "496090": {
+    "d": "**Location:** The Crow's Nest - Inside a small wooden box next to a satchel charge in the high-up room. May be knocked out of it by the explosion.  \n\n**Affected Skill:** Guns",
+    "l": [
+      {
+        "locationId": 485276,
+        "title": "The Crow's Nest"
+      }
+    ]
+  },
+  "496091": {
+    "d": "**Location:** Inside the open trailer, next to a mattress.  \n\n**Affected Skill:** Energy Weapons"
+  },
+  "496092": {
+    "d": "**Location:** Inside the open trailer, next to a mattress.  \r\n\r\n**Affected Skill:** Sneak"
+  },
+  "496093": {
+    "d": "**Location:** Inside the open trailer, next to a mattress.  \r\n\r\n**Affected Skill:** Guns"
+  },
+  "496094": {
+    "d": "**Location:** Inside the open trailer, next to a mattress.  \r\n\r\n**Affected Skill:** Explosives"
+  },
+  "496095": {
+    "d": "**Location:** In the inventory of Bonesaw, found in a small camp here.\r\n\r\n**Repair With:**\r\n- Combat Helmet\r\n\r\n**Statistics:**\r\n- DT +4\r\n- Melee Weapons +3\r\n- Unarmed +3"
+  },
+  "496096": {
+    "d": "**Location:** In the inventory of Bonesaw, found in a small camp here.\n\n**Category:** Medium  \n\n**Statistics:**\n- DT +10\n- Melee Weapons +2\n- Strength +1"
+  },
+  "496097": {
+    "d": "**Location:** In the inventory of Bonesaw, found in a small camp here.  \n\n**Category:** Two-Handed Melee  \n\n**Requirements:**\n- Melee Weapons 75\n- Strength 7"
+  },
+  "496098": {
+    "d": "**Location:** Leaning against a window on the upper floor.\r\n\r\n**Category:** Two-Handed Gun  \r\n\r\n**Requirements:**\r\n- Guns 75\r\n- Strength 6"
+  },
+  "496099": {
+    "d": "**Location:** On a concrete pillar in the corner of the upper floor."
+  },
+  "496100": {
+    "d": "**Location:** Junction 7 Rest Stop - On the outer wall of the ruined building.",
+    "l": [
+      {
+        "locationId": 485274,
+        "title": "Junction 7 Rest Stop"
+      }
+    ]
+  },
+  "496101": {
+    "d": "**Location:** At the edge of a small campsite high up on the cliffs."
+  },
+  "496102": {
+    "d": "**Location:** Next to a chair on the rooftop.\r\n\r\n**Category:** Two-Handed Gun  \r\n\r\n**Requirements:**\r\n- Guns 75\r\n- Strength 6"
+  },
+  "496103": {
+    "d": "**Location:** Ashton Silo Control Station\n\n**Quest Giver:** Automatically begins after launching the missile.\n\n**Reward:**\n- XP",
+    "l": [
+      {
+        "locationId": 485272,
+        "title": "Ashton Silo Control Station"
+      }
+    ]
+  },
+  "496104": {
+    "d": "**Location:** Ashton Silo Control Station, Ashton Missile Silo - Inside a desk on Level 1, in the room with the Auto-Doc and Sentry Bot.  \n\n**Affected Skill:** Repair",
+    "l": [
+      {
+        "locationId": 485272,
+        "title": "Ashton Silo Control Station"
+      }
+    ]
+  },
+  "496105": {
+    "d": "**Location:** Ashton Silo Control Station, Ashton Missile Silo - Inside a desk on Level 1, in the room with the Auto-Doc and Sentry Bot.  \r\n\r\n**Affected Skill:** Science",
+    "l": [
+      {
+        "locationId": 485272,
+        "title": "Ashton Silo Control Station"
+      }
+    ]
+  },
+  "496106": {
+    "d": "**Location:** Ashton Silo Control Station, Ashton Missile Silo - Inside a desk on Level 1, in the room locked by an Average terminal.\n\n**Affected Skill:** Dependent",
+    "l": [
+      {
+        "locationId": 485272,
+        "title": "Ashton Silo Control Station"
+      }
+    ]
+  },
+  "496107": {
+    "d": "**Location:** Ashton Silo Control Station, Ashton Missile Silo - In the inventory of a destroyed Eyebot, found in the room locked by a Hard terminal.",
+    "l": [
+      {
+        "locationId": 485272,
+        "title": "Ashton Silo Control Station"
+      }
+    ]
+  },
+  "496108": {
+    "d": "**Location:** Ashton Silo Control Station, Ashton Missile Silo - Inside a locker on Level 2, in the room behind a locked (Average) door.\n\n**Category:** Medium  \n\n**Statistics:**\n- DT +20\n- Guns +5\n- Agility +1",
+    "l": [
+      {
+        "locationId": 485272,
+        "title": "Ashton Silo Control Station"
+      }
+    ]
+  },
+  "496109": {
+    "d": "**Location:** Ashton Silo Control Station, Ashton Missile Silo - Inside a locker on Level 2, in the room behind a locked (Average) door.\r\n\r\n**Category:** Headgear\n\r\n**Statistics:**\r\n- DT +4\n- Perception +1\n- Sneak Sight",
+    "l": [
+      {
+        "locationId": 485272,
+        "title": "Ashton Silo Control Station"
+      }
+    ]
+  },
+  "496110": {
+    "d": "**Location:** Ashton Silo Control Station, Sunstone Tower - Three floors up, among the ruined books on a bookshelf.\r\n\r\n**Effects:** Critical Chance +5",
+    "l": [
+      {
+        "locationId": 485272,
+        "title": "Ashton Silo Control Station"
+      }
+    ]
+  },
+  "496111": {
+    "d": "**Location:** Ashton Silo Control Station, Sunstone Tower - Three floors up, in a desk in a small office.  \n\n**Affected Skill:** Guns\n\n_Note: May be a random magazine. If you find something different, let us know with a suggestion!_",
+    "l": [
+      {
+        "locationId": 485272,
+        "title": "Ashton Silo Control Station"
+      }
+    ]
+  },
+  "496112": {
+    "d": "**Location:** Ashton Silo Control Station, Sunstone Tower - Three floors up, on the wall of a small office.",
+    "l": [
+      {
+        "locationId": 485272,
+        "title": "Ashton Silo Control Station"
+      }
+    ]
+  },
+  "496113": {
+    "d": "**Location:** Ashton Silo Control Station, Sunstone Tower - Three floors up, inside a filing cabinet in the corner of a small office.    \n\n**Affected Skill:** Speech\n\n_Note: May be a random magazine. If you find something different, let us know with a suggestion!_",
+    "l": [
+      {
+        "locationId": 485272,
+        "title": "Ashton Silo Control Station"
+      }
+    ]
+  },
+  "496114": {
+    "d": "**Location:** Ashton Silo Control Station, Sunstone Tower - Three floors up, inside a filing cabinet in the corner of a small office.    \n\n**Affected Skill:** Barter\n\n_Note: May be a random magazine. If you find something different, let us know with a suggestion!_",
+    "l": [
+      {
+        "locationId": 485272,
+        "title": "Ashton Silo Control Station"
+      }
+    ]
+  },
+  "496115": {
+    "d": "**Location:** On the desk in a small office reached when making your way down from the Sunstone Tower Roof and crossing a metal walkway.",
+    "l": [
+      {
+        "locationId": 485300,
+        "title": "Sunstone Tower Roof"
+      }
+    ]
+  },
+  "496116": {
+    "d": "**Location:** Sunstone Tower - Inside a locked (Hard) filing cabinet in the corner of an office floor halfway down the tower.\n\n**Affected Skill:** Survival",
+    "l": [
+      {
+        "locationId": 485300,
+        "title": "Sunstone Tower"
+      }
+    ]
+  },
+  "496117": {
+    "d": "**Location:** Sunstone Tower - Inside a locked (Hard) filing cabinet in the corner of an office floor halfway down the tower.\n\n**Effects:** Critical Chance +5",
+    "l": [
+      {
+        "locationId": 485300,
+        "title": "Sunstone Tower"
+      }
+    ]
+  },
+  "496118": {
+    "d": "**Location:** Inside a desk on the ground floor of a ruined building, sticking out of the rubble.  \n\n**Affected Skill:** Unarmed\n\n_Note: May be a random magazine. If you find something different, let us know with a suggestion!_"
+  },
+  "496119": {
+    "d": "**Location:** Inside a duffle bag in a small camp inhabited by mole rats."
+  },
+  "496120": {
+    "d": "**Location:** Next to a doorway on the upper floor of the ruined building."
+  },
+  "496121": {
+    "d": "**Location:** Underneath a bed inside the ruined building, at the far end of a corridor."
+  },
+  "496122": {
+    "d": "In the inventory of a destroyed Eyebot, revealed by destroying the Warhead.",
+    "l": [
+      {
+        "locationId": 491303,
+        "title": "Warhead"
+      }
+    ]
+  },
+  "496123": {
+    "d": "**Location:** Sunstone Tower - Inside a desk in the corner of an office floor halfway down the tower.\n\n**Affected Skill:** Random!",
+    "l": [
+      {
+        "locationId": 485300,
+        "title": "Sunstone Tower"
+      }
+    ]
+  },
+  "496124": {
+    "d": "Connects to a high-up exit here.\n\n**Notable Loot:**\n- Eyebot Upgrade Circuit Board",
+    "l": [
+      {
+        "locationId": 496126,
+        "title": "here"
+      },
+      {
+        "locationId": 496125,
+        "title": "Eyebot Upgrade Circuit Board"
+      }
+    ]
+  },
+  "496125": {
+    "d": "In the inventory of a destroyed Eyebot in the Municipal Sewers.",
+    "l": [
+      {
+        "locationId": 496124,
+        "title": "Municipal Sewers"
+      }
+    ]
+  },
+  "496126": {
+    "d": "An alternate entrance / exit to the sewers that can also be entered here.\n\n**Notable Loot:**\r\n- Eyebot Upgrade Circuit Board",
+    "l": [
+      {
+        "locationId": 496124,
+        "title": "here"
+      },
+      {
+        "locationId": 496125,
+        "title": "Eyebot Upgrade Circuit Board"
+      }
+    ]
+  },
+  "496127": {
+    "d": "**Location:** Third Street Municipal Building - On a high-up floor accessed through the Municipal Sewers, on the wall near some toppled shelves.",
+    "l": [
+      {
+        "locationId": 485301,
+        "title": "Third Street Municipal Building"
+      },
+      {
+        "locationId": 496124,
+        "title": "Municipal Sewers"
+      }
+    ]
+  },
+  "496128": {
+    "d": "**Location:** Third Street Municipal Building - In the inventory of an NCR Riot Control corpse on the upper floor, reached through the Municipal Sewers. \n\n**Repair With:**\n- Riot Gear Helmet\n- Advanced Riot Gear Helmet\n- Any Heavy Armor (w/ Jury Rigging perk)  \n\n**Statistics:**\n- DT +6\n- Sneak Sight\n- Speech +5\n- Perception +2",
+    "l": [
+      {
+        "locationId": 485301,
+        "title": "Third Street Municipal Building"
+      },
+      {
+        "locationId": 496124,
+        "title": "Municipal Sewers"
+      }
+    ]
+  },
+  "496129": {
+    "d": "**Location:** Third Street Municipal Building - In the inventory of an NCR Riot Control corpse on the upper floor, reached through the Municipal Sewers. \n\n**Repair With:**\n- Advanced Riot Gear\n- Riot Gear\n- NCR Ranger Combat Armor\n- Desert Ranger Combat Armor\n- Any Medium Armor (w/ Jury Rigging perk)  \n\n**Statistics:**\n- DT +22\n- Critical Chance +5\n- Guns +10\n- Charisma +1",
+    "l": [
+      {
+        "locationId": 485301,
+        "title": "Third Street Municipal Building"
+      },
+      {
+        "locationId": 496124,
+        "title": "Municipal Sewers"
+      }
+    ]
+  },
+  "496130": {
+    "d": "**Location:** Third Street Municipal Building - Next to a corpse wearing Elite Riot Gear on the upper floor, reached via Municipal Sewers\n\r\n**Category:** Two-Handed Gun  \r\n\r\n**Requirements:**\r\n- Guns 75\r\n- Strength 6",
+    "l": [
+      {
+        "locationId": 485301,
+        "title": "Third Street Municipal Building"
+      },
+      {
+        "locationId": 496129,
+        "title": "Elite Riot Gear"
+      },
+      {
+        "locationId": 496124,
+        "title": "Municipal Sewers"
+      }
+    ]
+  },
+  "496131": {
+    "d": "**Location:** The Divide\n\n**Quest Giver:** Automatically begins when entering the ruined building.\n\n**Reward:**\n- XP"
+  },
+  "496132": {
+    "d": "**Location:** Inside a suitcase in the Cave of the Abaddon.",
+    "l": [
+      {
+        "locationId": 485302,
+        "title": "Cave of the Abaddon"
+      }
+    ]
+  },
+  "496133": {
+    "d": "Connects to the Boxwood Hotel Roof.\n\n**Noteworthy Loot:**\n- RALPHIE Poster\n- D.C. Journal of Internal Medicine",
+    "l": [
+      {
+        "locationId": 485298,
+        "title": "Boxwood Hotel Roof"
+      },
+      {
+        "locationId": 496134,
+        "title": "RALPHIE Poster"
+      },
+      {
+        "locationId": 487949,
+        "title": "D.C. Journal of Internal Medicine"
+      }
+    ]
+  },
+  "496134": {
+    "d": "**Location:** Buried Buildings - On the wall next to a bed on an upper floor.",
+    "l": [
+      {
+        "locationId": 496133,
+        "title": "Buried Buildings"
+      }
+    ]
+  },
+  "496135": {
+    "d": "Home to an incredibly tough Deathclaw that drops Rawr's Talon, used to craft a legendary weapon."
+  },
+  "496136": {
+    "d": "**Location:** Worn by Blade, found in the area outside of Ulysses' Temple.\n\n**Repair With:**\n- Combat Helmet\n\n**Statistics:**\n- DT +3\n- Melee Weapons +3\n- Hit Points +10",
+    "l": [
+      {
+        "locationId": 485294,
+        "title": "Ulysses' Temple"
+      }
+    ]
+  },
+  "496137": {
+    "d": "**Location:** Worn by Blade, found in the area outside of Ulysses' Temple.\n\n**Category:** Medium  \r\n\r\n**Statistics:**\r\n- DT +12\r\n- Energy Weapons +2\r\n- Perception +1",
+    "l": [
+      {
+        "locationId": 485294,
+        "title": "Ulysses' Temple"
+      }
+    ]
+  },
+  "496138": {
+    "d": "**Location:** Carried by Blade, found in the area outside of Ulysses' Temple.  \n\n**Category:** Two-Handed Melee  \n\n**Requirements:**\n- Melee Weapons 100\n- Strength 9",
+    "l": [
+      {
+        "locationId": 485294,
+        "title": "Ulysses' Temple"
+      }
+    ]
+  },
+  "496139": {
+    "d": "**Location:** Outside of the Waste Disposal Station, on a wall to the right of the entrance.",
+    "l": [
+      {
+        "locationId": 485297,
+        "title": "Waste Disposal Station"
+      }
+    ]
+  },
+  "496140": {
+    "d": "**Location:** Created at any workbench using Rawr's Talon. Unarmed 75 is also required to create it, and its name is determined by you having the Wild Wasteland trait.\n\n**Special Effects:**\n- Bonus Critical Chance\n- Bonus Critical Damage\n- Bonus Limb Damage\n\n**Type:** One-Handed Unarmed  \n\n**Requirements:**\n- Unarmed 100\n- Strength 6"
+  },
+  "496141": {
+    "d": "**Location:** Wastewater Treatment Plant - On the back wall of the room with the Manager's Terminal.",
+    "l": [
+      {
+        "locationId": 485296,
+        "title": "Wastewater Treatment Plant"
+      }
+    ]
+  },
+  "496145": {
+    "d": "**Location:** Inside a duffle bag found soon after entering Rawr's Cave.",
+    "l": [
+      {
+        "locationId": 496135,
+        "title": "Rawr's Cave"
+      }
+    ]
+  },
+  "496146": {
+    "d": "**Location:** Inside a duffel bag at the edge of a campsite one level below the entrance to the Wastewater Treatment Plant.",
+    "l": [
+      {
+        "locationId": 485296,
+        "title": "Wastewater Treatment Plant"
+      }
+    ]
+  },
+  "496147": {
+    "d": "**Location:** Inside a duffel bag at the edge of a campsite one level below the entrance to the Wastewater Treatment Plant.",
+    "l": [
+      {
+        "locationId": 485296,
+        "title": "Wastewater Treatment Plant"
+      }
+    ]
+  },
+  "496148": {
+    "d": "**Location:** On the wall near a workbench on the ground floor of a ruined building."
+  },
+  "496150": {
+    "d": "**Location:** Waste Disposal Station - Next to a skeleton at the end of a dead-end tunnel.",
+    "l": [
+      {
+        "locationId": 485297,
+        "title": "Waste Disposal Station"
+      }
+    ]
+  },
+  "496151": {
+    "d": "**Location:** Waste Disposal Station - Next to a skeleton at the end of a dead-end tunnel. \n\n**Category:** Two-Handed Gun  \n\n**Requirements:**\n- Guns 100\n- Strength 4",
+    "l": [
+      {
+        "locationId": 485297,
+        "title": "Waste Disposal Station"
+      }
+    ]
+  },
+  "496152": {
+    "d": "**Location:** Inside a duffle bag next to some skeletons beneath a large trailer."
+  },
+  "496153": {
+    "d": "**Location:** Ulysses' Temple\n\n**Quest Giver:** Automatically begins after entering the temple.\n\n**Reward:**\n- XP",
+    "l": [
+      {
+        "locationId": 485294,
+        "title": "Ulysses' Temple"
+      }
+    ]
+  },
+  "496156": {
+    "d": "Ulysses' Temple - On your right after entering the silo.",
+    "l": [
+      {
+        "locationId": 485294,
+        "title": "Ulysses' Temple"
+      }
+    ]
+  },
+  "496157": {
+    "d": "Ulysses' Temple - On your left next to a missile in the large silo.",
+    "l": [
+      {
+        "locationId": 485294,
+        "title": "Ulysses' Temple"
+      }
+    ]
+  },
+  "496159": {
+    "d": "Ulysses' Temple - On the left side of the silo, next to the middle missile.",
+    "l": [
+      {
+        "locationId": 485294,
+        "title": "Ulysses' Temple"
+      }
+    ]
+  },
+  "496161": {
+    "d": "Ulysses' Temple - On your right after entering the silo, near the consoles.",
+    "l": [
+      {
+        "locationId": 485294,
+        "title": "Ulysses' Temple"
+      }
+    ]
+  },
+  "496162": {
+    "d": "Ulysses' Temple - On your right after entering the silo, near the closest missile.",
+    "l": [
+      {
+        "locationId": 485294,
+        "title": "Ulysses' Temple"
+      }
+    ]
+  },
+  "496163": {
+    "d": "Ulysses' Temple - On your right after entering the silo, near the middle missile.",
+    "l": [
+      {
+        "locationId": 485294,
+        "title": "Ulysses' Temple"
+      }
+    ]
+  },
+  "496184": {
+    "d": "**Location:** Ulysses' Temple, in the silo.  \n\n**Note(s):**\n- Wears Ulysses' Duster and Ulysses' Mask\n- Carries Old Glory\n- A fight can be avoided if you found all of his holotapes, or all ED-E upgrades, or pass a Speech 100 check.",
+    "l": [
+      {
+        "locationId": 485294,
+        "title": "Ulysses' Temple"
+      }
+    ]
+  },
+  "496206": {
+    "d": "**Location:** Canyon Wreckage - If Ulysses lives, he'll give it to you when speaking to him here. \n\nIf he dies, it's inside the footlocker that only appears here at the end of the Lonesome Road DLC questline."
+  },
+  "496211": {
+    "d": "**Hostile?** Yes - Marked Men\n\nLeads to The Courier's Mile, but can only be found after launching a missile as part of The Launch.",
+    "l": [
+      {
+        "locationId": 485299,
+        "title": "The Courier's Mile"
+      },
+      {
+        "locationId": 490899,
+        "title": "The Launch"
+      }
+    ]
+  },
+  "496212": {
+    "d": "**Location:** The Courier's Mile - Inside an upside-down desk at the south-western edge of the local map.\n\n**Affected Skill:** Melee Weapons\n\n_Note: May be a random magazine. If you find something different, let us know with a suggestion!_",
+    "l": [
+      {
+        "locationId": 485299,
+        "title": "The Courier's Mile"
+      }
+    ]
+  },
+  "496213": {
+    "d": "**Location:** The Courier's Mile - On the wall of a ruined building at the south-western edge of the local map.",
+    "l": [
+      {
+        "locationId": 485299,
+        "title": "The Courier's Mile"
+      }
+    ]
+  },
+  "496214": {
+    "d": "**Location:** The Courier's Mile - Sticking out of a lamp post to your left as you enter.  \n\n**Special Effects:**\n- Bonus Critical Chance\r\n- Bonus Critical Damage\r\n- Sneak +10 \r\n\n**Type:** One-Handed Melee  \n\n**Requirements:**\n- Melee Weapons 50\n- Strength 4",
+    "l": [
+      {
+        "locationId": 485299,
+        "title": "The Courier's Mile"
+      }
+    ]
+  },
+  "496215": {
+    "d": "**Location:** The Courier's Mile - In a small campsite at the upper-middle edge of the local map.\n\n**Affected Skill:** Survival",
+    "l": [
+      {
+        "locationId": 485299,
+        "title": "The Courier's Mile"
+      }
+    ]
+  },
+  "496217": {
+    "d": "**Location:** Ulysses' Temple\n\n**Quest Giver:** Automatically begins after killing or convincing Ulysses to stand down, then cancelling the missile launch.\n\n**Reward:**\n- XP\n- +1 point to be spent on any SPECIAL stat\n- Brotherhood of Steel fame\n- Followers of the Apocalypse fame",
+    "l": [
+      {
+        "locationId": 485294,
+        "title": "Ulysses' Temple"
+      },
+      {
+        "locationId": 496184,
+        "title": "Ulysses"
+      }
+    ]
+  },
+  "496219": {
+    "d": "**Location:** Ulysses' Temple\r\n\r\n**Quest Giver:** Automatically begins after killing or convincing Ulysses to stand down, then directing the missiles at NCR or Legion territory (or both!)\r\n\r\n**Reward:**\r\n- XP\r\n- +1 point to be spent on any SPECIAL stat\r\n- NCR fame + Legion infamy + Dry Wells can be visited (if Legion is nuked)\n- NCR infamy + Legion fame + Long 15 can be visited (if NCR is nuked)\n- Boomers fame + Powder Gangers fame (if both are nuked)",
+    "l": [
+      {
+        "locationId": 485294,
+        "title": "Ulysses' Temple"
+      },
+      {
+        "locationId": 496184,
+        "title": "Ulysses"
+      }
+    ]
+  },
+  "511302": {
+    "d": "**Note:** Only appears with the Wild Wasteland trait.\n\nInside the Cave of the Abaddon, near the corpse of Sunflower Summers, a fossilized dog named Seymour can be found. This is a reference to the tragic Futurama episode 'Jurassic Bark', where a dog of the same name meets a similar fate.",
+    "l": [
+      {
+        "locationId": 485302,
+        "title": "Cave of the Abaddon"
+      }
+    ]
+  },
+  "511303": {
+    "d": "**Note:** Only appears with the Wild Wasteland trait.\n\nThe alternate name for the Fist of Rawr, 'Fist of the North Rawr', is a reference to the Fist of the North Star anime / manga.",
+    "l": [
+      {
+        "locationId": 496140,
+        "title": "Fist of Rawr"
+      }
+    ]
+  },
+  "549921": {
+    "d": "Near some ammo boxes in a small cinderblock 'hut'.\n\nCan be used to sleep anywhere while outside."
+  },
+  "595358": {
+    "d": "**Location:** After exiting turn 180 and climb on top of the exit, there are several crates with grenades, food and a Sniper Rifle.  \n\n**Category:** Two-Handed Gun  \n\n**Requirements:**\n- Guns 75\n- Strength 6"
+  },
+  "595359": {
+    "d": "After exiting the Hopeville Missile Silo Bunker, turn around and climb on top of the exit; you'll find the bedroll sitting between the rear of the blue car and the wall beside.\r\n\r\nCan be used to sleep anywhere while outside."
+  },
+  "595599": {
+    "d": "Near a motorbike, leaning against the middle lane separator.\n\nCan be used to sleep anywhere while outside."
+  }
+}

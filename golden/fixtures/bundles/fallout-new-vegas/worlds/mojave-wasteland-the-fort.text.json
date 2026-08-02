@@ -1,0 +1,287 @@
+{
+  "351600": {
+    "d": "**Location:** Caesar's Tent  \n\n**Note(s):**\n- Leader of the Legion if Caesar is killed\n- Spoken to as part of I Hear You Knocking\n- Gives you the Caesar's Legion Safehouse Key as part of A Trusted Aide",
+    "l": [
+      {
+        "locationId": 513500,
+        "title": "Caesar's Tent"
+      },
+      {
+        "locationId": 502585,
+        "title": "I Hear You Knocking"
+      },
+      {
+        "locationId": 514201,
+        "title": "Caesar's Legion Safehouse Key"
+      },
+      {
+        "locationId": 510056,
+        "title": "A Trusted Aide"
+      }
+    ]
+  },
+  "489536": {
+    "d": "**Location:** The Fort  \n\n**Game Limit:** Unlimited\n\n**Note(s):** \n- Also acts as a merchant\n- Can repair items back to 58% durability",
+    "l": [
+      {
+        "locationId": 355895,
+        "title": "The Fort"
+      }
+    ]
+  },
+  "491237": {
+    "d": "**Location:** The Fort\n\n**Quest Giver:** Caesar\n\n**Quest Item(s):**\n- Mark of Caesar\n\n**Reward:**\n- XP\n- Legion fame",
+    "l": [
+      {
+        "locationId": 355895,
+        "title": "The Fort"
+      },
+      {
+        "locationId": 513688,
+        "title": "Mark of Caesar"
+      }
+    ]
+  },
+  "491239": {
+    "d": "**Location:** The Fort, Caesar's Tent \n\n**Note(s):**\n- Leader of Caesar's Legion\n- Wears Caesar's Armor\n- Speak to him to begin Render Unto Caesar",
+    "l": [
+      {
+        "locationId": 355895,
+        "title": "The Fort"
+      },
+      {
+        "locationId": 491241,
+        "title": "Caesar's Armor"
+      },
+      {
+        "locationId": 491237,
+        "title": "Render Unto Caesar"
+      }
+    ]
+  },
+  "491241": {
+    "d": "**Location:** Worn by Caesar. Can only be looted by killing him.\n\n**Repair With:**\n- Any Legion Armor\n\n**Statistics:**\n- DT +5\n- Survival +5\n- Speech +5",
+    "l": [
+      {
+        "locationId": 491239,
+        "title": "Caesar"
+      }
+    ]
+  },
+  "491243": {
+    "d": "**Location:** The Fort\n\n**Quest Giver:** Caesar or Lucius\n\n**Quest Item(s):**\n- Vertibird Bomb\n\n**Reward:**\n- XP\n- Legion fame",
+    "l": [
+      {
+        "locationId": 355895,
+        "title": "The Fort"
+      },
+      {
+        "locationId": 491239,
+        "title": "Caesar"
+      },
+      {
+        "locationId": 351600,
+        "title": "Lucius"
+      },
+      {
+        "locationId": 513694,
+        "title": "Vertibird Bomb"
+      }
+    ]
+  },
+  "491244": {
+    "d": "**Location:** The Fort\n\n**Quest Giver:** Caesar\n\n**Quest Item(s):**\n- Surgical Tools\n- Automatic Surgical Unit\n\n**Reward:**\n- XP\n- Legion fame (if Caesar is saved)\n- Aureus x10 (if Caesar is saved or Arcade Gannon is sold to the Legion)",
+    "l": [
+      {
+        "locationId": 355895,
+        "title": "The Fort"
+      },
+      {
+        "locationId": 491239,
+        "title": "Caesar"
+      },
+      {
+        "locationId": 513492,
+        "title": "Surgical Tools"
+      },
+      {
+        "locationId": 512814,
+        "title": "Automatic Surgical Unit"
+      },
+      {
+        "locationId": 486677,
+        "title": "Arcade Gannon"
+      }
+    ]
+  },
+  "501942": {
+    "d": "**Location:** The Fort, Legion Arena\n\n**Quest Giver:** Otho (but only to male couriers) \n\n**Reward:**\n- Legion fame for every fight won"
+  },
+  "501943": {
+    "d": "**Location:** The Fort\n\n**Quest Giver:** Siri\n\n**Reward:**\n- 2-6 Healing Powder every 24 hours"
+  },
+  "501944": {
+    "d": "**Location:** The Fort\n\n**Quest Giver:** Melody\n\n**Quest Item(s):**\n- Sergeant Teddy\n\n**Reward:**\n\n_If Sergeant Teddy is returned:_\n- Karma gain\n\n_If Sergeant Teddy is destroyed:_\n- Karma loss\n- Legion fame",
+    "l": [
+      {
+        "locationId": 513507,
+        "title": "Sergeant Teddy"
+      }
+    ]
+  },
+  "502585": {
+    "d": "**Location:** The Fort\n\n**Quest Giver:** Lucius\n\n**Quest Item(s):**\n- Howitzer Firing Mechanism\n\n**Reward:**\n- XP\n- Legion fame",
+    "l": [
+      {
+        "locationId": 355895,
+        "title": "The Fort"
+      },
+      {
+        "locationId": 351600,
+        "title": "Lucius"
+      },
+      {
+        "locationId": 502586,
+        "title": "Howitzer Firing Mechanism"
+      }
+    ]
+  },
+  "502590": {
+    "d": "**Location:** The Fort\n\n**Quest Giver:** Vulpes Inculta\n\n**Reward:**\n- XP\n- Legion fame",
+    "l": [
+      {
+        "locationId": 355895,
+        "title": "The Fort"
+      },
+      {
+        "locationId": 486319,
+        "title": "Vulpes Inculta"
+      }
+    ]
+  },
+  "510056": {
+    "d": "**Location:** The Fort\n\n**Quest Giver:** Lucius, after reaching Liked reputation or better with the Legion.\n\n**Reward:**\n- Access to Caesar's Legion Safehouse",
+    "l": [
+      {
+        "locationId": 513499,
+        "title": "The Fort"
+      },
+      {
+        "locationId": 351600,
+        "title": "Lucius"
+      },
+      {
+        "locationId": 351599,
+        "title": "Caesar's Legion Safehouse"
+      }
+    ]
+  },
+  "513499": {
+    "d": "**World Map**",
+    "l": [
+      {
+        "locationId": 355895,
+        "title": "World Map"
+      }
+    ]
+  },
+  "513503": {
+    "d": "**Location:** The Fort, just outside the arena.  \n\n**Note(s):**\n- Spoken to as part of Saving (or Savaging) Sergeant Teddy\n- Spoken to as part of Nothin' But a Hound Dog",
+    "l": [
+      {
+        "locationId": 513499,
+        "title": "The Fort"
+      },
+      {
+        "locationId": 501944,
+        "title": "Saving (or Savaging) Sergeant Teddy"
+      },
+      {
+        "locationId": 502621,
+        "title": "Nothin' But a Hound Dog"
+      }
+    ]
+  },
+  "513505": {
+    "d": "**Location:** The Fort  \n\n**Note(s):**\n- Pass a Speech 50 check to begin Saving (or Savaging) Sergeant Teddy",
+    "l": [
+      {
+        "locationId": 513499,
+        "title": "The Fort"
+      },
+      {
+        "locationId": 501944,
+        "title": "Saving (or Savaging) Sergeant Teddy"
+      }
+    ]
+  },
+  "513506": {
+    "d": "**Location:** The Fort - Given to you by Melody at the start of Saving (or Savaging) Sergeant Teddy",
+    "l": [
+      {
+        "locationId": 355895,
+        "title": "The Fort"
+      },
+      {
+        "locationId": 513505,
+        "title": "Melody"
+      },
+      {
+        "locationId": 501944,
+        "title": "Saving (or Savaging) Sergeant Teddy"
+      }
+    ]
+  },
+  "513507": {
+    "d": "**Location:** The Fort - Given to you by Antony after killing four Legion Mongrels, or two after a Barter 50 check.\n\n**Related Quest:** Saving (or Savaging) Sergeant Teddy",
+    "l": [
+      {
+        "locationId": 513499,
+        "title": "The Fort"
+      },
+      {
+        "locationId": 501944,
+        "title": "Saving (or Savaging) Sergeant Teddy"
+      }
+    ]
+  },
+  "513508": {
+    "d": "**Location:** The Fort - Reward for defeating Lupa in the arena. Organise the fight by talking to Antony.\n\n**Related Quest:** Nothin' But a Hound Dog",
+    "l": [
+      {
+        "locationId": 513499,
+        "title": "The Fort"
+      },
+      {
+        "locationId": 513503,
+        "title": "Antony"
+      },
+      {
+        "locationId": 502621,
+        "title": "Nothin' But a Hound Dog"
+      }
+    ]
+  },
+  "514396": {
+    "d": "**Location:** Caesar's Tent, on a shelf.\n\n**Related Quest:** Oh My Papa",
+    "l": [
+      {
+        "locationId": 513500,
+        "title": "Caesar's Tent"
+      },
+      {
+        "locationId": 502629,
+        "title": "Oh My Papa"
+      }
+    ]
+  },
+  "514732": {
+    "d": "**Location:** The Fort - In the inventory of the Legionary Main Gate Guard that takes your weapons when you enter.\n\n**Used to Unlock:** Nearby weapons footlockers holding your items.",
+    "l": [
+      {
+        "locationId": 355895,
+        "title": "The Fort"
+      }
+    ]
+  }
+}

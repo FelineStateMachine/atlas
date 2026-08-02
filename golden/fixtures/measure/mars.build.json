@@ -1,0 +1,61 @@
+{
+  "build": {
+    "Path": "",
+    "File": "mars-20260801-68e141f26b1a.atlas",
+    "VolumeSlug": "mars",
+    "VolumeTitle": "Mars",
+    "Stamp": "68e141f26b1a77fc778f4b90dbdb4eb897fb5d190930a7171f88e0ffb99bfea7",
+    "CreatedAt": "2026-08-01T14:48:10.486177Z",
+    "Revision": 9,
+    "MapSlugs": [
+      "global"
+    ],
+    "Pins": 2048,
+    "Described": 2048,
+    "MedianLength": 67,
+    "TileCount": 5462,
+    "RasterBytes": 254356490,
+    "Depth": 6,
+    "DepthTiles": 4096,
+    "Categories": 29,
+    "Groups": 1,
+    "TextSets": 0,
+    "Zones": 0,
+    "Vertices": 0,
+    "Lenses": 2,
+    "IconsCarried": 29,
+    "IconsWanted": 29,
+    "Conventions": 2,
+    "RenderDeclared": 29,
+    "StdIcons": 29,
+    "GeoPins": 2048,
+    "Geometry": "sphere",
+    "UnknownAttrs": 0,
+    "Merges": [
+      {
+        "Map": "global",
+        "Source": "NASA Trek",
+        "DonorPins": 2048,
+        "DonorFeatures": {
+          "point": 2048,
+          "path": 0,
+          "area": 0
+        },
+        "Matched": null,
+        "Added": 0,
+        "AddedShapes": 0,
+        "Adopted": null,
+        "Held": null,
+        "Rejected": null,
+        "Alignment": ""
+      }
+    ]
+  },
+  "derived": {
+    "describedPct": "100%",
+    "iconPct": "100%",
+    "renderPct": "100%",
+    "rasterMB": "254.4",
+    "shortStamp": "68e141f26b1a"
+  }
+}

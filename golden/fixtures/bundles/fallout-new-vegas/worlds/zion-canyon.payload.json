@@ -1,0 +1,444 @@
+{
+  "attrs": {
+    "atlas.icon.outset": "dark"
+  },
+  "collections": [
+    {
+      "attrs": {
+        "atlas.geometry.kind": "point",
+        "atlas.icon.kind": "glyph",
+        "atlas.render.as": "pin"
+      },
+      "color": "#F4BD76",
+      "group": "Locations",
+      "icon": "cave",
+      "iconAsset": "cave.svg",
+      "id": 10816,
+      "kind": "point",
+      "title": "Cave",
+      "visible": true
+    },
+    {
+      "attrs": {
+        "atlas.geometry.kind": "point",
+        "atlas.icon.kind": "glyph",
+        "atlas.render.as": "pin"
+      },
+      "color": "#F4BD76",
+      "group": "Locations",
+      "icon": "encampment",
+      "iconAsset": "encampment.svg",
+      "id": 10817,
+      "kind": "point",
+      "title": "Encampment",
+      "visible": true
+    },
+    {
+      "attrs": {
+        "atlas.geometry.kind": "point",
+        "atlas.icon.kind": "glyph",
+        "atlas.render.as": "pin"
+      },
+      "color": "#F4BD76",
+      "group": "Locations",
+      "icon": "monument",
+      "iconAsset": "monument.svg",
+      "id": 10822,
+      "kind": "point",
+      "title": "Monument",
+      "visible": true
+    },
+    {
+      "attrs": {
+        "atlas.geometry.kind": "point",
+        "atlas.icon.kind": "glyph",
+        "atlas.render.as": "pin"
+      },
+      "color": "#F4BD76",
+      "group": "Locations",
+      "icon": "natural_landmark",
+      "iconAsset": "natural_landmark.svg",
+      "id": 13759,
+      "kind": "point",
+      "title": "Natural Landmark",
+      "visible": true
+    },
+    {
+      "attrs": {
+        "atlas.geometry.kind": "point",
+        "atlas.icon.kind": "glyph",
+        "atlas.render.as": "pin"
+      },
+      "color": "#F4BD76",
+      "group": "Locations",
+      "icon": "point_of_interest",
+      "iconAsset": "point_of_interest.svg",
+      "id": 10815,
+      "kind": "point",
+      "title": "Point of Interest",
+      "visible": true
+    },
+    {
+      "attrs": {
+        "atlas.geometry.kind": "point",
+        "atlas.icon.kind": "glyph",
+        "atlas.render.as": "pin"
+      },
+      "color": "#F4BD76",
+      "group": "Locations",
+      "icon": "ruins",
+      "iconAsset": "ruins.svg",
+      "id": 10823,
+      "kind": "point",
+      "title": "Ruins",
+      "visible": true
+    },
+    {
+      "attrs": {
+        "atlas.geometry.kind": "point",
+        "atlas.icon.kind": "glyph",
+        "atlas.render.as": "pin"
+      },
+      "color": "#F4BD76",
+      "group": "Locations",
+      "icon": "settlement",
+      "iconAsset": "settlement.svg",
+      "id": 10819,
+      "kind": "point",
+      "title": "Settlement",
+      "visible": true
+    },
+    {
+      "attrs": {
+        "atlas.geometry.kind": "point",
+        "atlas.icon.kind": "glyph",
+        "atlas.render.as": "pin"
+      },
+      "color": "#F4BD76",
+      "group": "Locations",
+      "icon": "urban_ruins",
+      "iconAsset": "urban_ruins.svg",
+      "id": 14859,
+      "kind": "point",
+      "title": "Urban Ruins",
+      "visible": true
+    },
+    {
+      "attrs": {
+        "atlas.geometry.kind": "point",
+        "atlas.icon.kind": "glyph",
+        "atlas.render.as": "pin"
+      },
+      "color": "#E4E1D6",
+      "group": "NPCs",
+      "icon": "companion",
+      "iconAsset": "companion.svg",
+      "id": 10829,
+      "kind": "point",
+      "title": "Companion",
+      "visible": true
+    },
+    {
+      "attrs": {
+        "atlas.geometry.kind": "point",
+        "atlas.icon.kind": "glyph",
+        "atlas.render.as": "pin"
+      },
+      "color": "#E4E1D6",
+      "group": "NPCs",
+      "icon": "doctor",
+      "iconAsset": "doctor.svg",
+      "id": 10828,
+      "kind": "point",
+      "title": "Doctor",
+      "visible": true
+    },
+    {
+      "attrs": {
+        "atlas.geometry.kind": "point",
+        "atlas.icon.kind": "glyph",
+        "atlas.render.as": "pin"
+      },
+      "color": "#E4E1D6",
+      "group": "NPCs",
+      "icon": "merchant",
+      "iconAsset": "merchant.svg",
+      "id": 10827,
+      "kind": "point",
+      "title": "Merchant",
+      "visible": true
+    },
+    {
+      "attrs": {
+        "atlas.geometry.kind": "point",
+        "atlas.icon.kind": "glyph",
+        "atlas.render.as": "pin"
+      },
+      "color": "#E4E1D6",
+      "group": "NPCs",
+      "icon": "npc",
+      "iconAsset": "npc.svg",
+      "id": 10852,
+      "kind": "point",
+      "title": "NPC",
+      "visible": true
+    },
+    {
+      "attrs": {
+        "atlas.geometry.kind": "point",
+        "atlas.icon.kind": "glyph",
+        "atlas.render.as": "pin"
+      },
+      "color": "#88CF78",
+      "group": "Collectibles",
+      "icon": "holotape",
+      "iconAsset": "holotape.svg",
+      "id": 10835,
+      "kind": "point",
+      "title": "Holotape",
+      "visible": true
+    },
+    {
+      "attrs": {
+        "atlas.geometry.kind": "point",
+        "atlas.icon.kind": "glyph",
+        "atlas.render.as": "pin"
+      },
+      "color": "#88CF78",
+      "group": "Collectibles",
+      "icon": "keypassword",
+      "iconAsset": "keypassword.svg",
+      "id": 10834,
+      "kind": "point",
+      "title": "Key/Password",
+      "visible": true
+    },
+    {
+      "attrs": {
+        "atlas.geometry.kind": "point",
+        "atlas.icon.kind": "glyph",
+        "atlas.render.as": "pin"
+      },
+      "color": "#88CF78",
+      "group": "Collectibles",
+      "icon": "note",
+      "iconAsset": "note.svg",
+      "id": 10842,
+      "kind": "point",
+      "title": "Note",
+      "visible": true
+    },
+    {
+      "attrs": {
+        "atlas.geometry.kind": "point",
+        "atlas.icon.kind": "glyph",
+        "atlas.render.as": "pin"
+      },
+      "color": "#88CF78",
+      "group": "Collectibles",
+      "icon": "skill_magazine",
+      "iconAsset": "skill_magazine.svg",
+      "id": 10851,
+      "kind": "point",
+      "title": "Skill Magazine",
+      "visible": true
+    },
+    {
+      "attrs": {
+        "atlas.geometry.kind": "point",
+        "atlas.icon.kind": "glyph",
+        "atlas.render.as": "pin"
+      },
+      "color": "#88CF78",
+      "group": "Collectibles",
+      "icon": "snow_globe",
+      "iconAsset": "snow_globe.svg",
+      "id": 10832,
+      "kind": "point",
+      "title": "Snow Globe",
+      "visible": true
+    },
+    {
+      "attrs": {
+        "atlas.geometry.kind": "point",
+        "atlas.icon.kind": "glyph",
+        "atlas.render.as": "pin"
+      },
+      "color": "#82A2CF",
+      "group": "Equipment",
+      "icon": "unique_armor",
+      "iconAsset": "unique_armor.svg",
+      "id": 10837,
+      "kind": "point",
+      "title": "Unique Armor",
+      "visible": true
+    },
+    {
+      "attrs": {
+        "atlas.geometry.kind": "point",
+        "atlas.icon.kind": "glyph",
+        "atlas.render.as": "pin"
+      },
+      "color": "#82A2CF",
+      "group": "Equipment",
+      "icon": "unique_weapon",
+      "iconAsset": "unique_weapon.svg",
+      "id": 10836,
+      "kind": "point",
+      "title": "Unique Weapon",
+      "visible": true
+    },
+    {
+      "attrs": {
+        "atlas.geometry.kind": "point",
+        "atlas.icon.kind": "glyph",
+        "atlas.render.as": "pin"
+      },
+      "color": "#D4725F",
+      "group": "Quests",
+      "icon": "main_quest",
+      "iconAsset": "main_quest.svg",
+      "id": 10838,
+      "kind": "point",
+      "title": "Main Quest",
+      "visible": true
+    },
+    {
+      "attrs": {
+        "atlas.geometry.kind": "point",
+        "atlas.icon.kind": "glyph",
+        "atlas.render.as": "pin"
+      },
+      "color": "#D4725F",
+      "group": "Quests",
+      "icon": "quest_item",
+      "iconAsset": "quest_item.svg",
+      "id": 13762,
+      "kind": "point",
+      "title": "Quest Item",
+      "visible": true
+    },
+    {
+      "attrs": {
+        "atlas.geometry.kind": "point",
+        "atlas.icon.kind": "glyph",
+        "atlas.render.as": "pin"
+      },
+      "color": "#D4725F",
+      "group": "Quests",
+      "icon": "side_quest",
+      "iconAsset": "side_quest.svg",
+      "id": 10839,
+      "kind": "point",
+      "title": "Side Quest",
+      "visible": true
+    },
+    {
+      "attrs": {
+        "atlas.geometry.kind": "point",
+        "atlas.icon.kind": "glyph",
+        "atlas.render.as": "pin"
+      },
+      "color": "#E4E1D6",
+      "group": "Other",
+      "icon": "easter_egg",
+      "iconAsset": "easter_egg.svg",
+      "id": 10848,
+      "kind": "point",
+      "title": "Easter Egg",
+      "visible": true
+    },
+    {
+      "attrs": {
+        "atlas.geometry.kind": "point",
+        "atlas.icon.kind": "glyph",
+        "atlas.render.as": "pin"
+      },
+      "color": "#E4E1D6",
+      "group": "Other",
+      "icon": "hollow_rock",
+      "iconAsset": "hollow_rock.svg",
+      "id": 10856,
+      "kind": "point",
+      "title": "Hollow Rock",
+      "visible": true
+    },
+    {
+      "attrs": {
+        "atlas.geometry.kind": "point",
+        "atlas.icon.kind": "glyph",
+        "atlas.render.as": "pin"
+      },
+      "color": "#E4E1D6",
+      "group": "Other",
+      "icon": "survival_cache",
+      "iconAsset": "survival_cache.svg",
+      "id": 10855,
+      "kind": "point",
+      "title": "Survival Cache",
+      "visible": true
+    }
+  ],
+  "lenses": [
+    {
+      "background": "#0e0e0e",
+      "coverage": {
+        "3": {
+          "bits": "/wF/f39/fwE=",
+          "h": 8,
+          "w": 8,
+          "x": 0,
+          "y": 0
+        },
+        "4": {
+          "bits": "//8BAAEAAQD5H/kf+R/5H/kf+R/5H/kf+R8BAAEAAQA=",
+          "h": 16,
+          "w": 16,
+          "x": 0,
+          "y": 0
+        },
+        "5": {
+          "bits": "/////wEAAAABAAAAAQAAAAEAAAABAAAAAQAAAAEAAACB//8Bgf//AYH//wGB//8Bgf//AYH//wGB//8Bgf//AYH//wGB//8Bgf//AYH//wGB//8Bgf//AYH//wGB//8Bgf//AQEAAAABAAAAAQAAAAEAAAABAAAAAQAAAAEAAAA=",
+          "h": 32,
+          "w": 32,
+          "x": 0,
+          "y": 0
+        }
+      },
+      "formats": [
+        "jpg",
+        "jpg",
+        "jpg",
+        "jpg",
+        "jpg",
+        "jpg"
+      ],
+      "fullZoom": 5,
+      "interpolate": true,
+      "maxZoom": 5,
+      "minZoom": 0,
+      "name": "Default",
+      "sourceZoom": 13,
+      "surface": {
+        "height": 3131,
+        "width": 2844,
+        "x": 2592,
+        "y": 2536
+      },
+      "tiles": "zion-canyon"
+    }
+  ],
+  "merged": [
+    {
+      "added": 0,
+      "donorFeatures": {
+        "area": 0,
+        "path": 0,
+        "point": 181
+      },
+      "origin": true,
+      "slug": "mapgenie",
+      "source": "MapGenie"
+    }
+  ]
+}

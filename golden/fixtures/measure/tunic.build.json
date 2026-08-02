@@ -1,0 +1,61 @@
+{
+  "build": {
+    "Path": "",
+    "File": "tunic-20260730-13d5657ed903.atlas",
+    "VolumeSlug": "tunic",
+    "VolumeTitle": "TUNIC",
+    "Stamp": "13d5657ed9038808e5fe12ef44e769b40297e9d720e53376f430f224128f2dfc",
+    "CreatedAt": "2026-07-30T03:57:41.529Z",
+    "Revision": 9,
+    "MapSlugs": [
+      "world"
+    ],
+    "Pins": 434,
+    "Described": 327,
+    "MedianLength": 54,
+    "TileCount": 741,
+    "RasterBytes": 7898728,
+    "Depth": 7,
+    "DepthTiles": 46,
+    "Categories": 29,
+    "Groups": 5,
+    "TextSets": 0,
+    "Zones": 0,
+    "Vertices": 0,
+    "Lenses": 1,
+    "IconsCarried": 29,
+    "IconsWanted": 29,
+    "Conventions": 2,
+    "RenderDeclared": 29,
+    "StdIcons": 0,
+    "GeoPins": 0,
+    "Geometry": "plane-default",
+    "UnknownAttrs": 0,
+    "Merges": [
+      {
+        "Map": "world",
+        "Source": "MapGenie",
+        "DonorPins": 434,
+        "DonorFeatures": {
+          "point": 434,
+          "path": 0,
+          "area": 0
+        },
+        "Matched": null,
+        "Added": 0,
+        "AddedShapes": 0,
+        "Adopted": null,
+        "Held": null,
+        "Rejected": null,
+        "Alignment": ""
+      }
+    ]
+  },
+  "derived": {
+    "describedPct": "75%",
+    "iconPct": "100%",
+    "renderPct": "100%",
+    "rasterMB": "7.9",
+    "shortStamp": "13d5657ed903"
+  }
+}

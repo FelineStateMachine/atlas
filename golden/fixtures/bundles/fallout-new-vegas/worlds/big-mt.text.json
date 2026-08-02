@@ -1,0 +1,2786 @@
+{
+  "484613": {
+    "d": "**Hostile?** No  \n\n**Notable Loot:**\n- None"
+  },
+  "484614": {
+    "d": "**Hostile?** Yes - Robo-Scorpions  \n\n**Notable Loot:**\n- Sink Project: Sink",
+    "l": [
+      {
+        "locationId": 499172,
+        "title": "Sink Project: Sink"
+      }
+    ]
+  },
+  "484648": {
+    "d": "**Location:** The Sink Balcony\n\n**Quest Giver:** N/A - Automatically begins when entering the Big MT\n\n**Reward:**\n- XP\n- Sonic Emitter - Revelation\n- K9000 Cyberdog Gun (if a Guns 50 check is passed)\n- The Sink as a safehouse",
+    "l": [
+      {
+        "locationId": 484613,
+        "title": "The Sink Balcony"
+      },
+      {
+        "locationId": 485190,
+        "title": "Sonic Emitter - Revelation"
+      },
+      {
+        "locationId": 485187,
+        "title": "K9000 Cyberdog Gun"
+      }
+    ]
+  },
+  "484649": {
+    "d": "**Hostile?** Yes - Lobotomites + Protectrons\n\n**Notable Loot:**\n- Sink Project: Light Switch 01\n- X-2 Antenna",
+    "l": [
+      {
+        "locationId": 499209,
+        "title": "Sink Project: Light Switch 01"
+      },
+      {
+        "locationId": 499210,
+        "title": "X-2 Antenna"
+      }
+    ]
+  },
+  "484650": {
+    "d": "**Hostile?** Maybe - Stripe (if you have the Wild Wasteland trait)  \n\n**Notable Loot:**\n\n_House 00:_\n- Audio Sample - Giant Tarantula\n- Recipes - Repair Skill Book\n\n_House 101:_\n- Dr. Klein's Scrubs\n- Dr. Klein's Glove [Scientist Glove]\n- Sink Project: Book Chute\n\n_House 102:_\n- Recipes - Science Skill Book\n\n_House 103:_\n- Recipes - Medicine Skill Book\n- Borous' Basement Key\n- Gabe's Bowl (Outside)\n\n_House 104:_\n- Recipes - Speech Skill Book\n\n_House 108:_\n- Sink Project: Jukebox\n- Audio Sample - Opera Singer",
+    "l": [
+      {
+        "locationId": 499197,
+        "title": "Audio Sample - Giant Tarantula"
+      },
+      {
+        "locationId": 499198,
+        "title": "Recipes - Repair Skill Book"
+      },
+      {
+        "locationId": 499200,
+        "title": "Dr. Klein's Scrubs"
+      },
+      {
+        "locationId": 487965,
+        "title": "Dr. Klein's Glove [Scientist Glove]"
+      },
+      {
+        "locationId": 499199,
+        "title": "Sink Project: Book Chute"
+      },
+      {
+        "locationId": 499201,
+        "title": "Recipes - Science Skill Book"
+      },
+      {
+        "locationId": 499202,
+        "title": "Recipes - Medicine Skill Book"
+      },
+      {
+        "locationId": 499203,
+        "title": "Borous' Basement Key"
+      },
+      {
+        "locationId": 499205,
+        "title": "Gabe's Bowl"
+      },
+      {
+        "locationId": 499196,
+        "title": "Recipes - Speech Skill Book"
+      },
+      {
+        "locationId": 499206,
+        "title": "Sink Project: Jukebox"
+      },
+      {
+        "locationId": 499207,
+        "title": "Audio Sample - Opera Singer"
+      }
+    ]
+  },
+  "484651": {
+    "d": "**Hostile?** Yes - Mr. Orderlies + Doctor Orderly MD PHD DDS + Lobotomites\n\n**Notable Loot:**\n- Christine's COS Recon Armor\n- Auto-Doc Upgrade: Implant C-13\n- Auto-Doc Upgrade: Cosmetic Enhancements\n- Sink Project: Auto-Doc\n- Patient Log Y-17.0",
+    "l": [
+      {
+        "locationId": 499559,
+        "title": "Christine's COS Recon Armor"
+      },
+      {
+        "locationId": 499557,
+        "title": "Auto-Doc Upgrade: Implant C-13"
+      },
+      {
+        "locationId": 499558,
+        "title": "Auto-Doc Upgrade: Cosmetic Enhancements"
+      },
+      {
+        "locationId": 499556,
+        "title": "Sink Project: Auto-Doc"
+      },
+      {
+        "locationId": 499562,
+        "title": "Patient Log Y-17.0"
+      }
+    ]
+  },
+  "484652": {
+    "d": "**Hostile?** Yes - Mr. Orderlies + Cyber Dogs + Lobotomites + Turrets + Protectrons + Robo-Scorpions + Nightstalkers\n\n**Notable Loot:**\n\n_Central Facility:_\n- Dog and Robot Splicing Experiment Holotape\n- Schematics - K9000 FIDO\n- Robot and Nightstalker Splicing Experiment Holotape\n\n_X-8 Institutional Test Facility:_\n- Midterm Grade Report: Richie Marcus\n- Cherie O' Bannon's After-School Schedule\n- Betsy Bright's Disciplinary Record\n- EM Pulse Wave Module\n\n_X-8 Testing Facility:_\n- Dog and Lobotomite Splicing Experiment Holotape\n\n_X-8 Residential Testing Facility:_\n- Audio Sample - Gabriel's Bark",
+    "l": [
+      {
+        "locationId": 499188,
+        "title": "Dog and Robot Splicing Experiment Holotape"
+      },
+      {
+        "locationId": 500083,
+        "title": "Schematics - K9000 FIDO"
+      },
+      {
+        "locationId": 500084,
+        "title": "Robot and Nightstalker Splicing Experiment Holotape"
+      },
+      {
+        "locationId": 500075,
+        "title": "Midterm Grade Report: Richie Marcus"
+      },
+      {
+        "locationId": 500074,
+        "title": "Cherie O' Bannon's After-School Schedule"
+      },
+      {
+        "locationId": 500072,
+        "title": "Betsy Bright's Disciplinary Record"
+      },
+      {
+        "locationId": 500081,
+        "title": "EM Pulse Wave Module"
+      },
+      {
+        "locationId": 500076,
+        "title": "Dog and Lobotomite Splicing Experiment Holotape"
+      },
+      {
+        "locationId": 500077,
+        "title": "Audio Sample - Gabriel's Bark"
+      }
+    ]
+  },
+  "484653": {
+    "d": "**Hostile?** Yes - Cyber Dogs  \n\n**Notable Loot:**\n- Recipes - Guns Skill Book",
+    "l": [
+      {
+        "locationId": 499270,
+        "title": "Recipes - Guns Skill Book"
+      }
+    ]
+  },
+  "484654": {
+    "d": "**Hostile?** No  \n\n**Notable NPCs:**\n- Doctor Klein\n- Doctor Dala\n- Doctor 0\n- Doctor 8\n- Doctor Borous\n\n**Notable Loot:**\n- Dr. Klein's Glasses\n- Dr. Mobius' Glasses",
+    "l": [
+      {
+        "locationId": 499003,
+        "title": "Doctor Klein"
+      },
+      {
+        "locationId": 499002,
+        "title": "Doctor Dala"
+      },
+      {
+        "locationId": 499001,
+        "title": "Doctor 0"
+      },
+      {
+        "locationId": 499004,
+        "title": "Doctor 8"
+      },
+      {
+        "locationId": 499005,
+        "title": "Doctor Borous"
+      },
+      {
+        "locationId": 499006,
+        "title": "Dr. Klein's Glasses"
+      },
+      {
+        "locationId": 499007,
+        "title": "Dr. Mobius' Glasses"
+      }
+    ]
+  },
+  "484655": {
+    "d": "**Hostile?** Yes - Y-17 Trauma Override Harnesses + Y-17 Master Trauma Harness  \n\n**Notable Loot:**\n- Light Switch 01 Upgrade: \"Smart Lights\"\n\n_Note: You'll need to upgrade the Sonic Emitter to get past the forcefield and reach the lower floors._",
+    "l": [
+      {
+        "locationId": 499503,
+        "title": "Light Switch 01 Upgrade: \"Smart Lights\""
+      },
+      {
+        "locationId": 500081,
+        "title": "upgrade the Sonic Emitter"
+      }
+    ]
+  },
+  "484656": {
+    "d": "**Hostile?** No  \n\n**Notable Loot:**\n- Patient Log: Y-17.9\n- Patient Log: Y-17.5",
+    "l": [
+      {
+        "locationId": 499193,
+        "title": "Patient Log: Y-17.9"
+      },
+      {
+        "locationId": 499194,
+        "title": "Patient Log: Y-17.5"
+      }
+    ]
+  },
+  "484657": {
+    "d": "**Hostile?** Yes - Nightstalkers + Shadis \n\n**Notable Loot:**\n- Auto-Doc Upgrade: Implant Y-3",
+    "l": [
+      {
+        "locationId": 499190,
+        "title": "Auto-Doc Upgrade: Implant Y-3"
+      }
+    ]
+  },
+  "484658": {
+    "d": "**Hostile?** Yes - Nightstalkers  \n\n**Notable Loot:**\n- Hazmat Suit\n- Hazmat Darklight Cowl",
+    "l": [
+      {
+        "locationId": 499303,
+        "title": "Hazmat Suit"
+      },
+      {
+        "locationId": 499304,
+        "title": "Hazmat Darklight Cowl"
+      }
+    ]
+  },
+  "484659": {
+    "d": "**Hostile?** Yes - Lobotomites + Nightstalkers  \n\n**Notable Loot:**\n- None"
+  },
+  "484660": {
+    "d": "**Hostile?** Yes - Cazadores + Specimen 73  \n\n**Notable Loot:**\n- Auto-Doc Upgrade: Implant M-5",
+    "l": [
+      {
+        "locationId": 499185,
+        "title": "Auto-Doc Upgrade: Implant M-5"
+      }
+    ]
+  },
+  "484661": {
+    "d": "**Hostile?** Yes - Securitrons + 010011110110111001100101\n\n**Notable Loot:**\n- Sink Project: Muggy\n- \"Muggy\" Upgrade: Parts Production",
+    "l": [
+      {
+        "locationId": 499180,
+        "title": "Sink Project: Muggy"
+      },
+      {
+        "locationId": 499183,
+        "title": "\"Muggy\" Upgrade: Parts Production"
+      }
+    ]
+  },
+  "484662": {
+    "d": "**Hostile?** Yes - Lobotomites   \n\n**Notable Loot:**\n- None"
+  },
+  "484663": {
+    "d": "**Hostile?** Yes - Lobotomites  \n\n**Notable Loot:**\n- None"
+  },
+  "484664": {
+    "d": "**Hostile?** Yes - Turrets + Securitrons\n\n**Notable Loot:**\n- Elijah's Journal\n- Elijah's Jury-Rigged Tesla Cannon",
+    "l": [
+      {
+        "locationId": 499176,
+        "title": "Elijah's Journal"
+      },
+      {
+        "locationId": 499178,
+        "title": "Elijah's Jury-Rigged Tesla Cannon"
+      }
+    ]
+  },
+  "484665": {
+    "d": "**Hostile?** Yes - Bloatflies + Legendary Bloatfly\n\n**Notable Loot:**\n- None"
+  },
+  "484666": {
+    "d": "**Hostile?** Yes - Turrets  \n\n**Notable Loot:**\n- Sink Project: Light Switch 02",
+    "l": [
+      {
+        "locationId": 499173,
+        "title": "Sink Project: Light Switch 02"
+      }
+    ]
+  },
+  "484667": {
+    "d": "**Hostile?** Yes - Robo-Scorpions  \n\n**Notable NPCs:**\n- Doctor Mobius\n- Brain Tank\n\n**Notable Loot:**\n\n_X-42 Robo-Warfare Facility:_\n- Audio Sample - Mobius' Robo-Scorpion\n- Emergency Shutdown Terminal Password\n\n_Forbidden Zone Dome:_\n- Dr. Mobius' Glove [Scientist Glove]\n- Dr. Mobius' Scrubs",
+    "l": [
+      {
+        "locationId": 499314,
+        "title": "Doctor Mobius"
+      },
+      {
+        "locationId": 500095,
+        "title": "Brain Tank"
+      },
+      {
+        "locationId": 500087,
+        "title": "Audio Sample - Mobius' Robo-Scorpion"
+      },
+      {
+        "locationId": 500088,
+        "title": "Emergency Shutdown Terminal Password"
+      },
+      {
+        "locationId": 500090,
+        "title": "Dr. Mobius' Glove [Scientist Glove]"
+      },
+      {
+        "locationId": 500091,
+        "title": "Dr. Mobius' Scrubs"
+      }
+    ]
+  },
+  "484668": {
+    "d": "**Hostile?** Yes - Robo-Scorpions  \n\n**Notable Loot:**\n- Recipes - Melee Weapons Skill Book",
+    "l": [
+      {
+        "locationId": 499171,
+        "title": "Recipes - Melee Weapons Skill Book"
+      }
+    ]
+  },
+  "484669": {
+    "d": "**Hostile?** Yes - Spore Plants + Spore Carriers + Patient Zero  \n\n**Notable Loot:**\n- Sink Project: Biological Research Station\n- Seed Package",
+    "l": [
+      {
+        "locationId": 499493,
+        "title": "Sink Project: Biological Research Station"
+      },
+      {
+        "locationId": 499494,
+        "title": "Seed Package"
+      }
+    ]
+  },
+  "484670": {
+    "d": "**Hostile?** Yes - Mr. Gutsies + Ironbelly  \n\n**Notable Loot:**\n- Snow Globe - Big MT",
+    "l": [
+      {
+        "locationId": 485794,
+        "title": "Snow Globe - Big MT"
+      }
+    ]
+  },
+  "484671": {
+    "d": "**Hostile?** Yes - Lobotomites + Mr Gutsies  \n\n**Notable Loot:**\n- Recipes - Barter Skill Book\n- Auto-Doc Upgrade: Hair Styling Enhancements\n- Elijah's Advanced LAER\n- Main Computer Upgrade: LAER Mod \"Prismatic Lens\"\n- Torn Journal Page",
+    "l": [
+      {
+        "locationId": 499167,
+        "title": "Recipes - Barter Skill Book"
+      },
+      {
+        "locationId": 499168,
+        "title": "Auto-Doc Upgrade: Hair Styling Enhancements"
+      },
+      {
+        "locationId": 499008,
+        "title": "Elijah's Advanced LAER"
+      },
+      {
+        "locationId": 499169,
+        "title": "Main Computer Upgrade: LAER Mod \"Prismatic Lens\""
+      },
+      {
+        "locationId": 499009,
+        "title": "Torn Journal Page"
+      }
+    ]
+  },
+  "484672": {
+    "d": "**Hostile?** Yes - Protectrons + Mr Handies\n\n**Notable Loot:**\n- Sink Upgrade: Water Production",
+    "l": [
+      {
+        "locationId": 499490,
+        "title": "Sink Upgrade: Water Production"
+      }
+    ]
+  },
+  "484673": {
+    "d": "**Hostile?** Yes - Yangtze Camp Survivors  \n\n**Notable Loot:**\n- Recipes - Survival Skill Book\n- Christine's COS Silencer Rifle\n- Elijah's Advanced LAER\n- Book Chute Upgrade: Mulching",
+    "l": [
+      {
+        "locationId": 499312,
+        "title": "Recipes - Survival Skill Book"
+      },
+      {
+        "locationId": 499308,
+        "title": "Christine's COS Silencer Rifle"
+      },
+      {
+        "locationId": 499310,
+        "title": "Elijah's Advanced LAER"
+      },
+      {
+        "locationId": 499311,
+        "title": "Book Chute Upgrade: Mulching"
+      }
+    ]
+  },
+  "484674": {
+    "d": "**Hostile?** Yes - Protectrons + The Custodian\n\n**Notable Loot:**\n- Recipes - Unarmed Skill Book\n- Main Computer Upgrade: LAER Mod \"Auxiliary Recharger Chip\"",
+    "l": [
+      {
+        "locationId": 499305,
+        "title": "Recipes - Unarmed Skill Book"
+      },
+      {
+        "locationId": 499306,
+        "title": "Main Computer Upgrade: LAER Mod \"Auxiliary Recharger Chip\""
+      }
+    ]
+  },
+  "484675": {
+    "d": "**Hostile?** Yes - Robo-Scorpions + Nightstalkers\n\n**Notable Loot:**\n\n_Main Facility:_\n- X-8 Kennel Key\n- Prototype X-13 Gloves\n- Sonic Emitter Notice\n- Prototype X-13 Boots\n- Prototype X-13 Chest Plate\n- Chinese Army: Spec. Ops. Training Manual\n- VR Simulation Note\n\n_X-13 Stealth Testing Lab:_\n- Main Computer Upgrade: K9000 Mod \"Resla Roil\"\n- Auto-Doc Upgrade: Implant Y-7\n- Main Computer Upgrade: K9000 Mod \"Mentat Chow\"\n- Recipes - Lockpick Skill Book\n- Recipes - Sneak Skill Book\n- X-13 Document\n- Chinese Army: Spec. Ops. Training Manual",
+    "l": [
+      {
+        "locationId": 499550,
+        "title": "X-8 Kennel Key"
+      },
+      {
+        "locationId": 499518,
+        "title": "Prototype X-13 Gloves"
+      },
+      {
+        "locationId": 499519,
+        "title": "Sonic Emitter Notice"
+      },
+      {
+        "locationId": 499520,
+        "title": "Prototype X-13 Boots"
+      },
+      {
+        "locationId": 499522,
+        "title": "Prototype X-13 Chest Plate"
+      },
+      {
+        "locationId": 499524,
+        "title": "Chinese Army: Spec. Ops. Training Manual"
+      },
+      {
+        "locationId": 499548,
+        "title": "VR Simulation Note"
+      },
+      {
+        "locationId": 499529,
+        "title": "Main Computer Upgrade: K9000 Mod \"Resla Roil\""
+      },
+      {
+        "locationId": 499531,
+        "title": "Auto-Doc Upgrade: Implant Y-7"
+      },
+      {
+        "locationId": 499533,
+        "title": "Main Computer Upgrade: K9000 Mod \"Mentat Chow\""
+      },
+      {
+        "locationId": 499546,
+        "title": "Recipes - Lockpick Skill Book"
+      },
+      {
+        "locationId": 499547,
+        "title": "Recipes - Sneak Skill Book"
+      },
+      {
+        "locationId": 499540,
+        "title": "X-13 Document"
+      },
+      {
+        "locationId": 499544,
+        "title": "Chinese Army: Spec. Ops. Training Manual"
+      }
+    ]
+  },
+  "484676": {
+    "d": "**Hostile?** Yes - Nightstalkers\n\n**Notable Loot:**\n- None"
+  },
+  "484677": {
+    "d": "**Hostile?** Yes - Y-17 Trauma Override Harnesses  \n\n**Notable Loot:**\n- Hazmat Pod Security Code",
+    "l": [
+      {
+        "locationId": 499296,
+        "title": "Hazmat Pod Security Code"
+      }
+    ]
+  },
+  "484678": {
+    "d": "**Hostile?** Yes - Nightstalkers\n\n**Notable Loot:**\n- Recipes - Energy Weapons Skill Book",
+    "l": [
+      {
+        "locationId": 499500,
+        "title": "Recipes - Energy Weapons Skill Book"
+      }
+    ]
+  },
+  "484679": {
+    "d": "**Hostile?** Yes - Mr. Handies + Sparks  \n\n**Notable Loot:**\n- Light Switch 02 Upgrade: \"Mood Lights\"",
+    "l": [
+      {
+        "locationId": 499501,
+        "title": "Light Switch 02 Upgrade: \"Mood Lights\""
+      }
+    ]
+  },
+  "484680": {
+    "d": "**Hostile?** Yes - Y-17 Trauma Harnesses + RY-589 Ultimo Bot\n\n**Notable Loot:**\n- Recipes - Explosives Skill Book",
+    "l": [
+      {
+        "locationId": 499260,
+        "title": "Recipes - Explosives Skill Book"
+      }
+    ]
+  },
+  "484681": {
+    "d": "**Hostile?** Yes - Lobotomites + Test Subject 1  \n\n**Notable Loot:**\n- Sink Project: Toaster",
+    "l": [
+      {
+        "locationId": 499245,
+        "title": "Sink Project: Toaster"
+      }
+    ]
+  },
+  "485187": {
+    "d": "**Location:** The Think Tank - Given to you during Welcome to the Big Empty by passing a Guns 50 check.\n  \n**Category:** Two-Handed Gun\n  \n**Requirements:**\n- Guns 75\n- Strength 8",
+    "l": [
+      {
+        "locationId": 484654,
+        "title": "The Think Tank"
+      },
+      {
+        "locationId": 484648,
+        "title": "Welcome to the Big Empty"
+      }
+    ]
+  },
+  "485190": {
+    "d": "**Location:** The Think Tank  - given to you during Welcome to the Big Empty.\n\n**Category:** One-Handed Energy Weapon\n\n**Requirements:**\n- Energy Weapons 50\n- Strength 2",
+    "l": [
+      {
+        "locationId": 484654,
+        "title": "The Think Tank"
+      },
+      {
+        "locationId": 484648,
+        "title": "Welcome to the Big Empty"
+      }
+    ]
+  },
+  "485197": {
+    "d": "**Location:** The Think Tank\n\n**Quest Giver:** Doctor Klein during Welcome to the Big Empty\n\n**Quest Item(s):**\n- Sink Project: Sink\n- Sink Project: Auto-Doc\n- Sink Project: Biological Research Station\n- Sink Project: Light Switch 01\n- Sink Project: Light Switch 02\n- Sink Project: Jukebox\n- Sink Project: Toaster\n- Sink Project: Muggy\n- Sink Project: Book Chute\n\n**Reward:**\n- XP\n- Functional appliances in The Sink",
+    "l": [
+      {
+        "locationId": 484654,
+        "title": "The Think Tank"
+      },
+      {
+        "locationId": 499003,
+        "title": "Doctor Klein"
+      },
+      {
+        "locationId": 484648,
+        "title": "Welcome to the Big Empty"
+      },
+      {
+        "locationId": 499172,
+        "title": "Sink Project: Sink"
+      },
+      {
+        "locationId": 499556,
+        "title": "Sink Project: Auto-Doc"
+      },
+      {
+        "locationId": 499493,
+        "title": "Sink Project: Biological Research Station"
+      },
+      {
+        "locationId": 499209,
+        "title": "Sink Project: Light Switch 01"
+      },
+      {
+        "locationId": 499173,
+        "title": "Sink Project: Light Switch 02"
+      },
+      {
+        "locationId": 499206,
+        "title": "Sink Project: Jukebox"
+      },
+      {
+        "locationId": 499245,
+        "title": "Sink Project: Toaster"
+      },
+      {
+        "locationId": 499180,
+        "title": "Sink Project: Muggy"
+      },
+      {
+        "locationId": 499199,
+        "title": "Sink Project: Book Chute"
+      }
+    ]
+  },
+  "485198": {
+    "d": "**Location:** The Sink - activated with the personality chip given to you during Welcome to the Big Empty\n\n**Noteworthy Inventory:**\n- None\n\n**Note(s):**\n- Can repair items to 100% durability.\n- Sells additional items when upgraded with:\n  - Main Computer Upgrade: LAER Mod \"Prismatic Lens\"\n  - Main Computer Upgrade: LAER Mod \"Auxiliary Recharger Chip\"\n  - Main Computer Upgrade: K9000 Mod \"Resla Roil\"\n  - Main Computer Upgrade: K9000 Mod \"Mentat Chow\"",
+    "l": [
+      {
+        "locationId": 484613,
+        "title": "The Sink"
+      },
+      {
+        "locationId": 484648,
+        "title": "Welcome to the Big Empty"
+      },
+      {
+        "locationId": 499169,
+        "title": "Main Computer Upgrade: LAER Mod \"Prismatic Lens\""
+      },
+      {
+        "locationId": 499306,
+        "title": "Main Computer Upgrade: LAER Mod \"Auxiliary Recharger Chip\""
+      },
+      {
+        "locationId": 499529,
+        "title": "Main Computer Upgrade: K9000 Mod \"Resla Roil\""
+      },
+      {
+        "locationId": 499533,
+        "title": "Main Computer Upgrade: K9000 Mod \"Mentat Chow\""
+      }
+    ]
+  },
+  "485201": {
+    "d": "**Location:** The Think Tank\n\n**Quest Giver:** Doctor Klein during Welcome to the Big Empty\n\n**Reward:**\n- XP\n- All Sonic Emitters can now destroy forcefields",
+    "l": [
+      {
+        "locationId": 484654,
+        "title": "The Think Tank"
+      },
+      {
+        "locationId": 484648,
+        "title": "Welcome to the Big Empty"
+      }
+    ]
+  },
+  "485203": {
+    "d": "**Location:** The Think Tank\n\n**Quest Giver:** Doctor Klein during Welcome to the Big Empty\n\n**Quest Item(s):**\n- X-2 Antenna\n\n**Reward:**\n- XP",
+    "l": [
+      {
+        "locationId": 484654,
+        "title": "The Think Tank"
+      },
+      {
+        "locationId": 484648,
+        "title": "Welcome to the Big Empty"
+      },
+      {
+        "locationId": 499210,
+        "title": "X-2 Antenna"
+      }
+    ]
+  },
+  "485205": {
+    "d": "**Location:** The Think Tank\n\n**Quest Giver:** Doctor Klein during Welcome to the Big Empty\n\n**Reward:**\n- XP\n- Audio Sample - Gabriel's Bark",
+    "l": [
+      {
+        "locationId": 484654,
+        "title": "The Think Tank"
+      },
+      {
+        "locationId": 484648,
+        "title": "Welcome to the Big Empty"
+      },
+      {
+        "locationId": 500077,
+        "title": "Audio Sample - Gabriel's Bark"
+      }
+    ]
+  },
+  "485206": {
+    "d": "**Location:** The Think Tank\n\n**Quest Giver:** Doctor Klein during Welcome to the Big Empty\n\n**Reward:**\n- XP\n- Stealth Suit MK II",
+    "l": [
+      {
+        "locationId": 484654,
+        "title": "The Think Tank"
+      },
+      {
+        "locationId": 484648,
+        "title": "Welcome to the Big Empty"
+      },
+      {
+        "locationId": 499523,
+        "title": "Stealth Suit MK II"
+      }
+    ]
+  },
+  "485207": {
+    "d": "**Location:** The Think Tank\n\n**Quest Giver:** Doctor Klein after completing X-2: Strange Transmissions!, X-8: High School Horror! and X-13: Attack of the Infiltrator!\n\n**Quest Item(s):**\n- Your Brain\n\n**Reward:**\n- XP\n- Big Mountain Transportalponder!",
+    "l": [
+      {
+        "locationId": 484654,
+        "title": "The Think Tank"
+      },
+      {
+        "locationId": 485203,
+        "title": "X-2: Strange Transmissions!"
+      },
+      {
+        "locationId": 485205,
+        "title": "X-8: High School Horror!"
+      },
+      {
+        "locationId": 485206,
+        "title": "X-13: Attack of the Infiltrator!"
+      },
+      {
+        "locationId": 500095,
+        "title": "Your Brain"
+      },
+      {
+        "locationId": 500096,
+        "title": "Big Mountain Transportalponder!"
+      }
+    ]
+  },
+  "485211": {
+    "d": "**Location:** The Think Tank\n\n**Quest Giver:** Any of the scientists in the Think Tank\n\n**Reward:**\n- XP",
+    "l": [
+      {
+        "locationId": 484654,
+        "title": "The Think Tank"
+      }
+    ]
+  },
+  "485216": {
+    "d": "**Location:** The Think Tank\n\n**Quest Giver:** Doctor Dala after passing a Perception 8 check / using the Lady Killer or Cherchez La Femme perk / bringing her a teddy bear.\n\n**Reward:**\n- XP\n- Energy Weapon ammo every 24 hours (\"I could come back any time and just breathe, if you want.\")\n- Conductor, Wonderglue & Pre-War Money every 24 hours (\"I'll tell the others if you don't make it worth my while.\")",
+    "l": [
+      {
+        "locationId": 484654,
+        "title": "The Think Tank"
+      },
+      {
+        "locationId": 499002,
+        "title": "Doctor Dala"
+      }
+    ]
+  },
+  "485218": {
+    "d": "**Location:** The Think Tank\n\n**Quest Giver:** Doctor 0\n\n**Reward:**\n- XP\n- Scrap metal & electronics every 24 hours",
+    "l": [
+      {
+        "locationId": 484654,
+        "title": "The Think Tank"
+      },
+      {
+        "locationId": 499001,
+        "title": "Doctor 0"
+      }
+    ]
+  },
+  "485224": {
+    "d": "**Location:** The Think Tank\n\n**Quest Giver:** Doctor Borous\n\n**Reward:**\n- XP\n- Cazador Poison Glands & Nightstalker Blood Vials every 24 hours (\"It sounds to me like you hurt someone who loved you very much\")\n- Cazador Eggs every 24 hours (\"It's nothing to be ashamed of. Gabe knew his place - as a specimen.\")",
+    "l": [
+      {
+        "locationId": 484654,
+        "title": "The Think Tank"
+      },
+      {
+        "locationId": 499005,
+        "title": "Doctor Borous"
+      }
+    ]
+  },
+  "485225": {
+    "d": "**Location:** The Sink\n\n**Quest Giver:** Automatically started after completing Influencing People\n\n**Quest Item(s):**\n- Seed Package (1)\n- Seed Package (2)\n- Seed Package (3)\n- Audio Sample - Opera Singer\n- Audio Sample - Giant Tarantula\n- Audio Sample - Gabriel's Bark\n- Audio Sample - Mobius' Robo-Scorpion\n\n**Reward:**\n- XP\n- Can upgrade Sonic Emitter into different forms\n- Mojave plants can be harvested from the Biological Research Station every 72 hours.",
+    "l": [
+      {
+        "locationId": 484613,
+        "title": "The Sink"
+      },
+      {
+        "locationId": 485226,
+        "title": "Influencing People"
+      },
+      {
+        "locationId": 499494,
+        "title": "Seed Package"
+      },
+      {
+        "locationId": 499497,
+        "title": "Seed Package"
+      },
+      {
+        "locationId": 499498,
+        "title": "Seed Package"
+      },
+      {
+        "locationId": 499207,
+        "title": "Audio Sample - Opera Singer"
+      },
+      {
+        "locationId": 499197,
+        "title": "Audio Sample - Giant Tarantula"
+      },
+      {
+        "locationId": 500077,
+        "title": "Audio Sample - Gabriel's Bark"
+      },
+      {
+        "locationId": 500087,
+        "title": "Audio Sample - Mobius' Robo-Scorpion"
+      },
+      {
+        "locationId": 499511,
+        "title": "Biological Research Station"
+      }
+    ]
+  },
+  "485226": {
+    "d": "**Location:** The Sink\n\n**Quest Giver:** Automatically started after completing All My Friends Have Off Switches\n\n**Quest Item(s):**\n- Sink Upgrade: Water Production\n- Book Chute Upgrade: Mulching\n- Light Switch 01 Upgrade: \"Smart Lights\"\n- Light Switch 02 Upgrade: \"Mood Lights\"\n- \"Muggy\" Upgrade: Parts Production\n- Auto-Doc Upgrade: Hair Styling Enhancements\n- Auto-Doc Upgrade: Cosmetic Enhancements\n- Auto-Doc Upgrade: Implant Y-7\n- Auto-Doc Upgrade: Implant C-13\n- Auto-Doc Upgrade: Implant Y-3\n- Auto-Doc Upgrade: Implant M-5\n- Main Computer Upgrade: LAER Mod \"Auxiliary Recharger Chip\"\n- Main Computer Upgrade: LAER Mod \"Prismatic Lens\"\n- Main Computer Upgrade: K9000 Mod \"Resla Roil\"\n- Main Computer Upgrade: K9000 Mod \"Mentat Chow\"\n\n**Reward:**\n- XP\n- Appliances in The Sink have more functionalities\n- Sink Central Intelligence Unit begins selling unique weapon mods",
+    "l": [
+      {
+        "locationId": 484613,
+        "title": "The Sink"
+      },
+      {
+        "locationId": 485197,
+        "title": "All My Friends Have Off Switches"
+      },
+      {
+        "locationId": 499490,
+        "title": "Sink Upgrade: Water Production"
+      },
+      {
+        "locationId": 499311,
+        "title": "Book Chute Upgrade: Mulching"
+      },
+      {
+        "locationId": 499503,
+        "title": "Light Switch 01 Upgrade: \"Smart Lights\""
+      },
+      {
+        "locationId": 499501,
+        "title": "Light Switch 02 Upgrade: \"Mood Lights\""
+      },
+      {
+        "locationId": 499183,
+        "title": "\"Muggy\" Upgrade: Parts Production"
+      },
+      {
+        "locationId": 499168,
+        "title": "Auto-Doc Upgrade: Hair Styling Enhancements"
+      },
+      {
+        "locationId": 499558,
+        "title": "Auto-Doc Upgrade: Cosmetic Enhancements"
+      },
+      {
+        "locationId": 499531,
+        "title": "Auto-Doc Upgrade: Implant Y-7"
+      },
+      {
+        "locationId": 499557,
+        "title": "Auto-Doc Upgrade: Implant C-13"
+      },
+      {
+        "locationId": 499190,
+        "title": "Auto-Doc Upgrade: Implant Y-3"
+      },
+      {
+        "locationId": 499185,
+        "title": "Auto-Doc Upgrade: Implant M-5"
+      },
+      {
+        "locationId": 499306,
+        "title": "Main Computer Upgrade: LAER Mod \"Auxiliary Recharger Chip\""
+      },
+      {
+        "locationId": 499169,
+        "title": "Main Computer Upgrade: LAER Mod \"Prismatic Lens\""
+      },
+      {
+        "locationId": 499529,
+        "title": "Main Computer Upgrade: K9000 Mod \"Resla Roil\""
+      },
+      {
+        "locationId": 499533,
+        "title": "Main Computer Upgrade: K9000 Mod \"Mentat Chow\""
+      },
+      {
+        "locationId": 485198,
+        "title": "Sink Central Intelligence Unit"
+      }
+    ]
+  },
+  "485228": {
+    "d": "**Location:** The Think Tank\n\n**Quest Giver:** Doctor Dala when asking about her doctorates, revealing your status as a Courier, then asking about the Big MT's last visitor.\n\n**Reward:**\n- XP",
+    "l": [
+      {
+        "locationId": 484654,
+        "title": "The Think Tank"
+      },
+      {
+        "locationId": 499002,
+        "title": "Doctor Dala"
+      }
+    ]
+  },
+  "485244": {
+    "d": "**Location:** The Think Tank\n\n**Quest Giver:** Doctor 8 after passing a Perception 7 / Science 75 check, then a second Science 75 check.\n\n**Reward:**\n- XP\n- Positive Karma (If you do not hack Doctor 8)\n- Negative Karma (If you hack Doctor 8)",
+    "l": [
+      {
+        "locationId": 484654,
+        "title": "The Think Tank"
+      },
+      {
+        "locationId": 499004,
+        "title": "Doctor 8"
+      }
+    ]
+  },
+  "485245": {
+    "d": "**Location:** The Think Tank\n\n**Quest Giver:** Doctor Klein when asking about a 'passive sensation in here'.\n\n**Reward:**\n- XP",
+    "l": [
+      {
+        "locationId": 484654,
+        "title": "The Think Tank"
+      },
+      {
+        "locationId": 499003,
+        "title": "Doctor Klein"
+      }
+    ]
+  },
+  "485246": {
+    "d": "**Location:** X-8 Research Center, X-8 Testing Facility\n\n**Quest Giver:** Automatically begins when entering the testing facility after completing the Institutional Data Retrieval Test.\n\n**Reward:**\n- XP\n- DNAgent perk (+10% damage to Nightstalkers)",
+    "l": [
+      {
+        "locationId": 484652,
+        "title": "X-8 Research Center"
+      }
+    ]
+  },
+  "485251": {
+    "d": "**Location:** X-13 Research Facility, X-13 Stealth Testing Lab\n\n**Quest Giver:** Automatically begins when starting the Basic Infiltration Test while wearing the Stealth Suit MK II\n\n**Quest Item(s):**\n- X-13 Document\n\n**Reward:**\n- XP\n- Stealth Suit MK II Upgrades\n- Chinese Army: Spec. Ops. Training Manual",
+    "l": [
+      {
+        "locationId": 484675,
+        "title": "X-13 Research Facility"
+      },
+      {
+        "locationId": 499540,
+        "title": "X-13 Document"
+      },
+      {
+        "locationId": 499544,
+        "title": "Chinese Army: Spec. Ops. Training Manual"
+      }
+    ]
+  },
+  "485794": {
+    "d": "**Location:** X-17 Meteorological Station - In a small room connected to the walkways, overlooking the tiny houses.",
+    "l": [
+      {
+        "locationId": 484670,
+        "title": "X-17 Meteorological Station"
+      }
+    ]
+  },
+  "487965": {
+    "d": "**Location:** Higgs Village, House 101 - On a bookshelf in the office upstairs.\n\n**Special Effects:**\n- Critical Hits inflict Strength -3 for 30 seconds and DT -1 for 60 seconds\n- Regular hits inflict Strength -2 and Energy Weapons -5 for 30 seconds\n\n**Type:** One-Handed Unarmed  \n\n**Requirements:**\n- Unarmed 45\n- Strength 3",
+    "l": [
+      {
+        "locationId": 484650,
+        "title": "Higgs Village"
+      }
+    ]
+  },
+  "498987": {
+    "d": "**Location:** Automatically obtained and equipped when entering the Big MT for the first time.  \n\n**Category:** Light  \n\n**Statistics:**\n- DT +1"
+  },
+  "499001": {
+    "d": "**Location:** The Think Tank - At the far left side of the room, facing a console.  \n\n**Note(s):**\n- Gives 50 Caps every 24 hours if you pass a Barter 50 check when speaking to Doctor Klein for the first time.\n- Ask about his name and pass a Speech 65 check to begin What's in a Name?\n- Spoken to as part of When Visitors Attack!",
+    "l": [
+      {
+        "locationId": 484654,
+        "title": "The Think Tank"
+      },
+      {
+        "locationId": 499003,
+        "title": "Doctor Klein"
+      },
+      {
+        "locationId": 485218,
+        "title": "What's in a Name?"
+      },
+      {
+        "locationId": 485245,
+        "title": "When Visitors Attack!"
+      }
+    ]
+  },
+  "499002": {
+    "d": "**Location:** The Think Tank - On the left side of the room, facing some screens.  \n\n**Note(s):**\n- Passing a Perception 8 check, using the Lady Killer / Cherchez La Femme perk, or bringing her a teddy bear begins the Coming Out of Her Shell quest.\n- Asking what she does here, then asking about her title, begins the quest He Came... And Went\n- A dialogue choice in her quest (\"I'll tell the others if you don't make it worth my while.\") yields 1 Conductor, 1 Wonderglue, and 1 Pre-War Money every 24 hours.\n- The other choice (\"I could come back any time and just breathe, if you want.\") yields Drained Electron Charge Packs, Drained Microfusion Cells, and Drained Small Energy Cells.",
+    "l": [
+      {
+        "locationId": 484654,
+        "title": "The Think Tank"
+      },
+      {
+        "locationId": 485216,
+        "title": "Coming Out of Her Shell"
+      },
+      {
+        "locationId": 485228,
+        "title": "He Came... And Went"
+      }
+    ]
+  },
+  "499003": {
+    "d": "**Location:** The Think Tank - At the top of the stairs in the middle of the room, facing a blue screen.  \n\n**Note(s):**\n- Spoken to as part of He Came... And Went\n- Asking \"Why do I have this strange... passive sensation in here?\" and \"Why the anti-aggression programming?\", then \"Who were these visitors?\" begins When Visitors Attack!",
+    "l": [
+      {
+        "locationId": 484654,
+        "title": "The Think Tank"
+      },
+      {
+        "locationId": 485228,
+        "title": "He Came... And Went"
+      },
+      {
+        "locationId": 485245,
+        "title": "When Visitors Attack!"
+      }
+    ]
+  },
+  "499004": {
+    "d": "**Location:** The Think Tank - On the right side of the room, facing the wires.  \n\n**Note(s):**\n- Pass a Perception 7 and two Science 75 checks to begin the On the Same Wavelength quest.\n- Can add Higgs Village to your map.\n- Certain dialogue choices yield 2 Duct Tape + 2 Cram + ¡La Fantoma! + every 24 hours for male couriers.\n- Female couriers will receive 10 microfusion cells + Tæles of Chivalrie instead.\n- Both couriers will also receive copies of Programmer's Digest + Fixin' Things and a sensor module if they ask if he's made \"any new discoveries today\".\n- Asking if he has anything to \"pass\" the \"time\", then clarifying \"I mean, literally, got anything to help pass the time?\" yields an egg timer.",
+    "l": [
+      {
+        "locationId": 484654,
+        "title": "The Think Tank"
+      },
+      {
+        "locationId": 485244,
+        "title": "On the Same Wavelength"
+      },
+      {
+        "locationId": 484650,
+        "title": "Higgs Village"
+      },
+      {
+        "locationId": 499103,
+        "title": "¡La Fantoma!"
+      },
+      {
+        "locationId": 499103,
+        "title": "Tæles of Chivalrie"
+      },
+      {
+        "locationId": 499107,
+        "title": "Programmer's Digest + Fixin' Things"
+      }
+    ]
+  },
+  "499005": {
+    "d": "**Location:** The Think Tank - On the right side of the room, facing a console.\n\n**Note(s):**\n- Speak to him to begin A Brain's Best Friend\n- Show him Gabe's Bowl and pass a Speech 45 check to have two options:\n  - \"It sounds to me like you hurt someone who loved you very much\" - yields 3 Cazador Poison Glands & 3 Nightstalker Blood Vials every 24 hours\n  - \"It's nothing to be ashamed of. Gabe knew his place - as a specimen.\" yields 3 Cazador Eggs every 24 hours",
+    "l": [
+      {
+        "locationId": 484654,
+        "title": "The Think Tank"
+      },
+      {
+        "locationId": 485224,
+        "title": "A Brain's Best Friend"
+      },
+      {
+        "locationId": 499205,
+        "title": "Gabe's Bowl"
+      }
+    ]
+  },
+  "499006": {
+    "d": "**Location:** The Think Tank - On a table next to a Deluxe Chemistry Set on the left side of the room.  \n\n**Repair With:**\n- Glasses\n- Any Headgear (w/ Jury Rigging perk)  \n\n**Statistics:**\n- DT +1\n- Repair +5\n- Intelligence +1",
+    "l": [
+      {
+        "locationId": 484654,
+        "title": "The Think Tank"
+      }
+    ]
+  },
+  "499007": {
+    "d": "**Location:** The Think Tank - Behind a locked (Average) door at the far right side of the upper level. Once inside, it's on top of a stack of papers on the floor.\n\n**Repair With:**\n- Glasses\n- Any Headgear (w/ Jury Rigging perk)  \n\n**Statistics:**\n- DT +1\n- Explosives +10\n- Intelligence +2",
+    "l": [
+      {
+        "locationId": 484654,
+        "title": "The Think Tank"
+      }
+    ]
+  },
+  "499008": {
+    "d": "**Location:** On the rooftop of the Signal Hills Transmitter building.  \n\n**Special Effects:**\n- None\n\n**Type:** Two-Handed Energy Weapon  \n\n**Requirements:**\n- Energy Weapons 75\n- Strength 4",
+    "l": [
+      {
+        "locationId": 484671,
+        "title": "Signal Hills Transmitter"
+      }
+    ]
+  },
+  "499009": {
+    "d": "**Location:** On the rooftop of the Signal Hills Transmitter building.",
+    "l": [
+      {
+        "locationId": 484671,
+        "title": "Signal Hills Transmitter"
+      }
+    ]
+  },
+  "499096": {
+    "d": "**Location:** The Think Tank - On top of a console behind Doctor Borous.  \n\n**Affected Skill:** Science",
+    "l": [
+      {
+        "locationId": 484654,
+        "title": "The Think Tank"
+      },
+      {
+        "locationId": 499005,
+        "title": "Doctor Borous"
+      }
+    ]
+  },
+  "499098": {
+    "d": "**Location:** In the inventory of Doctor 8. You'll need to kill him to take it.  \n\n**Affected Skill:** Speech",
+    "l": [
+      {
+        "locationId": 499004,
+        "title": "Doctor 8"
+      }
+    ]
+  },
+  "499103": {
+    "d": "**Location:** Given to you by Doctor 8 for choosing these dialogue options after passing a Science 75 or Perception 7 check. Additional copies can also be obtained by speaking to Doctor 8 every 24 hours.\n- Um, about when I first arrived. Tell me you didn't sonjaculate into the... my... Sonic Emitter.\n- **Male Couriers:** Usually, I can find some Cram lying around. Put some duct tape around the lid, good to go.\n- **Female Couriers:** I usually just take a fusion cell and oscillate its charge, vibrates for like, an hour.\n\n**Affected Skill:**\n- Sneak (Male Couriers)\n- Melee Weapons (Female Couriers)",
+    "l": [
+      {
+        "locationId": 499004,
+        "title": "Doctor 8"
+      }
+    ]
+  },
+  "499107": {
+    "d": "**Location:** Given to you every 24 hours by Doctor 8, after making the dialogue options necessary to obtain ¡La Fantoma! / Tæles of Chivalrie  \n\n**Affected Skill:**\n- Science (Programmer's Digest)\n- Repair (Fixin' Things)",
+    "l": [
+      {
+        "locationId": 499004,
+        "title": "Doctor 8"
+      },
+      {
+        "locationId": 499103,
+        "title": "¡La Fantoma! / Tæles of Chivalrie"
+      }
+    ]
+  },
+  "499167": {
+    "d": "**Location:** Signal Hills Transmitter - Underneath the shelves directly to your right when entering.",
+    "l": [
+      {
+        "locationId": 484671,
+        "title": "Signal Hills Transmitter"
+      }
+    ]
+  },
+  "499168": {
+    "d": "**Location:** Signal Hills Transmitter - On a desk to your right immediately after entering.\n\n**Related Quest:** Influencing People",
+    "l": [
+      {
+        "locationId": 484671,
+        "title": "Signal Hills Transmitter"
+      },
+      {
+        "locationId": 485226,
+        "title": "Influencing People"
+      }
+    ]
+  },
+  "499169": {
+    "d": "**Location:** On the rooftop of the Signal Hills Transmitter building.\n\n**Related Quest:** Influencing People",
+    "l": [
+      {
+        "locationId": 484671,
+        "title": "Signal Hills Transmitter"
+      },
+      {
+        "locationId": 485226,
+        "title": "Influencing People"
+      }
+    ]
+  },
+  "499170": {
+    "d": "**Location:** Next to a skeleton and duffle bag in the valley.\n\n**Skill Increase:** +3 Science (+4 with the Comprehension perk)"
+  },
+  "499171": {
+    "d": "On a rooftop, reached by climbing over the back of a nearby truck."
+  },
+  "499172": {
+    "d": "**Location:** Magnetohydraulics Complex - In front of a wrecked terminal in a flooded room.\n\n**Related Quest:** All My Friends Have Off Switches",
+    "l": [
+      {
+        "locationId": 484614,
+        "title": "Magnetohydraulics Complex"
+      },
+      {
+        "locationId": 485197,
+        "title": "All My Friends Have Off Switches"
+      }
+    ]
+  },
+  "499173": {
+    "d": "**Location:** Big MT North Tunnel - On a shelf in the small room to your right immediately after entering.\n\n**Related Quest:** All My Friends Have Off Switches",
+    "l": [
+      {
+        "locationId": 484666,
+        "title": "Big MT North Tunnel"
+      },
+      {
+        "locationId": 485197,
+        "title": "All My Friends Have Off Switches"
+      }
+    ]
+  },
+  "499174": {
+    "d": "**Location:** Big MT North Tunnel - At the end of a rocky tunnel beyond the forcefield.  \n\n_Note: You'll need to upgrade the Sonic Emitter to get past the forcefield._\n\n**Category:** Two-Handed Energy Weapon  \n\n**Requirements:**\n- Energy Weapons 75\n- Strength 4",
+    "l": [
+      {
+        "locationId": 484666,
+        "title": "Big MT North Tunnel"
+      },
+      {
+        "locationId": 500081,
+        "title": "upgrade the Sonic Emitter"
+      }
+    ]
+  },
+  "499176": {
+    "d": "**Location:** Elijah's Watch - On a wooden platform.",
+    "l": [
+      {
+        "locationId": 484664,
+        "title": "Elijah's Watch"
+      }
+    ]
+  },
+  "499178": {
+    "d": "**Location:** Elijah's Watch - On a wooden platform overlooking the area below.  \n\n**Special Effects:**\n- None\n\n**Type:** Two-Handed Energy Weapon  \n\n**Requirements:**\n- Energy Weapons 100  \n- Strength 8",
+    "l": [
+      {
+        "locationId": 484664,
+        "title": "Elijah's Watch"
+      }
+    ]
+  },
+  "499179": {
+    "d": "**Location:** Next to a bloody sleeping bag.  \n\n**Category:** Two-Handed Gun  \n\n**Requirements:**\n- 50 Guns\n- Strength 4"
+  },
+  "499180": {
+    "d": "**Location:** On the back of a truck right outside the Securitron De-Construction Plant entrance.\n\n**Related Quest:** All My Friends Have Off Switches",
+    "l": [
+      {
+        "locationId": 484661,
+        "title": "Securitron De-Construction Plant"
+      },
+      {
+        "locationId": 485197,
+        "title": "All My Friends Have Off Switches"
+      }
+    ]
+  },
+  "499181": {
+    "d": "**Location:** On a picnic table in a fenced-off area right outside the Securitron De-Construction Plant.  \n\n**Affected Skill:** Survival",
+    "l": [
+      {
+        "locationId": 484661,
+        "title": "Securitron De-Construction Plant"
+      }
+    ]
+  },
+  "499182": {
+    "d": "**Location:** Securitron De-Construction Plant - Underneath a large burned book on a bookshelf to your right after entering the building through the main entrance.  \n\n**Affected Skill:** Medicine",
+    "l": [
+      {
+        "locationId": 484661,
+        "title": "Securitron De-Construction Plant"
+      }
+    ]
+  },
+  "499183": {
+    "d": "**Location:** Securitron De-Construction Plant - In the inventory of 010011110110111001100101, a named Securitron found on the upper floor.\n\n**Related Quest:** Influencing People",
+    "l": [
+      {
+        "locationId": 484661,
+        "title": "Securitron De-Construction Plant"
+      },
+      {
+        "locationId": 485226,
+        "title": "Influencing People"
+      }
+    ]
+  },
+  "499184": {
+    "d": "**Location:** Z-14 Pepsinae DNA Splicing Lab - In the inventory of Specimen 73, a uniquely named Cazador.  \n\n**Category:** Headgear  \n\n**Statistics:**\n- DT +4\n- Health Regeneration\n- Endurance +1",
+    "l": [
+      {
+        "locationId": 484660,
+        "title": "Z-14 Pepsinae DNA Splicing Lab"
+      }
+    ]
+  },
+  "499185": {
+    "d": "**Location:** Z-14 Pepsinae DNA Splicing Lab - On top of an operating table in the room where you encounter Specimen 73.\n\n**Related Quest:** Influencing People",
+    "l": [
+      {
+        "locationId": 484660,
+        "title": "Z-14 Pepsinae DNA Splicing Lab"
+      },
+      {
+        "locationId": 485226,
+        "title": "Influencing People"
+      }
+    ]
+  },
+  "499186": {
+    "d": "**Location:** Z-14 Pepsinae DNA Splicing Lab - On top of a table in the room where you encounter Specimen 73.  \n\n**Category:** One-Handed Unarmed  \n\n**Requirements:**\n- Unarmed 25\n- Strength 2",
+    "l": [
+      {
+        "locationId": 484660,
+        "title": "Z-14 Pepsinae DNA Splicing Lab"
+      }
+    ]
+  },
+  "499187": {
+    "d": "**Location:** Z-14 Pepsinae DNA Splicing Lab - Inside a cell at the end of a corridor.  \n\n**Category:** Two-Handed Energy Weapon  \n\n**Requirements:**\n- Energy Weapons 25\n- Strength 3",
+    "l": [
+      {
+        "locationId": 484660,
+        "title": "Z-14 Pepsinae DNA Splicing Lab"
+      }
+    ]
+  },
+  "499188": {
+    "d": "**Location:** X-8 Research Center - On top of a table on Level 2.",
+    "l": [
+      {
+        "locationId": 484652,
+        "title": "X-8 Research Center"
+      }
+    ]
+  },
+  "499190": {
+    "d": "**Location:** Z-9 Crotalus DNA Preservation Lab - On top of a surgical table in the room where you encounter Shadis.\n\n**Related Quest:** Influencing People",
+    "l": [
+      {
+        "locationId": 484657,
+        "title": "Z-9 Crotalus DNA Preservation Lab"
+      },
+      {
+        "locationId": 485226,
+        "title": "Influencing People"
+      }
+    ]
+  },
+  "499191": {
+    "d": "**Location:** Z-9 Crotalus DNA Preservation Lab - Inside a small container on the top shelf of a cabinet, found in the corner of the room to your right when first entering the lab. \n\n**Affected Skill:** Survival",
+    "l": [
+      {
+        "locationId": 484657,
+        "title": "Z-9 Crotalus DNA Preservation Lab"
+      }
+    ]
+  },
+  "499193": {
+    "d": "**Location:** Ulysses' Point - Inside the cave, next to the bedroll in the corner.",
+    "l": [
+      {
+        "locationId": 484656,
+        "title": "Ulysses' Point"
+      }
+    ]
+  },
+  "499194": {
+    "d": "**Location:** Ulysses' Point - Inside the cave, next to the bedroll in the corner. Underneath Patient Log: Y-17.9",
+    "l": [
+      {
+        "locationId": 484656,
+        "title": "Ulysses' Point"
+      },
+      {
+        "locationId": 499193,
+        "title": "Patient Log: Y-17.9"
+      }
+    ]
+  },
+  "499195": {
+    "d": "**Location:** Ulysses' Point - Inside the cave, on a shelf.  \n\n**Category:** One-Handed Gun  \n\n**Requirements:**\n- Strength 1",
+    "l": [
+      {
+        "locationId": 484656,
+        "title": "Ulysses' Point"
+      }
+    ]
+  },
+  "499196": {
+    "d": "**Location:** Higgs Village, House #104 - On top of a radio on the upper floor.",
+    "l": [
+      {
+        "locationId": 484650,
+        "title": "Higgs Village"
+      }
+    ]
+  },
+  "499197": {
+    "d": "**Location:** Higgs Village, House 00 - On top of a terminal in the server room upstairs.\n\n**Related Quest:** Field Research",
+    "l": [
+      {
+        "locationId": 484650,
+        "title": "Higgs Village"
+      },
+      {
+        "locationId": 485225,
+        "title": "Field Research"
+      }
+    ]
+  },
+  "499198": {
+    "d": "**Location:** Higgs Village, House 00 - On the lowest part of a server rack upstairs, right outside the room holding Audio Sample - Giant Tarantula.",
+    "l": [
+      {
+        "locationId": 484650,
+        "title": "Higgs Village"
+      },
+      {
+        "locationId": 499197,
+        "title": "Audio Sample - Giant Tarantula"
+      }
+    ]
+  },
+  "499199": {
+    "d": "**Location:** Higgs Village, House #101 - On the desk in the office upstairs.\n\n**Related Quest:** All My Friends Have Off Switches",
+    "l": [
+      {
+        "locationId": 484650,
+        "title": "Higgs Village"
+      },
+      {
+        "locationId": 485197,
+        "title": "All My Friends Have Off Switches"
+      }
+    ]
+  },
+  "499200": {
+    "d": "**Location:** Higgs Village, House 101 - On top of a wardrobe in the bedroom upstairs.  \n\n**Repair With:**\n- Mad Scientist Scrubs\n- Scientist Scrubs\n- Dr. Mobius' Scrubs\n- Any Light Armor or Clothing (w/ Jury Rigging perk)  \n\n**Statistics:**\n- DT +4\n- Science +10\n- Intelligence +2",
+    "l": [
+      {
+        "locationId": 484650,
+        "title": "Higgs Village"
+      }
+    ]
+  },
+  "499201": {
+    "d": "**Location:** Higgs Village, House 102 - On top of a computer equipment by the doorway to the bedroom upstairs.",
+    "l": [
+      {
+        "locationId": 484650,
+        "title": "Higgs Village"
+      }
+    ]
+  },
+  "499202": {
+    "d": "**Location:** Higgs Village, House 103 - Opposite the door in the bedroom upstairs.",
+    "l": [
+      {
+        "locationId": 484650,
+        "title": "Higgs Village"
+      }
+    ]
+  },
+  "499203": {
+    "d": "**Location:** Higgs Village, House 103 - Inside a bird cage on a desk in the bedroom upstairs.\n\n**Used to Unlock:** Locked (Very Hard) door to the basement downstairs.",
+    "l": [
+      {
+        "locationId": 484650,
+        "title": "Higgs Village"
+      }
+    ]
+  },
+  "499204": {
+    "d": "**Location:** Higgs Village, House 103, Basement - On a shelf at the back of the room.    \n\n**Category:** One-Handed Melee  \n\n**Requirements:**\n- Melee Weapons 50\n- Strength 3",
+    "l": [
+      {
+        "locationId": 484650,
+        "title": "Higgs Village"
+      }
+    ]
+  },
+  "499205": {
+    "d": "**Location:** Higgs Village - In front of the dog house behind house #103.\n\n**Related Quest:** A Brain's Best Friend",
+    "l": [
+      {
+        "locationId": 484650,
+        "title": "Higgs Village"
+      },
+      {
+        "locationId": 485224,
+        "title": "A Brain's Best Friend"
+      }
+    ]
+  },
+  "499206": {
+    "d": "**Location:** Higgs Village, House 108 - On top of a desk in an office upstairs.\n\n**Related Quest:** All My Friends Have Off Switches",
+    "l": [
+      {
+        "locationId": 484650,
+        "title": "Higgs Village"
+      },
+      {
+        "locationId": 485197,
+        "title": "All My Friends Have Off Switches"
+      }
+    ]
+  },
+  "499207": {
+    "d": "**Location:** Higgs Village, House 108 - On top of a bedside table upstairs.\n\n**Related Quest:** Field Research",
+    "l": [
+      {
+        "locationId": 484650,
+        "title": "Higgs Village"
+      },
+      {
+        "locationId": 485225,
+        "title": "Field Research"
+      }
+    ]
+  },
+  "499209": {
+    "d": "**Location:** X-2 Transmitter Antenna Array - In front of a coffee machine on the ground floor.\n\n**Related Quest:** All My Friends Have Off Switches",
+    "l": [
+      {
+        "locationId": 484649,
+        "title": "X-2 Transmitter Antenna Array"
+      },
+      {
+        "locationId": 485197,
+        "title": "All My Friends Have Off Switches"
+      }
+    ]
+  },
+  "499210": {
+    "d": "**Location:** X-2 Transmitter Antenna Array - On top of the satellite dish, reached by climbing a ladder inside the building.  \n\n**Special Effects:**\n- Bonus damage against robots\r\n- Bonus damage against power armor\n\n**Type:** Two-Handed Melee  \n\n**Requirements:**\n- Melee Weapons 75\n- Strength 7",
+    "l": [
+      {
+        "locationId": 484649,
+        "title": "X-2 Transmitter Antenna Array"
+      }
+    ]
+  },
+  "499243": {
+    "d": "**Location:** Carried by Test Subject 1, a unique Lobotomite enemy in The Cuckoo's Nest.\n\n**Category:** Two-Handed Melee  \n\n**Requirements:**\n- Melee Weapons 55\n- Strength 5",
+    "l": [
+      {
+        "locationId": 484681,
+        "title": "The Cuckoo's Nest"
+      }
+    ]
+  },
+  "499245": {
+    "d": "**Location:** The Cuckoo's Nest - On a makeshift bench / shrine to your right soon after entering.\n\n**Related Quest:** All My Friends Have Off Switches",
+    "l": [
+      {
+        "locationId": 484681,
+        "title": "The Cuckoo's Nest"
+      },
+      {
+        "locationId": 485197,
+        "title": "All My Friends Have Off Switches"
+      }
+    ]
+  },
+  "499250": {
+    "d": "**Location:** The Cuckoo's Nest - On a shelf at the back of the cave, near a blackboard.  \n\n**Category:** Light Armor  \n\n**Statistics:**\n- DT +4\n- Strength +1",
+    "l": [
+      {
+        "locationId": 484681,
+        "title": "The Cuckoo's Nest"
+      }
+    ]
+  },
+  "499253": {
+    "d": "**Location:** X-7a \"Left Field\" Artillery Launch - On the back of a truck.  \n\n**Category:** Two-Handed Explosive  \n\n**Requirements:**\n- Explosives 75\n- Strength 6",
+    "l": [
+      {
+        "locationId": 484680,
+        "title": "X-7a \"Left Field\" Artillery Launch"
+      }
+    ]
+  },
+  "499257": {
+    "d": "**Location:** X-7a \"Left Field\" Artillery Launch - In the inventory of RY-589, a unique sentry bot.  \r\n\r\n**Category:** Two-Handed Energy Weapon  \r\n\r\n**Requirements:**\r\n- Energy Weapons 75\r\n- Strength 4",
+    "l": [
+      {
+        "locationId": 484680,
+        "title": "X-7a \"Left Field\" Artillery Launch"
+      }
+    ]
+  },
+  "499260": {
+    "d": "**Location:** X-7a \"Left Field\" Artillery Launch, Artillery Command Center - On a console opposite the door.",
+    "l": [
+      {
+        "locationId": 484680,
+        "title": "X-7a \"Left Field\" Artillery Launch"
+      }
+    ]
+  },
+  "499267": {
+    "d": "Interact with the console to reveal new loot at X-7b \"Boom Town\" Target Zone",
+    "l": [
+      {
+        "locationId": 484653,
+        "title": "X-7b \"Boom Town\" Target Zone"
+      }
+    ]
+  },
+  "499270": {
+    "d": "X-7b \"Boom Town\" Target Zone - Inside a footlocker in a crater that only appears after interacting with the Initiate Test Fire console at X-7a \"Left Field\" Artillery Launch.",
+    "l": [
+      {
+        "locationId": 484653,
+        "title": "X-7b \"Boom Town\" Target Zone"
+      },
+      {
+        "locationId": 499267,
+        "title": "Initiate Test Fire"
+      },
+      {
+        "locationId": 484680,
+        "title": "X-7a \"Left Field\" Artillery Launch"
+      }
+    ]
+  },
+  "499271": {
+    "d": "**Location:** X-7b \"Boom Town\" Target Zone - Inside a footlocker in a crater that only appears after interacting with the Initiate Test Fire console at X-7a \"Left Field\" Artillery Launch.  \n\n**Category:** Headgear  \n\n**Statistics:**\n- DT +4\r\n- Health Regeneration\r\n- Endurance +1",
+    "l": [
+      {
+        "locationId": 484653,
+        "title": "X-7b \"Boom Town\" Target Zone"
+      },
+      {
+        "locationId": 499267,
+        "title": "Initiate Test Fire"
+      },
+      {
+        "locationId": 484680,
+        "title": "X-7a \"Left Field\" Artillery Launch"
+      }
+    ]
+  },
+  "499292": {
+    "d": "**Location:** Z-43 Innovative Toxins Plant - Directly on your right as you enter.  \n\n**Category:** One-Handed Unarmed  \n\n**Requirements:**\n- Unarmed 55\n- Strength 2",
+    "l": [
+      {
+        "locationId": 484677,
+        "title": "Z-43 Innovative Toxins Plant"
+      }
+    ]
+  },
+  "499296": {
+    "d": "**Location:** Z-43 Innovative Toxins Plant - In a room at the back of the main area, leaning against the filing cabinets.\n\n**Used to Unlock:** Hazmat Suit Pod",
+    "l": [
+      {
+        "locationId": 484677,
+        "title": "Z-43 Innovative Toxins Plant"
+      },
+      {
+        "locationId": 499303,
+        "title": "Hazmat Suit"
+      }
+    ]
+  },
+  "499303": {
+    "d": "**Location:** Hazmat Testing Ground - Inside a pod unlocked via Hazmat Pod Security Code or upgraded Sonic Emitter.  \n\n**Repair With:**\n- Radiation Suit\n- Advanced Radiation Suit\n\n**Statistics:**\n- DT +11\n- Poison Resistance +85",
+    "l": [
+      {
+        "locationId": 484658,
+        "title": "Hazmat Testing Ground"
+      },
+      {
+        "locationId": 499296,
+        "title": "Hazmat Pod Security Code"
+      }
+    ]
+  },
+  "499304": {
+    "d": "**Location:** Hazmat Testing Ground - Inside a pod unlocked via Hazmat Pod Security Code or upgraded Sonic Emitter.  \n\n**Repair With:**\n- Head Wraps\n\n**Statistics:**\n- DT +2",
+    "l": [
+      {
+        "locationId": 484658,
+        "title": "Hazmat Testing Ground"
+      },
+      {
+        "locationId": 499296,
+        "title": "Hazmat Pod Security Code"
+      }
+    ]
+  },
+  "499305": {
+    "d": "Big MT West Tunnel - On the ground behind a locked (Easy) door on your right as you enter.",
+    "l": [
+      {
+        "locationId": 484674,
+        "title": "Big MT West Tunnel"
+      }
+    ]
+  },
+  "499306": {
+    "d": "**Location:** Big MT West Tunnel - Leaning against a duffle bag on a shelf near a locked (Hard) door.\n\n**Related Quest:** Influencing People",
+    "l": [
+      {
+        "locationId": 484674,
+        "title": "Big MT West Tunnel"
+      },
+      {
+        "locationId": 485226,
+        "title": "Influencing People"
+      }
+    ]
+  },
+  "499308": {
+    "d": "**Location:** Little Yangtze - Leaning against the wall near a doorway on the ruined building's upper floor.  \n\n**Special Effects:**\n- Bonus Critical Damage\n- Bonus Critical Chance\n\n**Type:** Two-Handed Gun  \n\n**Requirements:**\n- Guns 75\n- Strength 6",
+    "l": [
+      {
+        "locationId": 484673,
+        "title": "Little Yangtze"
+      }
+    ]
+  },
+  "499310": {
+    "d": "**Location:** Little Yangtze - Outside the watchtower, leaning against a wall.  \n\n**Special Effects:**\n- None\n\n**Type:** Two-Handed Energy Weapon  \n\n**Requirements:**\n- Energy Weapons 75\n- Strength 4",
+    "l": [
+      {
+        "locationId": 484673,
+        "title": "Little Yangtze"
+      }
+    ]
+  },
+  "499311": {
+    "d": "**Location:** Little Yangtze - Leaning against a coffee maker inside the watchtower.\n\n**Related Quest:** Influencing People",
+    "l": [
+      {
+        "locationId": 484673,
+        "title": "Little Yangtze"
+      },
+      {
+        "locationId": 485226,
+        "title": "Influencing People"
+      }
+    ]
+  },
+  "499312": {
+    "d": "Little Yangtze - Underneath a bed in the tent.",
+    "l": [
+      {
+        "locationId": 484673,
+        "title": "Little Yangtze"
+      }
+    ]
+  },
+  "499313": {
+    "d": "**Location:** In the inventories of Number 27 and Number 34, unique Ghoul enemies on the hilltop near Little Yangtze.  \n\n**Category:** Two-Handed Melee  \r\n\r\n**Requirements:**\r\n- Melee Weapons 55\r\n- Strength 5",
+    "l": [
+      {
+        "locationId": 484673,
+        "title": "Little Yangtze"
+      }
+    ]
+  },
+  "499314": {
+    "d": "**Location:** Forbidden Zone Dome, Forbidden Zone Dome - Moving around the lower level.\n\n**Note(s):**\n- Gives you Mentats",
+    "l": [
+      {
+        "locationId": 484667,
+        "title": "Forbidden Zone Dome"
+      }
+    ]
+  },
+  "499490": {
+    "d": "**Location:** Construction Site - On the ground near an excavator and skeleton.\n\n**Related Quest:** Influencing People",
+    "l": [
+      {
+        "locationId": 484672,
+        "title": "Construction Site"
+      },
+      {
+        "locationId": 485226,
+        "title": "Influencing People"
+      }
+    ]
+  },
+  "499491": {
+    "d": "**Location:** On top of a wooden box at the highest point of the crane.  \n\n**Category:** Headgear  \n\n**Statistics:**\n- DT +3\n- Health Regeneration\n- Endurance +1"
+  },
+  "499493": {
+    "d": "**Location:** X-22 Botanical Garden - Inside the ruined building, next to the stairs.\n\n**Related Quest:** All My Friends Have Off Switches",
+    "l": [
+      {
+        "locationId": 484669,
+        "title": "X-22 Botanical Garden"
+      },
+      {
+        "locationId": 485197,
+        "title": "All My Friends Have Off Switches"
+      }
+    ]
+  },
+  "499494": {
+    "d": "**Location:** X-22 Botanical Garden - In a pile of dirt at the edge of the ruined building's top floor.\n\n**Related Quest:** Field Research",
+    "l": [
+      {
+        "locationId": 484669,
+        "title": "X-22 Botanical Garden"
+      },
+      {
+        "locationId": 485225,
+        "title": "Field Research"
+      }
+    ]
+  },
+  "499495": {
+    "d": "**Location:** In the inventory of Dionaea Muscipula, a unique Spore Plant found near a fountain on the clifftop.  \n\n**Category:** One-Handed Unarmed  \r\n\r\n**Requirements:**\r\n- Unarmed 55\r\n- Strength 2"
+  },
+  "499496": {
+    "d": "**Location:** Worn by a skeleton laying inside the fountain on the clifftop.\n\n**Category:** Headgear  \r\n\r\n**Statistics:**\r\n- DT +3\r\n- Health Regeneration\r\n- Endurance +1"
+  },
+  "499497": {
+    "d": "**Location:** At the edge of a grassy area near a fountain on the clifftop.\n\n**Related Quest:** Field Research",
+    "l": [
+      {
+        "locationId": 485225,
+        "title": "Field Research"
+      }
+    ]
+  },
+  "499498": {
+    "d": "**Location:** In a grassy patch on top of the clifftop, guarded by a Spore Plant and reached by walking over a boobytrapped pipe near another Seed Package.\n\n**Related Quest:** Field Research",
+    "l": [
+      {
+        "locationId": 499497,
+        "title": "Seed Package"
+      },
+      {
+        "locationId": 485225,
+        "title": "Field Research"
+      }
+    ]
+  },
+  "499499": {
+    "d": "**Location:** Z-38 Lightwave Dynamics Research - In a beam of blue light opposite the door as you enter.  \n\n**Category:** Headgear  \r\n\r\n**Statistics:**\r\n- DT +3\r\n- Health Regeneration\r\n- Endurance +1",
+    "l": [
+      {
+        "locationId": 484678,
+        "title": "Z-38 Lightwave Dynamics Research"
+      }
+    ]
+  },
+  "499500": {
+    "d": "Z-38 Lightwave Dynamics Research - Underneath a large monitor to your right after climbing the stairs onto the walkway.",
+    "l": [
+      {
+        "locationId": 484678,
+        "title": "Z-38 Lightwave Dynamics Research"
+      }
+    ]
+  },
+  "499501": {
+    "d": "**Location:** Saturnite Alloy Research Facility - On the shelves of a cabinet to your right after entering a large room near the entrance.\n\n**Related Quest:** Influencing People",
+    "l": [
+      {
+        "locationId": 484679,
+        "title": "Saturnite Alloy Research Facility"
+      },
+      {
+        "locationId": 485226,
+        "title": "Influencing People"
+      }
+    ]
+  },
+  "499502": {
+    "d": "**Location:** X-12 Research Center - Carried by the Y-17 Master Trauma Harness on the lowest floor.\n\n_Note: You'll need to upgrade the Sonic Emitter to get past the forcefield and reach the lower floors._\n\n**Category:** Two-Handed Gun\n  \n**Requirements:**\n- Guns 75\n- Strength 8",
+    "l": [
+      {
+        "locationId": 484655,
+        "title": "X-12 Research Center"
+      },
+      {
+        "locationId": 500081,
+        "title": "upgrade the Sonic Emitter"
+      }
+    ]
+  },
+  "499503": {
+    "d": "**Location:** X-12 Research Center - Leaning against a projector on the lowest floor.\n\n_Note: You'll need to upgrade the Sonic Emitter to get past the forcefield and reach the lower floors._\n\n**Related Quest:** Influencing People",
+    "l": [
+      {
+        "locationId": 484655,
+        "title": "X-12 Research Center"
+      },
+      {
+        "locationId": 500081,
+        "title": "upgrade the Sonic Emitter"
+      },
+      {
+        "locationId": 485226,
+        "title": "Influencing People"
+      }
+    ]
+  },
+  "499509": {
+    "d": "**Location:** The Sink - In the kitchen, next to the doorway.\n\n**Note(s):**\n- Activated via Sink Project: Sink\n- Upgraded with Sink Upgrade: Water Production\n  - Upgrading provides purified water when speaking to the Sink with empty bottles in your inventory",
+    "l": [
+      {
+        "locationId": 484613,
+        "title": "The Sink"
+      },
+      {
+        "locationId": 499172,
+        "title": "Sink Project: Sink"
+      },
+      {
+        "locationId": 499490,
+        "title": "Sink Upgrade: Water Production"
+      }
+    ]
+  },
+  "499510": {
+    "d": "**Location:** The Sink - At the edge of the main room, near the doorway leading to the elevators.  \n\n**Services:**\n- Restores health, removes radiation and addictions.\n- Changes your face\n- Changes your hairstyle\n- Changes your Traits (but only once)\n- Swaps your implanted heart and spine for the originals, and vice versa\n- Sells a variety of implants after their upgrades are installed:\n  - C-13 - +10% damage to Cazadores\n  - M-5 - Increased speed while crouched\n  - Y-3 - Drinking irradiated water does not increase your Rads\n  - Y-7 - Bonus HP / AP from food\n\n**Note(s):**\n- Activated via Sink Project: Auto-Doc\n- Upgraded with:\n  - Auto-Doc Upgrade: Hair Styling Enhancements\n  - Auto-Doc Upgrade: Implant M-5\n  - Auto-Doc Upgrade: Implant Y-3\n  - Auto-Doc Upgrade: Implant Y-7\n  - Auto-Doc Upgrade: Implant C-13\n  - Auto-Doc Upgrade: Cosmetic Enhancements",
+    "l": [
+      {
+        "locationId": 484613,
+        "title": "The Sink"
+      },
+      {
+        "locationId": 499556,
+        "title": "Sink Project: Auto-Doc"
+      },
+      {
+        "locationId": 499168,
+        "title": "Auto-Doc Upgrade: Hair Styling Enhancements"
+      },
+      {
+        "locationId": 499185,
+        "title": "Auto-Doc Upgrade: Implant M-5"
+      },
+      {
+        "locationId": 499190,
+        "title": "Auto-Doc Upgrade: Implant Y-3"
+      },
+      {
+        "locationId": 499531,
+        "title": "Auto-Doc Upgrade: Implant Y-7"
+      },
+      {
+        "locationId": 499557,
+        "title": "Auto-Doc Upgrade: Implant C-13"
+      },
+      {
+        "locationId": 499558,
+        "title": "Auto-Doc Upgrade: Cosmetic Enhancements"
+      }
+    ]
+  },
+  "499511": {
+    "d": "**Location:** The Sink - On a table in the kitchen.\n\n**Note(s):**\n- Activated via Sink Project: Biological Research Station\n- Give it seed packages (1, 2, 3) to harvest plants every 72 hours.",
+    "l": [
+      {
+        "locationId": 484613,
+        "title": "The Sink"
+      },
+      {
+        "locationId": 499493,
+        "title": "Sink Project: Biological Research Station"
+      },
+      {
+        "locationId": 499494,
+        "title": "1"
+      },
+      {
+        "locationId": 499497,
+        "title": "2"
+      },
+      {
+        "locationId": 499498,
+        "title": "3"
+      }
+    ]
+  },
+  "499512": {
+    "d": "**Location:** The Sink - In the lounge, next to the doorway.\n\n**Note(s):**\n- Activated via Sink Project: Light Switch 01\n- Upgraded with Light Switch 01 Upgrade: \"Smart Lights\"\n  - Upgrading provides +2 Intelligence, +5 Repair and +5 Science for 12 hours after exposure",
+    "l": [
+      {
+        "locationId": 484613,
+        "title": "The Sink"
+      },
+      {
+        "locationId": 499209,
+        "title": "Sink Project: Light Switch 01"
+      },
+      {
+        "locationId": 499503,
+        "title": "Light Switch 01 Upgrade: \"Smart Lights\""
+      }
+    ]
+  },
+  "499513": {
+    "d": "**Location:** The Sink - Inside the bedroom, next to the doorway.\n\n**Note(s):**\n- Activated via Sink Project: Light Switch 02\n- Upgraded with Light Switch 02 Upgrade: \"Mood Lights\"\n  - Upgrading provides +2 Charisma, +5 Barter and +5 Speech for 12 hours after exposure",
+    "l": [
+      {
+        "locationId": 484613,
+        "title": "The Sink"
+      },
+      {
+        "locationId": 499173,
+        "title": "Sink Project: Light Switch 02"
+      },
+      {
+        "locationId": 499501,
+        "title": "Light Switch 02 Upgrade: \"Mood Lights\""
+      }
+    ]
+  },
+  "499514": {
+    "d": "**Location:** The Sink - In the lounge, next to the bedroom doorway.\n\n**Note(s):**\n- Activated via Sink Project: Jukebox\n- Can upgrade the Sonic Emitter into different forms after finding audio samples:\n  - Opera Singer\n  - Giant Tarantula\n  - Gabriel's Bark\n  - Mobius' Robo-Scorpion",
+    "l": [
+      {
+        "locationId": 484613,
+        "title": "The Sink"
+      },
+      {
+        "locationId": 499206,
+        "title": "Sink Project: Jukebox"
+      },
+      {
+        "locationId": 499207,
+        "title": "Opera Singer"
+      },
+      {
+        "locationId": 499197,
+        "title": "Giant Tarantula"
+      },
+      {
+        "locationId": 500077,
+        "title": "Gabriel's Bark"
+      },
+      {
+        "locationId": 500087,
+        "title": "Mobius' Robo-Scorpion"
+      }
+    ]
+  },
+  "499515": {
+    "d": "**Location:** The Sink - On a table in the lounge.\n\n**Note(s):**\n- Activated via Sink Project: Toaster\n- Turns Cameras, Hot Plates and Irons into 5 Energy Cells and 3 Microfusion Cells. \n- Turns other Toasters into 5 Energy Cells, 3 Microfusion Cells and 1 Scrap Electronics\n- Turns Saturnite Fist weapons into a Super-Heated variant",
+    "l": [
+      {
+        "locationId": 484613,
+        "title": "The Sink"
+      },
+      {
+        "locationId": 499245,
+        "title": "Sink Project: Toaster"
+      }
+    ]
+  },
+  "499516": {
+    "d": "**Location:** The Sink  \n\n**Note(s):**\n- Activated via Sink Project: Muggy \n- Upgraded with \"Muggy\" Upgrade: Parts Production\n  - After upgrading, speak to Muggy every 24 hours for 50 Energy Cells, 50 Microfusion Cells, and 5 Scrap Electronics.\n- Turns coffee mugs into 2 Wonderglue and 3 Empty Syringes\n- Turns coffee pots into 2 Scrap Metal\n- Turns ceramic dinner plates into 20 Lead and 50 Pistol Powder\n- Turns dinner plates into 3 scrap metal\n- Turns green plates into 8 .44 Magnum Cases and 10 .357 Magnum Cases\n- Turns red plates into 50 Pistol Powder\n- Turns tin plates into 15 .44 Magnum Cases and 20 .357 Magnum Cases\n- Turns white plates into 20 Lead",
+    "l": [
+      {
+        "locationId": 484613,
+        "title": "The Sink"
+      },
+      {
+        "locationId": 499180,
+        "title": "Sink Project: Muggy"
+      },
+      {
+        "locationId": 499183,
+        "title": "\"Muggy\" Upgrade: Parts Production"
+      }
+    ]
+  },
+  "499517": {
+    "d": "**Location:** The Sink - On the wall of the main room, next to the lounge doorway.\n\n**Note(s):**\n- Activated via Sink Project: Book Chute\n- Upgraded with Book Chute Upgrade: Mulching\n  - Upgrading provides the ability to turn clipboards into 1 Duct Tape and 1 Scrap Metal, and Pencils into 5 Lead and 1 Scrap Metal\n- Turns books into blank books that can be crafted into skill books at a workbench (with the corresponding recipe)",
+    "l": [
+      {
+        "locationId": 484613,
+        "title": "The Sink"
+      },
+      {
+        "locationId": 499199,
+        "title": "Sink Project: Book Chute"
+      },
+      {
+        "locationId": 499311,
+        "title": "Book Chute Upgrade: Mulching"
+      }
+    ]
+  },
+  "499518": {
+    "d": "**Location:** X-13 Research Facility - On a countertop inside Lab #1, found soon after entering.\n\n**Related Quest:** X-13: Attack of the Infiltrator!",
+    "l": [
+      {
+        "locationId": 484675,
+        "title": "X-13 Research Facility"
+      },
+      {
+        "locationId": 485206,
+        "title": "X-13: Attack of the Infiltrator!"
+      }
+    ]
+  },
+  "499519": {
+    "d": "**Location:** X-13 Research Facility - Can be obtained by reading the 'Fwd: Re: Field Gun Prototype' entry on any terminal.",
+    "l": [
+      {
+        "locationId": 484675,
+        "title": "X-13 Research Facility"
+      }
+    ]
+  },
+  "499520": {
+    "d": "**Location:** X-13 Research Facility - On a countertop inside Lab #2, found soon after entering.\r\n\r\n**Related Quest:** X-13: Attack of the Infiltrator!",
+    "l": [
+      {
+        "locationId": 484675,
+        "title": "X-13 Research Facility"
+      },
+      {
+        "locationId": 485206,
+        "title": "X-13: Attack of the Infiltrator!"
+      }
+    ]
+  },
+  "499521": {
+    "d": "**Location:** X-13 Research Facility - On the ground next to a skeleton in the corridor outside of Lab #3.  \n\n**Category:** One-Handed Energy Weapon  \n\n**Requirements:**\n- Strength 1",
+    "l": [
+      {
+        "locationId": 484675,
+        "title": "X-13 Research Facility"
+      }
+    ]
+  },
+  "499522": {
+    "d": "**Location:** X-13 Research Facility - On a countertop inside Lab #3, found soon after entering.\r\n\r\n**Related Quest:** X-13: Attack of the Infiltrator!",
+    "l": [
+      {
+        "locationId": 484675,
+        "title": "X-13 Research Facility"
+      },
+      {
+        "locationId": 485206,
+        "title": "X-13: Attack of the Infiltrator!"
+      }
+    ]
+  },
+  "499523": {
+    "d": "**Location:** X-13 Research Facility - Created by picking up Prototype X-13 Gloves, Prototype X-13 Boots, and Prototype X-13 Chest Plate.  \n\n**Repair With:**\n- Combat Armor\n- Any Medium Armor (w/ Jury Rigging perk)  \n\n**Statistics:**\n- DT +14\n- Sneak +15",
+    "l": [
+      {
+        "locationId": 484675,
+        "title": "X-13 Research Facility"
+      },
+      {
+        "locationId": 499518,
+        "title": "Prototype X-13 Gloves"
+      },
+      {
+        "locationId": 499520,
+        "title": "Prototype X-13 Boots"
+      },
+      {
+        "locationId": 499522,
+        "title": "Prototype X-13 Chest Plate"
+      }
+    ]
+  },
+  "499524": {
+    "d": "**Location:** X-13 Research Facility - On the ground at the back of Lab #3.\n\n**Skill Increase:** +3 Sneak (+4 with the Comprehension perk)",
+    "l": [
+      {
+        "locationId": 484675,
+        "title": "X-13 Research Facility"
+      }
+    ]
+  },
+  "499525": {
+    "d": "**Location:** X-13 Research Facility - Stuck between the pages of a book next to the doorway of Lab #1.  \n\n**Affected Skill:** Sneak",
+    "l": [
+      {
+        "locationId": 484675,
+        "title": "X-13 Research Facility"
+      }
+    ]
+  },
+  "499526": {
+    "d": "**Location:** X-13 Research Facility - Sticking out of the pages of a pre-war book on the far right side of the room with forcefields in the floor.  \n\n**Affected Skill:** Sneak",
+    "l": [
+      {
+        "locationId": 484675,
+        "title": "X-13 Research Facility"
+      }
+    ]
+  },
+  "499529": {
+    "d": "**Location:** X-13 Research Facility, X-13 Stealth Testing Lab - Unlocked by reading the 'Check out this mod I've been working on' entry on a terminal in the corner of a walkway in the 'Bathroom Observation Area', overlooking a bathroom with a broken wall.\n\n**Related Quest:** Influencing People",
+    "l": [
+      {
+        "locationId": 484675,
+        "title": "X-13 Research Facility"
+      },
+      {
+        "locationId": 485226,
+        "title": "Influencing People"
+      }
+    ]
+  },
+  "499531": {
+    "d": "**Location:** X-13 Research Facility, X-13 Stealth Testing Lab - Unlocked by reading the 'Suggestion.' entry on a terminal in the 'Reception Observation Area', overlooking an office.\n\n**Related Quest:** Influencing People",
+    "l": [
+      {
+        "locationId": 484675,
+        "title": "X-13 Research Facility"
+      },
+      {
+        "locationId": 485226,
+        "title": "Influencing People"
+      }
+    ]
+  },
+  "499533": {
+    "d": "**Location:** X-13 Research Facility, X-13 Stealth Testing Lab - Unlocked by reading the 'Suggestion.' entry on a Technician Terminal in the corner of a walkway in the 'Office #2 Observation Area'.\n\n**Related Quest:** Influencing People",
+    "l": [
+      {
+        "locationId": 484675,
+        "title": "X-13 Research Facility"
+      },
+      {
+        "locationId": 485226,
+        "title": "Influencing People"
+      }
+    ]
+  },
+  "499540": {
+    "d": "**Location:** X-13 Research Facility, X-13 Stealth Testing Lab - Inside the Administrator's Wall Safe in their office at the end of the stealth course.\n\n**Related Quest:** Project X-13",
+    "l": [
+      {
+        "locationId": 484675,
+        "title": "X-13 Research Facility"
+      },
+      {
+        "locationId": 485251,
+        "title": "Project X-13"
+      }
+    ]
+  },
+  "499541": {
+    "d": "**Location:** X-13 Research Facility, X-13 Stealth Testing Lab - Inside the reward safe after completing the Basic Infiltration Test as part of Project X-13, or the Expert Infiltration Test as part of Project X-13 Redux. The test can be repeated for unlimited magazines.\n\n**Affected Skill:** Sneak",
+    "l": [
+      {
+        "locationId": 484675,
+        "title": "X-13 Research Facility"
+      },
+      {
+        "locationId": 485251,
+        "title": "Project X-13"
+      },
+      {
+        "locationId": 499545,
+        "title": "Project X-13 Redux"
+      }
+    ]
+  },
+  "499542": {
+    "d": "**Location:** X-13 Research Facility, X-13 Stealth Testing Lab - Inside the reward safe after completing the Advanced Infiltration Test as part of Project X-13. The test can be repeated for unlimited magazines.\r\n\n**Affected Skill:** Repair",
+    "l": [
+      {
+        "locationId": 484675,
+        "title": "X-13 Research Facility"
+      },
+      {
+        "locationId": 485251,
+        "title": "Project X-13"
+      }
+    ]
+  },
+  "499543": {
+    "d": "**Location:** X-13 Research Facility, X-13 Stealth Testing Lab - Inside the reward safe after completing the Expert Infiltration Test as part of Project X-13. The test can be repeated for unlimited magazines.\r\n\r\n**Affected Skill:**\n- Lockpick (Locksmith's Reader)\n- Science (Programmer's Digest)",
+    "l": [
+      {
+        "locationId": 484675,
+        "title": "X-13 Research Facility"
+      },
+      {
+        "locationId": 485251,
+        "title": "Project X-13"
+      }
+    ]
+  },
+  "499544": {
+    "d": "**Location:** X-13 Research Facility, X-13 Stealth Testing Lab - Inside the reward safe after completing every Infiltration Test as part of Project X-13.\r\n\n**Skill Increase:** +3 Stealth (+4 with the Comprehension perk)",
+    "l": [
+      {
+        "locationId": 484675,
+        "title": "X-13 Research Facility"
+      },
+      {
+        "locationId": 485251,
+        "title": "Project X-13"
+      }
+    ]
+  },
+  "499545": {
+    "d": "**Location:** X-13 Research Facility, X-13 Stealth Testing Lab\n\n**Quest Giver:** Automatically begins when replaying any of the Infiltration Tests after completing Project X-13.\n\n**Quest Item(s):**\n- X-13 Document\n\n**Reward:**\n- XP\n- Energy Cell x10 (Basic Infiltration Test)\n- Microfusion Cell x10 (Advanced Infiltration Test)\n- ¡La Fantoma! (Expert Infiltration Test)\n- Stealth Boy (Robot Compliance Test)",
+    "l": [
+      {
+        "locationId": 484675,
+        "title": "X-13 Research Facility"
+      },
+      {
+        "locationId": 485251,
+        "title": "Project X-13"
+      },
+      {
+        "locationId": 499540,
+        "title": "X-13 Document"
+      },
+      {
+        "locationId": 499541,
+        "title": "¡La Fantoma!"
+      }
+    ]
+  },
+  "499546": {
+    "d": "X-13 Research Facility, X-13 Stealth Testing Lab - Inside a vent above the room with a large curved desk. You'll need to stand on the railing or carefully hug the edge of the room to reach it.",
+    "l": [
+      {
+        "locationId": 484675,
+        "title": "X-13 Research Facility"
+      }
+    ]
+  },
+  "499547": {
+    "d": "X-13 Research Facility, X-13 Stealth Testing Lab - In the infiltration testing area, on the ground between two fridges in a room across the hall from the administrator's office.",
+    "l": [
+      {
+        "locationId": 484675,
+        "title": "X-13 Research Facility"
+      }
+    ]
+  },
+  "499548": {
+    "d": "**Location:** X-13 Research Facility - Behind a locked (Hard) door marked Stealth Testing Area #2, leaning against a skeleton.",
+    "l": [
+      {
+        "locationId": 484675,
+        "title": "X-13 Research Facility"
+      }
+    ]
+  },
+  "499549": {
+    "d": "**Location:** X-13 Research Facility - Behind a locked (Hard) door marked Stealth Testing Area #2, sticking out of a skeleton's back.\n\n**Category:** Two-Handed Melee  \r\n\r\n**Requirements:**\r\n- Melee Weapons 55\r\n- Strength 5",
+    "l": [
+      {
+        "locationId": 484675,
+        "title": "X-13 Research Facility"
+      }
+    ]
+  },
+  "499550": {
+    "d": "**Location:** X-13 Research Facility - Inside a suitcase tucked into the corner of a room protected by a forcefield on your right as you enter.\n\n_Note: You'll need to upgrade the Sonic Emitter to get past the forcefield._\n\n**Used to Unlock:** X-8 Research Center's Kennels area",
+    "l": [
+      {
+        "locationId": 484675,
+        "title": "X-13 Research Facility"
+      },
+      {
+        "locationId": 500081,
+        "title": "upgrade the Sonic Emitter"
+      },
+      {
+        "locationId": 484652,
+        "title": "X-8 Research Center"
+      }
+    ]
+  },
+  "499551": {
+    "d": "**Location:** X-13 Research Facility - Inside a room protected by a forcefield on your right as you enter.\n\n_Note: You'll need to upgrade the Sonic Emitter to get past the forcefield._\n\n**Category:** One-Handed Energy Weapon  \n\n**Requirements:**\n- Strength 1",
+    "l": [
+      {
+        "locationId": 484675,
+        "title": "X-13 Research Facility"
+      },
+      {
+        "locationId": 500081,
+        "title": "upgrade the Sonic Emitter"
+      }
+    ]
+  },
+  "499552": {
+    "d": "**Location:** Next to the corpse of Dr. Calis, found right outside the Nightstalker Test Area on Level 2.  \n\n**Category:** One-Handed Melee  \n\n**Requirements:**\n- Melee Weapons 75\n- Strength 4"
+  },
+  "499556": {
+    "d": "**Location:** Y-17 Medical Facility - Leaning against a typewwriter on a desk next to the stairs down to the walkway on the upper floor.\n\n**Related Quest:** All My Friends Have Off Switches",
+    "l": [
+      {
+        "locationId": 484651,
+        "title": "Y-17 Medical Facility"
+      },
+      {
+        "locationId": 485197,
+        "title": "All My Friends Have Off Switches"
+      }
+    ]
+  },
+  "499557": {
+    "d": "**Location:** Y-17 Medical Facility - Leaning against a broken terminal in the back-right corner of the lower floor.\n\n**Related Quest:** Influencing People",
+    "l": [
+      {
+        "locationId": 484651,
+        "title": "Y-17 Medical Facility"
+      },
+      {
+        "locationId": 485226,
+        "title": "Influencing People"
+      }
+    ]
+  },
+  "499558": {
+    "d": "**Location:** Y-17 Medical Facility - On the shelves of a cabinet to your right when using the walkway to reach the upper floor.\n\n**Related Quest:** Influencing People",
+    "l": [
+      {
+        "locationId": 484651,
+        "title": "Y-17 Medical Facility"
+      },
+      {
+        "locationId": 485226,
+        "title": "Influencing People"
+      }
+    ]
+  },
+  "499559": {
+    "d": "**Location:** Y-17 Medical Facility - Next to an Auto-Doc surrounded by debris in the middle of the ground floor.\n\n**Repair With:**\n- Recon Armor\n- Any Medium Armor (w/ Jury Rigging perk)  \n\n**Statistics:**\n- DT +19\n- Sneak +5",
+    "l": [
+      {
+        "locationId": 484651,
+        "title": "Y-17 Medical Facility"
+      }
+    ]
+  },
+  "499560": {
+    "d": "**Location:** Y-17 Medical Facility - In the inventory of Doctor Orderly MD PHD DDS, a unique Mr. Orderly found soon after entering.\n\n**Category:** Headgear  \r\n\r\n**Statistics:**\r\n- DT +3\r\n- Health Regeneration\r\n- Endurance +1",
+    "l": [
+      {
+        "locationId": 484651,
+        "title": "Y-17 Medical Facility"
+      }
+    ]
+  },
+  "499561": {
+    "d": "**Location:** Y-17 Medical Facility - On a console right in front of you when entering the room behind a forcefield.\n\n_Note: You'll need to upgrade the Sonic Emitter to get past the forcefield._\n\n**Category:** One-Handed Unarmed  \n\n**Requirements:**\n- Unarmed 55\n- Strength 2",
+    "l": [
+      {
+        "locationId": 484651,
+        "title": "Y-17 Medical Facility"
+      },
+      {
+        "locationId": 500081,
+        "title": "upgrade the Sonic Emitter"
+      }
+    ]
+  },
+  "499562": {
+    "d": "**Location:** Y-17 Medical Facility - On the ground outside a busted cell in the room behind a forcefield.\n\n_Note: You'll need to upgrade the Sonic Emitter to get past the forcefield._",
+    "l": [
+      {
+        "locationId": 484651,
+        "title": "Y-17 Medical Facility"
+      },
+      {
+        "locationId": 500081,
+        "title": "upgrade the Sonic Emitter"
+      }
+    ]
+  },
+  "500072": {
+    "d": "**Location:** X-8 Research Center, X-8 Institutional Test Facility - On a terminal that spawns somewhere random in the area. Check the local map for an idea of where to search.\n\n**Related Quest:** X-8: High School Horror!",
+    "l": [
+      {
+        "locationId": 484652,
+        "title": "X-8 Research Center"
+      },
+      {
+        "locationId": 485205,
+        "title": "X-8: High School Horror!"
+      }
+    ]
+  },
+  "500074": {
+    "d": "**Location:** X-8 Research Center, X-8 Institutional Test Facility - On a terminal that spawns somewhere random in the area. Check the local map for an idea of where to search.\n\n**Related Quest:** X-8: High School Horror!",
+    "l": [
+      {
+        "locationId": 484652,
+        "title": "X-8 Research Center"
+      },
+      {
+        "locationId": 485205,
+        "title": "X-8: High School Horror!"
+      }
+    ]
+  },
+  "500075": {
+    "d": "**Location:** X-8 Research Center, X-8 Institutional Test Facility - On a terminal that spawns somewhere random in the area. Check the local map for an idea of where to search.\n\n**Related Quest:** X-8: High School Horror!",
+    "l": [
+      {
+        "locationId": 484652,
+        "title": "X-8 Research Center"
+      },
+      {
+        "locationId": 485205,
+        "title": "X-8: High School Horror!"
+      }
+    ]
+  },
+  "500076": {
+    "d": "**Location:** X-8 Research Center, X-8 Testing Facility - Next to an X-8 Observatory Terminal at the northern end of the local map.",
+    "l": [
+      {
+        "locationId": 484652,
+        "title": "X-8 Research Center"
+      }
+    ]
+  },
+  "500077": {
+    "d": "**Location:** X-8 Research Center, X-8 Residential Testing Facility - Inside one of Gabe's Digging Spots, chosen at random.\n\n**Related Quest:** Field Research / A Brain's Best Friend",
+    "l": [
+      {
+        "locationId": 484652,
+        "title": "X-8 Research Center"
+      },
+      {
+        "locationId": 485225,
+        "title": "Field Research"
+      },
+      {
+        "locationId": 485224,
+        "title": "A Brain's Best Friend"
+      }
+    ]
+  },
+  "500078": {
+    "d": "**Location:** X-8 Research Center, X-8 Residential Testing Facility - In the inventory of Gabe.\n\n**Category:** Two-Handed Energy Weapon  \r\n\r\n**Requirements:**\r\n- Energy Weapons 75\r\n- Strength 4",
+    "l": [
+      {
+        "locationId": 484652,
+        "title": "X-8 Research Center"
+      }
+    ]
+  },
+  "500079": {
+    "d": "**Location:** X-8 Research Center, X-8 Residential Testing Facility - In the inventory of Gabe.\n\n**Category:** Headgear  \r\n\r\n**Statistics:**\r\n- DT +3\r\n- Health Regeneration\r\n- Endurance +1",
+    "l": [
+      {
+        "locationId": 484652,
+        "title": "X-8 Research Center"
+      }
+    ]
+  },
+  "500081": {
+    "d": "**Location:** X-8 Research Center, X-8 Institutional Test Facility - On the ground floor, in the Field Disruptor Download Terminal in the corner of the starting room after you begin the Advanced Institutional Test.\n\n_The Sonic Emitter will now disable any forcefields it's shot at._",
+    "l": [
+      {
+        "locationId": 484652,
+        "title": "X-8 Research Center"
+      }
+    ]
+  },
+  "500083": {
+    "d": "X-8 Research Center - On a table in the kennels area, next to a terminal.",
+    "l": [
+      {
+        "locationId": 484652,
+        "title": "X-8 Research Center"
+      }
+    ]
+  },
+  "500084": {
+    "d": "**Location:** X-8 Research Center - On top of a cage in the kennels area, reached by jumping over the railings of a walkway on the upper floor.",
+    "l": [
+      {
+        "locationId": 484652,
+        "title": "X-8 Research Center"
+      }
+    ]
+  },
+  "500085": {
+    "d": "**Location:** X-8 Research Center - In an open locker at the end of a walkway above the kennels area.  \n\n**Category:** Medium  \n\n**Statistics:**\n- DT +15",
+    "l": [
+      {
+        "locationId": 484652,
+        "title": "X-8 Research Center"
+      }
+    ]
+  },
+  "500086": {
+    "d": "**Location:** X-8 Research Center - In an open locker at the end of a walkway above the kennels area.  \r\n\r\n**Category:** Headgear\n\r\n**Statistics:**\r\n- DT +3",
+    "l": [
+      {
+        "locationId": 484652,
+        "title": "X-8 Research Center"
+      }
+    ]
+  },
+  "500087": {
+    "d": "**Location:** Forbidden Zone Dome Entrance, X-42 Robo-Warfare Facility - On top of a table in front of the exit.\n\n**Related Quest:** Field Research",
+    "l": [
+      {
+        "locationId": 484667,
+        "title": "Forbidden Zone Dome Entrance"
+      },
+      {
+        "locationId": 485225,
+        "title": "Field Research"
+      }
+    ]
+  },
+  "500088": {
+    "d": "**Location:** Forbidden Zone Dome Entrance, X-42 Robo-Warfare Facility - Next to a Protectron pod at the edge of the ground floor.\r\n\r\n**Used to Unlock:** Emergency Shutdown Terminal (Very Hard to hack) in a forcefield-protected room at the north-western edge of the upper floor.",
+    "l": [
+      {
+        "locationId": 484667,
+        "title": "Forbidden Zone Dome Entrance"
+      }
+    ]
+  },
+  "500089": {
+    "d": "**Location:** Forbidden Zone Dome Entrance, X-42 Robo-Warfare Facility - On a table inside a forcefield-protected room in the north-eastern corner of the upper level.\n\n**Category:** Two-Handed Energy Weapon  \n\n**Requirements:**\n- Energy Weapons 75\n- Strength 4",
+    "l": [
+      {
+        "locationId": 484667,
+        "title": "Forbidden Zone Dome Entrance"
+      }
+    ]
+  },
+  "500090": {
+    "d": "**Location:** Forbidden Zone Dome, Forbidden Zone Dome - On a table next to the stairs in the middle of the room.  \n\n**Special Effects:**\n- Critical Hits inflict Frenzy and knock enemies back\n- Regular hits inflict Energy Weapons -5 and Perception -2 for 30 seconds\n\n**Type:** One-Handed Unarmed  \n\n**Requirements:**\n- Unarmed 35\n- Strength 2",
+    "l": [
+      {
+        "locationId": 484667,
+        "title": "Forbidden Zone Dome"
+      }
+    ]
+  },
+  "500091": {
+    "d": "**Location:** Forbidden Zone Dome, Forbidden Zone Dome - Inside a trunk next to the stairs in the middle of the room.  \n\n**Repair With:**\n- Mad Scientist Scrubs\n- Scientist Scrubs\n- Dr. Klein's Scrubs\n- Any Light Armor or Clothing (w/ Jury Rigging perk)  \n\n**Statistics:**\n- DT +6\n- Charisma +1\n- Science +15\n- Intelligence +2",
+    "l": [
+      {
+        "locationId": 484667,
+        "title": "Forbidden Zone Dome"
+      },
+      {
+        "locationId": 499200,
+        "title": "Dr. Klein's Scrubs"
+      }
+    ]
+  },
+  "500092": {
+    "d": "**Location:** Forbidden Zone Dome Entrance, Forbidden Zone Dome - In the first room to your left after climbing the stairs in the middle of the room.\r\n\r\n**Category:** Two-Handed Energy Weapon  \r\n\r\n**Requirements:**\r\n- Energy Weapons 75\r\n- Strength 4",
+    "l": [
+      {
+        "locationId": 484667,
+        "title": "Forbidden Zone Dome Entrance"
+      }
+    ]
+  },
+  "500093": {
+    "d": "**Location:** Forbidden Zone Dome Entrance, Forbidden Zone Dome - In the second room to your left after climbing the stairs in the middle of the room.  \n\n**Category:** Two-Handed Melee  \n\n**Requirements:**\n- Melee Weapons 50\n- Strength 5",
+    "l": [
+      {
+        "locationId": 484667,
+        "title": "Forbidden Zone Dome Entrance"
+      }
+    ]
+  },
+  "500094": {
+    "d": "**Location:** Forbidden Zone Dome Entrance, Forbidden Zone Dome - On top of a table at the far right side of the area.\n\n**Affected Skill:** Repair",
+    "l": [
+      {
+        "locationId": 484667,
+        "title": "Forbidden Zone Dome Entrance"
+      }
+    ]
+  },
+  "500095": {
+    "d": "**Location:** Forbidden Zone Dome Entrance, Forbidden Zone Dome - At the top of the stairs.\n\n**Related Quest:** Old World Blues",
+    "l": [
+      {
+        "locationId": 484667,
+        "title": "Forbidden Zone Dome Entrance"
+      },
+      {
+        "locationId": 485207,
+        "title": "Old World Blues"
+      }
+    ]
+  },
+  "500096": {
+    "d": "Reward for completing Old World Blues. Allows you to teleport between the Mojave and Big MT at any time.",
+    "l": [
+      {
+        "locationId": 485207,
+        "title": "Old World Blues"
+      }
+    ]
+  },
+  "507583": {
+    "d": "**Location:** On top of a high-up pipe, reached by approaching from the south.  \n\n**Category:** Two-Handed Gun  \n\n**Requirements:**\n- Guns 100\n- Strength 4"
+  },
+  "511300": {
+    "d": "**Note:** Only appears with the Wild Wasteland trait.\n\nThe doghouse has a new inhabitant - a tiny Deathclaw named Stripe, named after a Gremlin of the same name in Gremlins (1984). The chicken leg that appears in front of the dog house is a reference to Stripe's favourite food."
+  },
+  "511301": {
+    "d": "**Note:** Only occurs with the Wild Wasteland trait.\n\nY-17 Trauma Harnesses will occasionally say \"Hey, who turned out the lights?\", referencing the all-time banger of a Doctor Who episode 'Silence in the Library'.\n\nIn the episode, anyone caught in the dark has their flesh devoured - but their spacesuit continues to walk around, repeating their last words, with nothing but skeletal remains inside."
+  },
+  "511304": {
+    "d": "**Note:** Only appears with the Wild Wasteland trait.\n\nAround the red crystals surrounding the Construction Site, you can find seven garden gnomes alongside pickaxes and lanterns.\n\nThis references the seven dwarves from the1937 film 'Snow White and the Seven Dwarfs.'",
+    "l": [
+      {
+        "locationId": 484672,
+        "title": "Construction Site"
+      }
+    ]
+  },
+  "511305": {
+    "d": "**Note:** Only appears with the Wild Wasteland trait.\r\n\r\nFound throughout the Magnetohydraulics Complex, the four Walking Eyes are a reference to robots that appear in The Venture Bros.",
+    "l": [
+      {
+        "locationId": 484614,
+        "title": "Magnetohydraulics Complex"
+      }
+    ]
+  },
+  "594798": {
+    "d": "On the hill on the right side before entering X-2 Transmitter Antenna Array area, along with minor loot",
+    "l": [
+      {
+        "locationId": 484649,
+        "title": "X-2 Transmitter Antenna Array"
+      }
+    ]
+  }
+}

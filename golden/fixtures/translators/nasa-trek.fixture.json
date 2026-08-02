@@ -1,0 +1,33 @@
+{
+  "source": "nasa-trek",
+  "kind": "trek-map",
+  "passthrough": false,
+  "mapSlug": "global",
+  "capture": {
+    "capturedAt": "2026-08-01T14:48:10.486177Z",
+    "contentHash": "6aa3e5e1299d92ca20439c92180b2b3f72edfca54ebb07fed9d0b45cbe5d8e0d",
+    "sourceId": 17971597384,
+    "sourceUrl": "https://asc-planetarynames-data.s3.us-west-2.amazonaws.com/MARS_nomenclature_center_pts.zip",
+    "bytes": 509731
+  },
+  "output": {
+    "bytes": 530487,
+    "sha256": "23b962e0302fc64eab8e1f92d6ef4e7fc67919042b84a3df362a261b3847027d",
+    "file": "nasa-trek.doc.json"
+  },
+  "document": {
+    "mapId": 1236294960,
+    "mapSlug": "global",
+    "mapTitle": "Global",
+    "gameId": 1912042764,
+    "gameSlug": "mars",
+    "gameTitle": "Mars",
+    "tileSets": 2,
+    "groups": 1,
+    "categories": 29,
+    "locations": 2048,
+    "regions": 0,
+    "collections": 0,
+    "attrs": 5
+  }
+}

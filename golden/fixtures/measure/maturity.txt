@@ -1,0 +1,53 @@
+Cyberpunk 2077 (cyberpunk-2077)
+  serving cyberpunk-2077-20260801-e191f1964b71.atlas
+    annotation     860 pins · 445 described (51%) · median 56 chars
+    cartography  17507 tiles · 192.6 MB unique raster · depth z7 holds 12096 tiles
+    structure       40 categories in 8 groups · 2 text label sets · 0 zones (0 vertices) · 2 layers
+    icons           38 of 38 marker categories carry one (100%)
+    conventions  v2 · 100% of categories declare their rendering · geometry plane-default
+    merge        Piggyback: 823 donor pins · 0 donor shapes · 0 matched (median 0px) · 0 added (0 adopted) · 0 held · 0 rejected
+    merge        IGN Wiki: 368 donor pins · 0 donor shapes · 270 matched (median 38px) · 37 added (7 adopted) · 61 held · 0 rejected
+Fallout: New Vegas (fallout-new-vegas)
+  serving fallout-new-vegas-20260730-e6cd7eb1936e.atlas
+    annotation    2635 pins · 2592 described (98%) · median 140 chars
+    cartography   2651 tiles · 21.5 MB unique raster · depth z5 holds 1812 tiles
+    structure      258 categories in 72 groups · 0 text label sets · 0 zones (0 vertices) · 13 layers
+    icons          254 of 258 marker categories carry one (98%)
+    conventions  v2 · 100% of categories declare their rendering · geometry plane-default
+    merge        MapGenie: 1257 donor pins · 0 donor shapes · 0 matched (median 0px) · 0 added (0 adopted) · 0 held · 0 rejected
+    merge        MapGenie: 34 donor pins · 0 donor shapes · 0 matched (median 0px) · 0 added (0 adopted) · 0 held · 0 rejected
+    merge        MapGenie: 77 donor pins · 0 donor shapes · 0 matched (median 0px) · 0 added (0 adopted) · 0 held · 0 rejected
+    merge        MapGenie: 119 donor pins · 0 donor shapes · 0 matched (median 0px) · 0 added (0 adopted) · 0 held · 0 rejected
+    merge        MapGenie: 38 donor pins · 0 donor shapes · 0 matched (median 0px) · 0 added (0 adopted) · 0 held · 0 rejected
+    merge        MapGenie: 33 donor pins · 0 donor shapes · 0 matched (median 0px) · 0 added (0 adopted) · 0 held · 0 rejected
+    merge        MapGenie: 25 donor pins · 0 donor shapes · 0 matched (median 0px) · 0 added (0 adopted) · 0 held · 0 rejected
+    merge        MapGenie: 181 donor pins · 0 donor shapes · 0 matched (median 0px) · 0 added (0 adopted) · 0 held · 0 rejected
+    merge        MapGenie: 33 donor pins · 0 donor shapes · 0 matched (median 0px) · 0 added (0 adopted) · 0 held · 0 rejected
+    merge        MapGenie: 214 donor pins · 0 donor shapes · 0 matched (median 0px) · 0 added (0 adopted) · 0 held · 0 rejected
+    merge        MapGenie: 233 donor pins · 0 donor shapes · 0 matched (median 0px) · 0 added (0 adopted) · 0 held · 0 rejected
+    merge        MapGenie: 210 donor pins · 0 donor shapes · 0 matched (median 0px) · 0 added (0 adopted) · 0 held · 0 rejected
+    merge        MapGenie: 181 donor pins · 0 donor shapes · 0 matched (median 0px) · 0 added (0 adopted) · 0 held · 0 rejected
+Mars (mars)
+  serving mars-20260801-68e141f26b1a.atlas
+    annotation    2048 pins · 2048 described (100%) · median 67 chars
+    cartography   5462 tiles · 254.4 MB unique raster · depth z6 holds 4096 tiles
+    structure       29 categories in 1 groups · 0 text label sets · 0 zones (0 vertices) · 2 layers
+    icons           29 of 29 marker categories carry one (100%)
+    conventions  v2 · 100% of categories declare their rendering · geometry sphere · 29 standard icons · 2048 pins carry true coordinates
+    merge        NASA Trek: 2048 donor pins · 0 donor shapes · 0 matched (median 0px) · 0 added (0 adopted) · 0 held · 0 rejected
+TUNIC (tunic)
+  serving tunic-20260730-13d5657ed903.atlas
+    annotation     434 pins · 327 described (75%) · median 54 chars
+    cartography    741 tiles · 7.9 MB unique raster · depth z7 holds 46 tiles
+    structure       29 categories in 5 groups · 0 text label sets · 0 zones (0 vertices) · 1 layers
+    icons           29 of 29 marker categories carry one (100%)
+    conventions  v2 · 100% of categories declare their rendering · geometry plane-default
+    merge        MapGenie: 434 donor pins · 0 donor shapes · 0 matched (median 0px) · 0 added (0 adopted) · 0 held · 0 rejected
+Zelda: Tears of the Kingdom (zelda-tears-of-the-kingdom)
+  serving zelda-tears-of-the-kingdom-20260731-9dc737d9871e.atlas
+    annotation    6848 pins · 4441 described (64%) · median 96 chars
+    cartography   4326 tiles · 56.8 MB unique raster · depth z7 holds 3099 tiles
+    structure      161 categories in 10 groups · 2 text label sets · 23 zones (317 vertices) · 3 layers
+    icons          158 of 159 marker categories carry one (99%)
+    conventions  v2 · 100% of categories declare their rendering · geometry plane-default
+    merge        MapGenie: 6848 donor pins · 23 donor shapes · 0 matched (median 0px) · 0 added (0 adopted) · 0 held · 0 rejected

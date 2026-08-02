@@ -1,0 +1,21 @@
+{
+  "count": 14,
+  "rollup": "ffc72714e1d2bac7c30efb76e11adf55b8d93821169dff8bfb428bc0bbf0f98c",
+  "volume": "mars",
+  "icons": [
+    {"name":"icons/std--maki-beach.svg","bytes":603,"sha256":"4b6031f66798babb694a5cb76b25488fad2da85a496f41ddee8a53a2d7885427"},
+    {"name":"icons/std--maki-caution.svg","bytes":656,"sha256":"0cb97708910c0a77900e7d122bfeb4407db9b8db252dc52f91c8bec06b1b7372"},
+    {"name":"icons/std--maki-circle-stroked.svg","bytes":418,"sha256":"c85d14562018b1a8ca39fe6ee83ce89a73834c02f8906bb029b5b38f4ab2262f"},
+    {"name":"icons/std--maki-circle.svg","bytes":254,"sha256":"3f7eef5763e114f79c02d63ca91dd5951b81efdff015a31ea8a9b6b57fb6b640"},
+    {"name":"icons/std--maki-landuse.svg","bytes":1991,"sha256":"598b86b16997ce720ac37769531eeb87d91e0d80a199c6f0276fc09141a6c49b"},
+    {"name":"icons/std--maki-mountain.svg","bytes":336,"sha256":"9c5f0d06d07eea0c6b983c2f930a6148156acbd92ee4dd4f7f599d0b05b5035f"},
+    {"name":"icons/std--maki-square-stroked.svg","bytes":308,"sha256":"4ac4ed9f0683dbe9be370c0c19a9f87ae6006d74a04b79672991d92ae6774131"},
+    {"name":"icons/std--maki-square.svg","bytes":273,"sha256":"f52b4043db286b188d976ff8ca2ec283388a89de2131839305984dcddbfeb5c4"},
+    {"name":"icons/std--maki-triangle-stroked.svg","bytes":405,"sha256":"75a6348b510186413a832d681f499529062602808548b66972fac9fd7d4ccb0e"},
+    {"name":"icons/std--maki-triangle.svg","bytes":395,"sha256":"cf1e538ad810dfcbdceeb51cbe5c61264f014dc67339fadd88f145327b726ba0"},
+    {"name":"icons/std--maki-volcano.svg","bytes":1041,"sha256":"7d46fbf2eaed93680c73ad52bd779f6f56b9146c4aa3033ad6f53860e4453d12"},
+    {"name":"icons/std--maki-water.svg","bytes":291,"sha256":"37110496414c4982c1027e59ea50c9fba026871bf179acdb744de2fea795109f"},
+    {"name":"icons/std--maki-waterfall.svg","bytes":1156,"sha256":"6e2fcdc4bdd93566e672cf26c385164e5cab0eea0b34264073170c03b4ed632f"},
+    {"name":"icons/std--maki-wetland.svg","bytes":1899,"sha256":"f15ced0885af057eaf843d13e14fe1b0cf3ac3c4baf89f8ba332b7e5102fe6ee"}
+  ]
+}

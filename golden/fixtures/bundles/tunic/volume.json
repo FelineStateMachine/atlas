@@ -1,0 +1,87 @@
+{
+  "slug": "tunic",
+  "title": "TUNIC",
+  "file": "tunic-20260730-13d5657ed903.atlas",
+  "fileBytes": 8047414,
+  "fileSha256": "4392c17d90f7db1c1fd9b17ff44ebc0d2c89be76a1a79c91950ce518d33220ad",
+  "formatVersion": 3,
+  "conventions": 2,
+  "stamp": "13d5657ed9038808e5fe12ef44e769b40297e9d720e53376f430f224128f2dfc",
+  "stamp12": "13d5657ed903",
+  "createdAt": "2026-07-30T03:57:41.529Z",
+  "revision": 9,
+  "traits": [
+    "plain"
+  ],
+  "tileGrid": {
+    "sourceZoom": 13,
+    "firstTile": 4064,
+    "tileSize": 256,
+    "size": 8192
+  },
+  "counts": {
+    "entries": 774,
+    "worlds": 1,
+    "tiles": 741,
+    "icons": 29,
+    "points": 434,
+    "paths": 0,
+    "areas": 0
+  },
+  "worlds": [
+    {
+      "slug": "world",
+      "title": "World",
+      "points": 434,
+      "paths": 0,
+      "areas": 0,
+      "collections": 29,
+      "lenses": [
+        "Default=world"
+      ],
+      "mergedFrom": [
+        "MapGenie (origin)"
+      ],
+      "textEntries": 327
+    }
+  ],
+  "pyramids": [
+    {
+      "pyramid": "world",
+      "worlds": [
+        "world"
+      ],
+      "lenses": [
+        "world/Default"
+      ],
+      "tiles": 741,
+      "bytes": 7898728,
+      "contentRollup": "16fe7cfec997dee13d84958c372d95059dfc64f63d543d967d997e3d6f901978",
+      "pixelRollup": "3f2988589dad4b1df2a0c90889ccc043b174c59a4cf8bd66a2c1cbc4eb61bb34",
+      "inventory": "tiles/world.json"
+    }
+  ],
+  "partHashes": {
+    "atlas.json": "bae1bf0d4f793f37be88ded2c50c63ce2453924c2c49a1a9d3b6588e0c0d074a",
+    "worlds/world.bin": "e843f3593f5ff67ec6ed94cdfe84ec322a4610c06c602e378bddf809d875f492",
+    "worlds/world.json": "515dc8773c9b9283d0885d47a3830a361a38ec407a26afdbb410af008facf055",
+    "worlds/world.text": "f8b3c21d878755bb6e298932fb9db9aa7731fbbdec20e36b743b621c8883af12"
+  },
+  "entryOrder": {
+    "first": [
+      "atlas.json",
+      "worlds/world.json",
+      "worlds/world.bin",
+      "worlds/world.text",
+      "tiles/world/0/0/0.jpg",
+      "tiles/world/1/0/0.jpg",
+      "tiles/world/1/0/1.jpg",
+      "tiles/world/1/1/0.jpg",
+      "tiles/world/1/1/1.jpg",
+      "tiles/world/2/0/0.jpg",
+      "tiles/world/2/0/1.jpg",
+      "tiles/world/2/0/2.jpg"
+    ],
+    "sha256": "389caec765ff62cdcca505b5a2bf74fa70079a66b8b6e93e6fe6b3e255dbaf5b"
+  }
+}

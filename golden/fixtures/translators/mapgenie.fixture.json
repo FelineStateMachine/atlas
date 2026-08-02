@@ -1,0 +1,33 @@
+{
+  "source": "mapgenie",
+  "kind": "map",
+  "passthrough": true,
+  "mapSlug": "world",
+  "capture": {
+    "capturedAt": "2026-07-30T03:57:41.529Z",
+    "contentHash": "ff58c59aa3a98b110f2921ef4b15ed6ef8156b4ff7cf3be7f0a68be371c854ce",
+    "sourceId": 427,
+    "sourceUrl": "/api/v1/maps/427/full",
+    "bytes": 435570
+  },
+  "output": {
+    "bytes": 435570,
+    "sha256": "963ac40485a1102ac8c89e6e9f91c4674789a25ab6fe187858ffcfc2cdbfdf4a",
+    "file": "mapgenie.doc.json"
+  },
+  "document": {
+    "mapId": 427,
+    "mapSlug": "world",
+    "mapTitle": "World",
+    "gameId": 115,
+    "gameSlug": "tunic",
+    "gameTitle": "TUNIC",
+    "tileSets": 1,
+    "groups": 5,
+    "categories": 29,
+    "locations": 434,
+    "regions": 0,
+    "collections": 0,
+    "attrs": 0
+  }
+}

@@ -1,0 +1,1737 @@
+{
+  "484615": {
+    "d": "**Hostile?** No  \n\n**Notable NPCs:**\n- None\n\n**Notable Loot:**\n- Broken Compass\n- Compass Sensor Module",
+    "l": [
+      {
+        "locationId": 485613,
+        "title": "Broken Compass"
+      },
+      {
+        "locationId": 485614,
+        "title": "Compass Sensor Module"
+      }
+    ]
+  },
+  "484616": {
+    "d": "**Hostile?** Yes - Yao Guai\n  \n**Notable NPCs:**\n- None  \n\n**Notable Loot:**\n- None"
+  },
+  "484617": {
+    "d": "**Hostile?** No - but watch out for mines!  \n\n**Notable Loot:**\n- Year: 2083\n- Year: 2084\n- Year: 2095\n- Survival Cache",
+    "l": [
+      {
+        "locationId": 485874,
+        "title": "Year: 2083"
+      },
+      {
+        "locationId": 485876,
+        "title": "Year: 2084"
+      },
+      {
+        "locationId": 485875,
+        "title": "Year: 2095"
+      }
+    ]
+  },
+  "484618": {
+    "d": "**Hostile?** Yes - White Legs during The Treacherous Road\n\n**Notable NPCs:**\n- None\n\n**Notable Loot:**\n- None",
+    "l": [
+      {
+        "locationId": 485843,
+        "title": "The Treacherous Road"
+      }
+    ]
+  },
+  "485537": {
+    "d": "**Hostile?** Yes - White Legs  \n\n**Notable NPCs:**\n- Jed Masterson\n- Stella\n- Ricky (If he was not convinced to stay in the Mojave)\n\n**Notable Loot:**\n\n_After beginning Departing Paradise:_\n- Salt-Upon-Wounds' Helmet\n- Salt-Upon-Wounds' Power Fist\n- Daniel's Outfit\n- Daniel's Hat\n- Chalk's Headdress\n- Joshua Graham's Armor\n- A Light Shining in Darkness",
+    "l": [
+      {
+        "locationId": 485872,
+        "title": "Departing Paradise"
+      },
+      {
+        "locationId": 485665,
+        "title": "Salt-Upon-Wounds' Helmet"
+      },
+      {
+        "locationId": 485654,
+        "title": "Salt-Upon-Wounds' Power Fist"
+      },
+      {
+        "locationId": 485836,
+        "title": "Daniel's Outfit"
+      },
+      {
+        "locationId": 485837,
+        "title": "Daniel's Hat"
+      },
+      {
+        "locationId": 485846,
+        "title": "Chalk's Headdress"
+      },
+      {
+        "locationId": 485838,
+        "title": "Joshua Graham's Armor"
+      },
+      {
+        "locationId": 485839,
+        "title": "A Light Shining in Darkness"
+      }
+    ]
+  },
+  "485538": {
+    "d": "**Hostile?** Yes - White Legs\n  \n**Notable NPCs:**\n- Salt-Upon-Wounds during Crush the White Legs\n\n**Notable Loot:**\n- None",
+    "l": [
+      {
+        "locationId": 485850,
+        "title": "Crush the White Legs"
+      }
+    ]
+  },
+  "485539": {
+    "d": "**Hostile?** No  \n\n**Notable NPCs:**\n- None\n\n**Notable Loot:**\n- White Legs War Totem",
+    "l": [
+      {
+        "locationId": 486108,
+        "title": "White Legs War Totem"
+      }
+    ]
+  },
+  "485540": {
+    "d": "**Hostile?** Yes - Radscorpions + Wild Dogs + Zion Mantis\n  \n**Notable NPCs:**\n- None  \n\n**Notable Loot:**\n- Survivalist's Rifle [Service Rifle]\n- Year: 2124",
+    "l": [
+      {
+        "locationId": 485686,
+        "title": "Survivalist's Rifle [Service Rifle]"
+      },
+      {
+        "locationId": 485687,
+        "title": "Year: 2124"
+      }
+    ]
+  },
+  "485541": {
+    "d": "**Hostile?** Yes - Radscorpions + Cazadores, White Legs during The Advance Scouts\n  \n**Notable NPCs:**\n- None  \n\n**Notable Loot:**\n- White Legs War Totem",
+    "l": [
+      {
+        "locationId": 485842,
+        "title": "The Advance Scouts"
+      },
+      {
+        "locationId": 486107,
+        "title": "White Legs War Totem"
+      }
+    ]
+  },
+  "485542": {
+    "d": "**Hostile?** Yes - Zion Mantis Nymphs  \n\n**Notable NPCs:**\n- None\n\n**Notable Loot:**\n- None"
+  },
+  "485543": {
+    "d": "**Hostile?** No  \n\n**Notable NPCs:**\n- None\n\n**Notable Loot:**\n- Lad's Life",
+    "l": [
+      {
+        "locationId": 485594,
+        "title": "Lad's Life"
+      }
+    ]
+  },
+  "485544": {
+    "d": "**Hostile?** No - but watch out for bear traps!\n  \n**Notable NPCs:**\n- None  \n\n**Notable Loot:**\n- None"
+  },
+  "485545": {
+    "d": "**Hostile?** No  \n\n**Notable NPCs:**\n- Joshua Graham\n\n**Notable Loot:**\n- Survival Cache (Outside; use the exit near Joshua's desk)",
+    "l": [
+      {
+        "locationId": 485603,
+        "title": "Joshua Graham"
+      }
+    ]
+  },
+  "485546": {
+    "d": "**Hostile?** No  \n\n**Notable NPCs:**\n- None\n\n**Notable Loot:**\n- None"
+  },
+  "485547": {
+    "d": "**Hostile?** No - but watch out for tripwires and mines!  \n\n**Notable NPCs:**\n- None\n\n**Notable Loot:**\n- Compliance Regulator [Laser Pistol]\n- Year: 2077\n- Year: 2078\n- Survival Cache",
+    "l": [
+      {
+        "locationId": 485596,
+        "title": "Compliance Regulator [Laser Pistol]"
+      },
+      {
+        "locationId": 485799,
+        "title": "Year: 2077"
+      },
+      {
+        "locationId": 485800,
+        "title": "Year: 2078"
+      }
+    ]
+  },
+  "485548": {
+    "d": "**Hostile?** No  \n\n**Notable NPCs:**\n- None\n\n**Notable Loot:**\n- None"
+  },
+  "485549": {
+    "d": "**Hostile?** No\n  \n**Notable NPCs:**\n- None  \n\n**Notable Loot:**\n- None"
+  },
+  "485550": {
+    "d": "**Hostile?** Yes - White Legs  \n\n**Notable NPCs:**\n- None\n\n**Notable Loot:**\n- None"
+  },
+  "485551": {
+    "d": "**Hostile?** Yes - Zion Mantis\n  \n**Notable NPCs:**\n- None  \n\n**Notable Loot:**\n- Random chance of Vault 22 jumpsuit in a duffle bag by the cliff's edge"
+  },
+  "485552": {
+    "d": "**Hostile?** No\n  \n**Notable NPCs:**\n- None  \n\n**Notable Loot:**\n- None"
+  },
+  "485553": {
+    "d": "**Hostile?** Yes - Geckos + Zion Mantises\n  \n**Notable NPCs:**\n- None  \n\n**Notable Loot:**\n- None"
+  },
+  "485554": {
+    "d": "**Hostile?** Yes - Geckos + Spore Plants\n\n**Notable NPCs:**\n- None\n\n**Notable Loot:**\n- Morning Glory's Cache Key\n- Year: 2108\n- Year: 2113\n- Year: 2123\n- Grand Staircase Map Holotape\n- Survival Cache",
+    "l": [
+      {
+        "locationId": 485804,
+        "title": "Morning Glory's Cache Key"
+      },
+      {
+        "locationId": 485805,
+        "title": "Year: 2108"
+      },
+      {
+        "locationId": 485806,
+        "title": "Year: 2113"
+      },
+      {
+        "locationId": 485807,
+        "title": "Year: 2123"
+      },
+      {
+        "locationId": 486106,
+        "title": "Grand Staircase Map Holotape"
+      }
+    ]
+  },
+  "485555": {
+    "d": "**Hostile?** Yes - Bloatflies + Zion Mantis Nymph  \n\n**Notable NPCs:**\n- None\n\n**Notable Loot:**\n- Snow Globe - Zion National Park\n- General Store Desk Key\n- Li'l Scout Lunch Box (x5)",
+    "l": [
+      {
+        "locationId": 485788,
+        "title": "Snow Globe - Zion National Park"
+      },
+      {
+        "locationId": 485789,
+        "title": "General Store Desk Key"
+      },
+      {
+        "locationId": 485790,
+        "title": "Li'l Scout Lunch Box (x5)"
+      }
+    ]
+  },
+  "485556": {
+    "d": "**Hostile?** Yes - Spore Carriers  + Spore Plants\n\n**Notable Loot:**\n- Survival Cache\n- Year: 2097\n- Year: 2100\n- Year: 2101",
+    "l": [
+      {
+        "locationId": 485801,
+        "title": "Year: 2097"
+      },
+      {
+        "locationId": 485802,
+        "title": "Year: 2100"
+      },
+      {
+        "locationId": 485803,
+        "title": "Year: 2101"
+      }
+    ]
+  },
+  "485557": {
+    "d": "**Hostile?** Yes - Geckos + Bark Scorpions\n\n**Notable NPCs:**\n- None\n\n**Notable Loot:**\n- Milsurp Review\n- Contaminated Medical Supply Kit",
+    "l": [
+      {
+        "locationId": 485791,
+        "title": "Milsurp Review"
+      },
+      {
+        "locationId": 485792,
+        "title": "Contaminated Medical Supply Kit"
+      }
+    ]
+  },
+  "485558": {
+    "d": "**Hostile?** Yes - Yao Guai + White Legs\n\n**Notable NPCs:**\n- None\n\n**Notable Loot:**\n- White Leg Key (during Prisoners of War)",
+    "l": [
+      {
+        "locationId": 485797,
+        "title": "White Leg Key"
+      },
+      {
+        "locationId": 485871,
+        "title": "Prisoners of War"
+      }
+    ]
+  },
+  "485559": {
+    "d": "**Hostile?** No\n  \n**Notable NPCs:**\n- None  \n\n**Notable Loot:**\n- None"
+  },
+  "485566": {
+    "d": "**Hostile?** Yes - Spore Plants + Geckos + Yao Guai\n  \n**Notable NPCs:**\n- The Ghost of She - Rite of Passage\n\n**Notable Loot:**\n- Ghost of She's Paw",
+    "l": [
+      {
+        "locationId": 485851,
+        "title": "Rite of Passage"
+      },
+      {
+        "locationId": 485821,
+        "title": "Ghost of She's Paw"
+      }
+    ]
+  },
+  "485567": {
+    "d": "**Hostile?** Yes - Spore Plants + Spore Carriers  \n\n**Notable NPCs:**\n- None\n\n**Notable Loot:**\n- BEWARE - A VENGEFUL SPIRIT HAUNTS THESE CANYONS\n- Random chance of Vault 22 jumpsuit in a duffle bag",
+    "l": [
+      {
+        "locationId": 485822,
+        "title": "BEWARE - A VENGEFUL SPIRIT HAUNTS THESE CANYONS"
+      }
+    ]
+  },
+  "485568": {
+    "d": "**Hostile?** No  \n\n**Notable NPCs:**\n- None\n\n**Notable Loot:**\n- None"
+  },
+  "485569": {
+    "d": "**Hostile?** Yes - Geckos  \n\n**Notable NPCs:**\n- None\n\n**Notable Loot:**\n- Lad's Life\n- Patriot's Cookbook\n- Fishing Lodge Cabinet Key\n- Walkie-Talkie (x2)",
+    "l": [
+      {
+        "locationId": 485617,
+        "title": "Lad's Life"
+      },
+      {
+        "locationId": 485618,
+        "title": "Patriot's Cookbook"
+      },
+      {
+        "locationId": 485620,
+        "title": "Fishing Lodge Cabinet Key"
+      },
+      {
+        "locationId": 485622,
+        "title": "Walkie-Talkie (x2)"
+      }
+    ]
+  },
+  "485570": {
+    "d": "**Hostile?** No  \r\n\r\n**Notable NPCs:**\r\n- None\r\n\r\n**Notable Loot:**\r\n- None"
+  },
+  "485571": {
+    "d": "**Hostile?** Yes - White Legs during Optional: Sanctity of the Dead\n\n**Notable NPCs:**\n- Dancing Flame\n\n**Notable Loot:**\n- None",
+    "l": [
+      {
+        "locationId": 485870,
+        "title": "Optional: Sanctity of the Dead"
+      },
+      {
+        "locationId": 485873,
+        "title": "Dancing Flame"
+      }
+    ]
+  },
+  "485572": {
+    "d": "**Hostile?** Yes - Yao Guai  \n\n**Notable NPCs:**\n- None\n\n**Notable Loot:**\n- None"
+  },
+  "485573": {
+    "d": "**Hostile?** Yes - White Legs during Retake the Bridge  \n\n**Notable NPCs:**\n- None\n\n**Notable Loot:**\n- None",
+    "l": [
+      {
+        "locationId": 485869,
+        "title": "Retake the Bridge"
+      }
+    ]
+  },
+  "485574": {
+    "d": "**Hostile?** Yes - White Legs  \n\n**Notable NPCs:**\n- Salt-Upon-Wounds during Flight from Zion\n\n**Notable Loot:**\n- None",
+    "l": [
+      {
+        "locationId": 485849,
+        "title": "Flight from Zion"
+      }
+    ]
+  },
+  "485575": {
+    "d": "**Hostile?** Yes - White Legs  \n\n**Notable NPCs:**\n- None\n\n**Notable Loot:**\n- None"
+  },
+  "485576": {
+    "d": "**Hostile?** Yes - White Legs + Geckos\n  \n**Notable NPCs:**\n- None  \n\n**Notable Loot:**\n- None"
+  },
+  "485577": {
+    "d": "**Hostile?** No\n  \n**Notable NPCs:**\n- None  \n\n**Notable Loot:**\n- Future Weapons Today",
+    "l": [
+      {
+        "locationId": 485623,
+        "title": "Future Weapons Today"
+      }
+    ]
+  },
+  "485578": {
+    "d": "**Hostile?** Yes - Giant Ants\n  \n**Notable NPCs:**\n- None  \n\n**Notable Loot:**\n- None"
+  },
+  "485579": {
+    "d": "**Hostile?** Yes - White Legs\n  \n**Notable NPCs:**\n- None  \n\n**Notable Loot:**\n- None"
+  },
+  "485580": {
+    "d": "**Hostile?** No\n  \n**Notable NPCs:**\n- None  \n\n**Notable Loot:**\n- None"
+  },
+  "485581": {
+    "d": "**Hostile?** Yes - White Legs\n  \n**Notable NPCs:**\n- None  \n\n**Notable Loot:**\n- None"
+  },
+  "485582": {
+    "d": "**Hostile?** Yes - Mole Rats  \n\n**Notable NPCs:**\n- None\n\n**Notable Loot:**\n- None"
+  },
+  "485583": {
+    "d": "**Hostile?** No  \n\n**Notable NPCs:**\n- Daniel\n\n**Notable Loot:**\n- Sacred Datura Root (1)\n- Sacred Datura Root (2)\n- Sacred Datura Root (3)",
+    "l": [
+      {
+        "locationId": 485835,
+        "title": "Daniel"
+      },
+      {
+        "locationId": 485865,
+        "title": "Sacred Datura Root"
+      },
+      {
+        "locationId": 485866,
+        "title": "Sacred Datura Root"
+      },
+      {
+        "locationId": 485867,
+        "title": "Sacred Datura Root"
+      }
+    ]
+  },
+  "485584": {
+    "d": "**Hostile?** No  - but watch out for tripwires and traps!\n\n**Notable NPCs:**\n- None\n\n**Notable Loot:**\n- Year: 2096\n- Year: 2096 (II)\n- Survival Cache\n- Desert Ranger Combat Helmet\n- Desert Ranger Combat Armor",
+    "l": [
+      {
+        "locationId": 485857,
+        "title": "Year: 2096"
+      },
+      {
+        "locationId": 485859,
+        "title": "Year: 2096 (II)"
+      },
+      {
+        "locationId": 489752,
+        "title": "Desert Ranger Combat Helmet"
+      },
+      {
+        "locationId": 489753,
+        "title": "Desert Ranger Combat Armor"
+      }
+    ]
+  },
+  "485585": {
+    "d": "**Hostile?** Yes - White Legs  \n\n**Notable NPCs:**\n- None\n\n**Notable Loot:**\n- None"
+  },
+  "485586": {
+    "d": "**Hostile?** No  \n\n**Notable NPCs:**\n- None\n\n**Notable Loot:**\n- None"
+  },
+  "485587": {
+    "d": "**Hostile?** Yes - Coyotes + White Legs  \n\n**Notable NPCs:**\n- None\n\n**Notable Loot:**\n- None"
+  },
+  "485588": {
+    "d": "**Hostile?** No  \n\n**Notable NPCs:**\n- White Bird (Rite of Passage)\n\n**Notable Loot:**\n- She's Embrace [Yao Guai Gauntlet]",
+    "l": [
+      {
+        "locationId": 485863,
+        "title": "White Bird"
+      },
+      {
+        "locationId": 485851,
+        "title": "Rite of Passage"
+      },
+      {
+        "locationId": 485864,
+        "title": "She's Embrace [Yao Guai Gauntlet]"
+      }
+    ]
+  },
+  "485589": {
+    "d": "**Location:** Zion Canyon\n\n**Quest Giver:** Automatically begins when entering the area for the first time.\n\n**Reward:**\n- XP"
+  },
+  "485590": {
+    "d": "**Location:** Zion Canyon\n\n**How to Recruit:** Cross the bridge during Arrival at Zion\n\n*Note: Cannot be recruited after you complete the Deliverer of Sorrows quest.*",
+    "l": [
+      {
+        "locationId": 485589,
+        "title": "Arrival at Zion"
+      },
+      {
+        "locationId": 485608,
+        "title": "Deliverer of Sorrows"
+      }
+    ]
+  },
+  "485591": {
+    "d": "Near a stone arch."
+  },
+  "485592": {
+    "d": "On the hilltop, near a tree."
+  },
+  "485593": {
+    "d": "In a small nook near the cliff."
+  },
+  "485594": {
+    "d": "**Location:** Zion Valley Welcome Booth - On a picnic bench.  \n\n**Affected Skill:** Survival",
+    "l": [
+      {
+        "locationId": 485543,
+        "title": "Zion Valley Welcome Booth"
+      }
+    ]
+  },
+  "485595": {
+    "d": "On the riverbank, near a campfire."
+  },
+  "485596": {
+    "d": "**Location:** Fallen Rock Cave - On the ground at the back of the room with the terminal.  \n\n**Special Effects:**\n- Critical Strikes paralyse opponents for 10 seconds\n\n**Type:** One-Handed Energy Weapon \n\n**Requirements:**\n- Strength 1",
+    "l": [
+      {
+        "locationId": 485547,
+        "title": "Fallen Rock Cave"
+      }
+    ]
+  },
+  "485599": {
+    "d": "On a ledge high above the entrance to Angel Cave.",
+    "l": [
+      {
+        "locationId": 485545,
+        "title": "Angel Cave"
+      }
+    ]
+  },
+  "485603": {
+    "d": "**Location:** Angel Cave\n\n**Noteworthy Inventory:**\n- Weapon Mods\n\n**Note(s):** Can also repair your items.",
+    "l": [
+      {
+        "locationId": 485545,
+        "title": "Angel Cave"
+      }
+    ]
+  },
+  "485604": {
+    "d": "**Location:** Angel Cave\n\n**Quest Giver:** Joshua Graham\n\n**Quest Items:**\n- Broken Compass\n\n**Reward:**\n- XP",
+    "l": [
+      {
+        "locationId": 485545,
+        "title": "Angel Cave"
+      },
+      {
+        "locationId": 485603,
+        "title": "Joshua Graham"
+      },
+      {
+        "locationId": 485613,
+        "title": "Broken Compass"
+      }
+    ]
+  },
+  "485605": {
+    "d": "**Location:** Angel Cave\n\n**Quest Giver:** Joshua Graham\n\n**Quest Items:**\n- Walkie-Talkie (x2)\n\n**Reward:**\n- XP",
+    "l": [
+      {
+        "locationId": 485545,
+        "title": "Angel Cave"
+      },
+      {
+        "locationId": 485603,
+        "title": "Joshua Graham"
+      },
+      {
+        "locationId": 485622,
+        "title": "Walkie-Talkie (x2)"
+      }
+    ]
+  },
+  "485606": {
+    "d": "**Location:** Angel Cave\n\n**Quest Giver:** Joshua Graham\n\n**Quest Items:**\n- Li'l Scout Lunch Box (x5)\n- Contaminated Medical Supply Kit\n\n**Reward:**\n- XP",
+    "l": [
+      {
+        "locationId": 485545,
+        "title": "Angel Cave"
+      },
+      {
+        "locationId": 485603,
+        "title": "Joshua Graham"
+      },
+      {
+        "locationId": 485790,
+        "title": "Li'l Scout Lunch Box (x5)"
+      },
+      {
+        "locationId": 485792,
+        "title": "Contaminated Medical Supply Kit"
+      }
+    ]
+  },
+  "485608": {
+    "d": "**Location:** Half Mouse Cave\n\n**Quest Giver:** Automatically begins after completing Gone Fishin', Roadside Attraction and Tourist Trap.\n\n**Reward:**\n- XP\n- Waking Cloud",
+    "l": [
+      {
+        "locationId": 485586,
+        "title": "Half Mouse Cave"
+      },
+      {
+        "locationId": 485605,
+        "title": "Gone Fishin'"
+      },
+      {
+        "locationId": 485604,
+        "title": "Roadside Attraction"
+      },
+      {
+        "locationId": 485606,
+        "title": "Tourist Trap"
+      },
+      {
+        "locationId": 485847,
+        "title": "Waking Cloud"
+      }
+    ]
+  },
+  "485610": {
+    "d": "**Location:** Dead Horses Camp\n\n**Quest Giver:** Follows-Chalk after completing Tourist Trap, if you ask about his obsession with civilization.\n\n**Reward:**\n- XP",
+    "l": [
+      {
+        "locationId": 485546,
+        "title": "Dead Horses Camp"
+      },
+      {
+        "locationId": 485590,
+        "title": "Follows-Chalk"
+      },
+      {
+        "locationId": 485606,
+        "title": "Tourist Trap"
+      }
+    ]
+  },
+  "485613": {
+    "d": "**Location:** Crashed Scout Bus - Inside the bus, in a skeleton's hand. Must be repaired with the Compass Sensor Module or a Repair 30 check.\n\n**Related Quest:** Roadside Attraction",
+    "l": [
+      {
+        "locationId": 484615,
+        "title": "Crashed Scout Bus"
+      },
+      {
+        "locationId": 485614,
+        "title": "Compass Sensor Module"
+      },
+      {
+        "locationId": 485604,
+        "title": "Roadside Attraction"
+      }
+    ]
+  },
+  "485614": {
+    "d": "**Location:** Crashed Scout Bus - Inside the bus, near the driver's seat in a skeleton's hand.\n\n**Related Quest:** Roadside Attraction",
+    "l": [
+      {
+        "locationId": 484615,
+        "title": "Crashed Scout Bus"
+      },
+      {
+        "locationId": 485604,
+        "title": "Roadside Attraction"
+      }
+    ]
+  },
+  "485617": {
+    "d": "**Location:** Zion Fishing Lodge, Fishing Lodge - On the ground behind the sofa in the corner.  \n\n**Affected Skill:** Survival",
+    "l": [
+      {
+        "locationId": 485569,
+        "title": "Zion Fishing Lodge"
+      }
+    ]
+  },
+  "485618": {
+    "d": "**Location:**  Zion Fishing Lodge, Fishing Lodge - On a small table near the pool table.\n\n**Affected Skill:** Explosives",
+    "l": [
+      {
+        "locationId": 485569,
+        "title": "Zion Fishing Lodge"
+      }
+    ]
+  },
+  "485620": {
+    "d": "**Location:**  Zion Fishing Lodge, Fishing Lodge - Inside a wooden crate near the bathroom doorway.\n\n**Used to Unlock:** Locked (Average) cabinet behind the bar in the main room.",
+    "l": [
+      {
+        "locationId": 485569,
+        "title": "Zion Fishing Lodge"
+      }
+    ]
+  },
+  "485622": {
+    "d": "**Location:** Zion Fishing Lodge, Fishing Lodge - Inside a locked (Average) cabinet behind the bar. Can be unlocked with Fishing Lodge Cabinet Key.\n\n**Related Quest:** Gone Fishin'",
+    "l": [
+      {
+        "locationId": 485569,
+        "title": "Zion Fishing Lodge"
+      },
+      {
+        "locationId": 485620,
+        "title": "Fishing Lodge Cabinet Key"
+      },
+      {
+        "locationId": 485605,
+        "title": "Gone Fishin'"
+      }
+    ]
+  },
+  "485623": {
+    "d": "**Location:** The Aerie - Underneath the bed. Difficult to spot without jumping onto the bed.  \n\n**Affected Skill:** Energy Weapons",
+    "l": [
+      {
+        "locationId": 485577,
+        "title": "The Aerie"
+      }
+    ]
+  },
+  "485626": {
+    "d": "An old plane can be spotted on top of the cliffs here. Cannot be reached, but supplies can be found in the area below."
+  },
+  "485627": {
+    "d": "At the end of the river."
+  },
+  "485628": {
+    "d": "Directly in front of you when fast travelling to Court Fork Overlook.",
+    "l": [
+      {
+        "locationId": 485552,
+        "title": "Court Fork Overlook"
+      }
+    ]
+  },
+  "485630": {
+    "d": "At the edge of the area."
+  },
+  "485652": {
+    "d": "When the river splits, it's on the left bank."
+  },
+  "485654": {
+    "d": "**Location:** Southern Passage, in a footlocker at the end of the DLC's quests (if it was not taken from Salt-Upon-Wounds' corpse.)  \n\n**Special Effects:**\n- None\n\n**Type:** One-Handed Power Fist\n\n**Requirements:**\n- Unarmed 50\n- Strength 6",
+    "l": [
+      {
+        "locationId": 485537,
+        "title": "Southern Passage"
+      }
+    ]
+  },
+  "485665": {
+    "d": "**Location:** Southern Passage, in a footlocker at the end of the DLC's quests (if it was not taken from Salt-Upon-Wounds' corpse.)  \n\n**Repair With:**\n- Combat Helmet\n- Any Headgear (w/ Jury Rigging perk)  \n\n**Statistics:**\n- DT +4\n- Critical Chance +2\n- Sneak +5",
+    "l": [
+      {
+        "locationId": 485537,
+        "title": "Southern Passage"
+      }
+    ]
+  },
+  "485678": {
+    "d": "**Location:** N/A\n\n**Quest Giver:** Follows-Chalk, when asking him about any interesting wildlife.\n\n**Reward:**\n- XP\n- .45 Auto Pistol\n- .45 Auto, Hollow Point x10\n- War Club",
+    "l": [
+      {
+        "locationId": 485590,
+        "title": "Follows-Chalk"
+      }
+    ]
+  },
+  "485683": {
+    "d": "Among the rocks and trees on a raised part of the landscape."
+  },
+  "485686": {
+    "d": "**Location:** The Red Gate - Inside a bag next to a skeleton near three trees.\n\n**Special Effects:**\n- None\n\n**Type:** Two-Handed Gun  \n\n**Requirements:**\n- Guns 75\n- Strength 4",
+    "l": [
+      {
+        "locationId": 485540,
+        "title": "The Red Gate"
+      }
+    ]
+  },
+  "485687": {
+    "d": "**Location:** The Red Gate - Inside a bag next to a skeleton near three trees.",
+    "l": [
+      {
+        "locationId": 485540,
+        "title": "The Red Gate"
+      }
+    ]
+  },
+  "485688": {
+    "d": "Near a Honey Mesquite plant and some sleeping bags."
+  },
+  "485689": {
+    "d": "An alternate entrance / exit to Three Marys' Cavern.",
+    "l": [
+      {
+        "locationId": 485694,
+        "title": "Three Marys' Cavern"
+      }
+    ]
+  },
+  "485690": {
+    "d": "At the top of a slope beside the river."
+  },
+  "485692": {
+    "d": "On the riverbank."
+  },
+  "485693": {
+    "d": "Next to the cave entrance."
+  },
+  "485694": {
+    "d": "**Hostile?** Yes - White Legs  \n\n**Notable NPCs:**\n- None\n\n**Notable Loot:**\n- None\n\n_Only added to your map during Crush the White Legs._",
+    "l": [
+      {
+        "locationId": 485850,
+        "title": "Crush the White Legs"
+      }
+    ]
+  },
+  "485695": {
+    "d": "On a high-up ledge beside the river."
+  },
+  "485696": {
+    "d": "On a high-up ledge beside the river."
+  },
+  "485788": {
+    "d": "**Location:** General Store - At the bottom of a cabinet behind the counter.",
+    "l": [
+      {
+        "locationId": 485555,
+        "title": "General Store"
+      }
+    ]
+  },
+  "485789": {
+    "d": "**Location:** General Store - Inside the cash register on the counter.\n\n**Used to Unlock:** Locked (Average) desk in the store's back room",
+    "l": [
+      {
+        "locationId": 485555,
+        "title": "General Store"
+      }
+    ]
+  },
+  "485790": {
+    "d": "**Location:** General Store. Found in the following locations:\n- Two are on the cashier's countertop.\n- One is in a wooden crate near the door to the back room.\n- At the bottom of a locker surrounded by cleaning supplies in the back room\n- In a locked (Average) desk in the back room, unlocked via General Store Desk Key\n\n**Related Quest:** Tourist Trap",
+    "l": [
+      {
+        "locationId": 485555,
+        "title": "General Store"
+      },
+      {
+        "locationId": 485789,
+        "title": "General Store Desk Key"
+      },
+      {
+        "locationId": 485606,
+        "title": "Tourist Trap"
+      }
+    ]
+  },
+  "485791": {
+    "d": "**Location:** Zion Ranger Station - Directly on your left as you enter, between a fallen chair and the wall.  \n\n**Affected Skill:** Guns",
+    "l": [
+      {
+        "locationId": 485557,
+        "title": "Zion Ranger Station"
+      }
+    ]
+  },
+  "485792": {
+    "d": "**Location:** Zion Ranger Station - On a table near the bunk beds in the back room. Must be decontaminated with any of the following:\n- Medicine 35 check\n- Duct Tape & Turpentine\n- Scotch / Vodka / Whiskey\n\n**Related Quest:** Tourist Trap",
+    "l": [
+      {
+        "locationId": 485557,
+        "title": "Zion Ranger Station"
+      },
+      {
+        "locationId": 485606,
+        "title": "Tourist Trap"
+      }
+    ]
+  },
+  "485793": {
+    "d": "At the top of a hill near the Zion Ranger Station.",
+    "l": [
+      {
+        "locationId": 485557,
+        "title": "Zion Ranger Station"
+      }
+    ]
+  },
+  "485797": {
+    "d": "**Location:** Inside a toolbox on the upper level of Ranger Substation Osprey. Only appears during Prisoners of War\n\n**Used to Unlock:** The locked (Average) cell door on the floor below.",
+    "l": [
+      {
+        "locationId": 485558,
+        "title": "Ranger Substation Osprey"
+      },
+      {
+        "locationId": 485871,
+        "title": "Prisoners of War"
+      }
+    ]
+  },
+  "485798": {
+    "d": "At the edge of a high-up cliff."
+  },
+  "485799": {
+    "d": "**Location:** Fallen Rock Cave - Added to your Pip-Boy after reading the entry on the terminal.",
+    "l": [
+      {
+        "locationId": 485547,
+        "title": "Fallen Rock Cave"
+      }
+    ]
+  },
+  "485800": {
+    "d": "**Location:** Fallen Rock Cave - Added to your Pip-Boy after reading the entry on the terminal.",
+    "l": [
+      {
+        "locationId": 485547,
+        "title": "Fallen Rock Cave"
+      }
+    ]
+  },
+  "485801": {
+    "d": "**Location:** Cueva Guarache - Added to your Pip-Boy after reading the entry on the terminal.",
+    "l": [
+      {
+        "locationId": 485556,
+        "title": "Cueva Guarache"
+      }
+    ]
+  },
+  "485802": {
+    "d": "**Location:** Cueva Guarache - Added to your Pip-Boy after reading the entry on the terminal.",
+    "l": [
+      {
+        "locationId": 485556,
+        "title": "Cueva Guarache"
+      }
+    ]
+  },
+  "485803": {
+    "d": "**Location:** Cueva Guarache - Added to your Pip-Boy after reading the entry on the terminal.",
+    "l": [
+      {
+        "locationId": 485556,
+        "title": "Cueva Guarache"
+      }
+    ]
+  },
+  "485804": {
+    "d": "**Location:** Morning Glory Cave - Inside a duffle bag beneath a lamp at the top of the cave, near a giant spore plant.\n\n**Used to Unlock:** Locked (Average) door at the other edge of the cave.",
+    "l": [
+      {
+        "locationId": 485554,
+        "title": "Morning Glory Cave"
+      }
+    ]
+  },
+  "485805": {
+    "d": "**Location:** Morning Glory Cave - Added to your Pip-Boy after reading the entry on the terminal.",
+    "l": [
+      {
+        "locationId": 485554,
+        "title": "Morning Glory Cave"
+      }
+    ]
+  },
+  "485806": {
+    "d": "**Location:** Morning Glory Cave - Added to your Pip-Boy after reading the entry on the terminal.",
+    "l": [
+      {
+        "locationId": 485554,
+        "title": "Morning Glory Cave"
+      }
+    ]
+  },
+  "485807": {
+    "d": "**Location:** Morning Glory Cave - Added to your Pip-Boy after reading the entry on the terminal.",
+    "l": [
+      {
+        "locationId": 485554,
+        "title": "Morning Glory Cave"
+      }
+    ]
+  },
+  "485808": {
+    "d": "At the base of a small cliff by the riverside."
+  },
+  "485809": {
+    "d": "By the roadside leading to Zion Valley Welcome Booth.",
+    "l": [
+      {
+        "locationId": 485543,
+        "title": "Zion Valley Welcome Booth"
+      }
+    ]
+  },
+  "485811": {
+    "d": "On a hilltop surrounded by plants."
+  },
+  "485812": {
+    "d": "On the riverbank."
+  },
+  "485813": {
+    "d": "By the cliff's edge near the Sun Sentinels fast travel point.",
+    "l": [
+      {
+        "locationId": 485580,
+        "title": "Sun Sentinels"
+      }
+    ]
+  },
+  "485814": {
+    "d": "In the wilderness near some Prickly Pear plants."
+  },
+  "485815": {
+    "d": "On the riverbank, north-east of the fast travel point for the Clear Water Docks.",
+    "l": [
+      {
+        "locationId": 485568,
+        "title": "Clear Water Docks"
+      }
+    ]
+  },
+  "485816": {
+    "d": "At the base of a cliff near the Burial Mounds.",
+    "l": [
+      {
+        "locationId": 485571,
+        "title": "Burial Mounds"
+      }
+    ]
+  },
+  "485817": {
+    "d": "On a high-up ledge, reached by walking up some sloping rocks."
+  },
+  "485818": {
+    "d": "On a ledge overlooking the bridge."
+  },
+  "485819": {
+    "d": "Next to the bridge."
+  },
+  "485820": {
+    "d": "By the roadside."
+  },
+  "485821": {
+    "d": "**Location:** Dropped by the Ghost of She\n\n**Related Quest:** Rite of Passage",
+    "l": [
+      {
+        "locationId": 485868,
+        "title": "Ghost of She"
+      },
+      {
+        "locationId": 485851,
+        "title": "Rite of Passage"
+      }
+    ]
+  },
+  "485822": {
+    "d": "**Location:** Inside a duffel bag beneath a bench in the Vault 22 Dwellers' Guard Camp.",
+    "l": [
+      {
+        "locationId": 485567,
+        "title": "Vault 22 Dwellers' Guard Camp"
+      }
+    ]
+  },
+  "485823": {
+    "d": "On a high-up cliff."
+  },
+  "485824": {
+    "d": "Between the road and a painted cliff."
+  },
+  "485825": {
+    "d": "On a high-up ledge above the rock arch. To reach it, follow the path beyond it until you spot a sign, then take a right up a slope and start backtracking along a very long ledge."
+  },
+  "485827": {
+    "d": "In a dead-end area infested with Spore Plants and Spore Carriers."
+  },
+  "485829": {
+    "d": "At the edge of the Campsite.",
+    "l": [
+      {
+        "locationId": 485827,
+        "title": "Campsite"
+      }
+    ]
+  },
+  "485831": {
+    "d": "At the top of a hill near some Banana Yucca plants."
+  },
+  "485832": {
+    "d": "On top of a hill overlooking the Caterpillar's Mound.",
+    "l": [
+      {
+        "locationId": 485559,
+        "title": "Caterpillar's Mound"
+      }
+    ]
+  },
+  "485833": {
+    "d": "On the riverbank."
+  },
+  "485835": {
+    "d": "**Location:** Sorrows Camp\n  \n**Services:** \n- Restores Health, removes radiation and addictions.\n- Sells a variety of medical supplies, but only after passing a Barter 50 or Speech 65 check.",
+    "l": [
+      {
+        "locationId": 485583,
+        "title": "Sorrows Camp"
+      }
+    ]
+  },
+  "485836": {
+    "d": "**Location:** Southern Passage, in a footlocker at the end of the DLC's quests (if it was not taken from Daniel's corpse.)  \n\n**Repair With:**\n- Caravaneer Outfit  \n- Field Hand Outfit\n- Prospector Outfit\n- Settler Outfit\n- Any Light Armor or Clothing (w/ Jury Rigging perk)  \n\n**Statistics:**\n- DT +2\n- Barter +5\n- Medicine +5",
+    "l": [
+      {
+        "locationId": 485537,
+        "title": "Southern Passage"
+      }
+    ]
+  },
+  "485837": {
+    "d": "**Location:** Southern Passage, in a footlocker at the end of the DLC's quests (if it was not taken from Daniel's corpse.)  \n\n**Repair With:**\n- Cowboy Hat\n- Ranger Hat  \n- Any Headgear (w/ Jury Rigging perk)  \n\n**Statistics:**\n- DT +1\n- Perception +1\n- Speech +5",
+    "l": [
+      {
+        "locationId": 485537,
+        "title": "Southern Passage"
+      }
+    ]
+  },
+  "485838": {
+    "d": "**Location:** Southern Passage, in a footlocker at the end of the DLC's quests (if it was not taken from Joshua Graham's corpse.)  \n\n**Repair With:**\n- Powder Ganger Guard Armor\n- Any Light Armor (w/ Jury Rigging perk)  \n\n**Statistics:**\n- DT +15\n- Critical Chance +3%",
+    "l": [
+      {
+        "locationId": 485537,
+        "title": "Southern Passage"
+      }
+    ]
+  },
+  "485839": {
+    "d": "**Location:** Southern Passage, in a footlocker at the end of the DLC's quests (if it was not taken from Joshua Graham's corpse.)  \n\n**Special Effects:**\n- None\n\n**Type:** .45 Auto Pistol  \n\n**Requirements:**\n- Guns 75\n- Strength 3",
+    "l": [
+      {
+        "locationId": 485537,
+        "title": "Southern Passage"
+      }
+    ]
+  },
+  "485840": {
+    "d": "**Location:** N/A\n\n**Quest Giver:** Begins if Follows-Chalk, Joshua Graham, Daniel or Waking Cloud are killed.\n\n**Quest Items:**\n- Zion Canyon Map\n\n**Reward:**\n- XP",
+    "l": [
+      {
+        "locationId": 485590,
+        "title": "Follows-Chalk"
+      },
+      {
+        "locationId": 485603,
+        "title": "Joshua Graham"
+      },
+      {
+        "locationId": 485835,
+        "title": "Daniel"
+      },
+      {
+        "locationId": 485847,
+        "title": "Waking Cloud"
+      },
+      {
+        "locationId": 486110,
+        "title": "Zion Canyon Map"
+      }
+    ]
+  },
+  "485841": {
+    "d": "**Location:** Sorrows Camp\n\n**Quest Giver:** Daniel, after Deliverer of Sorrows\n\n**Quest Items:**\n- Grand Staircase Map Holotape\n\n**Reward:**\n- XP",
+    "l": [
+      {
+        "locationId": 485583,
+        "title": "Sorrows Camp"
+      },
+      {
+        "locationId": 485835,
+        "title": "Daniel"
+      },
+      {
+        "locationId": 485608,
+        "title": "Deliverer of Sorrows"
+      },
+      {
+        "locationId": 486106,
+        "title": "Grand Staircase Map Holotape"
+      }
+    ]
+  },
+  "485842": {
+    "d": "**Location:** Sorrows Camp\n\n**Quest Giver:** Daniel, after Deliverer of Sorrows\n\n**Quest Items:**\n- White Legs War Totem (1)\n- White Legs War Totem (2)\n\n**Reward:**\n- XP",
+    "l": [
+      {
+        "locationId": 485583,
+        "title": "Sorrows Camp"
+      },
+      {
+        "locationId": 485835,
+        "title": "Daniel"
+      },
+      {
+        "locationId": 485608,
+        "title": "Deliverer of Sorrows"
+      },
+      {
+        "locationId": 486107,
+        "title": "White Legs War Totem"
+      },
+      {
+        "locationId": 486108,
+        "title": "White Legs War Totem"
+      }
+    ]
+  },
+  "485843": {
+    "d": "**Location:** Sorrows Camp\n\n**Quest Giver:** Daniel, after Deliverer of Sorrows\n\n**Reward:**\n- XP",
+    "l": [
+      {
+        "locationId": 485583,
+        "title": "Sorrows Camp"
+      },
+      {
+        "locationId": 485835,
+        "title": "Daniel"
+      },
+      {
+        "locationId": 485608,
+        "title": "Deliverer of Sorrows"
+      }
+    ]
+  },
+  "485844": {
+    "d": "**Location:** Sorrows Camp\n\n**Quest Giver:** Daniel, after Deliverer of Sorrows\n\n**Reward:**\n- XP",
+    "l": [
+      {
+        "locationId": 485583,
+        "title": "Sorrows Camp"
+      },
+      {
+        "locationId": 485835,
+        "title": "Daniel"
+      },
+      {
+        "locationId": 485608,
+        "title": "Deliverer of Sorrows"
+      }
+    ]
+  },
+  "485846": {
+    "d": "**Location:** Southern Passage, in a footlocker at the end of the DLC's quests (if it was not taken from Follows-Chalk's corpse.)  \n\n**Repair With:**\n- Pre-War Baseball Cap\n- Any Headgear (w/ Jury Rigging perk)  \n\n**Statistics:**\n- DT +1\n- Melee Weapons +5",
+    "l": [
+      {
+        "locationId": 485537,
+        "title": "Southern Passage"
+      }
+    ]
+  },
+  "485847": {
+    "d": "**Location:** Sorrows Camp\n\n**How to Recruit:** Complete Deliverer of Sorrows\n\n*Note: Cannot be recruited after you complete Gathering Storms*",
+    "l": [
+      {
+        "locationId": 485583,
+        "title": "Sorrows Camp"
+      },
+      {
+        "locationId": 485608,
+        "title": "Deliverer of Sorrows"
+      },
+      {
+        "locationId": 485848,
+        "title": "Gathering Storms"
+      }
+    ]
+  },
+  "485848": {
+    "d": "**Location:** Sorrows Camp\n\n**Quest Giver:** Automatically begins after completing The Grand Staircase, The Advance Scouts, The Treacherous Road and River Monsters\n\n**Reward:**\n- XP",
+    "l": [
+      {
+        "locationId": 485583,
+        "title": "Sorrows Camp"
+      },
+      {
+        "locationId": 485841,
+        "title": "The Grand Staircase"
+      },
+      {
+        "locationId": 485842,
+        "title": "The Advance Scouts"
+      },
+      {
+        "locationId": 485843,
+        "title": "The Treacherous Road"
+      },
+      {
+        "locationId": 485844,
+        "title": "River Monsters"
+      }
+    ]
+  },
+  "485849": {
+    "d": "**Location:** Sorrows Camp\n\n**Quest Giver:** Daniel if you decide to help evacuate the valley during Gathering Storms\n\n**Reward:**\n- XP\n- Southern Passage re-opens, allowing you to return to the Mojave Wasteland",
+    "l": [
+      {
+        "locationId": 485583,
+        "title": "Sorrows Camp"
+      },
+      {
+        "locationId": 485848,
+        "title": "Gathering Storms"
+      },
+      {
+        "locationId": 485537,
+        "title": "Southern Passage"
+      }
+    ]
+  },
+  "485850": {
+    "d": "**Location:** Sorrows Camp\n\n**Quest Giver:** Joshua Graham if you decide to destroy the White Legs during Gathering Storms\n\n**Reward:**\n- XP\n- Southern Passage re-opens, allowing you to return to the Mojave Wasteland",
+    "l": [
+      {
+        "locationId": 485583,
+        "title": "Sorrows Camp"
+      },
+      {
+        "locationId": 485848,
+        "title": "Gathering Storms"
+      },
+      {
+        "locationId": 485537,
+        "title": "Southern Passage"
+      }
+    ]
+  },
+  "485851": {
+    "d": "**Location:** Sorrows Camp\n\n**Quest Giver:** Waking Cloud or White Bird\n\n**Quest Item(s):**\n- Sacred Datura Root\n- Sacred Datura Root\n- Sacred Datura Root\n- Ghost of She's Paw\n\n**Reward:**\n- XP\n- She's Embrace [Yao Guai Gauntlet]",
+    "l": [
+      {
+        "locationId": 485583,
+        "title": "Sorrows Camp"
+      },
+      {
+        "locationId": 485847,
+        "title": "Waking Cloud"
+      },
+      {
+        "locationId": 485863,
+        "title": "White Bird"
+      },
+      {
+        "locationId": 485865,
+        "title": "Sacred Datura Root"
+      },
+      {
+        "locationId": 485866,
+        "title": "Sacred Datura Root"
+      },
+      {
+        "locationId": 485867,
+        "title": "Sacred Datura Root"
+      },
+      {
+        "locationId": 485821,
+        "title": "Ghost of She's Paw"
+      },
+      {
+        "locationId": 485864,
+        "title": "She's Embrace [Yao Guai Gauntlet]"
+      }
+    ]
+  },
+  "485853": {
+    "d": "**Location:** Sorrows Camp\n\n**Quest Giver:** Waking Cloud, if you ask what her deal is, talk to her about her family, then offer to speak to Daniel on her behalf.\n\n**Reward:**\n- XP",
+    "l": [
+      {
+        "locationId": 485583,
+        "title": "Sorrows Camp"
+      },
+      {
+        "locationId": 485847,
+        "title": "Waking Cloud"
+      }
+    ]
+  },
+  "485856": {
+    "d": "An unmarked entrance / exit point to the Half Mouse Cave.",
+    "l": [
+      {
+        "locationId": 485586,
+        "title": "Half Mouse Cave"
+      }
+    ]
+  },
+  "485857": {
+    "d": "**Location:** Stone Bones Cave - Added to your Pip-Boy after reading the entry on the terminal.",
+    "l": [
+      {
+        "locationId": 485584,
+        "title": "Stone Bones Cave"
+      }
+    ]
+  },
+  "485859": {
+    "d": "**Location:** Stone Bones Cave - Added to your Pip-Boy after reading the entry on the terminal.",
+    "l": [
+      {
+        "locationId": 485584,
+        "title": "Stone Bones Cave"
+      }
+    ]
+  },
+  "485860": {
+    "d": "An unmarked entrance / exit point to the Stone Bones Cave.",
+    "l": [
+      {
+        "locationId": 485584,
+        "title": "Stone Bones Cave"
+      }
+    ]
+  },
+  "485861": {
+    "d": "An unmarked entrance / exit point to the Crossroad Cavern",
+    "l": [
+      {
+        "locationId": 485587,
+        "title": "Crossroad Cavern"
+      }
+    ]
+  },
+  "485863": {
+    "d": "**Location:** White Bird's Cave\n  \n**Note(s):** Spoken to as part of Rite of Passage, or begins the quest if it has not already started.",
+    "l": [
+      {
+        "locationId": 485588,
+        "title": "White Bird's Cave"
+      },
+      {
+        "locationId": 485851,
+        "title": "Rite of Passage"
+      }
+    ]
+  },
+  "485864": {
+    "d": "**Location:** White Bird's Cave - Reward for completing Rite of Passage  \n\n**Special Effects:**\n- Ignores target's Damage Resistance\n\n**Type:** Unarmed  \n\n**Requirements:**\n- Unarmed 50\n- Strength 4",
+    "l": [
+      {
+        "locationId": 485588,
+        "title": "White Bird's Cave"
+      },
+      {
+        "locationId": 485851,
+        "title": "Rite of Passage"
+      }
+    ]
+  },
+  "485865": {
+    "d": "**Location:** On a ledge near a campfire.\n\n**Related Quest:** Rite of Passage",
+    "l": [
+      {
+        "locationId": 485851,
+        "title": "Rite of Passage"
+      }
+    ]
+  },
+  "485866": {
+    "d": "**Location:** At the end of a bridge.\n\n**Related Quest:** Rite of Passage",
+    "l": [
+      {
+        "locationId": 485851,
+        "title": "Rite of Passage"
+      }
+    ]
+  },
+  "485867": {
+    "d": "**Location:** On a high-up cliff near a pond.\n\r\n**Related Quest:** Rite of Passage",
+    "l": [
+      {
+        "locationId": 485851,
+        "title": "Rite of Passage"
+      }
+    ]
+  },
+  "485868": {
+    "d": "Visited during Rite of Passage.",
+    "l": [
+      {
+        "locationId": 485851,
+        "title": "Rite of Passage"
+      }
+    ]
+  },
+  "485869": {
+    "d": "**Location:** East Fork Bridge\n\n**Quest Giver:** Begins after siding with Daniel during Gathering Storms\n\n**Reward:**\n- XP",
+    "l": [
+      {
+        "locationId": 485573,
+        "title": "East Fork Bridge"
+      },
+      {
+        "locationId": 485848,
+        "title": "Gathering Storms"
+      }
+    ]
+  },
+  "485870": {
+    "d": "**Location:** Burial Mounds\n\n**Quest Giver:** Begins after siding with Daniel during Gathering Storms\n\n**Reward:**\n- XP",
+    "l": [
+      {
+        "locationId": 485571,
+        "title": "Burial Mounds"
+      },
+      {
+        "locationId": 485848,
+        "title": "Gathering Storms"
+      }
+    ]
+  },
+  "485871": {
+    "d": "**Location:** Ranger Substation Osprey\n\n**Quest Giver:** Begins after siding with Daniel during Gathering Storms\n\n**Quest Item(s):**\n- White Leg Key\n\n**Reward:**\n- XP",
+    "l": [
+      {
+        "locationId": 485558,
+        "title": "Ranger Substation Osprey"
+      },
+      {
+        "locationId": 485848,
+        "title": "Gathering Storms"
+      },
+      {
+        "locationId": 485797,
+        "title": "White Leg Key"
+      }
+    ]
+  },
+  "485872": {
+    "d": "**Location:** Southern Passage\n\n**Quest Giver:** Begins after Flight from Zion or Crush the White Legs\n\n**Reward:**\n- XP",
+    "l": [
+      {
+        "locationId": 485537,
+        "title": "Southern Passage"
+      },
+      {
+        "locationId": 485849,
+        "title": "Flight from Zion"
+      },
+      {
+        "locationId": 485850,
+        "title": "Crush the White Legs"
+      }
+    ]
+  },
+  "485873": {
+    "d": "**Location:** Crouching a short distance from the Burial Mounds during Sanctity of the Dead\n  \n**Note(s):** Can be convinced to leave with a Speech 75 check.",
+    "l": [
+      {
+        "locationId": 485571,
+        "title": "Burial Mounds"
+      },
+      {
+        "locationId": 485870,
+        "title": "Sanctity of the Dead"
+      }
+    ]
+  },
+  "485874": {
+    "d": "**Location:** Two Skies Cave- Added to your Pip-Boy after reading the entry on the terminal.",
+    "l": [
+      {
+        "locationId": 484617,
+        "title": "Two Skies Cave"
+      }
+    ]
+  },
+  "485875": {
+    "d": "**Location:** Two Skies Cave- Added to your Pip-Boy after reading the entry on the terminal.",
+    "l": [
+      {
+        "locationId": 484617,
+        "title": "Two Skies Cave"
+      }
+    ]
+  },
+  "485876": {
+    "d": "**Location:** Two Skies Cave- Added to your Pip-Boy after reading the entry on the terminal.",
+    "l": [
+      {
+        "locationId": 484617,
+        "title": "Two Skies Cave"
+      }
+    ]
+  },
+  "486106": {
+    "d": "**Location:** Morning Glory Cave - Inside the Survival Cache. To reach the room it's in, use the Morning Glory's Cache Key or have a Lockpick skill of 50 or more.\n\n**Related Quest:** The Grand Staircase",
+    "l": [
+      {
+        "locationId": 485554,
+        "title": "Morning Glory Cave"
+      },
+      {
+        "locationId": 485804,
+        "title": "Morning Glory's Cache Key"
+      },
+      {
+        "locationId": 485841,
+        "title": "The Grand Staircase"
+      }
+    ]
+  },
+  "486107": {
+    "d": "**Location:** Bighorn Bluff - At the edge of the camp.\n\n**Related Quest:** The Advance Scouts",
+    "l": [
+      {
+        "locationId": 485541,
+        "title": "Bighorn Bluff"
+      },
+      {
+        "locationId": 485842,
+        "title": "The Advance Scouts"
+      }
+    ]
+  },
+  "486108": {
+    "d": "**Location:** At the edge of a White Legs camp, between two trees.\n\n**Related Quest:** The Advance Scouts",
+    "l": [
+      {
+        "locationId": 485842,
+        "title": "The Advance Scouts"
+      }
+    ]
+  },
+  "486110": {
+    "d": "**Location:** Inside a clay pot next to a bed.\n\n**Related Quest:** Chaos in Zion",
+    "l": [
+      {
+        "locationId": 485840,
+        "title": "Chaos in Zion"
+      }
+    ]
+  },
+  "488588": {
+    "d": "**Location:** Caterpillar's Mound\n\n**How to Recruit:** Begin Flight from Zion or Crush the White Legs",
+    "l": [
+      {
+        "locationId": 485559,
+        "title": "Caterpillar's Mound"
+      },
+      {
+        "locationId": 485849,
+        "title": "Flight from Zion"
+      },
+      {
+        "locationId": 485850,
+        "title": "Crush the White Legs"
+      }
+    ]
+  },
+  "489752": {
+    "d": "**Location:** Stone Bones Cave - On the ground in front of the terminal holding the holotapes.  \n\n**Repair With:**\n- Ranger Helmet\n- Any Headgear (w/ Jury Rigging perk)  \n\n**Statistics:**\n- DT +5",
+    "l": [
+      {
+        "locationId": 485584,
+        "title": "Stone Bones Cave"
+      }
+    ]
+  },
+  "489753": {
+    "d": "**Location:** Stone Bones Cave - On the ground in front of the terminal holding the holotapes.  \n\n**Repair With:**\n- NCR Ranger Combat Armor\n- Any Medium Armor (w/ Jury Rigging perk)  \n\n**Statistics:**\n- DT +22",
+    "l": [
+      {
+        "locationId": 485584,
+        "title": "Stone Bones Cave"
+      }
+    ]
+  },
+  "511299": {
+    "d": "**Note:** Only appears with the Wild Wasteland trait.\n\nWhen approaching the Angel Cave for the first time, a tribesman named Two-Bears-High-Fiving will rush out and gesture towards the player.\n\nHis name is a reference to the player base believing that one of the ink blots Doc Mitchell shows at the start of the game looks an awful lot like two bears high fiving - and creating a mod to let you answer as such.",
+    "l": [
+      {
+        "locationId": 485545,
+        "title": "Angel Cave"
+      }
+    ]
+  },
+  "512744": {
+    "d": "**Location:** Sorrows Camp - Given by Daniel when you ask for any other ways to help the Sorrows.",
+    "l": [
+      {
+        "locationId": 485583,
+        "title": "Sorrows Camp"
+      },
+      {
+        "locationId": 485835,
+        "title": "Daniel"
+      }
+    ]
+  },
+  "516515": {
+    "d": "Stone Bones Cave",
+    "l": [
+      {
+        "locationId": 485584,
+        "title": "Stone Bones Cave"
+      }
+    ]
+  },
+  "516516": {
+    "d": "Morning Glory Cave",
+    "l": [
+      {
+        "locationId": 485554,
+        "title": "Morning Glory Cave"
+      }
+    ]
+  },
+  "516517": {
+    "d": "Fallen Rock Cave",
+    "l": [
+      {
+        "locationId": 485547,
+        "title": "Fallen Rock Cave"
+      }
+    ]
+  },
+  "516518": {
+    "d": "Two Skies Cave",
+    "l": [
+      {
+        "locationId": 484617,
+        "title": "Two Skies Cave"
+      }
+    ]
+  },
+  "516519": {
+    "d": "Cueva Guarache",
+    "l": [
+      {
+        "locationId": 485556,
+        "title": "Cueva Guarache"
+      }
+    ]
+  },
+  "516520": {
+    "d": "Travel through Angel Cave and exit out the back entrance. Head west until you reach the cliff and it's on the ground to the right underneath a hand print.",
+    "l": [
+      {
+        "locationId": 485545,
+        "title": "Angel Cave"
+      }
+    ]
+  }
+}

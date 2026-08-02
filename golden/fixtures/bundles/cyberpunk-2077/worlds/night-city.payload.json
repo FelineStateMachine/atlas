@@ -1,0 +1,2417 @@
+{
+  "attrs": {
+    "atlas.icon.outset": "dark"
+  },
+  "collections": [
+    {
+      "attrs": {
+        "atlas.geometry.kind": "point",
+        "atlas.icon.kind": "picture",
+        "atlas.render.as": "pin"
+      },
+      "group": "Exploration",
+      "icon": "fast-travel",
+      "iconAsset": "fast-travel.png",
+      "iconPicture": true,
+      "id": 187272182,
+      "kind": "point",
+      "title": "Fast Travel",
+      "visible": true
+    },
+    {
+      "attrs": {
+        "atlas.geometry.kind": "point",
+        "atlas.icon.kind": "picture",
+        "atlas.render.as": "pin"
+      },
+      "group": "Exploration",
+      "icon": "metro-station",
+      "iconAsset": "metro-station.png",
+      "iconPicture": true,
+      "id": 61656367,
+      "kind": "point",
+      "title": "Metro Station",
+      "visible": true
+    },
+    {
+      "attrs": {
+        "atlas.geometry.kind": "point",
+        "atlas.icon.kind": "picture",
+        "atlas.render.as": "pin"
+      },
+      "group": "Exploration",
+      "icon": "drop-point",
+      "iconAsset": "drop-point.png",
+      "iconPicture": true,
+      "id": 1255875703,
+      "kind": "point",
+      "title": "Drop Point",
+      "visible": true
+    },
+    {
+      "attrs": {
+        "atlas.geometry.kind": "point",
+        "atlas.icon.kind": "picture",
+        "atlas.render.as": "pin"
+      },
+      "group": "Vendors",
+      "icon": "ripperdoc",
+      "iconAsset": "ripperdoc.png",
+      "iconPicture": true,
+      "id": 1250716097,
+      "kind": "point",
+      "title": "Ripperdoc",
+      "visible": true
+    },
+    {
+      "attrs": {
+        "atlas.geometry.kind": "point",
+        "atlas.icon.kind": "picture",
+        "atlas.render.as": "pin"
+      },
+      "group": "Vendors",
+      "icon": "weapon-shop",
+      "iconAsset": "weapon-shop.png",
+      "iconPicture": true,
+      "id": 1151643766,
+      "kind": "point",
+      "title": "Weapon Shop",
+      "visible": true
+    },
+    {
+      "attrs": {
+        "atlas.geometry.kind": "point",
+        "atlas.icon.kind": "picture",
+        "atlas.render.as": "pin"
+      },
+      "group": "Vendors",
+      "icon": "melee-vendor",
+      "iconAsset": "melee-vendor.png",
+      "iconPicture": true,
+      "id": 170858878,
+      "kind": "point",
+      "title": "Melee Vendor",
+      "visible": true
+    },
+    {
+      "attrs": {
+        "atlas.geometry.kind": "point",
+        "atlas.icon.kind": "picture",
+        "atlas.render.as": "pin"
+      },
+      "group": "Vendors",
+      "icon": "clothing-vendor",
+      "iconAsset": "clothing-vendor.png",
+      "iconPicture": true,
+      "id": 2069085512,
+      "kind": "point",
+      "title": "Clothing Vendor",
+      "visible": true
+    },
+    {
+      "attrs": {
+        "atlas.geometry.kind": "point",
+        "atlas.icon.kind": "picture",
+        "atlas.render.as": "pin"
+      },
+      "group": "Vendors",
+      "icon": "netrunner",
+      "iconAsset": "netrunner.png",
+      "iconPicture": true,
+      "id": 476617120,
+      "kind": "point",
+      "title": "Netrunner",
+      "visible": true
+    },
+    {
+      "attrs": {
+        "atlas.geometry.kind": "point",
+        "atlas.icon.kind": "picture",
+        "atlas.render.as": "pin"
+      },
+      "group": "Vendors",
+      "icon": "medpoint",
+      "iconAsset": "medpoint.png",
+      "iconPicture": true,
+      "id": 635374627,
+      "kind": "point",
+      "title": "Medpoint",
+      "visible": true
+    },
+    {
+      "attrs": {
+        "atlas.geometry.kind": "point",
+        "atlas.icon.kind": "picture",
+        "atlas.render.as": "pin"
+      },
+      "group": "Vendors",
+      "icon": "food",
+      "iconAsset": "food.png",
+      "iconPicture": true,
+      "id": 520606507,
+      "kind": "point",
+      "title": "Food",
+      "visible": true
+    },
+    {
+      "attrs": {
+        "atlas.geometry.kind": "point",
+        "atlas.icon.kind": "picture",
+        "atlas.render.as": "pin"
+      },
+      "group": "Vendors",
+      "icon": "junk-vendor",
+      "iconAsset": "junk-vendor.png",
+      "iconPicture": true,
+      "id": 2043908702,
+      "kind": "point",
+      "title": "Junk Vendor",
+      "visible": true
+    },
+    {
+      "attrs": {
+        "atlas.geometry.kind": "point",
+        "atlas.icon.kind": "picture",
+        "atlas.render.as": "pin"
+      },
+      "group": "Vendors",
+      "icon": "black-market-vendor",
+      "iconAsset": "black-market-vendor.png",
+      "iconPicture": true,
+      "id": 853515362,
+      "kind": "point",
+      "title": "Black Market Vendor",
+      "visible": true
+    },
+    {
+      "attrs": {
+        "atlas.geometry.kind": "point",
+        "atlas.icon.kind": "picture",
+        "atlas.render.as": "pin"
+      },
+      "group": "Vendors",
+      "icon": "fixer",
+      "iconAsset": "fixer.png",
+      "iconPicture": true,
+      "id": 1431621817,
+      "kind": "point",
+      "title": "Fixer",
+      "visible": true
+    },
+    {
+      "attrs": {
+        "atlas.geometry.kind": "point",
+        "atlas.icon.kind": "picture",
+        "atlas.render.as": "pin"
+      },
+      "group": "Gigs",
+      "icon": "sos-merc-needed",
+      "iconAsset": "sos-merc-needed.png",
+      "iconPicture": true,
+      "id": 841304391,
+      "kind": "point",
+      "title": "SOS: Merc Needed",
+      "visible": true
+    },
+    {
+      "attrs": {
+        "atlas.geometry.kind": "point",
+        "atlas.icon.kind": "picture",
+        "atlas.render.as": "pin"
+      },
+      "group": "Gigs",
+      "icon": "search-recover",
+      "iconAsset": "search-recover.png",
+      "iconPicture": true,
+      "id": 1780308177,
+      "kind": "point",
+      "title": "Search & Recover",
+      "visible": true
+    },
+    {
+      "attrs": {
+        "atlas.geometry.kind": "point",
+        "atlas.icon.kind": "picture",
+        "atlas.render.as": "pin"
+      },
+      "group": "Gigs",
+      "icon": "thievery",
+      "iconAsset": "thievery.png",
+      "iconPicture": true,
+      "id": 2106783186,
+      "kind": "point",
+      "title": "Thievery",
+      "visible": true
+    },
+    {
+      "attrs": {
+        "atlas.geometry.kind": "point",
+        "atlas.icon.kind": "picture",
+        "atlas.render.as": "pin"
+      },
+      "group": "Gigs",
+      "icon": "gun-for-hire",
+      "iconAsset": "gun-for-hire.png",
+      "iconPicture": true,
+      "id": 1715998717,
+      "kind": "point",
+      "title": "Gun for Hire",
+      "visible": true
+    },
+    {
+      "attrs": {
+        "atlas.geometry.kind": "point",
+        "atlas.icon.kind": "picture",
+        "atlas.render.as": "pin"
+      },
+      "group": "Gigs",
+      "icon": "agent-saboteur",
+      "iconAsset": "agent-saboteur.png",
+      "iconPicture": true,
+      "id": 6375707,
+      "kind": "point",
+      "title": "Agent Saboteur",
+      "visible": true
+    },
+    {
+      "attrs": {
+        "atlas.geometry.kind": "point",
+        "atlas.icon.kind": "picture",
+        "atlas.render.as": "pin"
+      },
+      "group": "Gigs",
+      "icon": "special-delivery",
+      "iconAsset": "special-delivery.png",
+      "iconPicture": true,
+      "id": 1220626682,
+      "kind": "point",
+      "title": "Special Delivery",
+      "visible": true
+    },
+    {
+      "attrs": {
+        "atlas.geometry.kind": "point",
+        "atlas.icon.kind": "picture",
+        "atlas.render.as": "pin"
+      },
+      "group": "Gigs",
+      "icon": "phantom-liberty",
+      "iconAsset": "phantom-liberty.png",
+      "iconPicture": true,
+      "id": 848327171,
+      "kind": "point",
+      "title": "Phantom Liberty",
+      "visible": true
+    },
+    {
+      "attrs": {
+        "atlas.geometry.kind": "point",
+        "atlas.icon.kind": "picture",
+        "atlas.render.as": "pin"
+      },
+      "group": "NCPD Scanner Hustles",
+      "icon": "assault",
+      "iconAsset": "assault.png",
+      "iconPicture": true,
+      "id": 1090986380,
+      "kind": "point",
+      "title": "Assault",
+      "visible": true
+    },
+    {
+      "attrs": {
+        "atlas.geometry.kind": "point",
+        "atlas.icon.kind": "picture",
+        "atlas.render.as": "pin"
+      },
+      "group": "NCPD Scanner Hustles",
+      "icon": "reported-crime",
+      "iconAsset": "reported-crime.png",
+      "iconPicture": true,
+      "id": 860517941,
+      "kind": "point",
+      "title": "Reported Crime",
+      "visible": true
+    },
+    {
+      "attrs": {
+        "atlas.geometry.kind": "point",
+        "atlas.icon.kind": "picture",
+        "atlas.render.as": "pin"
+      },
+      "group": "NCPD Scanner Hustles",
+      "icon": "organized-crime",
+      "iconAsset": "organized-crime.png",
+      "iconPicture": true,
+      "id": 934087139,
+      "kind": "point",
+      "title": "Organized Crime",
+      "visible": true
+    },
+    {
+      "attrs": {
+        "atlas.geometry.kind": "point",
+        "atlas.icon.kind": "picture",
+        "atlas.render.as": "pin"
+      },
+      "group": "Other Activities",
+      "icon": "cyberpsycho",
+      "iconAsset": "cyberpsycho.png",
+      "iconPicture": true,
+      "id": 2121906627,
+      "kind": "point",
+      "title": "Cyberpsycho",
+      "visible": true
+    },
+    {
+      "attrs": {
+        "atlas.geometry.kind": "point",
+        "atlas.icon.kind": "picture",
+        "atlas.render.as": "pin"
+      },
+      "group": "Other Activities",
+      "icon": "tarot-graffiti",
+      "iconAsset": "tarot-graffiti.png",
+      "iconPicture": true,
+      "id": 663170529,
+      "kind": "point",
+      "title": "Tarot Graffiti",
+      "visible": true
+    },
+    {
+      "attrs": {
+        "atlas.geometry.kind": "point",
+        "atlas.icon.kind": "picture",
+        "atlas.render.as": "pin"
+      },
+      "group": "Other Activities",
+      "icon": "increased-criminal-activity",
+      "iconAsset": "increased-criminal-activity.png",
+      "iconPicture": true,
+      "id": 752132182,
+      "kind": "point",
+      "title": "Increased Criminal Activity",
+      "visible": true
+    },
+    {
+      "attrs": {
+        "atlas.geometry.kind": "point",
+        "atlas.icon.kind": "picture",
+        "atlas.render.as": "pin"
+      },
+      "group": "Other Activities",
+      "icon": "airdrop",
+      "iconAsset": "airdrop.png",
+      "iconPicture": true,
+      "id": 276848603,
+      "kind": "point",
+      "title": "Airdrop",
+      "visible": true
+    },
+    {
+      "attrs": {
+        "atlas.geometry.kind": "point",
+        "atlas.icon.kind": "picture",
+        "atlas.render.as": "pin"
+      },
+      "group": "Miscellany",
+      "icon": "apartment",
+      "iconAsset": "apartment.png",
+      "iconPicture": true,
+      "id": 1969123971,
+      "kind": "point",
+      "title": "Apartment",
+      "visible": true
+    },
+    {
+      "attrs": {
+        "atlas.geometry.kind": "point",
+        "atlas.icon.kind": "picture",
+        "atlas.render.as": "pin"
+      },
+      "group": "Miscellany",
+      "icon": "autofixer-terminal",
+      "iconAsset": "autofixer-terminal.png",
+      "iconPicture": true,
+      "id": 1679009675,
+      "kind": "point",
+      "title": "Autofixer Terminal",
+      "visible": true
+    },
+    {
+      "attrs": {
+        "atlas.geometry.kind": "point",
+        "atlas.icon.kind": "picture",
+        "atlas.render.as": "pin"
+      },
+      "group": "Miscellany",
+      "icon": "bar",
+      "iconAsset": "bar.png",
+      "iconPicture": true,
+      "id": 768639116,
+      "kind": "point",
+      "title": "Bar",
+      "visible": true
+    },
+    {
+      "attrs": {
+        "atlas.geometry.kind": "point",
+        "atlas.icon.kind": "picture",
+        "atlas.render.as": "pin"
+      },
+      "group": "Miscellany",
+      "icon": "joytoy",
+      "iconAsset": "joytoy.png",
+      "iconPicture": true,
+      "id": 1252530857,
+      "kind": "point",
+      "title": "Joytoy",
+      "visible": true
+    },
+    {
+      "attrs": {
+        "atlas.geometry.kind": "point",
+        "atlas.icon.kind": "picture",
+        "atlas.render.as": "pin"
+      },
+      "group": "Miscellany",
+      "icon": "landmark",
+      "iconAsset": "landmark.png",
+      "iconPicture": true,
+      "id": 268081583,
+      "kind": "point",
+      "title": "Landmark",
+      "visible": true
+    },
+    {
+      "attrs": {
+        "atlas.geometry.kind": "point",
+        "atlas.icon.kind": "picture",
+        "atlas.render.as": "pin"
+      },
+      "group": "Miscellany",
+      "icon": "relic-station",
+      "iconAsset": "relic-station.png",
+      "iconPicture": true,
+      "id": 1422539423,
+      "kind": "point",
+      "title": "Relic Station",
+      "visible": true
+    },
+    {
+      "attrs": {
+        "atlas.geometry.kind": "point",
+        "atlas.render.as": "text"
+      },
+      "group": "Districts",
+      "icon": "province",
+      "id": 2037087435,
+      "kind": "point",
+      "title": "District",
+      "visible": true
+    },
+    {
+      "attrs": {
+        "atlas.geometry.kind": "point",
+        "atlas.render.as": "text"
+      },
+      "group": "Districts",
+      "icon": "sub-region",
+      "id": 371808862,
+      "kind": "point",
+      "title": "Sub-District",
+      "visible": true
+    },
+    {
+      "attrs": {
+        "atlas.geometry.kind": "point",
+        "atlas.icon.kind": "picture",
+        "atlas.render.as": "pin"
+      },
+      "group": "IGN Wiki",
+      "icon": "edgerunner-reference",
+      "iconAsset": "ign-wiki--edgerunner-reference.png",
+      "iconPicture": true,
+      "id": 1106480341,
+      "kind": "point",
+      "title": "Edgerunner Reference",
+      "visible": true
+    },
+    {
+      "attrs": {
+        "atlas.geometry.kind": "point",
+        "atlas.icon.kind": "picture",
+        "atlas.render.as": "pin"
+      },
+      "group": "IGN Wiki",
+      "icon": "ken-block-car",
+      "iconAsset": "ign-wiki--ken-block-car.png",
+      "iconPicture": true,
+      "id": 1971263247,
+      "kind": "point",
+      "title": "Ken Block Car",
+      "visible": true
+    },
+    {
+      "attrs": {
+        "atlas.geometry.kind": "point",
+        "atlas.icon.kind": "picture",
+        "atlas.render.as": "pin"
+      },
+      "group": "IGN Wiki",
+      "icon": "relic-data-terminal",
+      "iconAsset": "ign-wiki--relic-data-terminal.png",
+      "iconPicture": true,
+      "id": 879393931,
+      "kind": "point",
+      "title": "Relic Data Terminal",
+      "visible": true
+    },
+    {
+      "attrs": {
+        "atlas.geometry.kind": "point",
+        "atlas.icon.kind": "picture",
+        "atlas.render.as": "pin"
+      },
+      "group": "IGN Wiki",
+      "icon": "sandevistan",
+      "iconAsset": "ign-wiki--sandevistan.png",
+      "iconPicture": true,
+      "id": 1610295682,
+      "kind": "point",
+      "title": "Sandevistan",
+      "visible": true
+    },
+    {
+      "attrs": {
+        "atlas.geometry.kind": "point",
+        "atlas.icon.kind": "picture",
+        "atlas.render.as": "pin"
+      },
+      "group": "IGN Wiki",
+      "icon": "skippy",
+      "iconAsset": "ign-wiki--skippy.png",
+      "iconPicture": true,
+      "id": 966963642,
+      "kind": "point",
+      "title": "Skippy",
+      "visible": true
+    }
+  ],
+  "grid": {
+    "firstTile": 0,
+    "sourceZoom": 5
+  },
+  "lenses": [
+    {
+      "bounds": {
+        "height": 6912,
+        "width": 7168,
+        "x": 0,
+        "y": 0
+      },
+      "coverage": {
+        "3": {
+          "bits": "////////AQ==",
+          "h": 7,
+          "w": 7,
+          "x": 0,
+          "y": 0
+        },
+        "4": {
+          "bits": "////////////////////////////////Dw==",
+          "h": 14,
+          "w": 14,
+          "x": 0,
+          "y": 0
+        },
+        "5": {
+          "bits": "/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////w8=",
+          "h": 27,
+          "w": 28,
+          "x": 0,
+          "y": 0
+        },
+        "6": {
+          "bits": "////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////",
+          "h": 54,
+          "w": 56,
+          "x": 0,
+          "y": 0
+        },
+        "7": {
+          "bits": "////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////",
+          "h": 108,
+          "w": 112,
+          "x": 0,
+          "y": 0
+        }
+      },
+      "formats": [
+        "jpg",
+        "jpg",
+        "jpg",
+        "jpg",
+        "jpg",
+        "jpg",
+        "jpg",
+        "webp"
+      ],
+      "fullZoom": 7,
+      "interpolate": true,
+      "maxZoom": 7,
+      "minZoom": 0,
+      "name": "Default",
+      "sourceZoom": 7,
+      "surface": {
+        "height": 6745,
+        "width": 6416,
+        "x": 752,
+        "y": 167
+      },
+      "tiles": "night-city__cbp"
+    },
+    {
+      "bounds": {
+        "height": 8192,
+        "width": 8192,
+        "x": 0,
+        "y": 0
+      },
+      "formats": [
+        "jpg",
+        "jpg",
+        "jpg",
+        "jpg",
+        "jpg",
+        "jpg"
+      ],
+      "fullZoom": 5,
+      "interpolate": true,
+      "maxZoom": 5,
+      "minZoom": 0,
+      "name": "IGN Wiki",
+      "sourceZoom": 5,
+      "surface": {
+        "height": 6813,
+        "width": 6529,
+        "x": 752,
+        "y": 167
+      },
+      "tiles": "night-city__cbp__aligned-cyberpunk-2077-night-city"
+    }
+  ],
+  "merged": [
+    {
+      "added": 0,
+      "donorFeatures": {
+        "area": 0,
+        "path": 0,
+        "point": 823
+      },
+      "origin": true,
+      "slug": "piggyback",
+      "source": "Piggyback"
+    },
+    {
+      "added": 37,
+      "adopted": [
+        {
+          "d": 2041587856,
+          "into": "clothing-vendor"
+        },
+        {
+          "d": 1279713061,
+          "into": "fast-travel"
+        },
+        {
+          "d": 1842486599,
+          "into": "medpoint"
+        },
+        {
+          "d": 249055660,
+          "into": "ripperdoc"
+        },
+        {
+          "d": 1295731169,
+          "into": "ripperdoc"
+        },
+        {
+          "d": 1909663037,
+          "into": "ripperdoc"
+        },
+        {
+          "d": 86011197,
+          "into": "tarot-graffiti"
+        }
+      ],
+      "alignment": "99 anchors, median 26.0px, p90 52.0px, worst 67.4px",
+      "donorFeatures": {
+        "area": 0,
+        "path": 0,
+        "point": 368
+      },
+      "held": [
+        {
+          "d": 1775561692,
+          "t": "Arroyo Clothes Shop",
+          "why": "beside \"Clothing Vendor\" in the same category; names disagree"
+        },
+        {
+          "d": 1467362679,
+          "t": "Avante Clothes Shop",
+          "why": "beside \"Clothing Vendor\" in the same category; names disagree"
+        },
+        {
+          "d": 1069593514,
+          "t": "Badlands Clothing",
+          "why": "beside \"Clothing Vendor\" in the same category; names disagree"
+        },
+        {
+          "d": 598362220,
+          "t": "EBM Petrochem Stadium Clothing Shop",
+          "why": "beside \"Clothing\" in the same category; names disagree"
+        },
+        {
+          "d": 1094545622,
+          "t": "Saeko's Clothes Shop",
+          "why": "beside \"Blossoming Sakura Clothier\" in the same category; names disagree"
+        },
+        {
+          "d": 1640234873,
+          "t": "Longshore Stacks Clothing Shop",
+          "why": "beside \"Clothing\" in the same category; names disagree"
+        },
+        {
+          "d": 109953950,
+          "t": "Pacifica Clothes Shop",
+          "why": "beside \"Clothing Vendor\" in the same category; names disagree"
+        },
+        {
+          "d": 640680187,
+          "t": "Stylishly Clothes Shop",
+          "why": "beside \"Clothing Vendor\" in the same category; names disagree"
+        },
+        {
+          "d": 1866514805,
+          "t": "Stylishly Clothing Shop",
+          "why": "beside \"Clothing Vendor\" in the same category; names disagree"
+        },
+        {
+          "d": 1420000798,
+          "t": "Watson Clothing Shop",
+          "why": "beside \"Clothing Vendor\" in the same category; names disagree"
+        },
+        {
+          "d": 1744153740,
+          "t": "Stylishly Clothes Shop",
+          "why": "beside \"Clothing Vendor\" in the same category; names disagree"
+        },
+        {
+          "d": 1816970465,
+          "t": "Drop Point",
+          "why": "named like \"Drop Point\" 166px away; too far to merge, too near to double"
+        },
+        {
+          "d": 900458785,
+          "t": "Drop Point",
+          "why": "every nearby pin of this name is already matched"
+        },
+        {
+          "d": 97520885,
+          "t": "Drop Point",
+          "why": "named like \"Drop Point\" 202px away; too far to merge, too near to double"
+        },
+        {
+          "d": 1698246237,
+          "t": "Metro: Wolleson S",
+          "why": "beside \"Metro: Wolleson St\" in the same category; names disagree"
+        },
+        {
+          "d": 1433169551,
+          "t": "Red Dirt Barn",
+          "why": "beside \"Red Dirt Bar\" in the same category; names disagree"
+        },
+        {
+          "d": 1559031714,
+          "t": "Valentino Valley",
+          "why": "beside \"Valentino Alley\" in the same category; names disagree"
+        },
+        {
+          "d": 542269895,
+          "t": "Calrendon St - Fast Travel Point",
+          "why": "beside \"Clarendon St\" in the same category; names disagree"
+        },
+        {
+          "d": 166467586,
+          "t": "Megabuilding HB",
+          "why": "beside \"Megabuilding H8\" in the same category; names disagree"
+        },
+        {
+          "d": 584447644,
+          "t": "2nd Amendment Gun Shop",
+          "why": "beside \"Weapon Shop\" in the same category; names disagree"
+        },
+        {
+          "d": 1999891462,
+          "t": "Pure Overkill Gun Shop",
+          "why": "beside \"Weapon Shop\" in the same category; names disagree"
+        },
+        {
+          "d": 1302643383,
+          "t": "Gun Van Weapons",
+          "why": "beside \"Weapon Shop\" in the same category; names disagree"
+        },
+        {
+          "d": 897577469,
+          "t": "Rifles and Pistols Gun Shop",
+          "why": "beside \"Weapon Shop\" in the same category; names disagree"
+        },
+        {
+          "d": 181878862,
+          "t": "Marty the Weapons Vendor",
+          "why": "beside \"Weapon Shop\" in the same category; names disagree"
+        },
+        {
+          "d": 2063988249,
+          "t": "2nd Amendment Weapons Shop",
+          "why": "beside \"Weapon Shop\" in the same category; names disagree"
+        },
+        {
+          "d": 1286019109,
+          "t": "Gunorama Gun Shop",
+          "why": "beside \"Weapon Shop\" in the same category; names disagree"
+        },
+        {
+          "d": 1968688440,
+          "t": "Shoot & Ride Weapons",
+          "why": "beside \"Weapon Shop\" in the same category; names disagree"
+        },
+        {
+          "d": 298947964,
+          "t": "2nd Amendment Gun Shop",
+          "why": "beside \"Weapon Shop\" in the same category; names disagree"
+        },
+        {
+          "d": 243405203,
+          "t": "Weapons Gun Shop",
+          "why": "beside \"Weapon Shop\" in the same category; names disagree"
+        },
+        {
+          "d": 1371519206,
+          "t": "Arroyo Medicine Shop",
+          "why": "beside \"Medpoint\" in the same category; names disagree"
+        },
+        {
+          "d": 314364568,
+          "t": "Badlands MedPoint",
+          "why": "beside \"Medpoint\" in the same category; names disagree"
+        },
+        {
+          "d": 1013419333,
+          "t": "EBM Petrochem Stadium Medpoint",
+          "why": "beside \"Medpoint\" in the same category; names disagree"
+        },
+        {
+          "d": 927917411,
+          "t": "Medical Assistance Medicine Shop",
+          "why": "beside \"Medpoint\" in the same category; names disagree"
+        },
+        {
+          "d": 289629012,
+          "t": "Longshore Stacks Medpoint",
+          "why": "beside \"Medpoint\" in the same category; names disagree"
+        },
+        {
+          "d": 665283095,
+          "t": "Pacifica MedPoint",
+          "why": "beside \"Medpoint\" in the same category; names disagree"
+        },
+        {
+          "d": 352724747,
+          "t": "Drugs Open Medicine Shop",
+          "why": "beside \"Medpoint\" in the same category; names disagree"
+        },
+        {
+          "d": 32968664,
+          "t": "Badlands Melee Weapons",
+          "why": "beside \"Melee Weapon Vendor\" in the same category; names disagree"
+        },
+        {
+          "d": 282697157,
+          "t": "Gomorrah Melee Shop",
+          "why": "beside \"Melee Weapon Vendor\" in the same category; names disagree"
+        },
+        {
+          "d": 1294324302,
+          "t": "Dewdrop Inn Netrunner",
+          "why": "beside \"Yoko\" in the same category; names disagree"
+        },
+        {
+          "d": 1834981866,
+          "t": "Dewdrop Inn",
+          "why": "beside \"Chang Hoon Nam\" in the same category; names disagree"
+        },
+        {
+          "d": 1207198154,
+          "t": "EBM Petrochem Stadium Netrunner Shop",
+          "why": "beside \"Netrunner\" in the same category; names disagree"
+        },
+        {
+          "d": 885740099,
+          "t": "Japantown Netrunner",
+          "why": "beside \"Netrunner\" in the same category; names disagree"
+        },
+        {
+          "d": 1465036463,
+          "t": "Pacifica Netrunner",
+          "why": "beside \"Netrunner\" in the same category; names disagree"
+        },
+        {
+          "d": 130146775,
+          "t": "Santo Domingo Ripperdoc - Arroyo",
+          "why": "beside \"Ripperdoc\" in the same category; names disagree"
+        },
+        {
+          "d": 1167436835,
+          "t": "Badlands Ripperdoc - Rocky Ridge",
+          "why": "beside \"Ripperdoc\" in the same category; names disagree"
+        },
+        {
+          "d": 906373676,
+          "t": "Charter Hill Ripperdoc - Nina",
+          "why": "beside \"Kraviz’s Clinic\" in the same category; names disagree"
+        },
+        {
+          "d": 606917727,
+          "t": "City Center Ripperdoc - Downtown",
+          "why": "beside \"Ripperdoc\" in the same category; names disagree"
+        },
+        {
+          "d": 1234998423,
+          "t": "Dogtown Ripperdoc - Anthony",
+          "why": "beside \"Anthony Anderson\" in the same category; names disagree"
+        },
+        {
+          "d": 123456159,
+          "t": "Dogtown Ripperdoc - Farida",
+          "why": "beside \"Farida Nazeri\" in the same category; names disagree"
+        },
+        {
+          "d": 2038389911,
+          "t": "Japan Town Ripperdoc - Fingers MD",
+          "why": "beside \"Fingers M.D.\" in the same category; names disagree"
+        },
+        {
+          "d": 1572740554,
+          "t": "Santo Domingo Ripperdoc - Rancho Coronado",
+          "why": "beside \"Octavio’s Clinic\" in the same category; names disagree"
+        },
+        {
+          "d": 975735893,
+          "t": "Ripperdoc (Charles)",
+          "why": "beside \"Bucks’ Clinic\" in the same category; names disagree"
+        },
+        {
+          "d": 2112691885,
+          "t": "Ripperdoc (Robert)",
+          "why": "beside \"Dr. Chrome\" in the same category; names disagree"
+        },
+        {
+          "d": 889122980,
+          "t": "Ripperdoc (Viktor)",
+          "why": "beside \"Viktor’s Clinic\" in the same category; names disagree"
+        },
+        {
+          "d": 1449051933,
+          "t": "Dogtown Ripperdoc - Costin",
+          "why": "beside \"Costin Lahovary\" in the same category; names disagree"
+        },
+        {
+          "d": 1147349722,
+          "t": "Dogtown Ripperdoc - Eron",
+          "why": "beside \"Eron Acedo\" in the same category; names disagree"
+        },
+        {
+          "d": 549754791,
+          "t": "Heywood Ripperdoc - Wellsprings",
+          "why": "beside \"Ripperdoc\" in the same category; names disagree"
+        },
+        {
+          "d": 1871301952,
+          "t": "Westbrook Ripperdoc - Japantown",
+          "why": "beside \"Ripperdoc\" in the same category; names disagree"
+        },
+        {
+          "d": 1449812538,
+          "t": "Tarot Card - Justice",
+          "why": "beside \"Justice\" in the same category; names disagree"
+        },
+        {
+          "d": 1084473242,
+          "t": "Tarot Card - Death",
+          "why": "beside \"Death\" in the same category; names disagree"
+        },
+        {
+          "d": 2027063436,
+          "t": "Tarot Card - Temperance",
+          "why": "beside \"Temperance\" in the same category; names disagree"
+        }
+      ],
+      "matched": [
+        {
+          "d": 2123771580,
+          "px": 20,
+          "w": 1452480306
+        },
+        {
+          "d": 146212555,
+          "px": 23,
+          "w": 715023043
+        },
+        {
+          "d": 249626495,
+          "px": 59,
+          "w": 1831251280
+        },
+        {
+          "d": 1804098435,
+          "px": 108,
+          "w": 1179083860
+        },
+        {
+          "d": 300607079,
+          "px": 27,
+          "w": 1453205626
+        },
+        {
+          "d": 487875965,
+          "px": 71,
+          "w": 1870122907
+        },
+        {
+          "d": 1679319207,
+          "px": 45,
+          "w": 368334796
+        },
+        {
+          "d": 1212228176,
+          "px": 35,
+          "w": 890620448
+        },
+        {
+          "d": 1425585934,
+          "px": 77,
+          "w": 1286101257
+        },
+        {
+          "d": 1470529737,
+          "px": 58,
+          "w": 412267423
+        },
+        {
+          "d": 872968591,
+          "px": 27,
+          "w": 344964502
+        },
+        {
+          "d": 1057234538,
+          "px": 51,
+          "w": 1687801150
+        },
+        {
+          "d": 1570099453,
+          "px": 41,
+          "w": 1202479613
+        },
+        {
+          "d": 1879491653,
+          "px": 41,
+          "w": 1937872131
+        },
+        {
+          "d": 700923091,
+          "px": 32,
+          "w": 1921770934
+        },
+        {
+          "d": 2032333594,
+          "px": 33,
+          "w": 538815031
+        },
+        {
+          "d": 576329964,
+          "px": 45,
+          "w": 500972720
+        },
+        {
+          "d": 1848329875,
+          "px": 76,
+          "w": 1110033809
+        },
+        {
+          "d": 1153368173,
+          "px": 67,
+          "w": 1566452248
+        },
+        {
+          "d": 1154407778,
+          "px": 51,
+          "w": 1390087022
+        },
+        {
+          "d": 2043274046,
+          "px": 51,
+          "w": 1579507174
+        },
+        {
+          "d": 731406534,
+          "px": 102,
+          "w": 2029560821
+        },
+        {
+          "d": 1015774435,
+          "px": 146,
+          "w": 1923879763
+        },
+        {
+          "d": 1516420456,
+          "px": 23,
+          "w": 1764126607
+        },
+        {
+          "d": 1987276939,
+          "px": 36,
+          "w": 1235211477
+        },
+        {
+          "d": 1977799681,
+          "px": 53,
+          "w": 988719713
+        },
+        {
+          "d": 57217063,
+          "px": 10,
+          "w": 1332790100
+        },
+        {
+          "d": 1624323955,
+          "px": 74,
+          "w": 649405637
+        },
+        {
+          "d": 31648173,
+          "px": 66,
+          "w": 229810943
+        },
+        {
+          "d": 487289349,
+          "px": 52,
+          "w": 1961536762
+        },
+        {
+          "d": 969002486,
+          "px": 88,
+          "w": 311684549
+        },
+        {
+          "d": 121891435,
+          "px": 19,
+          "w": 2020459629
+        },
+        {
+          "d": 1155734148,
+          "px": 38,
+          "w": 1609934009
+        },
+        {
+          "d": 178109393,
+          "px": 55,
+          "w": 1829369373
+        },
+        {
+          "d": 1847156402,
+          "px": 119,
+          "w": 743252814
+        },
+        {
+          "d": 1798669056,
+          "px": 60,
+          "w": 1013061333
+        },
+        {
+          "d": 878126456,
+          "px": 14,
+          "w": 1583044276
+        },
+        {
+          "d": 1967354817,
+          "px": 57,
+          "w": 2013796215
+        },
+        {
+          "d": 793400583,
+          "px": 91,
+          "w": 560805692
+        },
+        {
+          "d": 1007467810,
+          "px": 76,
+          "w": 2004043843
+        },
+        {
+          "d": 708244408,
+          "px": 24,
+          "w": 1312947034
+        },
+        {
+          "d": 1329792840,
+          "px": 19,
+          "w": 705681558
+        },
+        {
+          "d": 1275638137,
+          "px": 22,
+          "w": 1988878638
+        },
+        {
+          "d": 219330623,
+          "px": 98,
+          "w": 591500692
+        },
+        {
+          "d": 190294121,
+          "px": 36,
+          "w": 610134772
+        },
+        {
+          "d": 1754433710,
+          "px": 36,
+          "w": 951257188
+        },
+        {
+          "d": 1052496950,
+          "px": 53,
+          "w": 117845693
+        },
+        {
+          "d": 1617074884,
+          "px": 97,
+          "w": 696523413
+        },
+        {
+          "d": 246244509,
+          "px": 64,
+          "w": 1555134458
+        },
+        {
+          "d": 1301323693,
+          "px": 84,
+          "w": 1885281649
+        },
+        {
+          "d": 1165465918,
+          "px": 28,
+          "w": 1389886612
+        },
+        {
+          "d": 1982796916,
+          "px": 54,
+          "w": 258081773
+        },
+        {
+          "d": 876296604,
+          "px": 33,
+          "w": 1777206876
+        },
+        {
+          "d": 1877147881,
+          "px": 49,
+          "w": 1428852509
+        },
+        {
+          "d": 1964537814,
+          "px": 124,
+          "w": 732939622
+        },
+        {
+          "d": 1110000730,
+          "px": 50,
+          "w": 462155705
+        },
+        {
+          "d": 1430538118,
+          "px": 48,
+          "w": 1496366530
+        },
+        {
+          "d": 542935583,
+          "px": 56,
+          "w": 305138329
+        },
+        {
+          "d": 66522966,
+          "px": 119,
+          "w": 177611488
+        },
+        {
+          "d": 1870307172,
+          "px": 72,
+          "w": 846076518
+        },
+        {
+          "d": 278772704,
+          "px": 112,
+          "w": 1910109865
+        },
+        {
+          "d": 564346471,
+          "px": 100,
+          "w": 586081768
+        },
+        {
+          "d": 1006471161,
+          "px": 87,
+          "w": 902999911
+        },
+        {
+          "d": 314825790,
+          "px": 148,
+          "w": 61889695
+        },
+        {
+          "d": 1597113194,
+          "px": 62,
+          "w": 99520015
+        },
+        {
+          "d": 826291479,
+          "px": 34,
+          "w": 1588395295
+        },
+        {
+          "d": 1412847247,
+          "px": 63,
+          "w": 1516838589
+        },
+        {
+          "d": 1207102954,
+          "px": 41,
+          "w": 1834287617
+        },
+        {
+          "d": 1620398153,
+          "px": 144,
+          "w": 923993795
+        },
+        {
+          "d": 1575454350,
+          "px": 71,
+          "w": 731789922
+        },
+        {
+          "d": 1965464590,
+          "px": 34,
+          "w": 133007235
+        },
+        {
+          "d": 1127303308,
+          "px": 34,
+          "w": 1259630575
+        },
+        {
+          "d": 775627706,
+          "px": 26,
+          "w": 1126100434
+        },
+        {
+          "d": 317703907,
+          "px": 45,
+          "w": 928785616
+        },
+        {
+          "d": 1095084484,
+          "px": 58,
+          "w": 522244092
+        },
+        {
+          "d": 729835564,
+          "px": 59,
+          "w": 2084386212
+        },
+        {
+          "d": 371696149,
+          "px": 39,
+          "w": 916613105
+        },
+        {
+          "d": 2012588456,
+          "px": 21,
+          "w": 1658020365
+        },
+        {
+          "d": 533488566,
+          "px": 66,
+          "w": 1345080095
+        },
+        {
+          "d": 772552459,
+          "px": 37,
+          "w": 1809958651
+        },
+        {
+          "d": 101312006,
+          "px": 59,
+          "w": 1087299096
+        },
+        {
+          "d": 413106263,
+          "px": 17,
+          "w": 1798709488
+        },
+        {
+          "d": 1597875924,
+          "px": 97,
+          "w": 1627938708
+        },
+        {
+          "d": 1632072807,
+          "px": 24,
+          "w": 2066480628
+        },
+        {
+          "d": 1687643270,
+          "px": 28,
+          "w": 864346204
+        },
+        {
+          "d": 1451436072,
+          "px": 104,
+          "w": 1547655154
+        },
+        {
+          "d": 1070920423,
+          "px": 21,
+          "w": 322617625
+        },
+        {
+          "d": 1786777602,
+          "px": 52,
+          "w": 762634305
+        },
+        {
+          "d": 382583949,
+          "px": 37,
+          "w": 1665304041
+        },
+        {
+          "d": 391532251,
+          "px": 44,
+          "w": 986360458
+        },
+        {
+          "d": 1913852882,
+          "px": 110,
+          "w": 669774627
+        },
+        {
+          "d": 2055676644,
+          "px": 30,
+          "w": 1843976615
+        },
+        {
+          "d": 1214006827,
+          "px": 58,
+          "w": 637496769
+        },
+        {
+          "d": 2132791827,
+          "px": 57,
+          "w": 176259980
+        },
+        {
+          "d": 1860299191,
+          "px": 41,
+          "w": 536224478
+        },
+        {
+          "d": 1929521877,
+          "px": 47,
+          "w": 1046610526
+        },
+        {
+          "d": 16690562,
+          "px": 15,
+          "w": 1114843994
+        },
+        {
+          "d": 1912609872,
+          "px": 113,
+          "w": 151739633
+        },
+        {
+          "d": 2096447477,
+          "px": 45,
+          "w": 674933748
+        },
+        {
+          "d": 2076025234,
+          "px": 48,
+          "w": 1906189062
+        },
+        {
+          "d": 97404383,
+          "px": 81,
+          "w": 1695393927
+        },
+        {
+          "d": 1965804950,
+          "px": 32,
+          "w": 1038291260
+        },
+        {
+          "d": 2025088859,
+          "px": 52,
+          "w": 1123553125
+        },
+        {
+          "d": 1364625114,
+          "px": 71,
+          "w": 656440135
+        },
+        {
+          "d": 883095509,
+          "px": 112,
+          "w": 176138397
+        },
+        {
+          "d": 1284214400,
+          "px": 20,
+          "w": 964682675
+        },
+        {
+          "d": 402541291,
+          "px": 17,
+          "w": 94216460
+        },
+        {
+          "d": 1944452381,
+          "px": 25,
+          "w": 1878413950
+        },
+        {
+          "d": 2046531089,
+          "px": 12,
+          "w": 1077853472
+        },
+        {
+          "d": 1726399114,
+          "px": 4,
+          "w": 512059445
+        },
+        {
+          "d": 2033498762,
+          "px": 34,
+          "w": 560993468
+        },
+        {
+          "d": 1840253520,
+          "px": 28,
+          "w": 750937847
+        },
+        {
+          "d": 1424463392,
+          "px": 1,
+          "w": 1050023745
+        },
+        {
+          "d": 684947344,
+          "px": 17,
+          "w": 871299579
+        },
+        {
+          "d": 543959602,
+          "px": 91,
+          "w": 1677396894
+        },
+        {
+          "d": 1231369302,
+          "px": 14,
+          "w": 1696287125
+        },
+        {
+          "d": 1140743475,
+          "px": 18,
+          "w": 1969535178
+        },
+        {
+          "d": 1733428091,
+          "px": 72,
+          "w": 505019182
+        },
+        {
+          "d": 587255426,
+          "px": 72,
+          "w": 1795671003
+        },
+        {
+          "d": 1157477272,
+          "px": 35,
+          "w": 1669657533
+        },
+        {
+          "d": 1510568806,
+          "px": 92,
+          "w": 1059623230
+        },
+        {
+          "d": 1421963273,
+          "px": 37,
+          "w": 723192939
+        },
+        {
+          "d": 1785590576,
+          "px": 26,
+          "w": 1593221443
+        },
+        {
+          "d": 960357215,
+          "px": 29,
+          "w": 988803246
+        },
+        {
+          "d": 196781947,
+          "px": 38,
+          "w": 366398551
+        },
+        {
+          "d": 363581016,
+          "px": 25,
+          "w": 2053968603
+        },
+        {
+          "d": 1301612647,
+          "px": 7,
+          "w": 2003635936
+        },
+        {
+          "d": 221533723,
+          "px": 32,
+          "w": 1927045328
+        },
+        {
+          "d": 2137718894,
+          "px": 20,
+          "w": 269304528
+        },
+        {
+          "d": 1828736927,
+          "px": 17,
+          "w": 954207815
+        },
+        {
+          "d": 1075684977,
+          "px": 30,
+          "w": 1332965075
+        },
+        {
+          "d": 126825503,
+          "px": 42,
+          "w": 1645918070
+        },
+        {
+          "d": 531414957,
+          "px": 19,
+          "w": 646361974
+        },
+        {
+          "d": 704094743,
+          "px": 19,
+          "w": 850230445
+        },
+        {
+          "d": 1284977793,
+          "px": 54,
+          "w": 145546490
+        },
+        {
+          "d": 316632177,
+          "px": 67,
+          "w": 614266925
+        },
+        {
+          "d": 781803272,
+          "px": 23,
+          "w": 1880598217
+        },
+        {
+          "d": 669196314,
+          "px": 26,
+          "w": 1247219650
+        },
+        {
+          "d": 142341067,
+          "px": 16,
+          "w": 318686832
+        },
+        {
+          "d": 864639030,
+          "px": 50,
+          "w": 2049030357
+        },
+        {
+          "d": 987734530,
+          "px": 77,
+          "w": 1647715794
+        },
+        {
+          "d": 809564219,
+          "px": 34,
+          "w": 1222452725
+        },
+        {
+          "d": 204853508,
+          "px": 59,
+          "w": 1833576053
+        },
+        {
+          "d": 2007918110,
+          "px": 91,
+          "w": 730976740
+        },
+        {
+          "d": 1889015177,
+          "px": 12,
+          "w": 1766926819
+        },
+        {
+          "d": 585059747,
+          "px": 37,
+          "w": 385073506
+        },
+        {
+          "d": 1073220819,
+          "px": 28,
+          "w": 1280204096
+        },
+        {
+          "d": 1364655005,
+          "px": 76,
+          "w": 931620424
+        },
+        {
+          "d": 1401358378,
+          "px": 46,
+          "w": 1660823541
+        },
+        {
+          "d": 539602687,
+          "px": 49,
+          "w": 1586589438
+        },
+        {
+          "d": 1977609935,
+          "px": 32,
+          "w": 911470047
+        },
+        {
+          "d": 1978055990,
+          "px": 40,
+          "w": 683910674
+        },
+        {
+          "d": 1574500147,
+          "px": 66,
+          "w": 1732873331
+        },
+        {
+          "d": 2098360496,
+          "px": 23,
+          "w": 453753472
+        },
+        {
+          "d": 514143185,
+          "px": 18,
+          "w": 197587441
+        },
+        {
+          "d": 1992201951,
+          "px": 24,
+          "w": 1858109735
+        },
+        {
+          "d": 490982263,
+          "px": 44,
+          "w": 244889740
+        },
+        {
+          "d": 1556555459,
+          "px": 27,
+          "w": 1751444964
+        },
+        {
+          "d": 357605433,
+          "px": 40,
+          "w": 1177855713
+        },
+        {
+          "d": 1192691867,
+          "px": 13,
+          "w": 1315464781
+        },
+        {
+          "d": 1603016152,
+          "px": 43,
+          "w": 1142817380
+        },
+        {
+          "d": 514224146,
+          "px": 8,
+          "w": 799016760
+        },
+        {
+          "d": 1042893144,
+          "px": 7,
+          "w": 887213791
+        },
+        {
+          "d": 98194312,
+          "px": 40,
+          "w": 584066069
+        },
+        {
+          "d": 324848452,
+          "px": 69,
+          "w": 1059005231
+        },
+        {
+          "d": 1608353865,
+          "px": 33,
+          "w": 966101775
+        },
+        {
+          "d": 709069312,
+          "px": 87,
+          "w": 1216325191
+        },
+        {
+          "d": 821666099,
+          "px": 16,
+          "w": 274903670
+        },
+        {
+          "d": 1722604275,
+          "px": 20,
+          "w": 466273268
+        },
+        {
+          "d": 130160484,
+          "px": 14,
+          "w": 885171429
+        },
+        {
+          "d": 580884617,
+          "px": 90,
+          "w": 512680417
+        },
+        {
+          "d": 849494202,
+          "px": 2,
+          "w": 514942472
+        },
+        {
+          "d": 175100908,
+          "px": 106,
+          "w": 149048746
+        },
+        {
+          "d": 782330474,
+          "px": 31,
+          "w": 88153666
+        },
+        {
+          "d": 635504989,
+          "px": 56,
+          "w": 1930702362
+        },
+        {
+          "d": 770676292,
+          "px": 52,
+          "w": 1799087724
+        },
+        {
+          "d": 739615365,
+          "px": 13,
+          "w": 2048584410
+        },
+        {
+          "d": 833459547,
+          "px": 55,
+          "w": 2059558800
+        },
+        {
+          "d": 995373876,
+          "px": 33,
+          "w": 566014651
+        },
+        {
+          "d": 1181261718,
+          "px": 50,
+          "w": 1201012221
+        },
+        {
+          "d": 1878042558,
+          "px": 21,
+          "w": 321492144
+        },
+        {
+          "d": 1037162968,
+          "px": 78,
+          "w": 235636793
+        },
+        {
+          "d": 472654263,
+          "px": 42,
+          "w": 2125690634
+        },
+        {
+          "d": 922095989,
+          "px": 40,
+          "w": 1709756012
+        },
+        {
+          "d": 504000833,
+          "px": 13,
+          "w": 491404697
+        },
+        {
+          "d": 1623703383,
+          "px": 43,
+          "w": 426630507
+        },
+        {
+          "d": 699482784,
+          "px": 11,
+          "w": 1234607898
+        },
+        {
+          "d": 30780559,
+          "px": 19,
+          "w": 54543999
+        },
+        {
+          "d": 582454873,
+          "px": 22,
+          "w": 1249166170
+        },
+        {
+          "d": 576326370,
+          "px": 32,
+          "w": 1864331948
+        },
+        {
+          "d": 324837295,
+          "px": 26,
+          "w": 2083649481
+        },
+        {
+          "d": 155985075,
+          "px": 72,
+          "w": 1788591771
+        },
+        {
+          "d": 167999486,
+          "px": 43,
+          "w": 259449636
+        },
+        {
+          "d": 11627625,
+          "px": 20,
+          "w": 1518401698
+        },
+        {
+          "d": 255238729,
+          "px": 13,
+          "w": 1735948382
+        },
+        {
+          "d": 499014343,
+          "px": 14,
+          "w": 1550364258
+        },
+        {
+          "d": 856817704,
+          "px": 20,
+          "w": 1223811745
+        },
+        {
+          "d": 543250877,
+          "px": 26,
+          "w": 1424984091
+        },
+        {
+          "d": 1438237472,
+          "px": 42,
+          "w": 137138844
+        },
+        {
+          "d": 620084193,
+          "px": 22,
+          "w": 1415550920
+        },
+        {
+          "d": 1484728864,
+          "px": 43,
+          "w": 1519986374
+        },
+        {
+          "d": 1366025864,
+          "px": 52,
+          "w": 1335826891
+        },
+        {
+          "d": 2088598790,
+          "px": 23,
+          "w": 1121406348
+        },
+        {
+          "d": 681381160,
+          "px": 24,
+          "w": 949587131
+        },
+        {
+          "d": 255117135,
+          "px": 19,
+          "w": 794143724
+        },
+        {
+          "d": 2111993047,
+          "px": 50,
+          "w": 815811576
+        },
+        {
+          "d": 1284864520,
+          "px": 48,
+          "w": 1419710213
+        },
+        {
+          "d": 239587600,
+          "px": 24,
+          "w": 1678088310
+        },
+        {
+          "d": 1732479981,
+          "px": 23,
+          "w": 500253559
+        },
+        {
+          "d": 1598681325,
+          "px": 79,
+          "w": 1591119209
+        },
+        {
+          "d": 1372859400,
+          "px": 14,
+          "w": 949583827
+        },
+        {
+          "d": 70445975,
+          "px": 15,
+          "w": 1323727017
+        },
+        {
+          "d": 905269458,
+          "px": 35,
+          "w": 26451840
+        },
+        {
+          "d": 1694865568,
+          "px": 26,
+          "w": 859822245
+        },
+        {
+          "d": 116466823,
+          "px": 10,
+          "w": 866666261
+        },
+        {
+          "d": 1320396486,
+          "px": 22,
+          "w": 476552168
+        },
+        {
+          "d": 1982727971,
+          "px": 85,
+          "w": 1462425570
+        },
+        {
+          "d": 749693724,
+          "px": 10,
+          "w": 318492435
+        },
+        {
+          "d": 1241675762,
+          "px": 15,
+          "w": 2042591184
+        },
+        {
+          "d": 1484456972,
+          "px": 88,
+          "w": 869621399
+        },
+        {
+          "d": 510852338,
+          "px": 15,
+          "w": 46930212
+        },
+        {
+          "d": 1759149765,
+          "px": 107,
+          "w": 936111034
+        },
+        {
+          "d": 67796748,
+          "px": 18,
+          "w": 44663372
+        },
+        {
+          "d": 762321246,
+          "px": 42,
+          "w": 573214140
+        },
+        {
+          "d": 2115093839,
+          "px": 109,
+          "w": 1764126831
+        },
+        {
+          "d": 624564841,
+          "px": 23,
+          "w": 1474846576
+        },
+        {
+          "d": 755044378,
+          "px": 10,
+          "w": 145835277
+        },
+        {
+          "d": 286734286,
+          "px": 63,
+          "w": 280385785
+        },
+        {
+          "d": 398097212,
+          "px": 9,
+          "w": 1143862514
+        },
+        {
+          "d": 933910593,
+          "px": 15,
+          "w": 1909614653
+        },
+        {
+          "d": 1028144590,
+          "px": 93,
+          "w": 1914878536
+        },
+        {
+          "d": 1061871554,
+          "px": 11,
+          "w": 1067208984
+        },
+        {
+          "d": 709020495,
+          "px": 21,
+          "w": 297027620
+        },
+        {
+          "d": 466655912,
+          "px": 14,
+          "w": 933355237
+        },
+        {
+          "d": 533552354,
+          "px": 49,
+          "w": 300091064
+        },
+        {
+          "d": 37559510,
+          "px": 98,
+          "w": 344612172
+        },
+        {
+          "d": 13180804,
+          "px": 11,
+          "w": 678953083
+        },
+        {
+          "d": 854234304,
+          "px": 13,
+          "w": 103104842
+        },
+        {
+          "d": 1543589138,
+          "px": 45,
+          "w": 377866633
+        },
+        {
+          "d": 1589255203,
+          "px": 25,
+          "w": 1046325635
+        },
+        {
+          "d": 2115147847,
+          "px": 24,
+          "w": 1884232331
+        },
+        {
+          "d": 1729627798,
+          "px": 37,
+          "w": 2139248539
+        },
+        {
+          "d": 1381466594,
+          "px": 113,
+          "w": 2060206298
+        },
+        {
+          "d": 1445406951,
+          "px": 96,
+          "w": 1134259067
+        },
+        {
+          "d": 147749685,
+          "px": 5,
+          "w": 718828759
+        },
+        {
+          "d": 906750045,
+          "px": 78,
+          "w": 967616084
+        },
+        {
+          "d": 1070828911,
+          "px": 25,
+          "w": 796626628
+        },
+        {
+          "d": 461688648,
+          "px": 10,
+          "w": 1519817411
+        },
+        {
+          "d": 281535139,
+          "px": 83,
+          "w": 478286043
+        },
+        {
+          "d": 1480185373,
+          "px": 24,
+          "w": 1340424892
+        },
+        {
+          "d": 1688791763,
+          "px": 11,
+          "w": 124548100
+        },
+        {
+          "d": 738232891,
+          "px": 73,
+          "w": 1527501944
+        },
+        {
+          "d": 1523819642,
+          "px": 72,
+          "w": 1993936401
+        },
+        {
+          "d": 1963184597,
+          "px": 27,
+          "w": 751753340
+        },
+        {
+          "d": 625889294,
+          "px": 8,
+          "w": 64811515
+        },
+        {
+          "d": 371682306,
+          "px": 45,
+          "w": 1154678281
+        },
+        {
+          "d": 1041786961,
+          "px": 45,
+          "w": 1872061252
+        },
+        {
+          "d": 2064412120,
+          "px": 42,
+          "w": 582101113
+        },
+        {
+          "d": 316927088,
+          "px": 100,
+          "w": 964594115
+        },
+        {
+          "d": 246091665,
+          "px": 25,
+          "w": 302750626
+        },
+        {
+          "d": 1066186638,
+          "px": 21,
+          "w": 1067655263
+        },
+        {
+          "d": 1829018407,
+          "px": 40,
+          "w": 926958120
+        },
+        {
+          "d": 121081841,
+          "px": 5,
+          "w": 851140148
+        },
+        {
+          "d": 987950007,
+          "px": 3,
+          "w": 282997825
+        },
+        {
+          "d": 1526469243,
+          "px": 45,
+          "w": 623017485
+        },
+        {
+          "d": 2069723736,
+          "px": 29,
+          "w": 1460023030
+        },
+        {
+          "d": 217756456,
+          "px": 18,
+          "w": 1470669040
+        },
+        {
+          "d": 763290565,
+          "px": 11,
+          "w": 420009871
+        },
+        {
+          "d": 1784608547,
+          "px": 26,
+          "w": 24925585
+        },
+        {
+          "d": 883409331,
+          "px": 40,
+          "w": 623776392
+        }
+      ],
+      "slug": "ign-wiki",
+      "source": "IGN Wiki"
+    }
+  ]
+}
