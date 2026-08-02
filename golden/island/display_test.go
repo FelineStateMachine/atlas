@@ -149,6 +149,104 @@ func sortStrings(values []string) {
 	}
 }
 
+// TestTheLabelToggleWearsTheMarkOfWhatItAsks holds the label button's glyph to
+// the reference's two, because the clean-room template hardcoded one of them.
+//
+// The two rows that wear the control are not asking the same question. An
+// area draws its names *on* the ground and the toggle is whether they speak
+// unasked, which the reference drew as a bar over a stem. A point collection
+// curated as text has no marker to fall back on -- the names are the whole of
+// how it draws -- and the reference drew a luggage tag. Rendered with one
+// glyph, the legend told the reader the two rows offered the same thing.
+//
+// Hyrule is the volume that can say all three words in one page: one area
+// collection, two point collections curated as text, and 159 rows of plain
+// pins that wear no button at all and keep the column as space, so the count
+// beside them stays a column no row disagrees about.
+func TestTheLabelToggleWearsTheMarkOfWhatItAsks(t *testing.T) {
+	const slug = "zelda-tears-of-the-kingdom"
+	volume := fixtureVolume(t, slug)
+	handler, _ := newApp(t, volume)
+	world := volume.Manifest().Worlds[0].Slug
+	page := get(t, handler, "/v/"+slug+"/"+world, nil)
+	if page.Code != http.StatusOK {
+		t.Fatalf("the explorer answered %d", page.Code)
+	}
+	body := page.Body.String()
+
+	// The first path of each mark, which is enough to tell them apart and
+	// short enough to survive a formatter.
+	const (
+		bar = `d="M3.5 3.5h9M8 3.5v9"`
+		tag = `d="M8.6 2.5H2.5v6.1`
+	)
+	for _, tt := range []struct {
+		id    string
+		what  string
+		want  string
+		wrong string
+	}{
+		{"1834502030", "Regions, an area", bar, tag},
+		{"8988", "Area, points curated as text", tag, bar},
+		{"8989", "Province, points curated as text", tag, bar},
+	} {
+		button := toggleMarkup(body, tt.id)
+		switch {
+		case button == "":
+			t.Errorf("%s wears no label toggle at all", tt.what)
+		case !strings.Contains(button, tt.want):
+			t.Errorf("%s wears the wrong mark: %s", tt.what, button)
+		case strings.Contains(button, tt.wrong):
+			t.Errorf("%s wears both marks: %s", tt.what, button)
+		}
+	}
+
+	// A plain pin row has no policy to flip, so it has no button -- and the
+	// column is held open anyway, which is the half a missing element would
+	// silently get right and a wrong element would silently get wrong.
+	pins := rowMarkup(body, "8987")
+	if pins == "" {
+		t.Fatal("the Building row is not in the legend")
+	}
+	if strings.Contains(pins, `class="label-toggle"`) {
+		t.Errorf("a pin row was offered a label toggle: %s", pins)
+	}
+	if !strings.Contains(pins, `class="label-toggle-spacer"`) {
+		t.Errorf("a pin row does not hold its column open: %s", pins)
+	}
+}
+
+// toggleMarkup is one label button, from its own attribute to its close. The
+// window stops at `</button>` for the reason ladderOf's does: the last toggle
+// in the legend would otherwise take its answer from whatever was rendered
+// after it.
+func toggleMarkup(page, collection string) string {
+	at := strings.Index(page, `data-label-toggle="`+collection+`"`)
+	if at < 0 {
+		return ""
+	}
+	rest := page[at:]
+	if end := strings.Index(rest, "</button>"); end >= 0 {
+		return rest[:end]
+	}
+	return rest
+}
+
+// rowMarkup is one collection's row, from the checkbox that names it to the
+// end of the label that holds it. Nothing nests a second label inside a
+// category row, so the first close is the row's own.
+func rowMarkup(page, collection string) string {
+	at := strings.Index(page, `data-collection="`+collection+`"`)
+	if at < 0 {
+		return ""
+	}
+	rest := page[at:]
+	if end := strings.Index(rest, "</label>"); end >= 0 {
+		return rest[:end]
+	}
+	return rest
+}
+
 // TestTheLegendTreeIsOneTree checks the sections the tree makes: the viewer's
 // own Zones section for ungrouped shape collections, unshifted to the front
 // and folded, and the producer's groups in order of first appearance.
