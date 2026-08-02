@@ -57,6 +57,18 @@ its gate on by writing that file; nothing about the harness needs editing but
 the `ready` flag. `make golden-all` attempts them regardless, which is the way
 to watch a new gate go red before you make it green.
 
+**`generate-enrich` is half-built and stays skipped.** Its contract is
+`generate ⊕ enrich` over *every* bundle fixture, merge included, and the enrich
+lane does not exist — so the merged, split-sheet, lens-sharded and city
+fixtures cannot be reproduced by anything yet. `golden/pipeline` exists and runs
+the single-source half as an ordinary test: it composes the plain-MapGenie
+fixture from archived captures and holds it against the committed extractions,
+byte for byte as things stand. Those tests read the capture archive and the
+derived tile set, which are deliberately not in git, so they skip unless
+`ATLAS_ARCHIVE_DIR` and `ATLAS_TILES_INDEX` — or the repository's own gitignored
+`crawl/` and `tiles/` — are present. The gate's `ready` flag flips when
+enrichment can answer for the rest. See `docs/generate.md` §8.
+
 ## depcheck
 
 `golden/depcheck` is a `go/analysis` multichecker — the machinery `go vet` is
@@ -66,7 +78,9 @@ built on — carrying five rules:
   `generate/` and `enrich/` see `format/` and never each other, the app, the
   workbench, or the harness; `app/` sees `format/` and its own packages;
   `workbench/` sees `format/` plus `enrich/maturity` and shells out for the
-  rest; nothing imports `render/`.
+  rest; nothing imports `render/`. Every lane may import `internal/logging` —
+  one event stream narrates the whole system (§9) — and `internal/logging`
+  imports no lane back.
 - **`cleanroom`** — no clean-room lane imports the pre-rewrite tree (§1). The
   old packages are the oracle, not the base. `golden/` is exempt: capturing
   from the old tree is its job.
