@@ -291,14 +291,16 @@ export function toggleLabelPolicy(id) {
 }
 
 // One toggle, one language: the button says what pressing it would do,
-// "Hide X labels" while the names are speaking and "Display X labels" while
-// they wait, whatever the kind of collection behind it.
+// "Hide labels" while the names are speaking and "Show labels" while they
+// wait, whatever the kind of collection behind it. The chip is the whole
+// tooltip -- no native title, which would say the same thing a second time
+// a few pixels away -- and the row already names the collection, so the
+// spoken label carries the name for ears alone.
 function syncLabelToggle(button, collection) {
   const speaking = labelPolicy(null, collection) === "always";
-  const help = `${speaking ? "Hide" : "Display"} ${collection.title} labels`;
-  button.dataset.label = help;
-  button.setAttribute("aria-label", help);
-  button.title = help;
+  button.dataset.label = speaking ? "Hide labels" : "Show labels";
+  button.setAttribute("aria-label",
+    `${speaking ? "Hide" : "Show"} ${collection.title} labels`);
   button.setAttribute("aria-pressed", String(speaking));
 }
 
