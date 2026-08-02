@@ -3,6 +3,7 @@
 // golden/parity/<slug>/tour.json.
 //
 //   node golden/parity/capture.mjs [--only <slug>] [--private] [--twice] [--verify]
+//   node golden/parity/capture.mjs --capture-extended [--only <slug>]
 //
 // The fixture volumes are named in FIXTURES.json beside this file, each
 // pinned to one bundle file by manifest stamp and sha256. The installed
@@ -48,16 +49,24 @@
 // build is `compare.mjs` beside it, which shares this script's library farm
 // through `library.mjs` and nothing else.
 //
+// ONE MODE HERE IS THE EXCEPTION, and it says so where it is written:
+// --capture-extended runs against the rewrite, because the steps it captures
+// are ones the reference never had. It appends and never re-takes, and it
+// refuses a build that does not already reproduce its baseline. The argument
+// is in full beside the code, and in SCHEMA.md §6.1.
+//
 // The registry is read-only to this script: it reads and links, never
 // writes. macOS paths, like the dev loop itself.
 
 import { createHash } from "node:crypto";
 import { spawnSync } from "node:child_process";
 import { createReadStream } from "node:fs";
-import { mkdirSync, readFileSync, rmSync, statSync, symlinkSync } from "node:fs";
+import { mkdirSync, readFileSync, rmSync, statSync, symlinkSync, writeFileSync } from "node:fs";
 import { homedir, tmpdir } from "node:os";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
+import { compare, waiversFor } from "./compare.mjs";
+import { runTour } from "./run.mjs";
 
 const here = dirname(fileURLToPath(import.meta.url));
 const repoRoot = resolve(here, "../..");
@@ -152,6 +161,99 @@ for (const volume of library) {
 }
 console.log(`fixture library: ${library.length} volumes linked into ${farm}`);
 console.log(`capturing: ${wanted.map((volume) => volume.slug).join(", ")}`);
+
+// ---- the extended half's own capture ----------------------------------
+//
+//   node golden/parity/capture.mjs --capture-extended [--only <slug>]
+//
+// THIS ONE RUNS AGAINST THE REWRITE, and it is the only mode here that does.
+// Everything above captures the reference implementation, which is a tag
+// away; the picks, the keys and the pictures are steps the reference never
+// had and never will, so there is nothing of theirs to reproduce. Their
+// baseline is the finished rewrite, and that makes this the one capture that
+// has to argue for itself:
+//
+//   NOTHING ALREADY CAPTURED IS RE-TAKEN. The committed snapshots are copied
+//   through untouched and the new steps are appended after them. A mode that
+//   re-captured the whole walk from the candidate would launder every value
+//   the reference set, which is the one thing `compare.mjs` says there is no
+//   flag for -- and there is no flag for it here either.
+//
+//   THE WALK IS HELD TO THE BASELINE FIRST. The shared steps are diffed
+//   against the committed ones before a byte is written, under the same
+//   waivers the gate reads. A build that differs from its baseline is not a
+//   build to take new baselines from, and this refuses rather than recording.
+//
+//   A RED WALK IS NOT A BASELINE. The tour's own checks include the ones the
+//   new steps brought -- ⌘K focusing the search field, a click in grid mode
+//   telescoping into the cell, a keystroke in a text field not reaching the
+//   shortcuts -- so the fixes those steps were written for must have landed
+//   before this can write anything (SCHEMA.md §2.1.4). A red walk is caught,
+//   printed with the problems that made it red, and refused; the other five
+//   volumes are still walked, because the wave wants to hear about all of
+//   them rather than about the first one to go wrong.
+async function captureExtended(volumes, farm) {
+  let refused = 0;
+  for (const volume of volumes) {
+    const dir = join(here, volume.slug);
+    const baselinePath = join(dir, "tour.json");
+    const baseline = JSON.parse(readFileSync(baselinePath, "utf8"));
+    const screens = join(here, "screens", volume.slug);
+    rmSync(screens, { recursive: true, force: true });
+    mkdirSync(screens, { recursive: true });
+    console.log(`\n${volume.slug} (${volume.classification}) @ ${volume.shortStamp}`);
+    let walked;
+    try {
+      walked = await runTour({
+        volume: volume.slug, bundles: farm, extended: true, shots: screens,
+        onLog: (line) => console.log(`  ${line}`),
+      });
+    } catch (error) {
+      // A red walk is refused rather than thrown out of: the wave wants to
+      // hear about all six volumes, and the awaiting-fix table (SCHEMA.md
+      // §2.1.4) is read against exactly these lines.
+      console.error(`  ${String(error.message ?? error).split("\n").join("\n  ")}`);
+      refused += 1;
+      continue;
+    }
+    if (JSON.stringify(walked.viewport) !== JSON.stringify(baseline.viewport)) {
+      console.error(`  ${volume.slug}: walked in ${walked.viewport.join("×")},` +
+        ` the baseline was taken in ${baseline.viewport.join("×")}`);
+      refused += 1;
+      continue;
+    }
+    const shared = walked.steps.slice(0, baseline.steps.length);
+    const differences = compare(baseline, { ...walked, steps: shared },
+      waiversFor(volume.slug).entries);
+    if (differences > 0) {
+      console.error(`  ${volume.slug}: ${differences} differences from the committed baseline` +
+        " — a build that differs is not a build to extend a baseline from");
+      refused += 1;
+      continue;
+    }
+    const added = walked.steps.slice(baseline.steps.length);
+    const merged = {
+      ...baseline,
+      problems: [],
+      steps: [...baseline.steps, ...added],
+      shots: walked.shots ?? [],
+    };
+    writeFileSync(baselinePath, `${JSON.stringify(merged, null, 2)}\n`);
+    console.log(`  ${added.length} steps appended (${baseline.steps.length} carried through)` +
+      `, ${(walked.shots ?? []).length} pictures → screens/${volume.slug}`);
+  }
+  if (refused > 0) {
+    console.error(`\n${refused} of ${volumes.length} volumes refused`);
+    process.exit(1);
+  }
+  console.log("\nremember: the pictures are ignored by git until" +
+    " golden/parity/screens/.gitignore says otherwise");
+}
+
+if (has("--capture-extended")) {
+  await captureExtended(wanted, farm);
+  process.exit(0);
+}
 
 const run = (slug, out) => {
   const result = spawnSync("node", [

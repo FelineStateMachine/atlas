@@ -164,21 +164,37 @@ close it.
 
 ## parity-compare
 
-The gate is `golden/parity/compare.mjs`, and it is four files:
+The gate is `golden/parity/compare.mjs`, and it is five files:
 
 | File | What it is |
 | --- | --- |
 | `library.mjs` | the fixture link farm: exactly the builds `FIXTURES.json` names, linked into `golden/parity/.bundles`, so the registry's newest-wins fold has nothing to choose between and the library is the same everywhere. Shared with `capture.mjs`, which is what makes candidate and baseline comparable at all. |
-| `tour.js` | the walk. Every step name, order and self-check is the reference tour's; the reading half is re-pointed at the new page and every re-pointing says so where it is written. |
-| `run.mjs` | one walk from a fresh launch: its own `atlas serve`, its own session directory, its own browser, all three torn down afterwards. |
-| `compare.mjs` | the diff, the waivers, and the gate. |
+| `tour.js` | the walk. Every step name, order and self-check is the reference tour's; the reading half is re-pointed at the new page and every re-pointing says so where it is written. The extended half — picks, keys and pictures — is appended after it and is asked for rather than assumed. |
+| `run.mjs` | one walk from a fresh launch: its own `atlas serve`, its own session directory, its own browser, all three torn down afterwards. Also the page's photographer: a screenshot step asks and this takes it. |
+| `pixels.mjs` | a PNG reader and a verdict, in the standard library. Nothing was installed to compare pictures. |
+| `compare.mjs` | the diff, the waivers, the pictures, and the gate. |
 
 ```sh
 node golden/parity/compare.mjs                      # all six volumes
 node golden/parity/compare.mjs --only mars          # one of them
 node golden/parity/compare.mjs --only mars --save /tmp   # keep the candidate log
 node golden/parity/compare.mjs base.json cand.json  # two saved logs, no browser
+node golden/parity/compare.mjs --only mars --extended    # walk the extended half early
 ```
+
+**The extended half, and the switch that is not a flag.** Three step kinds the
+tour was structurally unable to see with — real pointer events at a feature's
+pixel, keys that record where the focus landed and can be dispatched *at* a
+text field, and driver-taken screenshots compared perceptually — are described
+in `golden/parity/SCHEMA.md` §2.1. The gate walks them when the *baseline*
+holds them: while the six committed baselines are the pre-existing ones,
+nothing changes and this gate is exactly what it was; when the capture wave
+(SCHEMA.md §6.1) commits extended baselines and the pictures beside them, every
+run walks all three kinds on every volume and there is no lever to turn them
+off. `--extended` forces the walk before that, which is how a fix is checked.
+Several of the new steps assert behaviour that is not in the tree yet and are
+listed as awaiting-fix in SCHEMA.md §2.1.4 — that table is what tells the
+capture wave the difference between new coverage and a regression.
 
 **What is required to run it.** A built seam (`make static`) and a Playwright
 Chromium. The application is launched with `-static dist/static`, because a
@@ -195,6 +211,12 @@ tour is walked by hand, from a tree with `make static` behind it, and the
 numbers of the last walk are in `golden/parity/SCHEMA.md`. Closing it means a
 job that builds the seam and installs a Chromium, and half an hour of runner
 time per push.
+
+The extended half does not change that answer and makes the hole cost more:
+the picks and the pictures are the coverage a reviewer is most likely to want
+enforced on a push, and they are the coverage that most needs a real browser.
+The decision to leave CI skipping the tour stands (it is the user's); it is
+recorded here so that the next person to weigh it is weighing the whole of it.
 
 **The fresh-launch rule holds by construction.** Every volume gets its own
 `atlas serve` over a session directory made for it and removed after it, and

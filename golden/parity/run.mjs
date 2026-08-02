@@ -28,10 +28,11 @@
 // prerequisite beyond Node is a Playwright Chromium already installed.
 
 import { spawn, spawnSync } from "node:child_process";
-import { mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
+import { decodePNG, describe } from "./pixels.mjs";
 
 const here = dirname(fileURLToPath(import.meta.url));
 const repoRoot = resolve(here, "../..");
@@ -54,9 +55,22 @@ export async function runTour({
   bundles,
   staticDir = join(repoRoot, "dist/static"),
   onLog = () => {},
+  // The extended half of the walk -- picks, keys and pictures (SCHEMA.md
+  // §2.1). It is asked for rather than assumed, because the six committed
+  // baselines were captured before it existed and a walk that took steps they
+  // do not hold differs from them at the step list before any field is read.
+  extended = false,
+  // Where the pictures land. One directory per volume, made here; the driver
+  // writes into it and this process reads them back to describe them. It is
+  // deliberately *not* torn down with the session and the browser: the caller
+  // is what compares the pictures, and it does that after this returns. A
+  // caller with nowhere in mind gets a temporary directory and the operating
+  // system's own sweeping.
+  shots = extended ? mkdtempSync(join(tmpdir(), "atlas-parity-shots-")) : "",
 }) {
   const sessions = mkdtempSync(join(tmpdir(), "atlas-parity-data-"));
   const cliDir = mkdtempSync(join(tmpdir(), "atlas-parity-cli-"));
+  if (shots) mkdirSync(shots, { recursive: true });
   const cli = (...cliArgs) => {
     const result = spawnSync(
       "npx",
@@ -132,15 +146,41 @@ export async function runTour({
         window.__atlasTour(options).then(
           (log) => { window.__atlasTourLog = log; window.__atlasTourDone = "walked"; },
           (error) => { window.__atlasTourDone = "threw: " + (error && error.stack || error); });
-      }, ${JSON.stringify({ volume })});
+      }, ${JSON.stringify({ volume, extended })});
       let state = "";
       let at = "";
-      for (let waited = 0; waited < 1_200_000 && !state; waited += 1000) {
-        await page.waitForTimeout(1000);
-        const seen = await page.evaluate(
-          () => ({ at: window.__atlasTourAt || "", done: window.__atlasTourDone }));
+      // The same watch, now also the page's photographer. A screenshot step
+      // publishes what it wants shot and waits; this takes it with the
+      // browser's own screenshot -- the only way to see a WebGL sphere, which
+      // has nothing to read back through a 2D context -- and says so. The
+      // watch runs four times a second rather than once so that a walk of a
+      // dozen pictures does not spend a dozen seconds waiting to be noticed.
+      for (let waited = 0; waited < 1_200_000 && !state; waited += 250) {
+        await page.waitForTimeout(250);
+        const seen = await page.evaluate(() => ({
+          at: window.__atlasTourAt || "",
+          done: window.__atlasTourDone,
+          want: window.__atlasShotWant || null,
+        }));
         at = seen.at;
         state = seen.done;
+        if (seen.want) {
+          const want = seen.want;
+          try {
+            await page.locator(want.selector).first()
+              .screenshot({ path: ${JSON.stringify(shots)} + "/" + want.file });
+            await page.evaluate((name) => {
+              window.__atlasShotWant = null;
+              window.__atlasShotTaken = name;
+            }, want.name);
+          } catch (error) {
+            await page.evaluate((said) => {
+              window.__atlasShotWant = null;
+              window.__atlasShotError = said.why;
+              window.__atlasShotFailed = said.name;
+            }, { name: want.name, why: String((error && error.message) || error) });
+          }
+        }
       }
       if (state !== "walked") {
         return JSON.stringify({ stalled: state || "no answer", at });
@@ -149,12 +189,46 @@ export async function runTour({
     }`, "--raw");
 
     // `--raw` answers the returned string as a JSON string literal, so the
-    // log is one unwrapping away.
-    const log = JSON.parse(JSON.parse(answer));
+    // log is one unwrapping away -- unless the driver itself failed, in which
+    // case it answers prose with a zero exit status and the unwrapping is the
+    // only place that would notice. Said plainly here rather than as "is not
+    // valid JSON" three frames down.
+    let log;
+    try {
+      log = JSON.parse(JSON.parse(answer));
+    } catch {
+      throw new Error(`${volume}: the driver answered no log:\n${answer}`);
+    }
     if (log.stalled) {
       throw new Error(`${volume}: the tour ${log.stalled} (last step: ${log.at || "none"})`);
     }
     onLog(`${log.steps.length} steps`);
+    // The pictures, described and checked against the one thing a picture can
+    // be judged on with no golden beside it.
+    //
+    // This is `checkCanvas` asked of a photograph rather than of a canvas, and
+    // it is here rather than in the page because the sphere is the case that
+    // matters and the sphere is WebGL: `getImageData` answers nothing there,
+    // which is exactly why every globe step in six baselines could be right
+    // about a black planet. A count of colours is a floor and not a
+    // resemblance -- a sphere drawn black with its pins on it clears it -- and
+    // the resemblance is the committed picture, compared in `compare.mjs`.
+    log.shotsDir = shots;
+    log.screens = [];
+    for (const want of log.shots ?? []) {
+      const path = join(shots, want.file);
+      try {
+        const picture = describe(decodePNG(readFileSync(path)));
+        log.screens.push({ step: want.name, file: want.file, ...picture });
+        if (want.nonBlank && picture.distinct <= 1) {
+          log.problems.push(`${want.name}: the pane photographed as one flat colour`);
+        }
+      } catch (error) {
+        log.problems.push(`${want.name}: the picture could not be read — ` +
+          String(error.message ?? error));
+      }
+    }
+    if (log.screens.length > 0) onLog(`${log.screens.length} pictures → ${shots}`);
     // A tour that finished but found the map, the footer and the dock telling
     // different stories has failed, whatever it recorded.
     if (log.problems.length > 0) {
@@ -176,14 +250,18 @@ if (import.meta.url === `file://${process.argv[1]}`) {
   const volume = flag("--volume");
   const bundles = flag("--bundles");
   if (!volume || !bundles) {
-    console.error("usage: node golden/parity/run.mjs --volume <slug> --bundles <dir> [--out f]");
+    console.error("usage: node golden/parity/run.mjs --volume <slug> --bundles <dir> [--out f]" +
+      " [--extended] [--shots <dir>]");
     process.exit(2);
   }
   try {
+    const extended = args.includes("--extended");
     const log = await runTour({
       volume, bundles: resolve(bundles),
       staticDir: resolve(flag("--static", join(repoRoot, "dist/static"))),
       onLog: (line) => console.log(line),
+      extended,
+      ...(flag("--shots") ? { shots: resolve(flag("--shots")) } : {}),
     });
     const out = flag("--out");
     if (out) writeFileSync(out, `${JSON.stringify(log, null, 2)}\n`);
