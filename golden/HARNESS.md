@@ -27,11 +27,12 @@ A run prints one line per gate, then the waiver file, then a count:
 ```
   PASS  format-roundtrip  ok  github.com/FelineStateMachine/atlas/golden/format  0.35s
   SKIP  generate-enrich   awaiting M2+M3 — the pipeline lanes: …
+  PASS  analysis-vectors  9 grounds, 178 vectors in 8 families, 28 plans over …
   PASS  depcheck          depcheck: 5 rules over …
 
 waivers: none (golden/waivers.json is empty)
 
-6 suites: 2 passed, 4 skipped, 0 failed
+6 suites: 3 passed, 3 skipped, 0 failed
 ```
 
 A run where everything skips is green. That is deliberate: the harness lands
@@ -48,6 +49,12 @@ ATLAS_REGISTRY_DIR=~/Library/Application\ Support/dev.felinestatemachine.atlas/b
 extracted from and checks the extractions against them, instead of standing on
 the committed extractions alone. Both modes must pass; CI runs the first.
 
+Three gates run today. `depcheck` and `format-roundtrip` need only Go;
+`analysis-vectors` runs on plain node and needs the cell math's own
+dependencies — `npm --prefix frontend ci` — because the implementation it
+drives until M6 is the current tree's module, which imports s2js and
+OpenLayers. The workflow installs them; no browser and no bundler is involved.
+
 ## The gates
 
 The order below is the order the rewrite builds in — format, pipeline, app,
@@ -57,7 +64,7 @@ seam — and the order the harness runs.
 | --- | --- | --- |
 | `format-roundtrip` | M1 | A fixture bundle read and rewritten by `format/bundle` is canonically identical. Canonical-content equality is mandatory; stamp identity is tracked per fixture as an aspiration (issue #5 §6). Runs today. |
 | `generate-enrich` | M2+M3 | `generate ⊕ enrich` reproduces the composed bundle fixtures. Correctness is defined at the composed-bundle level, which is why the internal interchange shape is free to differ from the old tree's (§5.1). |
-| `analysis-vectors` | M6 | The hand-derived geohash and S2 goldens and every recorded cell plan, byte-exact, compared **positionally** — plan emission order is frozen (§5.4). |
+| `analysis-vectors` | M0 | The hand-derived geohash and S2 goldens and every recorded cell plan, byte-exact, compared **positionally** — plan emission order is frozen (§5.4). Runs today, against the current systems; M6 re-points it at `analysis/cellsystems` by changing one import. |
 | `parity-compare` | M5+M6 | The ~45-step tour, extended into its blind spots, re-pointed at the new app. Diagnostics are emitted jointly: server session state as a JSON island plus seam state, under the golden key names. |
 | `http-replay` | M5 | Recorded catalog and sampled `/data` responses, replayed with their headers. The data plane is byte-compatible with today because the seam and the goldens both consume it (§4.2). |
 | `depcheck` | M0 | The lane boundaries, as static analysis. Runs today. |
@@ -100,6 +107,15 @@ derivation stamp — is not recoverable from a finished bundle, so the sum canno
 be recomputed by a reader. `golden/format/STAMPS.md` tracks the aspiration per
 fixture, names the proxies that are enforced instead, and says what in M2 would
 close it.
+
+## analysis-vectors
+
+`analysis-vectors` is the one gate that did not wait for its lane, because it
+did not have to: the cell systems already exist as the oracle, so the vectors
+judge an implementation from the day they are captured and M6 inherits a gate
+that has been green — and therefore honest — the whole way. What each family
+pins, what a ground carries, and where the one-line switch lives are in
+[`analysis/README.md`](analysis/README.md).
 
 ## depcheck
 

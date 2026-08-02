@@ -1,0 +1,143 @@
+{
+  "family": "surface",
+  "about": "What the ground is, before any cell is named: the surface extent every system divides, and which systems are willing to divide it. The three surfaceExtent branches — a declared lens surface, a raster window, neither — are the whole of the fallback ladder.",
+  "cases": [
+    {
+      "name": "extent-from-lens-surface",
+      "ground": "test/square-1024",
+      "call": "surfaceExtent",
+      "args": [],
+      "expect": [
+        0,
+        -1024,
+        1024,
+        0
+      ],
+      "handDerived": true
+    },
+    {
+      "name": "extent-from-lens-bounds",
+      "ground": "test/square-1024-bounds",
+      "call": "surfaceExtent",
+      "args": [],
+      "expect": [
+        128,
+        -512,
+        640,
+        -256
+      ],
+      "handDerived": true
+    },
+    {
+      "name": "extent-from-world-square",
+      "ground": "test/square-1024-no-lens",
+      "call": "surfaceExtent",
+      "args": [],
+      "expect": [
+        0,
+        -1024,
+        1024,
+        0
+      ],
+      "handDerived": true
+    },
+    {
+      "name": "extent-sphere",
+      "ground": "test/sphere-8192x4096",
+      "call": "surfaceExtent",
+      "args": [],
+      "expect": [
+        0,
+        -4096,
+        8192,
+        0
+      ]
+    },
+    {
+      "name": "systems-on-a-plane",
+      "ground": "test/square-1024",
+      "call": "applicableSystems",
+      "args": [],
+      "expect": [
+        "geohash"
+      ],
+      "note": "S2 only divides a map that declares what its picture is of; geohash divides anything.",
+      "handDerived": true
+    },
+    {
+      "name": "systems-on-a-sphere",
+      "ground": "test/sphere-8192x4096",
+      "call": "applicableSystems",
+      "args": [],
+      "expect": [
+        "geohash",
+        "s2"
+      ],
+      "handDerived": true
+    },
+    {
+      "name": "geohash-applies-to-a-plane",
+      "ground": "test/square-1024",
+      "system": "geohash",
+      "call": "appliesTo",
+      "args": [],
+      "expect": true,
+      "handDerived": true
+    },
+    {
+      "name": "s2-refuses-a-plane",
+      "ground": "test/square-1024",
+      "system": "s2",
+      "call": "appliesTo",
+      "args": [],
+      "expect": false,
+      "handDerived": true
+    },
+    {
+      "name": "s2-applies-to-a-sphere",
+      "ground": "test/sphere-8192x4096",
+      "system": "s2",
+      "call": "appliesTo",
+      "args": [],
+      "expect": true,
+      "handDerived": true
+    },
+    {
+      "name": "geohash-max-level",
+      "ground": "test/sphere-8192x4096",
+      "system": "geohash",
+      "call": "maxLevel",
+      "args": [],
+      "expect": 3,
+      "handDerived": true
+    },
+    {
+      "name": "geohash-input-length",
+      "ground": "test/sphere-8192x4096",
+      "system": "geohash",
+      "call": "inputLength",
+      "args": [],
+      "expect": 3,
+      "handDerived": true
+    },
+    {
+      "name": "s2-max-level",
+      "ground": "test/sphere-8192x4096",
+      "system": "s2",
+      "call": "maxLevel",
+      "args": [],
+      "expect": 11,
+      "note": "Port levels count the root as 0 and the six faces as 1, so the S2 level-10 floor is port level 11.",
+      "handDerived": true
+    },
+    {
+      "name": "s2-input-length",
+      "ground": "test/sphere-8192x4096",
+      "system": "s2",
+      "call": "inputLength",
+      "args": [],
+      "expect": 6,
+      "handDerived": true
+    }
+  ]
+}

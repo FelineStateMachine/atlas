@@ -1,0 +1,94 @@
+{
+  "family": "carry",
+  "about": "equivalentCell: a place carried across systems. The two hierarchies share no boundaries, so what survives is the point and the precision — the cell of the new system holding the old cell's centre, at the depth whose area is closest on a log scale.",
+  "cases": [
+    {
+      "name": "root-carries-to-root",
+      "ground": "test/sphere-8192x4096",
+      "call": "equivalentCell",
+      "args": [
+        "geohash",
+        "s2",
+        ""
+      ],
+      "expect": "",
+      "handDerived": true
+    },
+    {
+      "name": "geohash-m6-to-s2",
+      "ground": "test/sphere-8192x4096",
+      "call": "equivalentCell",
+      "args": [
+        "geohash",
+        "s2",
+        "m6"
+      ],
+      "expect": "213",
+      "note": "A level-2 geohash cell is 256x128 of the 8192x4096 world; the S2 cell holding its centre at the nearest area sits within a level either way."
+    },
+    {
+      "name": "carried-cell-holds-the-old-centre",
+      "ground": "test/sphere-8192x4096",
+      "system": "s2",
+      "call": "contains",
+      "args": [
+        "213",
+        [
+          5504,
+          -2752
+        ]
+      ],
+      "expect": true,
+      "handDerived": true
+    },
+    {
+      "name": "and-back-to-geohash",
+      "ground": "test/sphere-8192x4096",
+      "call": "equivalentCell",
+      "args": [
+        "s2",
+        "geohash",
+        "213"
+      ],
+      "expect": "m6"
+    },
+    {
+      "name": "round-trip-holds-the-s2-centre",
+      "ground": "test/sphere-8192x4096",
+      "system": "geohash",
+      "call": "contains",
+      "args": [
+        "m6",
+        [
+          5560.028045868422,
+          -2708.7329376470884
+        ]
+      ],
+      "expect": true,
+      "handDerived": true
+    },
+    {
+      "name": "geohash-m-to-s2",
+      "ground": "test/sphere-8192x4096",
+      "call": "equivalentCell",
+      "args": [
+        "geohash",
+        "s2",
+        "m"
+      ],
+      "expect": "24"
+    },
+    {
+      "name": "s2-face-to-geohash",
+      "ground": "test/sphere-8192x4096",
+      "call": "equivalentCell",
+      "args": [
+        "s2",
+        "geohash",
+        "5"
+      ],
+      "expect": "b",
+      "note": "A polar face carried onto a plane's halving: the face's centre is the north pole itself."
+    }
+  ]
+}

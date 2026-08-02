@@ -1,0 +1,129 @@
+{
+  "family": "input",
+  "about": "What the navigator field keeps of a keystroke, and when the draft becomes a place. Geohash parses whole always — every normalized spelling is an address. S2 is whole-or-nothing: a partial token is not yet a place, a token past the floor clamps and re-tokenizes, and a non-token is refused with null.",
+  "cases": [
+    {
+      "name": "geohash-normalize-M6X!",
+      "ground": "test/square-1024",
+      "system": "geohash",
+      "call": "normalizeInput",
+      "args": [
+        "M6X!"
+      ],
+      "expect": "m6x",
+      "handDerived": true
+    },
+    {
+      "name": "geohash-normalize-aM6iLo",
+      "ground": "test/square-1024",
+      "system": "geohash",
+      "call": "normalizeInput",
+      "args": [
+        "aM6iLo"
+      ],
+      "expect": "m6",
+      "handDerived": true
+    },
+    {
+      "name": "geohash-normalize-m6w9",
+      "ground": "test/square-1024",
+      "system": "geohash",
+      "call": "normalizeInput",
+      "args": [
+        "m6w9"
+      ],
+      "expect": "m6w",
+      "handDerived": true
+    },
+    {
+      "name": "geohash-parse-root",
+      "ground": "test/square-1024",
+      "system": "geohash",
+      "call": "parseInput",
+      "args": [
+        ""
+      ],
+      "expect": "",
+      "note": "The root is a place.",
+      "handDerived": true
+    },
+    {
+      "name": "geohash-parse-m6",
+      "ground": "test/square-1024",
+      "system": "geohash",
+      "call": "parseInput",
+      "args": [
+        "m6"
+      ],
+      "expect": "m6",
+      "handDerived": true
+    },
+    {
+      "name": "s2-normalize",
+      "ground": "test/sphere-8192x4096",
+      "system": "s2",
+      "call": "normalizeInput",
+      "args": [
+        "47A1 CB!"
+      ],
+      "expect": "47a1cb",
+      "handDerived": true
+    },
+    {
+      "name": "s2-parse-root",
+      "ground": "test/sphere-8192x4096",
+      "system": "s2",
+      "call": "parseInput",
+      "args": [
+        ""
+      ],
+      "expect": "",
+      "handDerived": true
+    },
+    {
+      "name": "s2-parse-token",
+      "ground": "test/sphere-8192x4096",
+      "system": "s2",
+      "call": "parseInput",
+      "args": [
+        "47a1cb"
+      ],
+      "expect": "47a1cb",
+      "handDerived": true
+    },
+    {
+      "name": "s2-parse-truncated-leaf",
+      "ground": "test/sphere-8192x4096",
+      "system": "s2",
+      "call": "parseInput",
+      "args": [
+        "47a1cb"
+      ],
+      "expect": "47a1cb",
+      "handDerived": true
+    },
+    {
+      "name": "s2-refuses-a-non-token",
+      "ground": "test/sphere-8192x4096",
+      "system": "s2",
+      "call": "parseInput",
+      "args": [
+        "xyz"
+      ],
+      "expect": null,
+      "note": "Not hex, not a place.",
+      "handDerived": true
+    },
+    {
+      "name": "s2-clamps-a-deeper-token",
+      "ground": "test/sphere-8192x4096",
+      "system": "s2",
+      "call": "parseInput",
+      "args": [
+        "47a1cbd595522b39"
+      ],
+      "expect": "47a1cb",
+      "note": "A token deeper than the telescope's floor clamps to level 10 and comes back canonically spelled."
+    }
+  ]
+}
