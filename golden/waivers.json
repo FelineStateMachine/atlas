@@ -3,21 +3,21 @@
     "id": "app-shell-page",
     "suite": "http-replay",
     "fixture": "GET /",
-    "reason": "The reference implementation served one hash-routed shell document at /. The rewrite serves a page per world at a real URL and sends / to the volume the reader was last in (issue #5 \u00a74.2), so a client following the redirect lands on a different document of the same kind. The replay still holds the exchange to the recorded status and content type; the 8,864 recorded bytes are the old frontend and are not reproducible by design.",
+    "reason": "The reference implementation served one hash-routed shell document at /. The rewrite serves a page per world at a real URL and sends / to the volume the reader was last in (issue #5 §4.2), so a client following the redirect lands on a different document of the same kind. The replay still holds the exchange to the recorded status and content type; the 8,864 recorded bytes are the old frontend and are not reproducible by design.",
     "added": "2026-08-02"
   },
   {
     "id": "seam-assets",
     "suite": "http-replay",
     "fixture": "GET /static/app.css, GET /static/app.js",
-    "reason": "The recorded bodies are the reference implementation's built frontend bundle and stylesheet (re-recorded with the six-volume fixture set, so app.js is the reference tree's current build -- see http.tree in FIXTURES.json). The seam is a separate lane that lands in M6, and the application must build and serve without its assets present (issue #5 \u00a73.2), so a host that mounted no static tree answers 404. The replay asserts exactly that, which makes this waiver a check of the deletability principle rather than an unchecked difference.",
+    "reason": "The recorded bodies are the reference implementation's built frontend bundle and stylesheet (re-recorded with the six-volume fixture set, so app.js is the reference tree's current build -- see http.tree in FIXTURES.json). The seam is a separate lane that lands in M6, and the application must build and serve without its assets present (issue #5 §3.2), so a host that mounted no static tree answers 404. The replay asserts exactly that, which makes this waiver a check of the deletability principle rather than an unchecked difference.",
     "added": "2026-08-02"
   },
   {
     "id": "enriched-build-revision",
     "suite": "generate-enrich",
     "fixture": "bundles/cyberpunk-2077 (and every enriched build)",
-    "reason": "An enriched build's manifest revision cannot equal the reference tree's, so neither can its stamp or its file name. The reference merged inside composition and wrote the plain policy revision 9; issue #5 \u00a75.3 requires the enrich write to bump the revision past the serving build's, which docs/enrich.md \u00a72 does by packing the enrich policy into the high field (9 becomes 109). The revision feeds the manifest and the manifest feeds the stamp, so this is a stamp difference by construction rather than a content difference: the canonical content of the world payloads, the packed locations, the prose, the icons and the tile inventory is checked and unwaived. Retiring this waiver would mean either giving up the deterministic fold-winning rule or restamping every bundle in every library.",
+    "reason": "An enriched build's manifest revision cannot equal the reference tree's, so neither can its stamp or its file name. The reference merged inside composition and wrote the plain policy revision 9; issue #5 §5.3 requires the enrich write to bump the revision past the serving build's, which docs/enrich.md §2 does by packing the enrich policy into the high field (9 becomes 109). The revision feeds the manifest and the manifest feeds the stamp, so this is a stamp difference by construction rather than a content difference: the canonical content of the world payloads, the packed locations, the prose, the icons and the tile inventory is checked and unwaived. Retiring this waiver would mean either giving up the deterministic fold-winning rule or restamping every bundle in every library.",
     "added": "2026-08-02"
   },
   {
@@ -27,7 +27,7 @@
     "paths": [
       "route"
     ],
-    "reason": "The reference implementation served one hash-routed shell and recorded location.hash as '#<volume>/<world>' on every step. The rewrite gives a world a real URL (issue #5 \u00a74.2, docs/app.md \u00a72.2), so there is no fragment to read and the tour records the empty string. The fact the field stood for -- which volume and world are open -- is recorded unwaived three times over in the same snapshot: `volume`, `world`, and `library.volumeValue`/`worldValue`. This waiver retires the spelling, not the check.",
+    "reason": "The reference implementation served one hash-routed shell and recorded location.hash as '#<volume>/<world>' on every step. The rewrite gives a world a real URL (issue #5 §4.2, docs/app.md §2.2), so there is no fragment to read and the tour records the empty string. The fact the field stood for -- which volume and world are open -- is recorded unwaived three times over in the same snapshot: `volume`, `world`, and `library.volumeValue`/`worldValue`. This waiver retires the spelling, not the check.",
     "added": "2026-08-02"
   },
   {
@@ -38,7 +38,7 @@
       "library.lenses",
       "library.lensValue"
     ],
-    "reason": "The reference addressed a lens by its ordinal, so the option values on its lens select were '0', '1', '2'. The rewrite addresses a lens by its name (docs/app.md \u00a74.3: a name outlives a build's ordering, and POST /session/lens takes one), so the same select carries 'Viking MDIM 2.1' where the baseline carries '1'. Only the option *values* are waived: how many lenses are offered, which one is current and what it draws stay bound through `lens`, `library.lensFieldHidden`, `nativeMaxZoom`, `session.entry.lens` -- which is still the index, because the island renders what the golden records -- and every tile the lens fetches.",
+    "reason": "The reference addressed a lens by its ordinal, so the option values on its lens select were '0', '1', '2'. The rewrite addresses a lens by its name (docs/app.md §4.3: a name outlives a build's ordering, and POST /session/lens takes one), so the same select carries 'Viking MDIM 2.1' where the baseline carries '1'. Only the option *values* are waived: how many lenses are offered, which one is current and what it draws stay bound through `lens`, `library.lensFieldHidden`, `nativeMaxZoom`, `session.entry.lens` -- which is still the index, because the island renders what the golden records -- and every tile the lens fetches.",
     "added": "2026-08-02"
   },
   {
@@ -49,6 +49,37 @@
       "domNodes"
     ],
     "reason": "A count of every element on the page, recorded so that a build which started rendering ten thousand rows would show up. The page is a different page: server-rendered regions instead of a client-built DOM, two custom elements instead of two divs, an import region and a keyboard-shortcut block the reference had no equivalent of. Reproducing the count exactly would mean reproducing the markup exactly, which is the opposite of what a clean-room rewrite is for. What the field was watching for is watched unwaived by `canvases`, by `sync.dockRows`, and by every count in the snapshot; the order of magnitude is checked by eye on every run (tunic: 1,072 recorded, 1,052 here).",
+    "added": "2026-08-02"
+  },
+  {
+    "id": "fit-across-an-opening",
+    "suite": "parity-compare",
+    "fixture": "*",
+    "steps": [
+      "game-second",
+      "map-second"
+    ],
+    "paths": [
+      "fitZoom"
+    ],
+    "reason": "`fitZoom` is the zoom at which the whole map fits, decided once when a world opens -- so the only steps it can disagree at are the two where a walk opens a ground it was not standing on. The reference decided it one layout frame early: opening a volume or a world folds the panel beside the map, and the camera was fitted on the next animation frame, before the browser had told OpenLayers that the map had grown. A ground reached from somewhere whose panel was out was therefore fitted to the narrower window it was leaving. The fixture set records the two answers side by side: bend-or's own first step and fallout's `game-second` -- which reaches it with the panel already folded -- both record 1.3398500028846247, and the four volumes that reach it with the panel out record 1.2620948453701795, the same ground fitted to a window 34 pixels narrower. The rewrite has no such frame: a page arrives with its panel already in the state it will be in, so the fold and the fit are one layout and the fit is measured against the window the reader actually gets. Reproducing the recorded number would mean deliberately measuring a window that no longer exists. What is *not* waived is everything around it: the camera itself -- `zoom`, `center`, `resolution` -- is bound at these two steps and agrees, and `fitZoom` is bound at every other step of every volume, including the first step of each, where the two builds agree exactly.",
+    "added": "2026-08-02"
+  },
+  {
+    "id": "chart-camera-under-the-sphere",
+    "suite": "parity-compare",
+    "fixture": "mars",
+    "steps": [
+      "globe-collection-hidden",
+      "globe-collection-restored",
+      "globe-selected",
+      "globe-detail-closed",
+      "globe-zoomed-out"
+    ],
+    "paths": [
+      "session.entry.zoom"
+    ],
+    "reason": "The saved camera, while the sphere is up and the chart is put away behind it. The reference kept its arrangement in the browser and wrote the whole of it -- the chart's current view included -- on every interaction, so a filter pressed while the globe was up saved a chart camera that was not a reader's view of anything: the chart had no window, and a grid descent had 'fitted' the held cell into a window of no size, which lands at the deepest zoom the lens allows. That artifact is what the five steps here record (8, the ceiling), and it is why the same walk records the honest camera, 1.883, at the three globe steps before it. The rewrite has one route upward for a camera and the pane that is put away does not take it (docs/render-seam.md: the camera is reported by the pane the reader is looking through), so the record keeps the camera the reader actually left the chart at. Bound everywhere else: the chart's live camera -- `zoom`, `center`, `resolution` -- is compared unwaived on all fifty-nine steps, including these five, and agrees; only what was *saved* differs, and only here.",
     "added": "2026-08-02"
   }
 ]

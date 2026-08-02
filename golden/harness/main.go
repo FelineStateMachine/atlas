@@ -138,9 +138,16 @@ func suites() []suite {
 		{
 			name:       "parity-compare",
 			milestone:  "M5+M6",
-			awaiting:   "the app and the seam: the tour re-pointed at the new build, diagnostics emitted jointly as a server JSON island plus seam state",
+			awaiting:   "",
 			entrypoint: "golden/parity/compare.mjs",
 			argv:       []string{"node", "golden/parity/compare.mjs"},
+			ready:      true,
+			scope: "all six fixture volumes, walked from a fresh launch each -- " +
+				"but only where it can walk them at all: this is the one gate that " +
+				"drives the real application in a real browser, so it needs a built " +
+				"seam (make static) and a Playwright Chromium, and says which is " +
+				"missing rather than judging without them. A full run takes about " +
+				"half an hour: every step is settled rather than slept on",
 		},
 		{
 			// The server's half of the joint diagnostics §6 asks for: the
@@ -200,6 +207,16 @@ type waiver struct {
 	Fixture string `json:"fixture"`
 	Reason  string `json:"reason"`
 	Added   string `json:"added"`
+
+	// Paths and Steps are how a parity-compare waiver says exactly how much it
+	// costs: which snapshot leaves may differ, and -- when the divergence is a
+	// moment rather than a field -- at which steps of the walk. They are read
+	// by golden/parity/compare.mjs and printed here, because the narrowing is
+	// the point: a field waived at one step of sixty is a smaller bill than the
+	// same field waived across a whole tour, and the difference belongs on the
+	// scoreboard.
+	Paths []string `json:"paths,omitempty"`
+	Steps []string `json:"steps,omitempty"`
 }
 
 type result int
@@ -325,6 +342,13 @@ func reportWaivers(waivers []waiver) int {
 		subject := w.Suite
 		if w.Fixture != "" {
 			subject += "/" + w.Fixture
+		}
+		if len(w.Paths) > 0 {
+			subject += " [" + strings.Join(w.Paths, ", ")
+			if len(w.Steps) > 0 {
+				subject += " at " + strings.Join(w.Steps, ", ")
+			}
+			subject += "]"
 		}
 		id := w.ID
 		if id == "" {

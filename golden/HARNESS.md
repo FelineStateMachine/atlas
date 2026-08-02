@@ -37,17 +37,20 @@ gate, then the waiver file, then a count:
   PASS  analysis-vectors  9 grounds, 178 vectors in 8 families, 28 plans over …
   PASS  analysis-lane     analysis lane: the boundary rules, tsc --strict and …
   PASS  render-lane       render lane: the boundary rules, tsc --strict, the seam …
-  SKIP  parity-compare    awaiting M5+M6 — the app and the seam: …
+  PASS  parity-compare    all 6 volumes agree with their baselines
+                          scope: all six fixture volumes, walked from a fresh …
   PASS  island            ok  github.com/FelineStateMachine/atlas/golden/island
   PASS  http-replay       ok  github.com/FelineStateMachine/atlas/golden/http
   PASS  depcheck          depcheck: 5 rules over …
 
-waivers: 3 accepted divergences from the goldens (golden/waivers.json)
+waivers: 8 accepted divergences from the goldens (golden/waivers.json)
   WAIVED  app-shell-page   http-replay/GET /: …
   WAIVED  seam-assets      http-replay/GET /static/app.css, …
   WAIVED  enriched-build-revision  generate-enrich/bundles/cyberpunk-2077 …
+  WAIVED  hash-route-retired  parity-compare/* [route]: …
+  …
 
-9 suites: 8 passed, 1 skipped, 0 failed
+11 suites: 11 passed, 0 skipped, 0 failed
 ```
 
 A ready gate that does not judge everything its contract names prints a **scope**
@@ -73,15 +76,22 @@ recorded bodies too when the variable names a bundles directory holding the
 fixture builds (see `golden/http/NOTES.md`). Both modes must pass; CI runs the
 first.
 
-Nine gates run today. `depcheck`, `format-roundtrip`, `semconv-codegen`,
-`island`, `http-replay` and `generate-enrich` need only Go — though
-`generate-enrich` needs two directories that are not in git before it judges
-anything, and says so when it has them. The three TypeScript gates
-(`analysis-vectors`, `analysis-lane`, `render-lane`) run on plain node and need
-one `npm ci` at the **repository root** — the workspace install that brings the
-analysis lane its single dependency (s2js), the seam its pinned surface, and
+Every gate runs today; none of them skips. `depcheck`, `format-roundtrip`,
+`semconv-codegen`, `island`, `cells`, `http-replay` and `generate-enrich` need
+only Go — though `generate-enrich` needs two directories that are not in git
+before it judges anything, and says so when it has them. The three TypeScript
+gates (`analysis-vectors`, `analysis-lane`, `render-lane`) run on plain node and
+need one `npm ci` at the **repository root** — the workspace install that brings
+the analysis lane its single dependency (s2js), the seam its pinned surface, and
 both lanes eslint and tsc — and a node that strips TypeScript types (22.18+, or
-24+). The workflow installs them; no browser and no bundler is involved.
+24+). The workflow installs them; no bundler is involved.
+
+`parity-compare` is the one gate that needs more than that: a built seam
+(`make static`) and a Playwright Chromium, because it drives the real
+application in a real browser. It is also the one gate measured in tens of
+minutes rather than seconds — six volumes, six fresh launches, every step
+settled rather than slept on — so it is the last thing a change is checked
+against and never the first.
 
 **All three platforms.** The gates compare bytes, so the harness runs on
 ubuntu, macOS and Windows. `/.gitattributes` is what makes that meaningful: the
@@ -109,8 +119,7 @@ seam — and the order the harness runs.
 | `analysis-lane` | M6 | The analysis lane's own gate: the TypeScript boundary rules of §9 (`eslint.config.mjs`), `tsc` at its strictest, and the conformance suite every cell system must pass (§5.4), run over geohash, S2 and a third system that exists only to prove the contract admits one. `make analysis-lane` is the same run on its own. |
 | `render-lane` | M6 | The seam's own gate, beside the analysis lane's: the same TypeScript boundary rules, `tsc` at its strictest, the seam's unit tests against the golden fixtures, and the ~3,000 authored-line budget of §5.5 as a warning that never fails a build. `make render-lane` is the same run on its own. Runs today. |
 | `island` | M5 | The server's half of the joint diagnostics §6 asks for: the state island held to the `session` object every parity baseline records, key for key, over sequences driven through the application's own routes. The other half is `parity-compare`. Runs today. |
-| `parity-compare` | M5+M6 | The ~45-step tour, extended into its blind spots, re-pointed at the new app. Diagnostics are emitted jointly: server session state as a JSON island plus seam state, under the golden key names. |
-| `parity-compare` | M5+M6 | The tour, extended into its blind spots, re-pointed at the new app and walked against it from a fresh launch per volume. Diagnostics are emitted jointly: server session state as a JSON island plus seam state, under the golden key names. Wired and running; not yet green, so it is still declared unready — see below. |
+| `parity-compare` | M5+M6 | The tour, extended into its blind spots, re-pointed at the new app and walked against it from a fresh launch per volume. Diagnostics are emitted jointly: server session state as a JSON island plus seam state, under the golden key names. Runs today, over all six fixture volumes, and green under two declared waivers. |
 | `http-replay` | M5 | Recorded catalog and sampled `/data` responses, replayed with their headers. The data plane is byte-compatible with today because the seam and the goldens both consume it (§4.2). Runs today, in two modes; the app plane's three exchanges are waived and reduced, not skipped. |
 | `depcheck` | M0 | The lane boundaries, as static analysis. Runs today. |
 
@@ -176,6 +185,17 @@ Chromium. The application is launched with `-static dist/static`, because a
 build with no seam answers no viewport question at all — which is the
 deletability principle, and not something to discover halfway through a tour.
 
+A tree that has not built the seam is told so and the gate returns without
+judging, in one line naming the command that would let it. That is the same
+bargain `generate-enrich` makes with a machine that does not hold the capture
+archive, and it is why the CI job — which installs no browser and builds no
+bundle — stays green while never walking the tour. **CI therefore does not run
+this gate**, and that is a real hole rather than a decision to be proud of: the
+tour is walked by hand, from a tree with `make static` behind it, and the
+numbers of the last walk are in `golden/parity/SCHEMA.md`. Closing it means a
+job that builds the seam and installs a Chromium, and half an hour of runner
+time per push.
+
 **The fresh-launch rule holds by construction.** Every volume gets its own
 `atlas serve` over a session directory made for it and removed after it, and
 its own browser session. Nothing is carried between volumes; nothing survives
@@ -183,22 +203,87 @@ a run. That is the rewrite's answer to the reference tour clearing
 `localStorage` at both ends, and it is stronger, because the reference could
 only clear what it knew about.
 
-**Waivers are paths.** A `parity-compare` waiver names the volumes it applies
-to (`*` for all) and the snapshot paths it covers; a path covers everything
-beneath it, so `library.lenses` covers every element of that array. Every
-waiver is printed on every run of the gate and again by the harness, which is
-what keeps an accepted divergence a visible cost rather than a green tick.
-The two advisory `tileStats` fields are *not* waivers — they are recorded and
-not compared, for the reason SCHEMA.md §5 gives, and they need no reviewer.
+**Waivers are paths, and may be steps as well.** A `parity-compare` waiver
+names the volumes it applies to (`fixture`, `*` for all) and the snapshot paths
+it covers (`paths`); a path covers everything beneath it, so `library.lenses`
+covers every element of that array. It may also name the steps it covers
+(`steps`), and a waiver that names none covers the whole walk. Naming them is
+not a loosening — it is the opposite: a divergence that happens at one step of
+sixty is a smaller bill than the same field waived across a whole tour, and
+spelling the step is what keeps the field bound everywhere else. Every waiver
+is printed on every run of the gate, with its paths and its steps, and again by
+the harness. The two advisory `tileStats` fields are *not* waivers — they are
+recorded and not compared, for the reason SCHEMA.md §5 gives, and they need no
+reviewer.
 
-**It is not ready yet, and the flag says so.** Two of the six volumes are
-green — `tunic` and `cyberpunk-2077` agree with their baselines field for
-field. All six step lists match, which is the harder half: the tour reaches
-the same places on every shape the format can take. What is left is five named
-defects rather than a long tail. What is still open is written in
-`golden/parity/SCHEMA.md` §7 under "What the rewrite has not reproduced yet",
-one entry per behaviour, so that turning the flag on is a matter of emptying
-that list rather than of deciding the gate is close enough.
+### How to read a parity diff
+
+A failing run prints one block per step that differs, and one line per leaf:
+
+```
+zelda-tears-of-the-kingdom (lens-sharded) @ 9dc737d9871e
+  serving http://127.0.0.1:65483
+  67 steps
+  zelda-tears-of-the-kingdom: the tour found 1 problems
+    variant-second: dock counts 687 features, 4515 are listable
+step variant-second:
+  sync.dockText: "4,515 features" → "687 features"
+  zones.focused: null → "Great Sky Island"
+  3 differences
+```
+
+Read it in this order.
+
+1. **The step list first.** If the two step lists differ at all, the gate says
+   so before any field and nothing below it is worth reading: the walk did not
+   reach the same places, and every positional comparison after the divergence
+   is comparing two different moments. A missing step is almost always a
+   control the tour could not find.
+2. **The tour's own problems next.** They are printed above the diff and they
+   are *not* comparisons against a baseline — they are the invariants of §4,
+   checked as the walk went. `dock counts 687 features, 4515 are listable` says
+   the words on screen and the model behind them disagree *in this build*,
+   which is a defect whether or not any baseline exists. A run that finds one
+   has failed even if every field matched.
+3. **The arrow direction.** `baseline → candidate`, always. The left side is
+   what the reference implementation did; the right is what this build did.
+4. **The earliest step, not the loudest.** The tour is a walk and a wrong move
+   at step 14 is still wrong at step 60, so a diff is usually one defect and
+   fifty echoes. Fix the first step that differs and re-run before reading any
+   of the rest — the burn-down in this milestone went 2,311 → 797 → 9 fields on
+   single changes more than once.
+5. **Which half of the snapshot a field belongs to** (SCHEMA.md §3). A
+   `sync.*`, `ui.*`, `filters.*` or `session.*` field is the *application's*
+   answer, rendered in Go; `zoom`, `center`, `tileStats`, `grid.*`, `pane.*`
+   are the *seam's*. A `sync.footerText` that disagrees with `sync.drawn` is
+   the two halves disagreeing, which is a different bug from either half being
+   wrong on its own.
+6. **`--save` and re-diff.** `--save <dir>` writes each candidate log beside
+   the run; `compare.mjs base.json cand.json` re-diffs a saved pair with no
+   browser and no application, which is how a hypothesis gets tested in a
+   second rather than in half an hour.
+
+Two habits are worth keeping. The default assumption is that the *candidate* is
+wrong: a golden is a recording of software that worked. And a field that cannot
+be made equal is a waiver with an argument in it, never an edited baseline —
+the process is under **Waivers**, below, and there is deliberately no flag that
+would produce a third answer.
+
+**It is ready, and green.** All six volumes agree with their baselines, step
+for step and field for field, and the tour's own invariants hold on every step
+of every walk. Two differences are declared rather than reproduced, both
+narrowly: `fitZoom` at the two steps where a walk opens a ground it was not on,
+and mars's *saved* chart camera at five of its globe steps. Both are a number
+the reference read off a window that was about to stop existing, both are
+argued in `golden/waivers.json`, and both leave their field bound everywhere
+else. `golden/parity/SCHEMA.md` carries the same account with the numbers, and
+a short post-mortem of the five defects the previous round had diagnosed — one
+of which turned out to be a different defect entirely.
+
+**A run costs about half an hour.** Six volumes, six fresh launches, and every
+step settled rather than slept on. It is the slowest gate by two orders of
+magnitude and it is not on the inner loop: `--only <slug>` is, and a failing
+volume is diffed on its own.
 
 **One gate came out of this one.** `golden/cells` holds `internal/app/cells`
 — the geohash halving the *server* needs, because the count above the panel

@@ -417,64 +417,80 @@ remain the first thing to capture, and they are now a small thing to reach.
 
 ---
 
-## What the rewrite has not reproduced yet
+## What the rewrite reproduces, and the two things it does not
 
-Two of the six volumes are green — `tunic` and `cyberpunk-2077` agree with
-their baselines field for field, modulo the three declared waivers and the two
-advisory `tileStats` counters. **All six step lists match**, which is the
-harder half: the tour reaches the same places on every shape the format can
-take. `parity-compare` stays unready until the other four are green.
+All six volumes agree with their baselines, step for step and field for field,
+under the declared waivers and the two advisory `tileStats` counters. The tour
+finds no problems on any of them: the map, the footer and the dock tell one
+story on every step of every walk, a closed card gives back the view a jump
+borrowed, and the sphere and the chart lose the same pins to one filter.
 
 | volume | steps | tour's own checks | fields differing |
 |---|---|---|---|
 | tunic | 37 / 37 | clean | **0** |
 | cyberpunk-2077 | 49 / 49 | clean | **0** |
-| fallout-new-vegas | 39 / 39 | clean | 36 |
-| zelda-tears-of-the-kingdom | 67 / 67 | 7 | 797 |
-| mars | 59 / 59 | 2 | 314 |
-| bend-or | 66 / 66 | 4 | 377 |
+| fallout-new-vegas | 39 / 39 | clean | **0** |
+| zelda-tears-of-the-kingdom | 67 / 67 | clean | **0** |
+| mars | 59 / 59 | clean | **0** |
+| bend-or | 66 / 66 | clean | **0** |
 
-The residue is five defects, not five hundred fields. Each is named here with
-the step that shows it first, because a field count is a symptom and a cause
-is what somebody can fix.
+Two differences are declared rather than reproduced, and both are the same
+kind of thing: a number the reference read off a window that was about to stop
+existing.
 
-- **A feature index row highlights where it should jump.** `zone-jumped` is a
-  left-click on a row of a shape collection's index, and the reference *went*
-  there: it selected the feature, opened the card and flew the camera.
-  `legend.tmpl` posts `/session/highlight` instead, so the row filters the map
-  rather than travelling to it — and every count downstream of it on `zelda`
-  and `bend-or` follows. Highlighting is the *contextmenu*, which the tour
-  sends separately and which already works. This is the largest single cause
-  in the set.
-- **Titles sort by bytes, not by collation.** The reference ordered the panel
-  with `String.localeCompare`, which puts punctuation before digits before
-  letters; `foldTitle` lowercases and compares bytes, which puts `188 Trading
-  Post` where `¡La Fantoma!` belongs. It shows first at
-  `fallout-new-vegas/search-select-first`, where the two builds open a card on
-  different features. Closing it means a collation key rather than a
-  lowercase, and the question of whether that is worth a dependency.
-- **The panel does not fold on a world change.** `map-second` leaves
-  `dockFolded` false where the reference folded it; eleven fields on
-  `fallout-new-vegas` are that one flag and its echo in the island.
-- **The held cell divides different ground in the two halves.** The server
-  halves the lens's declared surface (`internal/app/cells`); the seam halves
-  the analysis lane's `Ground`. They agree on `tunic` and disagree on `mars`
-  and `bend-or`, where `grid-descended` has the panel counting three features
-  against a hundred and forty-eight standing. Both are reading the same
-  intention out of two different structures, and one of them is wrong about
-  which rectangle a lens declares.
-- **The globe does not swap its panes under the tour.** `globe-entered`
-  records the toggle pressed and the panes unmoved, and `globe-zoomed-deep`
-  finds no pyramid tiles. The same press works by hand, through the same
-  sequence of navigations, which makes this the one entry on the list with no
-  diagnosis attached to it yet. The pairing and the locator's mark are
-  calibrated and reproduce the recording exactly wherever the sphere is
-  genuinely up.
+- **`fit-across-an-opening`** — `fitZoom` at `game-second` and `map-second`,
+  the two steps at which a walk opens a ground it was not standing on. The
+  reference folded the panel beside the map and then fitted the camera on the
+  next animation frame, before the browser had told OpenLayers the map had
+  grown, so a ground reached from somewhere with the panel out was fitted to
+  the narrower window it was leaving. The fixture set records both answers for
+  the same volume — 1.3399 where the panel was already folded, 1.2621 where it
+  was not — which is what makes it a race rather than a rule. The rewrite's
+  page arrives with its panel in the state it will be in, so there is no frame
+  to catch.
+- **`chart-camera-under-the-sphere`** — `session.entry.zoom` at five of mars's
+  globe steps. The reference wrote its whole arrangement, the chart's camera
+  included, on every interaction; a filter pressed while the sphere was up
+  therefore saved a chart camera that was a fit into a window of no size. The
+  rewrite reports a camera only from the pane the reader is looking through
+  (docs/render-seam.md §5), so the record keeps the camera the reader actually
+  left. The chart's *live* camera is bound and agrees at those same five steps;
+  only what was saved differs.
 
-**No tolerance was declared and no waiver was added for any of it.** The
-last-bit float drift that stood here in the previous round turned out not to
-be floating-point noise at all: the chart's view was built without the
-resolution ladder the reference handed its own, and a view given the ladder
-converts between a zoom and a resolution by walking it. Tunic went from
-eighty-one differing fields to one on that change alone. A camera compared at
-1e-9 was never over-compared; it was under-built.
+Both are in `golden/waivers.json` with the argument written out, both name the
+steps they cover, and both leave the field bound everywhere else. Nothing else
+is waived and no tolerance was declared: every other difference this milestone
+found was a defect, and the defects are listed in the commit history rather
+than here.
+
+### What the five diagnosed defects turned out to be
+
+Kept because a diagnosis that was half right is worth the next reader knowing
+about.
+
+- **A feature index row highlighted where it should have jumped.** True, and
+  larger than it looked: the row's verb was wrong (`/session/highlight` where
+  the reference selected, opened the card and flew the camera), highlighting had
+  no contextmenu to answer at all, a jump to *ground* has to fit the shape's
+  extent rather than fly at its middle, the index listed every layer of a split
+  sheet instead of the one the lens draws, and the mark a jump leaves on the
+  index outlives the card it opened. Five changes, one wrong verb.
+- **Titles sorted by bytes, not by collation.** True. `internal/app/collate.go`
+  is the root collation the browser sorted with, in two strengths, reproducing
+  the browser's order over all 7,879 titles in the fixture set.
+- **The panel did not fold on a world change.** True, and it folds in the
+  handler that actually serves a world change: the world select navigates, so
+  the fold belongs to `handleExplorer` and not only to `applyWorld`.
+- **The held cell divided different ground in the two halves.** *Not what it
+  was.* The two halves divide the same ground and always did — every fixture's
+  lens declares a surface, and both sides start from it. What differed was what
+  a cell *narrows*: the server was culling ground by the held cell, and the
+  reference never did. A cell narrows what is standing on the ground, not the
+  ground.
+- **The globe did not swap its panes under the tour.** The toggle was wired
+  once per swap and the mark that said so was a `data-` attribute — which is
+  the one place a mark cannot be kept, because a morph rewrites attributes from
+  markup that has never heard of it. The listeners accumulated, one press
+  flipped the panes once per listener, and whether the sphere came up was
+  decided by the parity of a count. By hand it was odd; at the end of a tour it
+  was even.
