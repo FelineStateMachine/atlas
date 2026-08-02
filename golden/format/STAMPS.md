@@ -70,7 +70,7 @@ a real library, so the table can be checked rather than believed.
 | `fallout-new-vegas` | `e6cd7eb1936e` | 93 | 88 | 5 | **HELD** (M2) |
 | `zelda-tears-of-the-kingdom` | `9dc737d9871e` | 98 | 97 | 1 | **HELD** (M2) |
 | `mars` | `68e141f26b1a` | 20 | 18 | 2 | **HELD** (M2) |
-| `bend-or` | `3610a0f10798` | 6 | 5 | 1 | ASPIRATION — the capture is back, the city lane is not, see below |
+| `bend-or` | `3610a0f10798` | 6 | 5 | 1 | **HELD** (M2) — the first city, see below |
 
 ## What the merged volume closed, and what it cannot
 
@@ -112,9 +112,9 @@ rebuild byte for byte.
 
 ## What M2 closed, and how far
 
-Four fixtures now read **HELD**. `golden/pipeline` composes each of them from
-the capture archive and the derived tile set and gets back the file the
-reference implementation wrote: the same stamp, the same name, the same
+Every single-source fixture now reads **HELD**. `golden/pipeline` composes each
+of them from the capture archive and the derived tile set and gets back the file
+the reference implementation wrote: the same stamp, the same name, the same
 SHA-256, the same byte count. That is stamp identity in the strongest sense the
 aspiration asked for — the whole bundle, not a proxy for it.
 
@@ -124,8 +124,9 @@ aspiration asked for — the whole bundle, not a proxy for it.
 | `fallout-new-vegas` | 23,188,369 | byte-identical |
 | `zelda-tears-of-the-kingdom` | 58,031,657 | byte-identical |
 | `mars` | 255,455,078 | byte-identical |
+| `bend-or` | 13,642,843 | byte-identical |
 
-Those four hold because the **derived tile set is an input**, the same way the
+Those five hold because the **derived tile set is an input**, the same way the
 capture archive is: the pyramids composition reads carry the stamps the
 reference tool wrote, and composition folds them in without reading a raster.
 The question that leaves open is whether the clean-room deriver would have
@@ -155,16 +156,20 @@ So the deriver is proven in two halves, in `golden/pipeline/derive_test.go`:
   and every captured tile of every level with its content hash and format, in the
   stamp's own sort order — is reproduced bit for bit. Feeding the reference
   implementation's tool hash into the clean room's stamp function returns the
-  stamp the tile cache recorded, for **all nine pyramids of the four
+  stamp the tile cache recorded, for **all ten pyramids of the five
   single-source fixtures and for cyberpunk's warped variant**. Two plans that
   agree under one tool hash are the same plan.
-- **The tiles are identical.** Tunic's pyramid is rebuilt from the frames the
-  archive holds and compared against the reference cache: **741 tiles, byte for
-  byte**, plus the register entry's zoom range, window, formats, content bounds,
-  background colour and per-level coverage bitsets. Cyberpunk's warped pyramid is
-  rebuilt the same way from the archive *and the fit*: **1,365 tiles, byte for
-  byte**, including the level the resampler renders and every level folded down
-  from it.
+- **The tiles are identical.** Three whole pyramids are rebuilt from what the
+  archive holds and compared against the reference cache, one per path a level's
+  pixels can take: tunic's **741 tiles** for the copied path, a captured level
+  carried through and reduced; the city's **2,316** for the drawn one, where the
+  deepest level is rasterized from the city's own vectors and every one of its
+  4,096 tiles is held against the hash the capture witnessed; and cyberpunk's
+  warped variant's **1,365** for the fitted one, rebuilt from the archive *and
+  the fit*, including the level the resampler renders and every level folded
+  down from it. All come back byte for byte, along with each register entry's
+  zoom range, window, formats, content bounds, background colour and per-level
+  coverage bitsets.
 
 What that adds up to: a fresh archive derived by the clean-room deriver would
 produce the same rasters and the same volumes, under different pyramid stamps
@@ -218,27 +223,42 @@ at from the other direction, and here it is measured rather than argued: two
 builds of the same city, 13,642,843 bytes each, identical everywhere the city is
 and different only where the clock is.
 
-So the row is **ASPIRATION** rather than BLOCKED, and what it is now waiting on
-is a lane rather than a lost input:
+The row is now **HELD**, and it is the strongest row in the table, because the
+city is the only fixture whose rasters the clean room *makes* rather than reads.
 
-- **the archive is an input again.** Rebuilding from it reproduces the committed
-  fixture exactly — `dist/bundles/bend-or-20260802-3610a0f10798.atlas`, sha256
-  `7a4375d0…`, byte-identical across two runs of the reference pipeline, and the
-  derived pyramid stamps the same value both times.
-- **the clean room cannot compose it yet.** The `arcgishub` translator has
-  landed, so the city can be *read*; what it cannot yet be given is a picture.
-  A city has no tile server: its deepest level is rendered from the vectors its
-  open data publishes, and `internal/generate/tiles` has no offline basemap
-  rasterizer (`docs/generate.md` §4.5). Until that lands there is no pyramid to
-  compose against, so `golden/pipeline` has no bend-or row to fail.
+- **The archive is an input.** `golden/pipeline` reads it, translates it, derives
+  the pyramid and composes the volume, and gets back the committed fixture
+  exactly: `bend-or-20260802-3610a0f10798.atlas`, 13,642,843 bytes, sha256
+  `7a4375d0…`, with `createdAt` and the revision reproduced along with the stamp.
+- **The pixels are the clean room's own.** A city has no tile server, so its
+  deepest level is drawn from the vectors the city publishes (`docs/generate.md`
+  §4.4). The clean-room renderer draws all **4,096 tiles** of that level and
+  every one of them hashes to what the reference implementation's renderer wrote
+  into the archive — a byte-for-byte agreement between two independent
+  rasterizers over the same geometry, checked by the deriver on every run rather
+  than only in a suite. 2,316 survive the background omission into the pyramid,
+  and all 2,316 match the reference cache.
+- **The plan is identical too.** The city's pyramid stamps to the value the tile
+  cache recorded, `624a4e0c…`, when the reference implementation's tool hash is
+  substituted for the clean room's — the tenth of ten.
 
-That one missing piece is what the `generate-enrich` gate prints as its scope on
-every run: five of six bundle fixtures, and bend-or **awaiting the offline
-basemap rasterizer** — named, not omitted. A gate answering for five of six is a
-different gate from one answering for six, and the difference belongs on the
-scoreboard.
+So the city closes both halves at once, which no other fixture does: the four
+game and planet fixtures hold their stamps while standing on rasters somebody
+else derived, and the city holds its stamp while standing on rasters it drew.
 
-When the rasterizer lands, this row reads the same way the pyramids do — the
-plan, the rasters and the canonical content reproduce, and the stamp does not,
-because the stamp is downstream of the clock and of the deriving tool's own
-source hash.
+**What is still true is the ceiling.** This row holds because the derived tile
+set is an input carrying the reference tool's stamps. A pyramid the clean-room
+deriver stamps for itself stamps differently — its `ToolStamp` now covers the
+renderer as well, which is exactly right and exactly why it cannot match — so a
+library built end to end by the clean room would carry the same tiles and the
+same canonical content under different twelve-hex names. That is the property
+§"The one thing a clean-room deriver cannot reproduce" describes, unchanged by
+this row: the stamp is a rebuild-cost promise, and cross-implementation
+reproducibility is proven where it is observable, at the tiles and at the
+composed bundle.
+
+The old prediction that the city could never reproduce its `createdAt` was true
+of the *lost* archive and is no longer true of this one. `capturedAt` is
+first-seen and travels in the archive, so the re-crawl's clock is now a fact on
+disk rather than a moment that has passed — which is what makes this the first
+city to hold, and the whole reason the archive was worth crawling back.

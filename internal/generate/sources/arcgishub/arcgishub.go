@@ -211,10 +211,14 @@ func (s Source) translateWorld(
 			semconv.KeyGeometryMercatorPx:  px,
 			semconv.KeyGeometryMercatorDeg: deg,
 		},
+		// The one picture is drawn, not fetched: a hub serves geometry and no
+		// tiles, so the lens carries the drawing its deepest level is
+		// rasterized from beside the frame that says how deep that is.
 		Lenses: []doc.Lens{{
 			Name:    "Basemap",
 			TileSet: TileSetPath(raw.City, raw.MapSlug),
 			Frame:   frameOf(raw.Basemap),
+			Drawing: drawShapes(&raw, curated),
 		}},
 	}
 

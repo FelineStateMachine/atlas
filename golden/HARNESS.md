@@ -170,17 +170,9 @@ every fixture that can be rebuilt at all:
 | `zelda-tears-of-the-kingdom` | lens shards | generate | byte-identical |
 | `mars` | a sphere, named artwork | generate | byte-identical |
 | `cyberpunk-2077` | two sources merged | generate ⊕ enrich | canonically identical; one waived stamp |
-| `bend-or` | a city | — | **awaiting the offline basemap rasterizer** |
+| `bend-or` | a city: a drawn lens, national layers | generate | byte-identical |
 
-`bend-or` is named rather than omitted. Its archive is an input again — the city
-was re-crawled and the rebuild hashes identically everywhere but the clock, which
-`golden/format/STAMPS.md` records — and its `arcgishub` translator has landed, so
-the city can be read. What it cannot yet be given is a picture: a city has no
-tile server, its deepest level is rendered from the vectors its open data
-publishes, and `internal/generate/tiles` has no offline basemap rasterizer yet
-(`docs/generate.md` §4.5). Until that lands there is no pyramid to compose
-against. The gate prints that scope on every run, so the missing sixth is a
-stated cost rather than a silent omission.
+`bend-or` now reproduces end to end: the deepest level of its lens is drawn from the vectors the city publishes by the clean room's own rasterizer, held tile-for-tile against the hashes the capture witnessed, and the composed bundle comes back byte-identical, stamp included (`golden/format/STAMPS.md`).
 
 The merged fixture is reproduced **by the shipped command**, not by a test's own
 reassembly of the pipeline: the gate runs `atlas enrich` over the archive into an

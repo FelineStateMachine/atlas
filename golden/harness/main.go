@@ -76,14 +76,11 @@ func suites() []suite {
 			awaiting:   "",
 			entrypoint: "golden/pipeline/reproduce_test.go",
 			argv:       []string{"go", "test", "./golden/pipeline/..."},
-			scope: "five of six bundle fixtures: tunic, fallout-new-vegas, " +
-				"zelda-tears-of-the-kingdom and mars single-source, cyberpunk-2077 merged. " +
-				"bend-or awaits the offline basemap rasterizer — its archive is an input " +
-				"again and its translator has landed, but a city has no tile server and " +
-				"nothing yet renders its deepest level from the vectors its open data " +
-				"publishes (docs/generate.md §4.5, golden/format/STAMPS.md). Reproduction " +
-				"needs the capture archive and the derived tile set, which are not in git; " +
-				"a checkout without them skips and says so.",
+			scope: "all six bundle fixtures: five single-source volumes " +
+				"(bend-or's deepest level drawn from its own vectors) and " +
+				"cyberpunk-2077 merged through the shipped command. Reproduction " +
+				"needs the capture archive and the derived tile set, which are not " +
+				"in git; a checkout without them skips and says so.",
 			ready: true,
 		},
 		{

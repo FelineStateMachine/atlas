@@ -87,6 +87,12 @@ type Plan struct {
 	// Bounds is the part of the world square the picture actually draws, or nil
 	// where it draws all of it.
 	Bounds *Box
+	// Drawing, when set, says the deepest level is drawn rather than copied:
+	// its pixels come from the source's own vectors and not from a capture. The
+	// plan still lists the level's captured tiles, because a drawn level was
+	// archived when it was first drawn and those hashes are what the derivation
+	// is held to -- see Derive, which refuses a tile that disagrees with them.
+	Drawing *doc.Drawing
 	// LensName and AlignedWith mark a warped variant. An ordinary plan leaves
 	// both empty.
 	LensName    string
@@ -230,6 +236,7 @@ func PlanLens(
 		Format:        archive.NormalizeFormat(lens.Frame.Format),
 		Interpolate:   interpolate,
 		Bounds:        boundsOf(levels[maxFullZoom], maxFullZoom, frame),
+		Drawing:       lens.Drawing,
 	}, nil
 }
 

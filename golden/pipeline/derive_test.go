@@ -77,7 +77,7 @@ type planned struct {
 // planFixture plans every pyramid of one volume against the reference tile set.
 func planFixture(t *testing.T, volume string) []planned {
 	t.Helper()
-	store, err := archive.Open(archiveDir(t))
+	store, err := archive.Open(archiveOf(t, volume))
 	if err != nil {
 		t.Fatalf("archive: %v", err)
 	}
@@ -140,7 +140,7 @@ func planFixture(t *testing.T, volume string) []planned {
 	// Every reading, not the first: two sources may both answer for one volume,
 	// and the pair of them is exactly what a warped variant is planned from.
 	if len(out) == 0 {
-		t.Fatalf("the archive at %s holds no readable %s", archiveDir(t), volume)
+		t.Fatalf("the archive at %s holds no readable %s", archiveOf(t, volume), volume)
 	}
 	return out
 }
@@ -174,73 +174,130 @@ func TestDeriverPlansTheReferencePyramid(t *testing.T) {
 	}
 }
 
-// TestDeriverWritesTheReferenceTiles rebuilds one pyramid from the frames the
-// archive holds and compares every tile it wrote against the reference cache,
-// byte for byte.
+// The pyramids this file rebuilds whole. They are the two ways a level's pixels
+// can come to exist, so between them every path through the deriver is walked
+// by a fixture the reference implementation left an answer for.
+var rebuilt = []struct {
+	volume string
+	why    string
+}{
+	{"tunic", "copied: one picture, one complete captured level, a photographic " +
+		"reduction, a background tile omitted from every level"},
+	{"bend-or", "drawn: a city with no tile server, whose deepest level is " +
+		"rasterized from the vectors its open data publishes"},
+}
+
+// TestDeriverWritesTheReferenceTiles rebuilds a pyramid from what the archive
+// holds and compares every tile it wrote against the reference cache, byte for
+// byte.
 //
-// Tunic is the subject because it is the plainest shape the deriver handles --
-// one picture, one complete level, a photographic reduction, a background tile
-// omitted from every level -- and because 741 tiles is small enough to rebuild
-// in a test and large enough that a wrong reduction cannot hide.
+// Tunic is the plainest shape the deriver handles, and 741 tiles is small
+// enough to rebuild in a test and large enough that a wrong reduction cannot
+// hide. The city is the other half: its deepest level is not in the archive as
+// something to copy but as something to check, because the pixels are drawn
+// here from the city's own geometry. 4,096 tiles are drawn, every one of them
+// held against the hash the capture witnessed, and 2,316 survive the background
+// omission into the pyramid.
 func TestDeriverWritesTheReferenceTiles(t *testing.T) {
-	entries := planFixture(t, "tunic")
-	if len(entries) != 1 {
-		t.Fatalf("tunic planned %d pyramids, want one", len(entries))
-	}
-	plan, reference := entries[0].plan, entries[0].reference
-
-	root := t.TempDir()
-	built, err := tiles.Derive(root, plan)
-	if err != nil {
-		t.Fatalf("derive: %v", err)
-	}
-
-	// The register entry says the same thing about the pyramid.
-	if built.MaxZoom != reference.MaxZoom || built.FullZoom != reference.FullZoom ||
-		built.SourceZoom != reference.SourceZoom || built.Window != reference.Window ||
-		built.Interpolate != reference.Interpolate || built.Background != reference.Background {
-		t.Errorf("derived %+v, the reference recorded %+v", built, reference)
-	}
-	if strings.Join(built.Formats, ",") != strings.Join(reference.Formats, ",") {
-		t.Errorf("formats %v, reference %v", built.Formats, reference.Formats)
-	}
-	if (built.Bounds == nil) != (reference.Bounds == nil) ||
-		(built.Bounds != nil && *built.Bounds != *reference.Bounds) {
-		t.Errorf("bounds %+v, reference %+v", built.Bounds, reference.Bounds)
-	}
-	if len(built.Coverage) != len(reference.Coverage) {
-		t.Errorf("%d covered levels, reference %d", len(built.Coverage), len(reference.Coverage))
-	}
-	for level, mask := range reference.Coverage {
-		got, held := built.Coverage[level]
-		if !held || got == nil || *got != *mask {
-			t.Errorf("level %s covers %+v, reference %+v", level, got, mask)
-		}
-	}
-
-	// And every tile it wrote is the tile the reference wrote.
-	want := hashTree(t, filepath.Join(filepath.Dir(tileIndex(t)), reference.Name))
-	got := hashTree(t, filepath.Join(root, plan.Name))
-	if len(got) != len(want) {
-		t.Fatalf("derived %d tiles, the reference cache holds %d", len(got), len(want))
-	}
-	differed := 0
-	for name, hash := range want {
-		switch {
-		case got[name] == "":
-			t.Errorf("%s was not derived", name)
-		case got[name] != hash:
-			differed++
-			if differed <= 3 {
-				t.Errorf("%s is %s, reference %s", name, got[name], hash)
+	for _, subject := range rebuilt {
+		t.Run(subject.volume, func(t *testing.T) {
+			t.Logf("%s -- %s", subject.volume, subject.why)
+			entries := planFixture(t, subject.volume)
+			if len(entries) != 1 {
+				t.Fatalf("%s planned %d pyramids, want one", subject.volume, len(entries))
 			}
+			plan, reference := entries[0].plan, entries[0].reference
+
+			root := t.TempDir()
+			built, err := tiles.Derive(root, plan)
+			if err != nil {
+				t.Fatalf("derive: %v", err)
+			}
+
+			// The register entry says the same thing about the pyramid.
+			if built.MaxZoom != reference.MaxZoom || built.FullZoom != reference.FullZoom ||
+				built.SourceZoom != reference.SourceZoom || built.Window != reference.Window ||
+				built.Interpolate != reference.Interpolate || built.Background != reference.Background {
+				t.Errorf("derived %+v, the reference recorded %+v", built, reference)
+			}
+			if strings.Join(built.Formats, ",") != strings.Join(reference.Formats, ",") {
+				t.Errorf("formats %v, reference %v", built.Formats, reference.Formats)
+			}
+			if (built.Bounds == nil) != (reference.Bounds == nil) ||
+				(built.Bounds != nil && *built.Bounds != *reference.Bounds) {
+				t.Errorf("bounds %+v, reference %+v", built.Bounds, reference.Bounds)
+			}
+			if len(built.Coverage) != len(reference.Coverage) {
+				t.Errorf("%d covered levels, reference %d", len(built.Coverage), len(reference.Coverage))
+			}
+			for level, mask := range reference.Coverage {
+				got, held := built.Coverage[level]
+				if !held || got == nil || *got != *mask {
+					t.Errorf("level %s covers %+v, reference %+v", level, got, mask)
+				}
+			}
+
+			// And every tile it wrote is the tile the reference wrote.
+			want := hashTree(t, filepath.Join(filepath.Dir(tileIndex(t)), reference.Name))
+			got := hashTree(t, filepath.Join(root, plan.Name))
+			if len(got) != len(want) {
+				t.Fatalf("derived %d tiles, the reference cache holds %d", len(got), len(want))
+			}
+			differed := 0
+			for name, hash := range want {
+				switch {
+				case got[name] == "":
+					t.Errorf("%s was not derived", name)
+				case got[name] != hash:
+					differed++
+					if differed <= 3 {
+						t.Errorf("%s is %s, reference %s", name, got[name], hash)
+					}
+				}
+			}
+			if differed > 3 {
+				t.Errorf("and %d more tiles differ", differed-3)
+			}
+			if differed == 0 {
+				t.Logf("%d tiles rebuilt byte for byte from the archive", len(got))
+			}
+		})
+	}
+}
+
+// TestADrawnLevelIsHeldToItsWitness holds the guard the drawn path stands on:
+// the deriver refuses a tile whose bytes disagree with the capture that
+// recorded them, rather than quietly shipping a picture nothing vouches for.
+//
+// The city's own drawing already agrees -- that is what the test above proves --
+// so disagreement has to be arranged. Moving one shape's role is the smallest
+// arrangement there is: it changes what a handful of tiles look like and nothing
+// else about the plan.
+func TestADrawnLevelIsHeldToItsWitness(t *testing.T) {
+	entries := planFixture(t, "bend-or")
+	plan := entries[0].plan
+	if plan.Drawing == nil || len(plan.Drawing.Shapes) == 0 {
+		t.Fatal("the city's lens carries no drawing, so there is nothing to hold to a witness")
+	}
+	// A boundary is the widest stroke in the table and the one accent colour,
+	// so re-roling one is a change no tile it touches can hide.
+	moved := false
+	for at := range plan.Drawing.Shapes {
+		if plan.Drawing.Shapes[at].Role == "street" {
+			plan.Drawing.Shapes[at].Role = "boundary"
+			moved = true
+			break
 		}
 	}
-	if differed > 3 {
-		t.Errorf("and %d more tiles differ", differed-3)
+	if !moved {
+		t.Fatal("the city draws no street, so this test no longer arranges a difference")
 	}
-	if differed == 0 {
-		t.Logf("%d tiles rebuilt byte for byte from the archive", len(got))
+	_, err := tiles.Derive(t.TempDir(), plan)
+	if err == nil {
+		t.Fatal("a drawing that disagrees with its capture derived without complaint")
+	}
+	if !strings.Contains(err.Error(), "witnessed") {
+		t.Errorf("the refusal is %q, which does not say the capture disagreed", err)
 	}
 }
 
