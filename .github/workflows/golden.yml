@@ -3,14 +3,16 @@
 # Deliberately separate from CI: that workflow builds and ships the current
 # desktop app, which needs GTK and WebKitGTK headers and the whole frontend
 # toolchain. This one judges the rewrite and stays green from the day the
-# harness lands — most gates skip because their lane does not exist yet, and
-# the two that run (depcheck, analysis-vectors) run for real.
+# harness lands — the gates whose lane does not exist yet skip, and the four
+# that run (depcheck, format-roundtrip, analysis-vectors, analysis-lane) run
+# for real.
 #
-# It needs Go, and node with the cell math's own dependencies: the analysis
-# gate re-executes the cell systems against every recorded vector and plan,
-# and until M6 lands `analysis/cellsystems` the implementation it drives is
-# the current tree's module, which imports s2js and OpenLayers. No browser is
-# involved and no bundle is built.
+# It needs Go, and node with the analysis lane's own dependency: the analysis
+# gates re-execute the cell systems against every recorded vector and plan and
+# then hold the lane to its own boundary rules, type checker and conformance
+# suite. Since M6 the implementation being driven is `analysis/cellsystems`,
+# whose whole dependency surface is s2js, and whose TypeScript node strips on
+# import. No browser is involved and no bundle is built.
 
 name: Golden
 
@@ -42,15 +44,17 @@ jobs:
           go-version-file: go.mod
       - uses: actions/setup-node@v4
         with:
-          node-version: "22"
+          # Type stripping is on by default here, which is what lets the gate
+          # import the analysis lane's TypeScript with no build step.
+          node-version: "24"
           cache: npm
-          cache-dependency-path: frontend/package-lock.json
+          cache-dependency-path: package-lock.json
 
-      # The engine the analysis gate drives. `--ignore-scripts` keeps the
-      # install to what the cell math needs: esbuild's postinstall belongs to
-      # the app's bundler, and nothing here bundles anything.
-      - name: Install the cell math's dependencies
-        run: npm --prefix frontend ci --ignore-scripts
+      # The clean-room TypeScript lanes install at the repository root as npm
+      # workspaces: s2js for the analysis lane, eslint and tsc for its gate.
+      # `--ignore-scripts` because nothing here has a postinstall worth running.
+      - name: Install the analysis lane's dependencies
+        run: npm ci --ignore-scripts
 
       # The guardrails are tested like anything else: the import matrix is a
       # pure function of two package paths, and its table lives here.

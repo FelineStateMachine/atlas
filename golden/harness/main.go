@@ -72,15 +72,27 @@ func suites() []suite {
 			argv:       []string{"go", "test", "./golden/pipeline/..."},
 		},
 		{
-			// Ready today: the vectors and the plans were captured from the
-			// current tree, and the gate re-runs them against whichever
-			// implementation golden/analysis/run.mjs imports. M6 re-points that
-			// one import at analysis/cellsystems; the gate does not move.
+			// Captured from the current tree, and re-run against whichever
+			// implementation golden/analysis/run.mjs imports. M6 re-pointed that
+			// one import at analysis/cellsystems; the gate did not move.
 			name:       "analysis-vectors",
 			milestone:  "M0",
 			awaiting:   "",
 			entrypoint: "golden/analysis/run.mjs",
 			argv:       []string{"node", "golden/analysis/run.mjs"},
+			ready:      true,
+		},
+		{
+			// The analysis lane's own gate, beside the vectors that judge it:
+			// the TypeScript boundary rules of §9, the type checker at its
+			// strictest, and the conformance suite every cell system must pass
+			// (§5.4). The vectors say the lane reproduces the oracle; this says
+			// the lane is the shape the architecture asked for.
+			name:       "analysis-lane",
+			milestone:  "M6",
+			awaiting:   "",
+			entrypoint: "analysis/package.json",
+			argv:       []string{"npm", "run", "--silent", "lane"},
 			ready:      true,
 		},
 		{

@@ -3,7 +3,7 @@
 # These targets are the clean-room rewrite's enforcement surface; the existing
 # build recipes are untouched and still live where they always did.
 
-.PHONY: golden golden-all depcheck lint-lanes
+.PHONY: golden golden-all depcheck lint-lanes analysis-lane
 
 # The one entrypoint. Runs every gate of §6 in order; gates whose lane does not
 # exist yet report SKIP with the milestone they wait on, so a green run doubles
@@ -21,8 +21,15 @@ golden-all:
 depcheck:
 	go run ./golden/depcheck
 
-# The TypeScript half of the same boundaries. Not wired into the existing
-# frontend build: it waits for the analysis/ and render/ lanes (M6), and needs
-# `npm i -D eslint typescript-eslint` at the repository root first.
+# The TypeScript half of the same boundaries. Needs the workspace install at
+# the repository root (`npm ci`). `render` is linted once it exists; the
+# wildcard is what keeps this target honest before the seam lands.
 lint-lanes:
-	npx eslint --config eslint.config.mjs analysis render
+	npx eslint --config eslint.config.mjs analysis $(wildcard render)
+
+# The analysis lane's own gate: the boundary rules, the type checker at its
+# strictest, and the conformance suite over every registered system. `make
+# golden` runs this as the `analysis-lane` suite; this target is the same run,
+# reachable on its own.
+analysis-lane:
+	npm run --silent lane
