@@ -42,6 +42,11 @@ func TestLaneImportEdge(t *testing.T) {
 		{"nothing imports render, not even the CLI", "cmd/atlas", mod + "render/scene", "nothing imports render"},
 		{"analysis is TypeScript", "internal/app/handler", mod + "analysis/cellsystems", "not importable from Go"},
 
+		{"every lane may narrate itself", "internal/app/hostenv/oshost", mod + "internal/logging", ""},
+		{"including the CLI that sets the stream up", "cmd/atlas", mod + "internal/logging", ""},
+		{"format narrates nothing", "format/bundle", mod + "internal/logging", "standard library only"},
+		{"logging depends on nothing of ours", "internal/logging", mod + "internal/app/hostenv", "logging must not import app"},
+
 		{"the CLI wires every lane", "cmd/atlas", mod + "internal/enrich/merge", ""},
 		{"the harness may read a lane", "golden/depcheck", mod + "internal/generate/doc", ""},
 		{"the old tree is not judged", "internal/measure", mod + "internal/bundle", ""},
@@ -67,6 +72,7 @@ func TestCleanRoomEdge(t *testing.T) {
 		{"the harness captures from the old tree", "golden/capture", mod + "internal/bundle", ""},
 		{"format has a stricter rule of its own", "format/bundle", mod + "internal/bundle", ""},
 		{"a lane package is fine", "internal/generate/doc", mod + "format/bundle", ""},
+		{"the shared event stream is clean room, not old tree", "internal/app/hostenv/oshost", mod + "internal/logging", ""},
 		{"the stdlib is fine", "internal/generate/doc", "archive/zip", ""},
 		{"the old tree is not judged", "internal/measure", mod + "internal/bundle", ""},
 	}

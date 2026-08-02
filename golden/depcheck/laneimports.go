@@ -75,6 +75,12 @@ func laneImportEdge(from Lane, fromRel, importPath string) string {
 	if to == LaneFormat {
 		return "" // every lane may depend on the center
 	}
+	if to == LaneLogging {
+		// One leveled event stream narrates the whole system (§9), so every
+		// lane may speak it. format/ never reaches this line: its
+		// stdlib-only rule above has already answered.
+		return ""
+	}
 
 	switch from {
 	case LaneGenerate, LaneEnrich:
@@ -117,6 +123,13 @@ func laneImportEdge(from Lane, fromRel, importPath string) string {
 			"workbench must not import "+string(to)+", but imports "+quote(importPath),
 			"3.2",
 			"the workbench depends on format/ plus enrich/maturity and shells out to the lane CLIs",
+		)
+
+	case LaneLogging:
+		return contractf(
+			"logging must not import "+string(to)+", but imports "+quote(importPath),
+			"9",
+			"the event stream is the one thing every lane may depend on, which it can only stay if it depends on nothing of ours in return",
 		)
 
 	case LaneCLI:
