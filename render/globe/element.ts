@@ -468,9 +468,7 @@ export class AtlasGlobe extends HTMLElement {
       .showAtmosphere(true)
       .atmosphereColor("#7ea6c8")
       .atmosphereAltitude(0.12);
-    const material = this.globe.globeMaterial() as THREE.MeshPhongMaterial;
-    material.map = this.texture;
-    material.needsUpdate = true;
+    wearSkin(this.globe.globeMaterial() as THREE.MeshPhongMaterial, this.texture);
 
     const scene = this.globe.scene();
     scene.add(this.pins);
@@ -1123,6 +1121,34 @@ export interface Placed {
   readonly title: string;
   readonly lat: number;
   readonly lng: number;
+}
+
+/**
+ * Hang the composited skin on the sphere's own material.
+ *
+ * TWO LINES, AND THE SECOND ONE IS THE WHOLE OF `screen-globe`. globe.gl hands
+ * out a sphere with no picture on it, and it says so in the only way a Phong
+ * material can: it sets `color` to black. Its own `globeImageUrl` clears that
+ * colour when a texture finishes loading — this seam never calls it, because
+ * the skin is a live canvas recomposited under the camera and routing four
+ * megapixels through a data URL on every camera move is not a way to draw a
+ * map — so clearing the tint is this function's job.
+ *
+ * A Phong material multiplies its map by its colour. Leave the colour black
+ * and the skin is multiplied away: the texture is there, every count in the
+ * snapshot is right, every sprite draws, and the planet under them is black.
+ * That is the exact defect the picture step exists to catch
+ * (golden/parity/SCHEMA.md §2.1.4), and it is invisible to every other
+ * instrument the harness has.
+ *
+ * White rather than `null`, which is what globe.gl writes: three reads a null
+ * colour as "leave the shader's own default", and the shader's own default is
+ * white. Saying white says the same thing in a value the type admits.
+ */
+export function wearSkin(material: THREE.MeshPhongMaterial, skin: THREE.Texture): void {
+  material.map = skin;
+  material.color = new THREE.Color(0xffffff);
+  material.needsUpdate = true;
 }
 
 /**

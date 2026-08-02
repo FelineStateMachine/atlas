@@ -710,6 +710,15 @@ func TestGridPickFormCarriesTheAddressAndNothingElse(t *testing.T) {
 	if !strings.Contains(shell, `id="grid-input" name="cell"`) {
 		t.Errorf("the navigator's field and the grid-pick form no longer name one field:\n%s", shell)
 	}
+	// And it posts every keystroke, with no memory of the last one. `changed`
+	// remembers the value an event carried and refuses one that matches, which
+	// is right for a field nobody else writes to and wrong for this one: every
+	// swap re-renders it, so ascending out of "m" leaves an empty field beside
+	// a remembered "m", and a reader typing that hash again is answered with
+	// silence. `input` already fires only when the value moved.
+	if !strings.Contains(shell, `hx-post="/session/grid" hx-trigger="input delay:150ms"`) {
+		t.Errorf("the navigator's field does not post an ordinary debounced input:\n%s", shell)
+	}
 
 	got := post(t, handler, "/session/grid", url.Values{
 		"volume": {"tunic"}, "cell": {"9q"},
