@@ -222,8 +222,9 @@ this document makes.
 
 **`/assets` is a different mount from `/static`, and the difference is the
 deletability principle in the URL space.** `/static` is whatever tree a host
-handed over — the seam's built bundle, which lands in M6 — and answers `404`
-when a host handed over nothing. `/assets` is the part of the page that is the
+handed over — the seam's built bundle, which `make static` puts where a
+`-static` mount wants it ([render-seam.md](render-seam.md) §9) — and answers
+`404` when a host handed over nothing. `/assets` is the part of the page that is the
 application's own: the stylesheet system and the vendored hypermedia runtime,
 compiled into the binary (`internal/app/assets`). A build with no seam serves
 a complete, styled, interactive page.
@@ -520,15 +521,21 @@ to be:
   camera and then checks the round trip, so what is proved about these two is
   the echo, not the origin.
 
-Two further things belong to lanes that have not landed, and are recorded here
-rather than papered over:
+**The grid cull is not one of them, and was for a while.** A held cell narrows
+what stands exactly the way a highlight does, and the count above the panel has
+to be the count the map is drawing — so the server has to answer "is this
+feature inside the held cell" without asking the seam, which the third upward
+flow §5 of [render-seam.md](render-seam.md) forbids would be the only other
+way. `internal/app/cells` is the smallest piece of one system's arithmetic that
+answers it: the recursive halving and nothing else, gated against the cell
+extents every parity baseline records. The cost — a second copy of arithmetic
+`analysis/cellsystems` also holds — is written down in that package's own
+comment, and the file is the first thing a Go twin of the analysis lane would
+delete.
 
-- **The grid cull.** A held cell narrows what stands, the same way a highlight
-  does. Deciding which features are inside a cell is the analysis lane's
-  (issue #5 §5.4, `analysis/cellsystems`, M6). Until it lands, the session
-  carries the held cell and the dock raises its "filtered" flag for it, but the
-  count is the count the other filters leave. It does not affect the island,
-  which records no cell.
+One thing still belongs to a lane, and is recorded here rather than papered
+over:
+
 - **The footer's "in view" half.** The reference implementation's footer read
   "N of M features in view", and N is the count inside the camera's extent —
   seam-side by construction. The server renders M; refining it to the full
@@ -610,10 +617,13 @@ worse than a rebuild.
 out of a directory is the command's business. That is the hostenv rule
 surviving having a development loop.
 
-`-seam-watch` runs `npm run watch` in `render/`. The seam is M6 and does not
-exist yet, so today the flag says so and carries on rather than failing: it is
-the command a developer will want the day the seam lands, and it should not
-need writing then.
+`-seam-watch` runs `npm run watch` in `render/` beside the server, streaming
+the bundler's output into the same event stream. The seam landed in M6, so the
+flag does its work; a tree with no `render/package.json` — the deletability
+principle exercised — is told so at `info` and the server carries on, because a
+missing seam is a served page with one script tag fewer, not a failed run. The
+flag's own usage line still describes the stub it was: a defect in the code,
+not in this paragraph.
 
 ---
 
@@ -673,13 +683,18 @@ which lands moves out of the list rather than sitting in it as folklore.
 - **The seam.** `render/` landed in M6. A build without it still serves:
   `/static` answers `404`, an undefined `<atlas-viewport>` renders nothing, and
   every non-viewport interaction works — the deletability principle,
-  demonstrated in the build order and again in the shipping binary.
+  demonstrated in the build order and again in the shipping binary. The M7
+  close-out walked it: with `render/` removed from the working copy,
+  `go build ./... && go test ./...` and `golden/depcheck` stay green, the page
+  serves whole, and search, the legend, solo, sections and the dock all answer.
+- **The grid cull** (§6.1). `internal/app/cells` answers it server-side, which
+  is what lets the panel's count and the map's drawing be one number.
 
 **Still named rather than built:**
 
-- **The grid cull and the cell systems.** §6.1.
 - **The WASM service-worker host.** §1's third row. Nothing is built for it;
   the hostenv discipline is what keeps it reachable.
+- **The footer's "in view" half.** §6.1.
 
 The seam's own list of what it has not proven is `docs/render-seam.md` §10, and
 it is the one to read for anything below the `<atlas-viewport>` boundary.

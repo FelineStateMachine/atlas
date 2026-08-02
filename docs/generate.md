@@ -423,14 +423,21 @@ historical layout, kept verbatim as input because years of captured history are
 data, not code.
 
 ```
-<root>/archive.json                                the volume register
-<root>/<volume>/game.json                          the world register
-<root>/<volume>/icons/<key>.svg|.png               collection artwork
-<root>/<volume>/<world>/snapshots/index.json       the capture index
-<root>/<volume>/<world>/snapshots/map/<hash>.json  the capture bodies
-<root>/<volume>/<world>/tiles/index.json           per-tile records
-<root>/<volume>/<world>/tiles/set-<id>/<z>/<x>/<y>.<ext>
+<root>/archive.json                                      the volume register
+<root>/<vol>/game.json                                   the world register
+<root>/<vol>/icons/<key>.svg|.png                        collection artwork
+<root>/<vol>/maps/<world>/snapshots/index.json           the capture index
+<root>/<vol>/maps/<world>/snapshots/map/<hash>.json      the capture bodies
+<root>/<vol>/maps/<world>/tiles/index.json               per-tile records
+<root>/<vol>/maps/<world>/tiles/set-<id>/<z>/<x>/<y>.<ext>
 ```
+
+`<vol>` is the register entry's own `directory` field, not a slug this lane
+computes — the register is the only thing that says where a volume sits. In the
+staged archives it is `games/<title-slug>-<id>`, which is a habit of the layout
+and not a rule: a caller that resolves a volume's directory any other way is
+reading the disk instead of the register. The `maps/` level is the layout's word
+for "the worlds of this volume"; nothing above `archive.Volume` ever sees it.
 
 What a caller sees is the vocabulary, never the layout: volumes, their worlds,
 each world's captures, a capture's body, a volume's artwork. Two habits of the
@@ -1038,10 +1045,51 @@ only the ones named. `-n` composes and stamps without writing. With no
 
 `translate` prints an interchange document to stdout — the debugging window
 into the first half of the lane, answering the question composition cannot:
-what did the source actually make of these bytes?
+what did the source actually make of these bytes? `-list` names every volume
+the archive registers, as `source · title · directory`; the slug `-volume`
+takes is the one the run logs as `volume=`.
 
 Both write their event stream to stderr, so piped stdout stays clean. See
 [logging.md](logging.md).
+
+### 7.1 Where the inputs are
+
+Neither the capture archives nor the derived tile sets are in git — they are
+large, they are somebody else's bytes, and they are staged in the working copy
+instead. The repository's own copies are gitignored and are what every default
+points at:
+
+| input | staged at | override |
+| --- | --- | --- |
+| the games corpus archive | `crawl/fmg-archive` | `ATLAS_ARCHIVE_DIR` |
+| the proof city's archive | `crawl/bend-or/fmg-archive` | `ATLAS_CITY_ARCHIVE_DIR` |
+| the derived tile sets | `tiles/`, register at `tiles/index.json` | `ATLAS_TILES_INDEX` |
+
+So the whole lane, over one volume, is three commands:
+
+```sh
+atlas translate -archive crawl/fmg-archive -volume tunic         # look at it
+atlas compose   -archive crawl/fmg-archive -tiles tiles/index.json \
+                -bundles <a scratch registry> tunic              # build it
+```
+
+Without `-bundles` the build installs into the application's own library, which
+is a thing to do deliberately rather than while reading a document.
+
+`atlas tiles -archive crawl/fmg-archive -output tiles` re-derives the pyramids
+into the staged set, and is only needed when the archive has moved: a pyramid
+whose captures have not moved is carried over untouched (§4.2).
+
+**Deriving into a *fresh* output directory does not reproduce the staged set's
+stamps.** A derivation stamp covers the deriving tool's own source (§4.3), and
+the staged `tiles/` was derived by the reference implementation, so a clean-room
+re-derivation of the same tiles stamps differently — which changes the bundle's
+stamp, and therefore its file name, and therefore its compressed size by a byte
+or two. The tiles are identical; the accounting of how they were made is not.
+Composing against `tiles/index.json` is what reproduces a bundle fixture byte
+for byte; composing against a freshly derived index is a correct build of the
+same volume under a different name. `golden/format/STAMPS.md` carries the
+accounting.
 
 ---
 
@@ -1110,16 +1158,29 @@ the file. The gate asserts the shape of the difference rather than shrugging at
 it — the capture time is unmoved, the revision is exactly this lane's bump of the
 fixture's own, the stamp differs, and the file name follows.
 
-### 8.2 What the city fixture is waiting for
+### 8.2 What the city fixture waited for, and how it was answered
 
 `bend-or` was built during M0 from a live crawl of a public city's ArcGIS Hub,
-and that capture archive was not kept. The translator fixture is the reference
-tree's *output* for it, committed; the input is gone. Re-crawling is permitted
-and the data is public, but it would not reproduce the fixture either:
-`capturedAt` is first-seen, a build's `createdAt` is capture-derived by the
-format's own invariant, and the file name would differ even if every byte of
-the city's open data were unchanged.
+and *that* capture archive was not kept: for a while the fixture was the
+reference tree's output with no input behind it. It waited on three things —
+the offline basemap renderer (§4.4), the ArcGIS/USGS crawler (§3.2), and a
+fresh capture. Two of the three landed.
 
-So the volume waits on three things, in this order: the ArcGIS/USGS crawler
-(§3.2), the offline basemap renderer (§4.5), and a fresh capture — after which
-it reproduces from *that* archive rather than from the fixture's.
+The renderer landed here, in the generate lane, and the city was **re-crawled
+by the reference tree on the same day the fixture answers to**, into the
+archive now staged at `crawl/bend-or/fmg-archive` (§7.1). That re-crawl
+reproduced the lost build: all 2,320 non-manifest entries hash as the first
+build's did — every payload, the icon, and all 2,316 basemap tiles — so the
+city's open data had not moved between crawls and the offline render is
+deterministic over it. `atlas.json` differs in three fields and no others:
+`version.createdAt` and the world's `updatedAt`, which are capture-derived and
+therefore carry the second crawl's clock, and `version.stamp`, which follows
+the manifest's bytes. The file name follows the stamp. That is the format's
+first invariant behaving exactly as written, not a divergence, and
+`golden/fixtures/README.md` records both names.
+
+What is still outstanding is only the **clean-room** ArcGIS/USGS crawler
+(§3.2). The city's archive is an input this lane reads, draws and composes
+from; what the crawler would add is the ability to take a *new* day — a second
+world in the city's version history — not the ability to rebuild the one that
+is there.

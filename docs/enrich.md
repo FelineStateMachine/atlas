@@ -560,9 +560,16 @@ atlas measure [-bundles DIR] [-json] [volume...]
 
 `enrich` groups every reading in the archive by the volume it is a reading of,
 picks the newest capture to serve, folds the rest in, and composes. A volume the
-queue had nothing to say about is not rebuilt and says so at `info` — which is
-what makes running this over a whole archive cheap. `-evidence DIR` resolves as
-`<dir>/<volume>/<name>`.
+queue had nothing to say about is not rebuilt and says so at `info` — the line
+reads `nothing to add`, and the run ends `unchanged=1` rather than writing a
+build. That is law 5 as an observable, and it is what makes running this over a
+whole archive cheap. `-evidence DIR` resolves as `<dir>/<volume>/<name>`.
+
+`-archive` and `-tiles` are the generate lane's inputs and are staged in the
+working copy; [generate.md §7.1](generate.md#71-where-the-inputs-are) says
+where. A single-source volume with no donor — `tunic` — is the shortest way to
+see law 5; `cyberpunk-2077`, whose archive holds two readings, is the shortest
+way to see a merge.
 
 `measure` scores every build in a registry, newest-per-volume marked as serving.
 
@@ -579,7 +586,6 @@ what makes running this over a whole archive cheap. `-evidence DIR` resolves as
 | every fixture volume scores, reproducibly, and a score is the sum of its worlds | `golden/pipeline` |
 | the seam is a copy, not a decision | `cmd/atlas`: a document adapted and adapted back is byte-identical |
 | the queue curation declares and the enrichers the binary offers are the same set | `golden/pipeline` |
-
 | the whole `generate ⊕ enrich` reproduction of the merged bundle | `golden/pipeline`: runs `atlas enrich` over the archived Piggyback and IGN captures into an empty registry and holds what lands there to the committed extractions — the world payload with its whole ledger, the packed locations, the prose, all 38 icons, both pyramids' 17,507 tiles, and the archive's entry order, byte for byte |
 
 The last row is the gate `golden/harness` calls `generate-enrich`, and it runs
