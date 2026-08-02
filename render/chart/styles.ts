@@ -20,7 +20,9 @@ import Style from "ol/style/Style.js";
 import Text from "ol/style/Text.js";
 import Point from "ol/geom/Point.js";
 import type { FeatureLike } from "ol/Feature.js";
-import { KEY_ICON_KIND, KEY_STROKE_WIDTH_PX } from "@atlas/analysis/semconv/keys";
+import {
+  KEY_ICON_KIND, KEY_LABEL_POLICY, KEY_STROKE_WIDTH_PX,
+} from "@atlas/analysis/semconv/keys";
 import { gridTheme, paletteColor } from "@atlas/analysis";
 import type { CellVisual } from "@atlas/analysis";
 import type { Collection } from "../data/payload.ts";
@@ -29,11 +31,26 @@ import type { PointRecord, ShapeRecord } from "../world/model.ts";
 import type { Visibility } from "../world/visibility.ts";
 import type { Scene } from "../scene/read.ts";
 
+const LIGHT_OUTSET = "rgba(255, 255, 255, 0.96)";
+
 /** The rim a world's markers wear to stay legible against its art. */
 export const OUTSET_COLORS: Readonly<Record<string, string>> = {
-  light: "rgba(255, 255, 255, 0.96)",
+  light: LIGHT_OUTSET,
   dark: "rgba(7, 9, 7, 0.98)",
 };
+
+/**
+ * The colour a declared outset names.
+ *
+ * `atlas.icon.outset` is curation's word about the art a world is drawn on —
+ * a dark rim on a pale map, a pale rim on a dark one — and it arrives as the
+ * token, not the colour. Anything that is not exactly `dark` reads as light,
+ * which is the reference's own rule and the reason an unset or misspelled
+ * outset still draws a legible marker rather than none.
+ */
+export function outsetColor(outset: string): string {
+  return OUTSET_COLORS[outset] ?? LIGHT_OUTSET;
+}
 
 const LABEL_FONT = "600 11px ui-sans-serif, system-ui, -apple-system, Segoe UI, sans-serif";
 const TITLE_FONT = "600 12px ui-sans-serif, system-ui, -apple-system, Segoe UI, sans-serif";
@@ -51,6 +68,20 @@ export interface StyleContext {
 /** The colour a collection wears everywhere it is drawn. */
 export function collectionColor(collection: Collection, ordinal: number): string {
   return collection.color || collection.iconColor || paletteColor(ordinal);
+}
+
+/**
+ * The producer's word on a point collection's names, before the reader's.
+ *
+ * `payload.labelPolicy` answers for a shape collection, where saying nothing
+ * means speaking; a point collection's silence means the opposite, so the
+ * default is read here rather than there. What is curated is taken as
+ * curated — only `always` speaks — and a collection that says nothing speaks
+ * exactly when it was curated to draw as text.
+ */
+export function curatedPointPolicy(collection: Collection): string {
+  return collection.attrs?.[KEY_LABEL_POLICY] ||
+    (renderAs(collection) === "text" ? "always" : "quiet");
 }
 
 /**
@@ -123,7 +154,10 @@ export class Styles {
         image: new Circle({
           radius,
           fill: new Fill({ color }),
-          stroke: new Stroke({ color: this.context.outset, width: selected ? 2.5 : 1.5 }),
+          stroke: new Stroke({
+            color: outsetColor(this.context.outset),
+            width: selected ? 2.5 : 1.5,
+          }),
         }),
         zIndex: promoted ? 20_000_000 : point.priority,
       }),
@@ -133,33 +167,36 @@ export class Styles {
     return marks;
   }
 
-  /** A point collection curated as text draws its name and no marker. */
-  textSymbol(point: PointRecord): Style {
-    return new Style({
-      text: new Text({
-        text: point.title,
-        font: TITLE_FONT,
-        fill: new Fill({ color: this.color(point.collection) }),
-        stroke: new Stroke({ color: this.context.outset, width: 3 }),
-        overflow: true,
-      }),
-      zIndex: point.priority,
-    });
-  }
-
   /**
    * The name beside a pin.
    *
-   * A pin collection's names are optional furniture: they appear while Z is
-   * held, for the pin the reader is pointing at, for the selected one, and
-   * for whatever a search or a held cell promoted. That is the whole of the
-   * label ladder's drawing side — which names are *offered* is the
-   * application's decision and arrives in the scene.
+   * The same ladder `areaTitle` climbs, with a point collection's own default
+   * at the bottom: the reader's override wins, then the producer's curated
+   * `atlas.label.policy`, then the kind's default — a pin collection waits to
+   * be asked, and one curated as text speaks unasked, because floating names
+   * are labels a producer pinned on rather than a different way of drawing.
+   * (A text collection draws an ordinary marker; that is the whole of what
+   * `atlas.render.as` still decides.)
+   *
+   * Two things speak over the policy, and only two: the pin the reader is
+   * pointing at and the one whose card is open. **Promotion is not one of
+   * them.** A search promotes every name it matches so none of them is
+   * decluttered away, and labelling all of those would bury a searched map
+   * under its own matches — so `promoted` decides where a label is drawn and
+   * whether it may be decluttered, never whether there is one.
+   *
+   * Holding Z reveals what is merely optional and never revives what the
+   * reader silenced by hand, which is the one asymmetry in the ladder and the
+   * reason the override is consulted on its own as well as through the policy.
    */
   pinLabel(point: PointRecord, promoted: boolean): Style | null {
-    const wanted = this.context.labelsHeld || promoted ||
-      renderAs(point.collection) === "text";
-    if (!wanted || !point.title) return null;
+    if (!point.title) return null;
+    const override = this.context.scene.overrides.get(String(point.collection.id));
+    const policy = override ?? curatedPointPolicy(point.collection);
+    const attended = point.id === this.context.scene.selected ||
+      point.id === this.context.hovered;
+    const revealed = this.context.labelsHeld && override !== "quiet";
+    if (policy !== "always" && !attended && !revealed) return null;
     return new Style({
       text: new Text({
         text: point.title,
