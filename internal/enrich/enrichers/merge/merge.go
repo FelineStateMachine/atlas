@@ -468,12 +468,12 @@ func indexServing(serving *enrich.World) *servingIndex {
 
 // The reasons a feature is held back or refused.
 //
-// These are the reference implementation's wording, kept letter for letter.
-// They are not messages about the code: they are data, written into the ledger
-// of every merged bundle already published, and a reader comparing two builds'
-// accounts compares these strings. Their vocabulary is one rewrite behind the
-// rest of this lane -- a feature is a "pin", a collection a "category" -- and
-// that is the price of not rewriting what every existing bundle says about
+// These strings are frozen, letter for letter. They are not messages about the
+// code: they are data, written into the ledger of every merged bundle already
+// published, and a reader comparing two builds' accounts compares them
+// directly. Their vocabulary is a vocabulary behind the rest of this lane -- a
+// feature is a "pin" here, a collection a "category" -- and that is the price
+// of not rewriting what every bundle in every library already says about
 // itself.
 const (
 	namedLikeReason      = "named like %q %.0fpx away; too far to merge, too near to double"

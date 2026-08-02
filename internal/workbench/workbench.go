@@ -4,9 +4,8 @@
 // Where the application serves the build of every volume a reader should have
 // and asks no questions, the workbench answers the questions -- what each build
 // is worth, what moved between two of them, what the collection owes the people
-// whose work it carries, and what the pipeline should do next. It is the
-// successor of the reference tree's cartograph, and it is pure HTMX: server-
-// rendered pages, no seam, no client-side state (issue #5 §5.6).
+// whose work it carries, and what the pipeline should do next. It is pure
+// HTMX: server-rendered pages, no seam, no client-side state (issue #5 §5.6).
 //
 // # What it is made of
 //
@@ -132,12 +131,11 @@ func (w *Workbench) routes() {
 	w.mux.HandleFunc("GET /assets/{path...}", w.handleAsset)
 }
 
-// The content security policy every page carries. It is the reference
-// workbench's, carried verbatim and tightened by two directives: nothing loads
-// from anywhere but this server, nothing but this server's own forms may be
-// submitted to, and no page may be framed. A workbench that runs pipeline
-// operations is exactly the page that must not be reachable through somebody
-// else's document.
+// The content security policy every page carries, and it is the strict one:
+// nothing loads from anywhere but this server, nothing but this server's own
+// forms may be submitted to, and no page may be framed. A workbench that runs
+// pipeline operations is exactly the page that must not be reachable through
+// somebody else's document.
 const contentSecurityPolicy = "default-src 'none'; style-src 'self'; script-src 'self'; " +
 	"img-src 'self'; form-action 'self'; base-uri 'none'; frame-ancestors 'none'"
 

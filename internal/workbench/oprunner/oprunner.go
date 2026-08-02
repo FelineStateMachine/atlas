@@ -9,11 +9,11 @@
 // are the interesting part, they are testable without a page around them, and a
 // second consumer of the pipeline gets them by importing rather than by copying.
 //
-// # The safety properties, carried verbatim
+// # The safety properties
 //
-// They are carried verbatim from the reference workbench (readable on the
-// golden-reference tag) and are named here because they are the contract, not
-// an implementation detail:
+// A page that runs pipeline operations is a page that runs commands, so these
+// four are the contract rather than an implementation detail, and they are
+// named here so that a change to any of them is a change somebody argued for:
 //
 //   - **Origin-checked.** A browser sends Origin on any cross-site POST.
 //     [CheckOrigin] refuses a foreign one, so a stray page cannot operate the

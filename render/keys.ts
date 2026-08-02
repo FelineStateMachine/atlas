@@ -213,27 +213,63 @@ function onMap(host: KeyboardHost, event: KeyboardEvent): boolean {
  * went -- the navigator says whether it is up, and nothing here has to
  * remember what it was.
  *
- * ONE SETTLE, AND ANY SETTLE. `once` is what keeps a press from leaving a
- * listener behind, and the listener does not check whose swap it heard: a
- * request already in flight can settle first and take the focus with it,
- * which is a keystroke landing a beat early rather than a keystroke landing
- * somewhere wrong -- the navigator is asked either way. The signal is the
- * viewport's, so a seam that leaves the page leaves no armed press behind.
+ * THE PRESS FOLLOWS ITS OWN SWAP, NOT THE NEXT ONE TO GO PAST. An earlier
+ * draft took the first settle of any kind, on the argument that a request
+ * already in flight settling first only lands the keystroke a beat early. It
+ * does not: the page settles a search, a camera report and a session island
+ * without the navigator moving at all, and a press that spent itself on one of
+ * those asked a navigator that had not been swapped yet, read it as still shut,
+ * and put the keyboard back on the map -- so G opened the grid and left the
+ * reader typing into whatever they were typing into before. It was a race, so
+ * it was intermittent, which is the worst way for a focus bug to be wrong.
+ *
+ * The grid's answer is identifiable: every route the key posts renders the
+ * navigator's own region (internal/app/session.go, the `grid` concern), so the
+ * settle to follow is the one whose target is that region. Anything else is
+ * left alone and the listener stays armed for the swap it was waiting for.
+ *
+ * ONE PRESS AT A TIME. A second press before the first was answered replaces
+ * it rather than stacking a second listener, because two listeners would both
+ * fire on the one swap and the second would be asking about a page the first
+ * has already moved. The signal is the viewport's, so a seam that leaves the
+ * page leaves no armed press behind.
  */
+let following: (() => void) | null = null;
+
 function followGrid(signal: AbortSignal): void {
-  window.addEventListener("htmx:after:settle", () => {
+  following?.();
+  const answered = (event: Event) => {
     const navigator = find<HTMLElement>("#atlas-grid-navigator");
-    if (navigator !== null && !navigator.hidden) {
+    // A page that renders no navigator can never answer, so the press is
+    // spent here rather than left armed: the keyboard belongs on the map,
+    // which is where every shortcut that is not a route is heard.
+    if (navigator === null) {
+      stop();
+      find<HTMLElement>("#map")?.focus({ preventScroll: true });
+      return;
+    }
+    const target = event.target;
+    // The region itself, or anything the swap left inside it. `contains`
+    // answers false for anything that is not a node in it, including the
+    // window an event with no element behind it names.
+    if (target !== navigator && !navigator.contains(target as Node | null)) return;
+    stop();
+    if (!navigator.hidden) {
       const field = find<HTMLInputElement>("#grid-input");
       field?.focus({ preventScroll: true });
       field?.select();
       return;
     }
-    // The grid went away -- or was never there, on a page that renders no
-    // navigator. Either way the keyboard belongs back on the map, which is
-    // where every shortcut that is not a route is heard.
+    // The grid went away. The keyboard goes back to the map with it.
     find<HTMLElement>("#map")?.focus({ preventScroll: true });
-  }, { once: true, signal });
+  };
+  const stop = () => {
+    window.removeEventListener("htmx:after:settle", answered);
+    following = null;
+  };
+  following = stop;
+  window.addEventListener("htmx:after:settle", answered, { signal });
+  signal.addEventListener("abort", () => { following = null; }, { once: true });
 }
 
 /** Whether the page is offering a sphere, asked of the control that says so. */

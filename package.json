@@ -3,7 +3,7 @@
   "private": true,
   "version": "0.0.0",
   "type": "module",
-  "description": "Atlas's TypeScript lanes (issue #5 §3.1): analysis/, the cell systems, and render/, the deletable rendering seam. The pre-rewrite frontend/ had a package and a lock file of its own, and left with the rest of that tree for the golden-reference tag.",
+  "description": "Atlas's TypeScript lanes (issue #5 §3.1): analysis/, the cell systems, and render/, the deletable rendering seam. Two workspaces and one lock file for the whole repository — everything a browser runs here is one of these two.",
   "workspaces": [
     "analysis",
     "render"

@@ -70,6 +70,7 @@ function mount(ids: string[] = [
   globalThis.document = {
     querySelector: (selector: string) => nodes.get(selector) ?? null,
   } as unknown as Document;
+  const handlers = new Map<(event: unknown) => void, Listener>();
   const drop = (name: string, entry: Listener) => {
     listeners.set(name, (listeners.get(name) ?? []).filter((one) => one !== entry));
   };
@@ -90,6 +91,14 @@ function mount(ids: string[] = [
       held.push(entry);
       listeners.set(name, held);
       options?.signal?.addEventListener("abort", () => drop(name, entry));
+      handlers.set(handler, entry);
+    },
+    // Taking a listener off again is under test as well: the G key follows its
+    // own swap and has to stop following once it has been answered, and a
+    // press that kept listening would take the focus back on the next swap.
+    removeEventListener: (name: string, handler: (event: unknown) => void) => {
+      const entry = handlers.get(handler);
+      if (entry) drop(name, entry);
     },
   } as unknown as Window & typeof globalThis;
 
@@ -242,6 +251,18 @@ test("the backquote reaches the field too, and is swallowed there either way", (
 
 // ---- G hands the keyboard on, and takes it back ------------------------
 
+/**
+ * The grid's own swap settling.
+ *
+ * A settle names the region that was swapped, and the G key follows the one
+ * region its route renders: anything else on the page settling is not this
+ * press's answer, and taking it would be asking a navigator that has not moved
+ * yet which way it went.
+ */
+function gridSettled(page: Harness): void {
+  page.fire("htmx:after:settle", { target: page.nodes.get("#atlas-grid-navigator") });
+}
+
 test("G hands the keyboard to the field once the grid has arrived", () => {
   const page = mount();
   const pressed = page.fire("keydown", { key: "g", ...AT_WINDOW });
@@ -251,7 +272,7 @@ test("G hands the keyboard to the field once the grid has arrived", () => {
   assert.equal(pressed.prevented, false, "the seam answered a key that is a route");
   assert.equal(page.nodes.get("#grid-input")?.focused, 0, "the focus raced the request");
 
-  page.fire("htmx:after:settle", {});
+  gridSettled(page);
   const field = page.nodes.get("#grid-input");
   assert.equal(field?.focused, 1, "the grid opened and the field never got the keyboard");
   // Selected as well as focused, which is what makes "gm6" arrive at m6: the
@@ -260,13 +281,33 @@ test("G hands the keyboard to the field once the grid has arrived", () => {
   assert.equal(page.nodes.get("#map")?.focused, 0);
 });
 
+// The bug this test is named after was intermittent, which is the worst way for
+// a focus bug to be wrong: the page settles searches, camera reports and its
+// own session island without the navigator moving, and a press that spent
+// itself on one of those read a navigator that had not been swapped yet, called
+// the grid shut, and put the keyboard back on the map -- so G opened the grid
+// and left the reader typing wherever they were typing before.
+test("a settle from somewhere else leaves the press waiting for its own", () => {
+  const page = mount();
+  page.fire("keydown", { key: "g", ...AT_WINDOW });
+  page.fire("htmx:after:settle", { target: page.nodes.get("#pin-search") });
+  page.fire("htmx:after:settle", { ...AT_WINDOW });
+  assert.equal(page.nodes.get("#map")?.focused, 0,
+    "another region's swap was read as the grid's answer");
+  assert.equal(page.nodes.get("#grid-input")?.focused, 0);
+
+  gridSettled(page);
+  assert.equal(page.nodes.get("#grid-input")?.focused, 1,
+    "the press was spent on a swap that was not its own");
+});
+
 test("G that closed the grid hands the keyboard back to the map", () => {
   const page = mount();
   const navigator = page.nodes.get("#atlas-grid-navigator");
   assert.ok(navigator);
   navigator.hidden = true;
   page.fire("keydown", { key: "g", ...AT_WINDOW });
-  page.fire("htmx:after:settle", {});
+  gridSettled(page);
   assert.equal(page.nodes.get("#map")?.focused, 1,
     "the grid closed and the keyboard stayed in a field nobody can see");
   assert.equal(page.nodes.get("#grid-input")?.focused, 0);
@@ -275,15 +316,23 @@ test("G that closed the grid hands the keyboard back to the map", () => {
 test("one press follows one settle, and no more", () => {
   const page = mount();
   page.fire("keydown", { key: "g", ...AT_WINDOW });
-  page.fire("htmx:after:settle", {});
-  page.fire("htmx:after:settle", {});
+  gridSettled(page);
+  gridSettled(page);
   assert.equal(page.nodes.get("#grid-input")?.focused, 1,
     "a swap the reader did not ask for took the focus back");
 });
 
+test("a page with no navigator spends the press on the map rather than waiting", () => {
+  const page = mount(["#map", "#grid-input", "#pin-search", "#globe-toggle"]);
+  page.fire("keydown", { key: "g", ...AT_WINDOW });
+  page.fire("htmx:after:settle", { ...AT_WINDOW });
+  assert.equal(page.nodes.get("#map")?.focused, 1,
+    "a page that can never answer left a press armed for ever");
+});
+
 test("a settle nobody armed moves no focus at all", () => {
   const page = mount();
-  page.fire("htmx:after:settle", {});
+  gridSettled(page);
   assert.equal(page.nodes.get("#grid-input")?.focused, 0);
   assert.equal(page.nodes.get("#map")?.focused, 0);
 });
@@ -293,7 +342,7 @@ test("a reader typing a g arms nothing, in a field or in the grid's own", () => 
   for (const id of ["#pin-search", "#grid-input"]) {
     page.fire("keydown", { key: "g", target: page.nodes.get(id) });
   }
-  page.fire("htmx:after:settle", {});
+  gridSettled(page);
   assert.equal(page.nodes.get("#grid-input")?.focused, 0,
     "typing a g into a field armed the grid's focus");
 });
@@ -301,7 +350,7 @@ test("a reader typing a g arms nothing, in a field or in the grid's own", () => 
 test("⌘G is the system cycle and hands the keyboard nowhere", () => {
   const page = mount();
   page.fire("keydown", { key: "g", metaKey: true, ...AT_WINDOW });
-  page.fire("htmx:after:settle", {});
+  gridSettled(page);
   assert.equal(page.nodes.get("#grid-input")?.focused, 0);
   assert.equal(page.nodes.get("#map")?.focused, 0);
 });
@@ -310,7 +359,7 @@ test("the armed press leaves with the keyboard it was armed on", () => {
   const page = mount();
   page.fire("keydown", { key: "g", ...AT_WINDOW });
   page.off();
-  page.fire("htmx:after:settle", {});
+  gridSettled(page);
   assert.equal(page.nodes.get("#grid-input")?.focused, 0,
     "a seam that left the page still moved the focus");
 });

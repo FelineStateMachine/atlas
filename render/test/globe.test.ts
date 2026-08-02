@@ -101,7 +101,7 @@ host.document = {
 // Imported after the page exists: `globe.gl` reads the document as it loads.
 const {
   angularDistance, facesCamera, initialsOf, labelCandidates, markerMaterial,
-  nameCard, release,
+  nameCard, release, wearSkin,
 } = await import("../globe/element.ts");
 type Placed = import("../globe/element.ts").Placed;
 
@@ -234,6 +234,31 @@ test("the closer the camera comes the less of the planet it can see", () => {
   const anchor = { x: 100 * Math.sin(0.9), y: 0, z: 100 * Math.cos(0.9) };
   assert.equal(facesCamera(anchor, { x: 0, y: 0, z: 400 }), true, "from far out, visible");
   assert.equal(facesCamera(anchor, { x: 0, y: 0, z: 120 }), false, "from close in, over the rim");
+});
+
+// ---- the skin is worn, not multiplied away ---------------------------
+//
+// The sphere is the one surface in this lane whose whole picture can be wrong
+// with every number about it right, and this is how it went wrong: globe.gl
+// hands out a material tinted black to say "no picture yet", and a Phong
+// material multiplies its map by its tint. The seam assigned the map and left
+// the tint, so six baselines' worth of globe steps were correct about a black
+// planet. The test is the multiplication, stated: after the skin is on, the
+// tint must be identity.
+
+test("the sphere's skin is hung on a material that does not tint it away", () => {
+  // What globe.gl hands out when nothing has given it an image: the comment in
+  // its own source is "Black globe if no image".
+  const material = new THREE.MeshPhongMaterial({ color: 0x000000 });
+  const skin = new THREE.CanvasTexture(stubCanvas() as unknown as HTMLCanvasElement);
+  wearSkin(material, skin);
+  assert.equal(material.map, skin, "the skin is not the material's map");
+  assert.equal(material.color.getHex(), 0xffffff,
+    "the material multiplies its map by its colour, and this colour is not identity" +
+    " — a black planet with every count right is what that looks like");
+  // `needsUpdate` is write-only on a three material — it bumps `version` and
+  // keeps nothing — so the version is what says the shader was recompiled.
+  assert.equal(material.version, 1, "the material was not told to recompile");
 });
 
 // ---- a material is shared --------------------------------------------

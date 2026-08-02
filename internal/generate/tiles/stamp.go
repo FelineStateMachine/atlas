@@ -37,10 +37,9 @@ import (
 var toolSource embed.FS
 
 // ToolStamp is the hash of the deriving code itself, computed once. It is
-// exported so a test can say what it is holding a plan against: the stamp
-// identity a fixture records was taken with the reference implementation's
-// sources, and proving the plan half of the stamp means substituting that hash
-// for this one.
+// exported so a test can say what it is holding a plan against: a fixture
+// records the stamp the sources that drew it had, so proving the *plan* half
+// of a recorded stamp means substituting that tool hash for this one.
 var ToolStamp = sync.OnceValue(func() string {
 	var names []string
 	err := fs.WalkDir(toolSource, ".", func(path string, entry fs.DirEntry, err error) error {
@@ -81,10 +80,10 @@ var ToolStamp = sync.OnceValue(func() string {
 func PlanStamp(plan Plan) string { return StampWith(plan, ToolStamp()) }
 
 // StampWith is PlanStamp with the tool's identity supplied rather than measured.
-// It exists for one caller: the gate that proves the plan half of a stamp by
-// handing it the reference implementation's tool hash and asking whether the
-// recorded stamp comes back. Nothing in the lane calls it, and nothing should --
-// a pyramid is stamped by the tool that derived it or not at all.
+// It exists for one caller: the gate that proves the plan half of a recorded
+// stamp by handing it the tool hash that stamp was taken with and asking
+// whether the same stamp comes back. Nothing in the lane calls it, and nothing
+// should -- a pyramid is stamped by the tool that derived it or not at all.
 func StampWith(plan Plan, tool string) string {
 	sum := sha256.New()
 	fmt.Fprintf(sum, "tool\x00%s\x00", tool)

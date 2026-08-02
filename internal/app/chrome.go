@@ -12,10 +12,10 @@ import (
 //
 // /assets is a different mount from /static, and the difference is the
 // deletability principle standing up in the URL space: /static is whatever
-// tree a host handed over -- the seam's built bundle, which lands in M6 and
-// which the application must work without -- and /assets is the part of the
-// page that is the application's own. A build with no seam serves 404 under
-// /static and a complete, styled, interactive page under /assets.
+// tree a host handed over -- the seam's built bundle, which the application
+// must work without -- and /assets is the part of the page that is the
+// application's own. A build with no seam serves 404 under /static and a
+// complete, styled, interactive page under /assets.
 
 // assetBodies is the whole mount. It is two entries because it is two things:
 // the cascade and the runtime. Anything else a page needs belongs in one of

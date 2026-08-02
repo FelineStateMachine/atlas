@@ -9,35 +9,34 @@ import (
 
 // The order titles are read in.
 //
-// The reference implementation sorted in a browser, with
-// `String.prototype.localeCompare`, and the parity baselines record the answer
-// it gave: punctuation before digits before letters, `¡La Fantoma!` at the top
-// of a list that a byte comparison starts with `188 Trading Post`. That is the
-// CLDR root collation, not an ASCII ordering, and there is no version of
-// `strings.ToLower` that arrives at it.
+// A list of titles is read by a person, so it is ordered the way a person's
+// own language orders one: punctuation before digits before letters, `¡La
+// Fantoma!` at the top of a list a byte comparison starts with `188 Trading
+// Post`. That is the CLDR root collation -- what a browser answers
+// `String.prototype.localeCompare` with, and what the parity baselines record
+// -- and there is no version of `strings.ToLower` that arrives at it.
 //
-// WHY A DEPENDENCY. `golang.org/x/text/collate` implements the same root
-// collation the browser does, and it was already in this module's graph --
-// `golang.org/x/text` arrives with the desktop host and is listed indirect in
-// go.mod -- so the cost of using it is one line moving from the indirect block
-// to the direct one. The alternative was a hand-written weight table, and a
-// hand-written table is a re-implementation of DUCET that would be wrong for
-// the first title nobody thought of. The corpus is not hypothetical: eighty-five
-// of the fixture set's titles are not ASCII.
+// WHY A DEPENDENCY. `golang.org/x/text/collate` implements that same root
+// collation, and it was already in this module's graph -- `golang.org/x/text`
+// arrives with the desktop host and is listed indirect in go.mod -- so the
+// cost of using it is one line moving from the indirect block to the direct
+// one. The alternative was a hand-written weight table, and a hand-written
+// table is a re-implementation of DUCET that would be wrong for the first
+// title nobody thought of. The corpus is not hypothetical: eighty-five of the
+// fixture set's titles are not ASCII.
 //
-// TWO ORDERS, because the reference used two:
+// TWO ORDERS, because the two lists are read differently:
 //
-//   - the panel's list (`frontend/src/visibility.js`) sorted with a plain
-//     `localeCompare`, so case and accents separate two titles that would
-//     otherwise tie;
-//   - a shape collection's feature index (`frontend/src/areas.js`) sorted with
-//     `{ numeric: true, sensitivity: "base" }`, so `Level 2` precedes
-//     `Level 10` and case is not a difference at all.
+//   - the panel's list is a catalogue of collections, so case and accents
+//     separate two titles that would otherwise tie;
+//   - a shape collection's feature index is a list of places a producer
+//     numbered, so `Level 2` precedes `Level 10` and case is not a difference
+//     at all.
 //
-// Both are reproduced here rather than collapsed into one, even though the
-// fixture corpus cannot tell them apart (every shape title in it is ASCII and
-// only two carry digits): the difference is in the reference and a fixture set
-// that cannot see it today is not an argument for losing it.
+// Both are kept rather than collapsed into one, even though the fixture corpus
+// cannot tell them apart (every shape title in it is ASCII and only two carry
+// digits): a distinction the goldens cannot see today is not a distinction to
+// lose, and the first bundle with an accented district title would find it.
 
 // titleCollator is the tertiary-strength root collation the panel's list used.
 var titleCollator = collate.New(language.Und)

@@ -9,13 +9,16 @@
 // The lanes it polices (analysis/, render/) consume it through the root
 // workspace's `npm run lint`. To run it:
 //
-//   npm i -D eslint typescript-eslint
-//   make lint-lanes
+//   make lint-lanes           # this file, over both lanes
+//   make analysis-lane        # and the boundary rules with the suite behind them
+//   make render-lane
 //
-// M6 owns three follow-ups this skeleton deliberately leaves open: the import
-// specifier for the analysis package (the allowlist below is where it gets
-// declared), type-aware linting once tsconfigs exist, and the seam's authored
-// line budget as a warning.
+// Two of the three things this file once left for later are here now: the
+// analysis package's import specifier is declared in the allowlist below, and
+// the seam's authored line budget is a warning `render/tools/lines.mjs` prints
+// on every run of the render lane. Type-aware linting is the one still open —
+// the tsconfigs exist and `npm run typecheck` reads them, so what is missing is
+// only the wiring that would let a rule here read a type.
 
 import tseslint from "typescript-eslint";
 
@@ -65,9 +68,8 @@ const consoleRule = {
 
 export default tseslint.config(
   {
-    // Fixtures are data, not source: they are compared byte for byte and a
-    // linter has nothing to say about them. The pre-rewrite frontend was
-    // ignored here too, until it left for the golden-reference tag.
+    // Fixtures are data, not source: they are compared byte for byte, and a
+    // linter that reformatted one would be breaking the gate that reads it.
     ignores: ["golden/fixtures/**", "**/node_modules/**", "**/dist/**", "**/build/**"],
   },
 
@@ -128,8 +130,8 @@ export default tseslint.config(
         {
           patterns: [
             {
-              // The allowlist, as M6 declares it. The analysis lane's real
-              // specifier is its workspace name, `@atlas/analysis`; the
+              // The allowlist, in full. The analysis lane's specifier is its
+              // workspace name, `@atlas/analysis`; the
               // pinned dependency surface (OpenLayers, globe.gl / three,
               // s2js through analysis) is the rest of it, and it grows only
               // behind a green parity tour. Relative imports are allowed at

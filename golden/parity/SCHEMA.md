@@ -137,13 +137,12 @@ against this tree before it was written down.
 
 **How they are switched on, and why not with a flag.** `run.mjs --extended`
 walks them; the gate asks the *baseline* whether to. `compare.mjs` looks for a
-step whose name begins `pick-` in the committed baseline: while the six
-baselines hold none, the gate walks exactly the tour they were captured from
-and nothing about this milestone can turn it red. The moment the capture wave
-of §6.1 commits baselines that hold them, every run of the gate walks all
-three kinds on every volume, and there is no lever beside it to turn them off
-again. `--extended` on the command line forces the walk without the baselines,
-which is how a fix is checked before the wave.
+step whose name begins `pick-` in the committed baseline — and **the six
+baselines hold them now**, because the capture wave of §6.1 has run. So every
+run of the gate walks all three kinds on every volume and compares every
+picture, and there is no lever beside it to turn any of that off again.
+`--extended` on the command line forces the walk without the baselines, which
+is how a fix is checked before a capture.
 
 ### 2.1.1 Picks — a pointer, at a pixel, on the canvas
 
@@ -175,7 +174,7 @@ What each step drives and what it records:
 | `pick-a-shape` | a click inside a district or on a line | `pick`, the card on the ground's title | **passes** (volumes with shapes) |
 | `pick-shape-cleared` | the card closed | — | passes |
 | `pick-grid-open` | `G` | `grid.enabled`, the cells drawn | passes |
-| `pick-in-grid` | a click inside a drawn cell | `grid.prefix` descends to that cell, no card opens | **awaiting fix** |
+| `pick-in-grid` | a click inside a drawn cell | `grid.prefix` descends to that cell, no card opens | **passes** |
 | `pick-grid-closed` | two Escapes | the grid put away | passes |
 
 `pick-missed` is the one that pins a *decision* rather than a behaviour: a
@@ -202,27 +201,38 @@ reaching for search a second time means to replace what is in it.
 | step | drives | records | today |
 |---|---|---|---|
 | `key-search-primed` | a word typed into `#pin-search` | the search state ⌘K will be asked to reclaim | passes |
-| `key-search-focus` | ⌘K at the window | `focus.active` = `pin-search`, `focus.selected` | **awaiting fix** |
+| `key-search-focus` | ⌘K at the window | `focus.active` = `pin-search`, `focus.selected` | **passes** |
 | `key-search-cleared` | the field emptied | — | passes |
-| `key-grid-open` | `G` at the window | `grid.enabled` **and** `focus.active` = `grid-input` | grid **passes**, focus **awaiting fix** |
+| `key-grid-open` | `G` at the window | `grid.enabled` **and** `focus.active` = `grid-input` | **passes** |
 | `key-grid-descended` | a character typed into `#grid-input` | `grid.prefix` | passes |
-| `key-escape-once` | Escape with the focus in the grid field | `focus.active` = `map`, and the cell **not** ascended | **awaiting fix** |
+| `key-escape-once` | Escape raised **at `#grid-input`**, which is where a reader's own Escape starts | `focus.active` = `map`, and the cell **not** ascended | **passes** |
 | `key-escape-twice` | a second Escape | the grid ascends | passes |
-| `key-cell-system-before` / `-cycled` | ⌘G at the window | `grid.system` changes and `grid.prefix` carries across | **awaiting fix** |
+| `key-cell-system-before` / `-cycled` | ⌘G at the window | `grid.system` changes and `grid.prefix` carries across, **where the navigator offers a cycle** | **passes** |
 | `key-grid-closed` | two Escapes | the grid put away | passes |
 | `key-labels-held` / `-released` | Z down, Z up | `labelsHeld`, the ladder | **passes** |
 | `key-typing-before` | — | the grid before a reader types | passes |
-| `key-typing-not-a-shortcut` | `g` dispatched **at `#pin-search`** | the grid is **unchanged**, the focus stays in the field | **awaiting fix** |
+| `key-typing-not-a-shortcut` | `g` dispatched **at `#pin-search`** | the grid is **unchanged**, the focus stays in the field | **passes** |
 
-The last row is the one that needed a new kind of dispatch. Every other key in
-this file is raised on the window, which is where a keystroke with no focused
-control is heard and where the application's shortcuts listen
-(`internal/app/templates/shell.tmpl`). A reader's own typing starts at the
-field and *bubbles* to the window, so a shortcut that never asks where the key
-came from hears it. The window-dispatched steps must keep passing whatever
-guard the fix adds — an event raised at the window has the window as its
-target, which is by design and is what makes the tour's other shortcuts still
-work — and this step is the only one that asks the other question.
+**Two rows are raised at a control rather than at the window, and both have
+to be.** Every other key here is raised on the window, which is where a
+keystroke with no focused control is heard and where the application's
+shortcuts listen (`internal/app/templates/shell.tmpl`); an event raised there
+has the window as its target, which is by design and is what makes the tour's
+shortcuts work at all. The exceptions are the two steps whose subject is a
+*control answering its own key*, and a control only ever hears the keys that
+pass through it:
+
+- `key-typing-not-a-shortcut` — a reader's own typing starts at the field and
+  *bubbles* to the window, so a shortcut that never asks where the key came
+  from hears it. Raising this one at the window would be raising the very
+  thing the guard is allowed to let through.
+- `key-escape-once` — the grid field answers Escape itself, from a listener
+  bound to the field, so that one press leaves the field and the next leaves
+  the level. Raised at the window the same press means something else
+  entirely, and the baselines say so out loud: `globe-grid-closed` is captured
+  with the grid **shut** by two window Escapes taken while that same field
+  held the focus. Asking for the field's behaviour from the window would be
+  asking two halves of one baseline to disagree.
 
 ### 2.1.3 Pictures — the driver's screenshot, compared perceptually
 
@@ -283,36 +293,44 @@ available today, and it is a **floor and not a resemblance** — the black
 sphere this milestone found answers 64, because its pins are on it. Only the
 committed picture catches that one, which is why §6.1 exists.
 
-### 2.1.4 The awaiting-fix table
+### 2.1.4 The awaiting-fix table, and what it caught
 
-These steps are written against behaviour that is not in the tree yet. They
-are listed so the capture wave can tell new coverage from a regression: a step
-below that is still red when the wave runs means its fix did not land, and the
-wave must stop rather than baseline the defect.
+**This table is spent.** Every step in it is green and both pictures are taken,
+so nothing below is a standing gap. It is kept because it is the record of what
+the capture wave was *for*, and because the two rows at the bottom are the ones
+that argue for this whole exercise.
 
-| step | what it asserts | why it fails today | whose fix |
+| step | what it asserts | how it failed | how it stands |
 |---|---|---|---|
-| `pick-in-grid` | a click inside a drawn cell telescopes into the cell | the pane resolves features and never cells, so the click selects whatever pin is under it | grid telescope |
-| `key-search-focus` | ⌘K focuses and selects `#pin-search` | there is no ⌘K shortcut; the field advertises one with a `<kbd>` | keyboard |
-| `key-grid-open` (focus half) | `G` leaves the focus in `#grid-input` | the route opens the grid and nothing moves the focus | keyboard |
-| `key-escape-once` | the first Escape leaves the field, not the level | Escape is bound straight to `ascend` on the window | keyboard |
-| `key-cell-system-cycled` | ⌘G cycles the system and carries the cell | `⌘G` is excluded by the `g` trigger's guard and bound to nothing | keyboard / S2 |
-| `key-typing-not-a-shortcut` | typing `g` in a text field does not toggle the grid | the shortcuts listen on the window and a reader's key bubbles to it | keyboard |
-| `screen-globe` | the sphere's base skin is the lens, not black | the base texture never reaches the sphere | globe sprites |
-| `screen-ground` | a multipart district draws every part | a second part is dropped | multipart |
+| `pick-in-grid` | a click inside a drawn cell telescopes into the cell | the pane resolved features and never cells, so the click selected whatever pin was under it | fixed, and walked |
+| `key-search-focus` | ⌘K focuses and selects `#pin-search` | there was no ⌘K shortcut; the field advertised one with a `<kbd>` | fixed, and walked |
+| `key-grid-open` (focus half) | `G` leaves the focus in `#grid-input` | the route opened the grid and nothing moved the focus — and then the fix followed the first swap of any kind, which is a race the capture wave caught | fixed, and walked |
+| `key-escape-once` | the first Escape leaves the field, not the level | Escape was bound straight to `ascend` on the window | fixed, and walked — driven **at the field**, see §2.1.2 |
+| `key-cell-system-cycled` | ⌘G cycles the system and carries the cell | `⌘G` was excluded by the `g` trigger's guard and bound to nothing | fixed, and walked where a second system exists |
+| `key-typing-not-a-shortcut` | typing `g` in a text field does not toggle the grid | the shortcuts listened on the window and a reader's key bubbled to it | fixed, and walked |
+| `screen-globe` | the sphere's base skin is the lens, not black | two defects in a row: the base composite was cancelled by the cheap pass beside it and never re-asked, and then the material the skin hung on was tinted black, which multiplies a texture away | fixed, and photographed |
+| `screen-ground` | a multipart district draws every part | a second part was dropped | fixed, and photographed |
 
-The two picture rows are a different kind of awaiting from the six above them,
-and the difference is the whole reason this table exists. A step that asserts
-fails *today*, out loud, and the walk is red until its fix lands. A picture
-with no committed twin is **not captured**, which is neither a pass nor a
-failure — so those two rows cannot go red on their own, and the wave is the
-only thing standing between a defect and a golden of it. They are here because
-the pictures were looked at while this was written: mars's `screen-globe`
-photographed a **black sphere with its pins on it** — 142 colours in the
-middle half, every count in the snapshot correct, the overview beside it
-showing the Mars texture the sphere was not wearing. That is the exact defect
-the picture step exists for, and committing it as a baseline would be the
-worst outcome available.
+**The two picture rows are why the wave existed, and they behaved exactly as
+this section predicted they would.** A step that asserts fails out loud, and a
+walk is red until its fix lands. A picture with no committed twin is **not
+captured**, which is neither a pass nor a failure — so those two rows could not
+go red on their own, and the wave was the only thing standing between a defect
+and a golden of it. When this was written, mars's `screen-globe` had been
+looked at and showed a **black sphere with its pins on it**: every count in the
+snapshot correct, the overview beside it showing the Mars texture the sphere
+was not wearing.
+
+It was still black when the wave ran. And the cheap check did not care: the
+`distinct` floor answered **519** on that photograph, high enough to look
+healthy, because the pins scattered over the black are hundreds of colours.
+That is the floor doing exactly what §2.1.3 says it does and no more — a
+picture that answers 1 fails, and everything above that is *not* a resemblance.
+The committed twin is the instrument that catches this one, and a human being
+looking at the picture is what caught it here. Both are in the record: the
+planet's mean channel values went from `[76.9, 78.3, 61.2]` to
+`[102.7, 98.1, 80.7]` when the tint was cleared, and two fresh walks now
+produce the same photograph byte for byte.
 
 ---
 
@@ -448,18 +466,30 @@ Run `golden/parity/compare.mjs baseline.json candidate.json`. Every leaf of
 every snapshot binds, **except**:
 
 ```
---ignore tileStats.requested,tileStats.loaded
+--ignore tileStats.requested,tileStats.loaded,tileStats.peakPending
 ```
 
-Two fields, both counting tiles fetched since the lens was chosen. They
-measure the *route* two runs took to the same destination rather than the
-destination: a browser that samples one fly-to a frame differently fetches a
-tile the other never wanted, and no amount of settling undoes a request
-already made. Across every paired run taken here — each of the six public
-fixtures captured twice from two fresh launches, twice over — nothing else
-ever moved. The fields stay recorded — a candidate that fetches four times as
-many tiles is worth seeing — they are simply not equality-checked.
-`tileStats.errors` and `tileStats.peakPending` bind as usual.
+Three fields, all about tiles since the lens was chosen. They measure the
+*route* two runs took to the same destination rather than the destination: a
+browser that samples one fly-to a frame differently fetches a tile the other
+never wanted, and no amount of settling undoes a request already made. Across
+every paired run taken here — each of the six public fixtures captured twice
+from two fresh launches, twice over — nothing else ever moved. The fields stay
+recorded, because a candidate that fetches four times as many tiles is worth
+seeing; they are simply not equality-checked. `tileStats.errors` binds as
+usual: a tile that failed to load is a fact about the build.
+
+**`peakPending` joined them when the extended half was captured**, and the
+reason belongs here because the rule in this file is *fix it, do not ignore
+it*. It is the high-water mark of requests in flight at once — a measure of
+overlap rather than of anything a walk arrives at — and overlap is the one
+thing a settle cannot repair after the event: waiting for a page to go quiet
+says nothing about how many requests were in the air together a moment
+earlier. It held still over the steps the reference captured because those
+steps *step* the camera, and this half flies it: two zoom-outs to find an aim,
+a zoom-in to find a gap between eight thousand features, a telescope into a
+cell. Three walks of mars against one build read 12, 16 and 2 at the same
+step. Nothing else in the extended half moved between runs at all.
 
 Two other things were unstable and were **fixed rather than ignored**, which
 is the rule:
@@ -565,17 +595,29 @@ what the code does:
    fix in that table must have landed before this mode can write anything. If
    one has not, the wave stops on it by name, which is the difference between
    "new coverage" and "we baselined the defect".
-4. **The pictures are written into `golden/parity/screens/<volume>/`** and are
-   ignored by git until that directory's `.gitignore` says otherwise. The wave
-   deletes the `*.png` line and commits them; from then on `compare.mjs`
-   compares every picture it has a twin for and reports the rest as *not
-   captured*, which is not a pass.
+4. **The pictures are written into `golden/parity/screens/<volume>/`**, which
+   git ignored until the wave dropped the `*.png` rule and committed them. From
+   here on `compare.mjs` compares every picture it has a twin for and reports
+   the rest as *not captured*, which is not a pass.
 
-What the wave must do, in order: build the seam; run
-`capture.mjs --capture-extended` over all six volumes; read the refusals if
-any and stop rather than force; drop the ignore line; commit baselines and
-pictures together in one commit, because a baseline that names a picture that
-is not there is a broken gate.
+What the wave had to do, in order: build the seam; run
+`capture.mjs --capture-extended` over all six volumes; read the refusals if any
+and stop rather than force; drop the ignore rule; commit baselines and pictures
+together in one commit, because a baseline that names a picture that is not
+there is a broken gate.
+
+**It has been run, and point 3 earned its keep on the first attempt.** All six
+volumes were refused: three keyboard steps were red on every one of them, and
+reading them apart took two rounds. Two were the tour asking the wrong
+question — a focus read at the call site, before the request the key raised had
+even been made, and the field's Escape raised at the window where the field
+could never hear it — and one was a real race in the seam, a press that
+followed the first swap of any kind rather than its own. A third defect, the
+grid field's `changed` memory, fell out of the same investigation. A mode that
+had baselined the first walk would have committed all four as golden.
+
+Re-running the same command after the fixes appended 33–37 steps a volume and
+40 pictures, with the shared prefix byte-identical throughout.
 
 ---
 
@@ -617,19 +659,23 @@ narrower than the hole.* Every observation used to be a count, a flag or a
 string, and a build that drew every pin in the wrong colour passed. Up to
 eight screenshot steps a volume — six on a plane, eight where there is a
 sphere — now photograph the pane and compare it against a committed picture,
-which is the part of the hole that can be closed with a golden. Two things are still true: a picture is compared *perceptually*, so a
-change under the threshold is a change nobody sees here; and until the capture
-wave of §6.1 runs there are no committed pictures, so the steps take pictures
-and report them as not captured. The raster-level goldens (per-lens tile
-inventories with decoded-pixel digests, issue §6.1) remain a separate
-instrument and are still not this one.
+which is the part of the hole that can be closed with a golden, and the wave
+of §6.1 has closed it: forty pictures are committed and every one of them is
+compared on every run. What is still true is narrower and worth keeping in
+view. A picture is compared *perceptually*, so a change under the threshold is
+a change nobody sees here. A picture is only as good as the frame it was taken
+in, so a defect the camera never points at is not covered — the marker raster
+is drawn in every `screen-chart`, for instance, and a picture taken from the
+seam cannot tell you it is not the reference's. And the raster-level goldens
+(per-lens tile inventories with decoded-pixel digests, issue §6.1) remain a
+separate instrument and are still not this one.
 
 **Nothing drove a pointer, and nothing asked where the focus was.** *Answered,
 in §2.1.1 and §2.1.2.* Both were structural rather than accidental: a tour
 made entirely of `.click()` on controls cannot see a canvas that ignores
 clicks, and a tour that dispatches every key at the window cannot see a
-shortcut firing while the reader types. The steps that close them are written
-against fixes that were still landing when they were written, and §2.1.4 says
+shortcut firing while the reader types. The steps that close them were written
+against fixes that were still landing at the time, and §2.1.4 says
 which is which.
 
 One thing was added after this hole was walked through rather than around.
@@ -677,19 +723,21 @@ remain the first thing to capture, and they are now a small thing to reach.
 ## What the rewrite reproduces, and the two things it does not
 
 All six volumes agree with their baselines, step for step and field for field,
-under the declared waivers and the two advisory `tileStats` counters. The tour
-finds no problems on any of them: the map, the footer and the dock tell one
-story on every step of every walk, a closed card gives back the view a jump
-borrowed, and the sphere and the chart lose the same pins to one filter.
+under the declared waivers and the three advisory `tileStats` counters — over
+the whole walk now, extended half included, with every picture compared
+against its committed twin. The tour finds no problems on any of them: the
+map, the footer and the dock tell one story on every step of every walk, a
+closed card gives back the view a jump borrowed, and the sphere and the chart
+lose the same pins to one filter.
 
-| volume | steps | tour's own checks | fields differing |
-|---|---|---|---|
-| tunic | 37 / 37 | clean | **0** |
-| cyberpunk-2077 | 49 / 49 | clean | **0** |
-| fallout-new-vegas | 39 / 39 | clean | **0** |
-| zelda-tears-of-the-kingdom | 67 / 67 | clean | **0** |
-| mars | 59 / 59 | clean | **0** |
-| bend-or | 66 / 66 | clean | **0** |
+| volume | steps | pictures | tour's own checks | fields differing |
+|---|---|---|---|---|
+| tunic | 70 / 70 | 6 | clean | **0** |
+| cyberpunk-2077 | 82 / 82 | 6 | clean | **0** |
+| fallout-new-vegas | 72 / 72 | 6 | clean | **0** |
+| zelda-tears-of-the-kingdom | 102 / 102 | 7 | clean | **0** |
+| mars | 95 / 95 | 8 | clean | **0** |
+| bend-or | 103 / 103 | 7 | clean | **0** |
 
 Two differences are declared rather than reproduced, and both are the same
 kind of thing: a number the reference read off a window that was about to stop
