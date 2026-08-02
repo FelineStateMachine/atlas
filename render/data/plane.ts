@@ -86,7 +86,7 @@ export class DataPlane {
 
   /** Where an icon asset lives. Icons are fetched by the browser, as images. */
   iconURL(base: Base, asset: string): string {
-    return `${base}/icons/${asset}`;
+    return iconURL(base, asset);
   }
 
   /** Where one tile lives, or null when the lens holds no such level. */
@@ -128,4 +128,21 @@ export class DataPlane {
     this.payloads.set(url, reading);
     return reading;
   }
+}
+
+/**
+ * Where an icon asset lives.
+ *
+ * A free function as well as a method because an icon is the one thing under
+ * a base that something other than the reader fetches: the browser asks for
+ * it as an image, and both panes have to name it the same way or they compose
+ * two rasters of one symbol.
+ *
+ * Every segment is encoded and the separators are not: an asset path is a
+ * path, and a curated one may carry a space or a bracket — `Vault 101 (Ext)`
+ * — which is a 404 if it goes onto the wire as it was written.
+ */
+export function iconURL(base: Base, asset: string): string {
+  const path = asset.split("/").map((segment) => encodeURIComponent(segment)).join("/");
+  return `${base}/icons/${path}`;
 }

@@ -38,7 +38,6 @@ import {
   KEY_GEOMETRY_EQUIRECT_DEG,
   KEY_GEOMETRY_EQUIRECT_PX,
   KEY_GEOMETRY_SURFACE,
-  KEY_ICON_KIND,
 } from "@atlas/analysis/semconv/keys";
 import {
   cellPlan, cellRings, cellSystems, equirectMapping, gridCellVisual, gridTheme,
@@ -47,10 +46,21 @@ import type { GeoMapping, PlanCell } from "@atlas/analysis";
 import { logger } from "../log.ts";
 import type { WorldContext } from "../context.ts";
 import type { Attrs, Collection } from "../data/payload.ts";
+import { iconURL } from "../data/plane.ts";
 import { reportGridPick, reportPick } from "../data/report.ts";
 import { viewMaxZoom } from "../chart/projection.ts";
-import { collectionColor, outsetColor } from "../chart/styles.ts";
+import { collectionColor } from "../chart/styles.ts";
+import {
+  iconIsPicture, initialsOf, legibleIconColor, markerKey, markerRasterReady, outsetColor,
+} from "../chart/markers.ts";
+import type { MarkerFace } from "../chart/markers.ts";
 import { Skin } from "./texture.ts";
+
+// The sphere's markers are the chart's: `markers.ts` composes them and both
+// panes draw the same raster, so a collection cannot look like one thing on
+// the sheet and another on the globe. `initialsOf` is re-exported because it
+// is the sphere's fallback as much as the chart's.
+export { initialsOf } from "../chart/markers.ts";
 
 const log = logger("globe");
 
@@ -1256,14 +1266,14 @@ export function nameCard(
   return sprite;
 }
 
-/** What a collection's marker is, as the sphere has to draw it. */
-export interface Marker {
-  /** Where the collection's picture lives, or "" when it has none. */
-  readonly icon: string;
-  readonly picture: boolean;
-  readonly color: string;
-  /** The rim, already resolved from the world's declared outset token. */
-  readonly outset: string;
+/**
+ * What a collection's marker is, as the sphere has to draw it.
+ *
+ * A face and a name: everything about how the mark is composed is the face's,
+ * shared with the chart, and the name is only what the initials fall back to
+ * while the symbol is on its way.
+ */
+export interface Marker extends MarkerFace {
   readonly title: string;
 }
 
@@ -1275,7 +1285,8 @@ export interface Marker {
  * two thousand canvases nobody disposes.
  */
 const BARE_MARKER: Marker = {
-  icon: "", picture: false, color: "#4fb3d5", outset: outsetColor("light"), title: "",
+  asset: "", url: "", picture: false, color: "#4fb3d5",
+  outset: outsetColor("light"), title: "",
 };
 
 /** Every collection's marker, in payload order, which is palette order. */
@@ -1284,10 +1295,13 @@ function markersOf(context: WorldContext): Map<number, Marker> {
   const marker = (collection: Collection, ordinal: number): [number, Marker] => [
     collection.id,
     {
-      icon: collection.iconAsset ? `${context.base}/icons/${collection.iconAsset}` : "",
-      picture: Boolean(collection.iconPicture ||
-        collection.attrs?.[KEY_ICON_KIND] === "picture"),
-      color: collectionColor(collection, ordinal),
+      asset: collection.iconAsset ?? "",
+      url: collection.iconAsset ? iconURL(context.base, collection.iconAsset) : "",
+      picture: iconIsPicture(collection),
+      // The same ladder the chart climbs, because it is the same mark: a
+      // colour that collides with the rim is lifted or dropped, and the two
+      // panes must not disagree about which colour a collection is.
+      color: legibleIconColor(collectionColor(collection, ordinal), context.outset),
       outset,
       title: collection.title,
     },
@@ -1305,8 +1319,7 @@ function markersOf(context: WorldContext): Map<number, Marker> {
  * point of them.
  */
 export function markerMaterial(marker: Marker, selected: boolean): THREE.SpriteMaterial {
-  const key = [marker.icon, marker.color, marker.outset, selected ? "ringed" : "plain"]
-    .join(":");
+  const key = `${markerKey(marker)}:${selected ? "ringed" : "plain"}`;
   const held = markers.get(key);
   if (held) return held;
   // Pins keep one size on screen however close the camera comes, the way the
@@ -1318,22 +1331,38 @@ export function markerMaterial(marker: Marker, selected: boolean): THREE.SpriteM
     material.map = markerTexture(marker, selected, image);
     material.needsUpdate = true;
   };
-  if (!marker.icon) dress(null);
-  else {
-    const image = new Image();
-    image.crossOrigin = "anonymous";
-    image.onload = () => dress(image);
-    // A collection whose picture never arrives wears its initials, which is
-    // what a build with no icons at all draws.
-    image.onerror = () => dress(null);
-    image.src = marker.icon;
+  // A collection with no artwork has nothing to wait for.
+  if (!marker.asset) {
+    dress(null);
+    return material;
   }
+  // The chart's raster, not the raw artwork: the symbol is already tinted and
+  // already haloed, and composing it a second time here would be the sphere
+  // deciding for itself what a Shrine looks like.
+  void markerRasterReady(marker).then((raster) => {
+    if (!raster) {
+      // A collection with no artwork, or one whose artwork never arrived,
+      // wears its initials — which is what a build with no icons at all draws.
+      dress(null);
+      return;
+    }
+    const image = new Image();
+    image.onload = (): void => { dress(image); };
+    image.onerror = (): void => { dress(null); };
+    image.src = raster;
+  });
   return material;
 }
 
 const markers = new Map<string, THREE.SpriteMaterial>();
 
-/** The 80×80 canvas a marker is drawn on: a picture, or a name's initials. */
+/**
+ * The 80×80 canvas a marker is drawn on: the chart's raster, or the initials.
+ *
+ * The raster arrives finished — the symbol already carries its collection's
+ * colour and already wears its halo — so all the sphere does with it is place
+ * it, inset by eight so the ring has somewhere to go.
+ */
 function markerTexture(
   marker: Marker, selected: boolean, image: HTMLImageElement | null,
 ): THREE.CanvasTexture {
@@ -1343,14 +1372,6 @@ function markerTexture(
   const paper = canvas.getContext("2d");
   if (paper && image) {
     paper.drawImage(image, 8, 8, 64, 64);
-    // A glyph is a silhouette the reader tints; a picture carries its own
-    // colour, and flattening it would leave nothing but its outline filled in.
-    if (!marker.picture) {
-      paper.globalCompositeOperation = "source-in";
-      paper.fillStyle = marker.color;
-      paper.fillRect(0, 0, MARKER_SIZE, MARKER_SIZE);
-      paper.globalCompositeOperation = "source-over";
-    }
   } else if (paper) {
     const short = initialsOf(marker.title);
     paper.font = MARKER_FONT;
@@ -1372,11 +1393,6 @@ function markerTexture(
   const texture = new THREE.CanvasTexture(canvas);
   texture.colorSpace = THREE.SRGBColorSpace;
   return texture;
-}
-
-/** A collection's name, cut down to what fits inside a marker. */
-export function initialsOf(title: string): string {
-  return title.split(/\s+/).slice(0, 2).map((part) => part[0] ?? "").join("");
 }
 
 /**
