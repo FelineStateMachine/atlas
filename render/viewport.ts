@@ -19,6 +19,7 @@ import { KEY_ICON_OUTSET } from "@atlas/analysis/semconv/keys";
 import { applicableSystems, cellSystems } from "@atlas/analysis";
 import type { CellSystem } from "@atlas/analysis";
 import { logger } from "./log.ts";
+import { wireKeyboard } from "./keys.ts";
 import { DataPlane } from "./data/plane.ts";
 import { reportCamera } from "./data/report.ts";
 import type { Catalog, Lens, TileGrid } from "./data/payload.ts";
@@ -41,6 +42,10 @@ export class AtlasViewport extends HTMLElement {
   private context: WorldContext | null = null;
   private generation = 0;
   private globeUp = false;
+  // How to take the keyboard off again. Held rather than forgotten because a
+  // custom element can be disconnected and reconnected -- a swap that moved
+  // it, a test that reused it -- and window listeners do not leave with it.
+  private unkey: (() => void) | null = null;
 
   connectedCallback(): void {
     const selector = this.getAttribute("state-src") || "#atlas-viewport-state";
@@ -52,7 +57,8 @@ export class AtlasViewport extends HTMLElement {
       if (!scene?.volume) return;
       reportCamera({ volume: scene.volume, world: scene.world, ...camera });
     });
-    this.wireKeys();
+    this.unkey?.();
+    this.unkey = wireKeyboard(this);
     this.wireGlobeToggle();
     this.wireZoom();
     // The sphere's camera, written where a camera can be read: the corner
@@ -65,6 +71,8 @@ export class AtlasViewport extends HTMLElement {
 
   disconnectedCallback(): void {
     this.watcher?.stop();
+    this.unkey?.();
+    this.unkey = null;
   }
 
   /** The one after-swap hook: re-resolve the scene node and re-read it. */
@@ -226,20 +234,34 @@ export class AtlasViewport extends HTMLElement {
    * The reader wants every name for as long as they are looking for one, and
    * then wants the map back. Holding says both in one gesture: there is no
    * state left on by mistake and no control to find first.
+   *
+   * Which key does this, when a repeat counts and what happens when the window
+   * loses focus mid-hold all belong to `keys.ts`; what is here is the half only
+   * this element can do -- the flag both panes read, and the sentence in the
+   * corner that says the flag is up.
    */
-  private wireKeys(): void {
-    const held = (down: boolean) => (event: KeyboardEvent) => {
-      if (event.key !== "z" && event.key !== "Z") return;
-      const context = this.context;
-      if (!context || context.labelsHeld === down) return;
-      context.labelsHeld = down;
-      this.chart?.restyle();
-      this.globe?.update();
-      const hint = document.querySelector("#labels-hint");
-      if (hint) hint.textContent = down ? "Z · labels shown" : "Z · hold for labels";
-    };
-    window.addEventListener("keydown", held(true));
-    window.addEventListener("keyup", held(false));
+  holdLabels(down: boolean): void {
+    const context = this.context;
+    if (!context || context.labelsHeld === down) return;
+    context.labelsHeld = down;
+    this.chart?.restyle();
+    this.globe?.update();
+    const hint = document.querySelector("#labels-hint");
+    if (hint) hint.textContent = down ? "Z · labels shown" : "Z · hold for labels";
+  }
+
+  /**
+   * One step of zoom, wherever the ask came from.
+   *
+   * The buttons beside the map and the +/- keys are the same interaction, and
+   * which pane is up decides what a step means: a zoom level on the chart, a
+   * halving of distance on the sphere. Public because both callers are
+   * outside -- the button handlers may outlive an instance, and the keyboard
+   * is a module.
+   */
+  zoomBy(delta: number): void {
+    if (this.globeUp) this.globe?.changeZoom(delta);
+    else this.chart?.nudgeZoom(delta);
   }
 
   /**
@@ -336,9 +358,7 @@ export class AtlasViewport extends HTMLElement {
       if (!button || wired.has(button)) continue;
       wired.add(button);
       button.addEventListener("click", () => {
-        const live = document.querySelector<AtlasViewport>("atlas-viewport") ?? this;
-        if (live.sphereUp) live.globe?.changeZoom(delta);
-        else live.chart?.nudgeZoom(delta);
+        (document.querySelector<AtlasViewport>("atlas-viewport") ?? this).zoomBy(delta);
       });
     }
   }
