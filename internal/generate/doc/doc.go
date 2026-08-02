@@ -184,6 +184,47 @@ type Lens struct {
 	// does, because only the source can say which tiles a complete level was
 	// supposed to hold. A lens with no frame is a picture nothing can derive.
 	Frame *Frame `json:"frame,omitempty"`
+	// Drawing, when set, says this picture is drawn rather than fetched: the
+	// deriver rasterizes the lens's deepest level from these shapes instead of
+	// taking its pixels from a capture. A city is the case it exists for -- no
+	// municipal open-data hub serves tiles, so the ground a city's bundle
+	// stands on is drawn from the geometry the city publishes about itself.
+	Drawing *Drawing `json:"drawing,omitempty"`
+}
+
+// Drawing is a lens's picture stated as shapes rather than as pixels.
+//
+// It is deliberately not a second copy of the world's collections. A collection
+// is what a reader can click, search and filter; a drawing is what the ground
+// looks like, and the two do not line up: every road centreline a city publishes
+// draws, while only its named trails are worth a legend row, and a shape's
+// emphasis varies row by row where a collection's features are buckets of many
+// rows. So a source states the drawing separately, in the vocabulary of the
+// drawing.
+type Drawing struct {
+	// Zoom is the local level the shapes are drawn at -- the deepest level of
+	// the pyramid, and the only one ever drawn, because every shallower level
+	// folds down from it.
+	Zoom int `json:"zoom"`
+	// Shapes are what to draw. Their order is not significant: shapes sharing a
+	// role are unioned rather than painted over one another.
+	Shapes []Shape `json:"shapes"`
+}
+
+// Shape is one thing to draw, in world pixels of the square.
+type Shape struct {
+	// Role is what this shape is to the ground -- water, street, boundary --
+	// which is the whole vocabulary the renderer knows. A publisher's own layer
+	// names never reach it (issue #5 §5.1).
+	Role string `json:"role"`
+	// Rings is ground: the first ring the outline, every ring after it a hole.
+	Rings [][][2]float64 `json:"rings,omitempty"`
+	// Lines is linework, each entry one polyline.
+	Lines [][][2]float64 `json:"lines,omitempty"`
+	// Emphasis scales the role's stroke width for this shape alone, so an
+	// arterial can be wider than a lane without being a different role. Zero
+	// asks for the role's own width.
+	Emphasis float64 `json:"emphasis,omitempty"`
 }
 
 // Frame is the captured pyramid as its source declares it: how deep it goes, in
