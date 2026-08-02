@@ -1,0 +1,87 @@
+/*
+  chrome — the whole difference between the carried stylesheet system and the
+  markup this application renders.
+
+  Every other file in this directory is the reference implementation's own,
+  unedited (issue #5 §9: the CSS system is carried as an asset, and the visual
+  identity is unchanged). Two things about the new DOM demand a selector the
+  carried files cannot know about, and they are both here rather than smeared
+  through the files they belong to, so the delta stays one file long.
+*/
+
+/*
+  1. The regions the partial envelope swaps into carry ids of their own.
+
+  A region is one element with one id and one swap (internal/app/partials.go).
+  The carried system hangs off classes almost everywhere, so the regions wear
+  both: `<aside id="atlas-legend" class="sidebar">` is styled by the carried
+  `.sidebar` rules and targeted by the envelope's `#atlas-legend`. Two places
+  in the carried system reach for an id, and they are re-pointed here.
+*/
+#atlas-legend .legend .layer-section:last-child { border-bottom: 0; }
+
+/*
+  2. The card says whether it is open by having content, not by an attribute.
+
+  `detail` is an innerMorph region: a swap replaces what is inside
+  `#atlas-detail` and never the element itself, so the element cannot carry
+  the `hidden` attribute the carried rule keyed off. An empty card is a closed
+  card, which is the same fact stated in the shape a morph can actually
+  produce.
+*/
+.pin-detail:empty { display: none; }
+.dock-body:has(.pin-detail:not(:empty)) .dock-results { display: none; }
+
+/*
+  3. The seam's surfaces are the seam's, including while a swap is happening.
+
+  `<atlas-viewport>` and the overview's canvas holder carry
+  hx-morph-skip-children: a swap may touch their attributes and never their
+  internals (issue #5 §4.3). They therefore have no styling of their own here
+  beyond standing where the carried `.map` and `.overview` rules expect --
+  which is what these two rules say.
+*/
+atlas-viewport {
+  position: absolute;
+  inset: 0;
+  display: block;
+}
+atlas-chart,
+atlas-globe {
+  position: absolute;
+  inset: 0;
+  display: block;
+}
+atlas-globe[hidden] { display: none; }
+
+/*
+  4. The import region.
+
+  The reference implementation had no import panel: choosing a file was a
+  native dialog and the only sign of it was the button. An import is a
+  streamed answer now (internal/app/importing.go), so its rows need somewhere
+  to land and a word each. They read as a small log because that is what they
+  are, and the states are the ones the handler names.
+*/
+.import-rows {
+  position: fixed;
+  right: 17px;
+  bottom: 17px;
+  z-index: 80;
+  display: grid;
+  gap: 4px;
+  width: min(360px, calc(100% - 34px));
+  font-size: 12px;
+}
+.import-rows:empty { display: none; }
+.import-row {
+  margin: 0;
+  padding: 8px 11px;
+  border: 1px solid var(--line);
+  border-radius: 7px;
+  background: var(--panel-raised);
+  color: var(--muted);
+}
+.import-row[data-state="installed"] { color: var(--text-strong); border-color: var(--accent); }
+.import-row[data-state="refused"] { color: #d99; border-color: #7e3f3f; }
+.import-row[data-state="installing"] { color: var(--text); }

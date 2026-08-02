@@ -1,0 +1,26 @@
+/* Small glyph and wordmark, the way working tools sign their chrome; the
+   topbar's substance is the breadcrumb beside it. The diamond is the route
+   destination the dock and map share. */
+.brand {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  height: 100%;
+  padding: 0 22px;
+  border-right: 1px solid var(--line);
+}
+
+.brand svg {
+  width: 11px;
+  height: 11px;
+  fill: var(--accent);
+}
+
+.brand strong {
+  font-family: "Arial Narrow", "Roboto Condensed", sans-serif;
+  font-size: 16px;
+  letter-spacing: 0.3em;
+  line-height: 1;
+  color: var(--text-strong);
+}
+

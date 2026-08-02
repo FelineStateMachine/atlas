@@ -1,0 +1,25 @@
+.layers {
+  overflow-x: hidden;
+  overflow-y: auto;
+  min-height: 0;
+  flex: 1;
+  padding-bottom: 12px;
+  scrollbar-color: #44403a transparent;
+  scrollbar-width: thin;
+}
+
+.layer-section {
+  border-bottom: 1px solid var(--line);
+}
+
+.layer-section[hidden] {
+  display: none;
+}
+
+.legend .layer-section:last-child {
+  border-bottom: 0;
+}
+
+/* The trailing columns match a row's, so a group's isolate button sits directly
+   above the ones belonging to its categories and its mark lines up with their
+   counts. Rows are inset 14 by their container and 4 by themselves. */

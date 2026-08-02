@@ -1,0 +1,169 @@
+/* The right dock: a Google-Maps-style results shortlist that pushes into the
+   location detail, folding away to a thin rail when the map deserves every
+   pixel. It lives beside the map as a sibling column, so it can never paint
+   over the overview the way the old floating toast did. */
+.dock {
+  display: flex;
+  overflow: hidden;
+  width: var(--dock);
+  flex-direction: column;
+  border-left: 1px solid var(--line);
+  background: var(--panel);
+  grid-column: 3;
+  grid-row: 2;
+  transition: width 200ms cubic-bezier(0.22, 0.61, 0.36, 1);
+}
+
+.dock[hidden] {
+  display: none;
+}
+
+/* The whole header folds the dock, not the chevron alone: the bar carries a
+   count and a flag, neither of which is anything to press, so a click anywhere
+   along it can only mean the one thing. */
+.dock-readout {
+  display: flex;
+  width: 100%;
+  align-items: center;
+  gap: 8px;
+  padding: 12px 16px;
+  border: 0;
+  border-bottom: 1px solid var(--line);
+  background: var(--panel-raised);
+  cursor: pointer;
+  color: var(--data);
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.dock-flag {
+  overflow: hidden;
+  max-width: 130px;
+  padding: 2px 7px;
+  border-radius: 4px;
+  background: var(--accent-wash-strong);
+  color: var(--accent);
+  text-overflow: ellipsis;
+}
+
+.dock-flag[hidden] {
+  display: none;
+}
+
+.dock-readout:hover {
+  background: #22262c;
+}
+
+.dock-readout:focus-visible {
+  outline: 1px solid var(--accent);
+  outline-offset: -2px;
+}
+
+.dock-fold {
+  display: grid;
+  width: 22px;
+  height: 22px;
+  margin-left: auto;
+  border-radius: 5px;
+  color: var(--muted);
+  place-items: center;
+}
+
+.dock-readout:hover .dock-fold {
+  background: rgba(255, 255, 255, 0.06);
+  color: var(--text);
+}
+
+.dock-fold svg {
+  width: 13px;
+  height: 13px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2;
+}
+
+.dock-body {
+  display: flex;
+  min-height: 0;
+  flex: 1;
+  flex-direction: column;
+}
+
+.dock-results {
+  overflow: hidden auto;
+  flex: 1;
+  scrollbar-width: thin;
+}
+
+.dock-results[hidden] {
+  display: none;
+}
+
+.dock-results .search-result.is-selected {
+  background: var(--accent-wash);
+  box-shadow: inset 3px 0 0 var(--accent);
+}
+
+.dock-note {
+  padding: 11px 16px;
+  color: var(--muted);
+  font-size: 10.5px;
+}
+
+/* Folded: a labelled rail that keeps the way back on screen. */
+.dock-rail-label {
+  display: none;
+}
+
+.dock.is-folded {
+  width: 41px;
+}
+
+.dock.is-folded .dock-readout {
+  justify-content: center;
+  padding: 12px 0;
+}
+
+.dock.is-folded .dock-readout > :not(.dock-fold) {
+  display: none;
+}
+
+.dock.is-folded .dock-fold {
+  margin-left: 0;
+}
+
+.dock.is-folded .dock-fold svg {
+  transform: rotate(180deg);
+}
+
+.dock.is-folded .dock-body {
+  display: none;
+}
+
+.dock.is-folded .dock-rail-label {
+  display: block;
+  overflow: hidden;
+  min-height: 0;
+  margin: 14px auto 0;
+  color: var(--muted);
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 9.5px;
+  font-weight: 700;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  writing-mode: vertical-rl;
+}
+
+/* The open location, in the accent the results list marks its selected row
+   with, so the rail says the same thing the panel behind it would. */
+.dock-rail-name {
+  color: var(--accent);
+}
+
+.dock-rail-name[hidden] {
+  display: none;
+}
