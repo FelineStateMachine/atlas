@@ -407,7 +407,98 @@ something for RFC 3339.
 disk.
 
 *(The layout a new archive would use — and whether one is worth writing — is
-the next wave's question. Nothing new inherits this naming.)*
+still an open question. Nothing new inherits this naming.)*
+
+### 3.1 Writing it
+
+`internal/generate/crawl` is the write path, and it is **the only package in
+Atlas permitted to reach the network**. `depcheck`'s `netconfine` rule is what
+makes that true rather than customary: no other package in the format or
+pipeline lanes may import `net/http` at all, and the outbound half of it is
+reported anywhere outside this package. Fetching is crawling wherever it
+happens — the enrich lane's national hydrography evidence is captured here too,
+and travels in the archive, so its join re-runs against the archive rather than
+against a live endpoint.
+
+**Politeness.** One `Fetcher` per run holds a single monotonically advancing
+instant under a lock. Every request of the run takes the next slot, so two
+requests are never closer together than the interval (150 ms by default,
+under seven a second) however many goroutines are waiting. It is not a token
+bucket on purpose: a bucket lets a run that idled spend its savings in a burst,
+which is the exact shape a rate limiter is watching for. A 429 or a 5xx pushes
+*the schedule* forward — the origin's own `Retry-After` where it gives one,
+exponential backoff otherwise — so the whole run slows rather than the one
+worker that heard the refusal. Four attempts including the first; beyond that,
+an origin that is refusing is refusing.
+
+The user-agent is a browser's string, and that is a decision. Several of these
+origins answer 403 to anything else, and a 403 is indistinguishable from "never
+published" in a tile pyramid, so an honest header would silently punch holes in
+an archive. The politeness that matters is in the behaviour.
+
+**Absence is a result.** 404 and 403 both mean *not published*: a pyramid is a
+rectangle and its corners are usually empty. It is recorded as `absent` so a
+re-crawl does not ask again. 202 means the origin is preparing the answer, and
+the caller waits. Anything else non-200 is a disagreement rather than a hiccup
+and is not retried.
+
+**Content addressing.** A capture's body is written to a path that is its own
+SHA-256, so writing it twice writes the same bytes; the index is appended to
+only when that hash has never been seen. `capturedAt` is therefore **first-seen,
+never last-verified**, and a re-crawl of unchanged data leaves the working tree
+byte for byte as it was. That is the property everything replayable stands on:
+the translators replay, the derivation stamps stand still, and a rebuild writes
+the file that is already there.
+
+**Nothing is renamed.** A register entry is found by identity, merged in place,
+and keeps its position — so a directory named once is named forever, and a field
+this package has never heard of survives a run. Directory names are only ever
+computed on first sight.
+
+**The same-slug policy.** Two publishers describe Night City. Each registers the
+volume under its *plain* title, so their builds answer for one library entry and
+the newest capture is the one a reader sees; each names its *directory* from a
+title carrying its own prefix (`IGN Cyberpunk 2077`), so they do not fight over
+one directory. And each source's archive identities carry a bit of their own —
+IGN at 2³², Piggyback at 2³³, NASA Trek at 2³⁴, ArcGIS at 2³⁵ — over an FNV-1a
+hash of a stable name in the low 31 bits, all held under 2⁵³ so a JSON round
+trip through `float64` is exact.
+
+**A crawl is interruptible.** Every write is idempotent and every fetched thing
+is recorded before the next is asked for, so stopping a run is a normal way to
+end it. A resumed run skips what is cached and does not re-ask for what was
+absent.
+
+### 3.2 The crawlers
+
+```
+atlas crawl -archive DIR -source NAME TARGET [-n] [-interval D] [-concurrency N] [-max-zoom Z] [-on DATE]
+atlas crawl -source list
+```
+
+A crawler is the outward half of a source, and a separate package from its
+reader on purpose: the two have opposite properties. A reader is a pure function
+of an archive; a crawler is the only thing in Atlas that can fail because
+somebody else's server is having a bad afternoon.
+
+| crawler | target | runnable here |
+| --- | --- | --- |
+| `ign` | `<objectSlug>/<mapSlug>` | code-complete, not run — the captures are archived |
+
+The game sources' captures are archived and their endpoints are somebody else's
+editorial work, so their crawlers are kept complete and are not run against live
+endpoints. The ArcGIS/USGS crawler is the one that may run, because its data is
+public — it lands with the offline basemap renderer it feeds (§4.4), since what
+that renders is exactly what that crawl fetches.
+
+The IGN crawler carries this lane's most consequential gate. Some IGN wikimap
+pages are MapGenie maps in an IGN frame: the page declares a MapGenie game id
+and serves MapGenie's tiles. Archiving one would put a second, worse copy of
+data Atlas already reads properly into the archive, where a later merge would
+fold a source into itself and report a beautiful agreement between a thing and
+itself. The evidence is the page's own declaration, and it exists only while the
+crawler is looking at the page — which is why the refusal lives there and the
+reader says plainly that it cannot check.
 
 ---
 
@@ -756,13 +847,15 @@ unmovable to a second source describing the same ground.
 ## 7. The CLI
 
 ```
+atlas crawl     -archive DIR -source NAME TARGET [-n]
 atlas tiles     -archive DIR -output DIR [-force] [volume…]
 atlas compose   -archive DIR -tiles INDEX [-bundles DIR] [-n] [volume…]
 atlas translate -archive DIR [-volume SLUG] [-artwork] [-list]
 ```
 
-`tiles` folds captured frames into the pyramids composition packs, carrying over
-every pyramid whose captures have not moved.
+`crawl` is the network-touching, hand-run step: §3.2. `tiles` folds captured
+frames into the pyramids composition packs, carrying over every pyramid whose
+captures have not moved.
 
 `compose` builds every volume the archive holds a registered source for, or
 only the ones named. `-n` composes and stamps without writing. With no
