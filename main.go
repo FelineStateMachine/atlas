@@ -40,6 +40,11 @@ const catalogChangedTopic = "atlas:catalog-changed"
 var assets embed.FS
 
 func main() {
+	// A development build asked to run headless serves the same application
+	// over plain HTTP and opens no window: the parity sweep's whole ask.
+	if runHeadless(assets) {
+		return
+	}
 	// Created inside Routes, which the framework calls while opening the
 	// application, and used again at startup below; Open completes before the
 	// window exists, so the order holds.

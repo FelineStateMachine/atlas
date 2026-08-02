@@ -56,11 +56,15 @@ const cli = (...cliArgs) => {
 // the file survives from earlier sessions and would otherwise answer for a
 // server that is no longer there.
 const launchedAt = Date.now();
+// ATLAS_HEADLESS keeps the sweep out of the reader's way: the dev build
+// serves the same frontend over HTTP and opens no window at all.
 const app = spawn("go", ["run", "-tags", "dev", "."], {
   cwd: repoRoot,
-  env: flag("--bundles")
-    ? { ...process.env, ATLAS_BUNDLES_DIR: resolve(flag("--bundles")) }
-    : process.env,
+  env: {
+    ...process.env,
+    ATLAS_HEADLESS: "1",
+    ...(flag("--bundles") ? { ATLAS_BUNDLES_DIR: resolve(flag("--bundles")) } : {}),
+  },
   stdio: "ignore",
   detached: true,
 });
