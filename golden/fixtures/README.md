@@ -122,9 +122,15 @@ in the output itself is corrected.
 `transcript.json` is every recorded request and its answer: status, response
 headers, body length and body hash, with small text bodies quoted. It covers
 the catalog, a payload, a packed payload, a text payload, an icon and a tile
-for every fixture volume *except the city*, a range request, eight refusals,
-the application shell and the two shell assets the headless host answers for.
+for every fixture volume, a range request, eight refusals, the application
+shell and the two shell assets the headless host answers for — 43 exchanges.
 `catalog.json` is the catalog body as served.
+
+The sampling is derived from what is served rather than from a list kept in
+step by hand, so the city joining the set moved it: the volumes are walked in
+the catalog's order, and `bend-or` sorts first, which is why the range request
+and the eight refusals are now spelled against the city's own world and its
+`.png` tiles. That is a re-capture from the reference tree, not an edit.
 
 Two values are machine-specific and are replaced: the `Date` header, and the
 `bundlesDir` the catalog reports. Nothing else is normalized.

@@ -57,8 +57,16 @@ import (
 )
 
 const (
-	fixturesDir  = "../fixtures"
-	registryEnv  = "ATLAS_REGISTRY_DIR"
+	fixturesDir = "../fixtures"
+	registryEnv = "ATLAS_REGISTRY_DIR"
+
+	// cityDirEnv and cityDirDefault are golden/capture/capture.sh's own
+	// convention for the one fixture volume that is not installed anywhere:
+	// the public proof city, built for the fixture and read from where it was
+	// built.
+	cityDirEnv     = "ATLAS_GOLDEN_CITY_DIR"
+	cityDirDefault = "../../dist/bundles"
+
 	datePlace    = "<date>"
 	bundlesPlace = "<bundles-dir>"
 )
@@ -123,12 +131,15 @@ type transcript struct {
 }
 
 // fixtureSet is the part of FIXTURES.json this test needs: which file is the
-// serving build of each fixture volume.
+// serving build of each fixture volume, and whether that file is one the
+// library holds at all. A volume carrying builtFor was built for the fixture
+// rather than found installed, and is read from where it was built.
 type fixtureSet struct {
 	Volumes []struct {
-		Slug  string `json:"slug"`
-		File  string `json:"file"`
-		Stamp string `json:"stamp"`
+		Slug     string          `json:"slug"`
+		File     string          `json:"file"`
+		Stamp    string          `json:"stamp"`
+		BuiltFor json.RawMessage `json:"builtFor,omitempty"`
 	} `json:"volumes"`
 }
 
@@ -347,15 +358,23 @@ func synthesizedStore(t *testing.T) hostenv.VolumeStore {
 	return store
 }
 
-// registryStore builds a library holding exactly the fixture builds, out of a
-// real bundles directory, the way golden/capture/capture.sh does: the fixture
+// registryStore builds a library holding exactly the fixture builds, the way
+// golden/capture/capture.sh builds the registry it records from: the fixture
 // files linked into a directory of their own, so the fold answers for the
 // fixtures and for nothing else.
+//
+// The files come from two places, for the same reason the capture script reads
+// two: the installed library holds the games and the planet, and the public
+// city was built for the fixture and lives where it was built.
 func registryStore(t *testing.T) hostenv.VolumeStore {
 	t.Helper()
 	dir := os.Getenv(registryEnv)
 	if dir == "" {
 		t.Skipf("set %s to a bundles directory to replay the recorded bodies", registryEnv)
+	}
+	cityDir := os.Getenv(cityDirEnv)
+	if cityDir == "" {
+		cityDir = cityDirDefault
 	}
 
 	data, err := os.ReadFile(filepath.Join(fixturesDir, "FIXTURES.json"))
@@ -372,9 +391,17 @@ func registryStore(t *testing.T) hostenv.VolumeStore {
 		if volume.File == "" {
 			continue
 		}
-		source := filepath.Join(dir, volume.File)
+		from, convention := dir, registryEnv
+		if len(volume.BuiltFor) > 0 {
+			from, convention = cityDir, cityDirEnv
+		}
+		source, err := filepath.Abs(filepath.Join(from, volume.File))
+		if err != nil {
+			t.Fatal(err)
+		}
 		if _, err := os.Stat(source); err != nil {
-			t.Skipf("%s holds no %s: the library has moved on from the fixture set", dir, volume.File)
+			t.Skipf("no %s in %s: point %s at the directory holding it, or re-capture the fixture set",
+				volume.File, from, convention)
 		}
 		if err := os.Symlink(source, filepath.Join(library, volume.File)); err != nil {
 			t.Fatal(err)

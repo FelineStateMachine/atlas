@@ -10,7 +10,7 @@
     "id": "seam-assets",
     "suite": "http-replay",
     "fixture": "GET /static/app.css, GET /static/app.js",
-    "reason": "The recorded bodies are the reference implementation's built frontend bundle and stylesheet. The seam is a separate lane that lands in M6, and the application must build and serve without its assets present (issue #5 §3.2), so a host that mounted no static tree answers 404. The replay asserts exactly that, which makes this waiver a check of the deletability principle rather than an unchecked difference.",
+    "reason": "The recorded bodies are the reference implementation's built frontend bundle and stylesheet (re-recorded with the six-volume fixture set, so app.js is the reference tree's current build -- see http.tree in FIXTURES.json). The seam is a separate lane that lands in M6, and the application must build and serve without its assets present (issue #5 §3.2), so a host that mounted no static tree answers 404. The replay asserts exactly that, which makes this waiver a check of the deletability principle rather than an unchecked difference.",
     "added": "2026-08-02"
   }
 ]

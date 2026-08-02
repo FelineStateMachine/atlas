@@ -238,8 +238,7 @@
     "defects": "measure/NOTES.md -- annotated there, never corrected in the output"
   },
   "http": {
-    "recorded": "the headless application (ATLAS_HEADLESS=1) serving a registry holding exactly the five game and planet volumes -- the set as it stood before the city joined it",
-    "cityGap": "the transcript predates bundles/bend-or and does not sample it. Re-recording the six-volume registry is one run of golden/capture/http, and it moves the range request and the eight refusals onto bend-or, which sorts first: additional coverage at the cost of re-spelling exchanges already pinned, so it is left for whoever owns the HTTP replay gate to decide.",
+    "recorded": "the headless application (ATLAS_HEADLESS=1) serving a registry holding exactly the six committed fixture volumes, the city among them",
     "files": [
       "http/transcript.json",
       "http/catalog.json"
@@ -247,6 +246,8 @@
     "normalized": [
       "the Date header",
       "the catalog's bundlesDir, which is where this machine keeps its library"
-    ]
+    ],
+    "sampling": "derived from what is served, not from a table: the catalog names the volumes and each volume's first world payload names its lenses and icons, so the transcript follows the road a client takes. The volumes are walked in the catalog's order, which is by title, so bend-or is sampled first and carries the range request and the eight refusals.",
+    "tree": "recorded from the reference tree on the clean-room branch, whose application code -- routes.go, internal/bundle -- is unchanged since the golden-reference tag. The one thing that has moved is assets/app.js, rebuilt when the parity tour was extended, so the /static/app.js exchange records the newer bundle; that exchange is waived by the http-replay gate and asserted at 404 there, because the seam is a lane the rewrite has not built yet."
   }
 }
