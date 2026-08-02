@@ -1,6 +1,7 @@
 // Behavior-parity tour. Pressing F9 in a running Atlas walks the
 // user-reachable surface — selection, search, filters, zones, the geohash
-// grid, keyboard shortcuts, the overview, and map switching — records a
+// grid, keyboard shortcuts, the overview, the globe, the library's import
+// and reconcile, the label-policy ladder, and map switching — records a
 // diagnostics snapshot after every step, and posts the log to the
 // development build's /parity/result route, which writes it to disk. Two
 // runs of the same build must produce identical output for every stable
@@ -8,8 +9,17 @@
 // the saved session before and after so every run starts from the same
 // place, and it announces completion with an on-screen badge so a driver
 // that can only look at pixels knows when to collect the file.
+//
+// A snapshot is the application's own diagnostics object plus what the
+// harness can see for itself from outside: the pane, the library's selects,
+// the label toggles as they are rendered, the saved session, and the route.
+// Everything the harness adds is read off the DOM, off localStorage, or off
+// the seams the app already opens for it (__atlasDebug, __atlasGlobe), so
+// the contract survives an application rewritten behind it. golden/parity/
+// SCHEMA.md is the written form of that contract.
 const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 const tourQuery = (selector) => document.querySelector(selector);
+const sessionKey = "atlas.session.v3";
 
 async function waitForBoot() {
   for (let i = 0; i < 300; i += 1) {
@@ -18,19 +28,182 @@ async function waitForBoot() {
   }
 }
 
+// What the harness can see of the pane the reader is looking at. The chart
+// says where it stands through the diagnostics object; the globe says so
+// through the seam it opens for exactly this -- counts of what it has drawn,
+// never a handle on it -- and through the overview's reticle, which is the
+// globe's camera written out in pixels on a surface the chart shares. A
+// build with no globe at all still answers every key here, so the shape of a
+// step never depends on which pane happens to be up.
+function paneOf() {
+  const toggle = tourQuery("#globe-toggle");
+  const seam = window.__atlasGlobe;
+  const box = tourQuery("#overview-viewport")?.style;
+  const firstTile = seam ? [...seam.detail.tiles.keys()].sort()[0] : undefined;
+  return {
+    globeOffered: toggle ? !toggle.hidden : false,
+    globeActive: globeActive(toggle),
+    chartHidden: Boolean(tourQuery("#map")?.hidden),
+    globeHidden: tourQuery("#globe") ? Boolean(tourQuery("#globe").hidden) : true,
+    globeBuilt: Boolean(seam),
+    detailLens: seam ? seam.detail.lens || "" : "",
+    detailTiles: seam ? seam.detail.tiles.size : 0,
+    // The pyramid level the camera's distance asked for, which is the whole
+    // of what the neighborhood of tiles means; the tile names themselves are
+    // a hundred strings saying the same thing.
+    detailZoom: firstTile ? Number(firstTile.split("/")[0]) : null,
+    gridCells: seam?.grid.group ? seam.grid.group.children.length : 0,
+    gridCell: seam ? seam.grid.cell ?? null : null,
+    gridFitKey: seam ? seam.grid.fitKey || "" : "",
+    // The label key is the globe's camera as the globe itself rounds it --
+    // latitude, longitude, altitude, and the cell being held to.
+    labelKey: seam ? seam.labels.key || "" : "",
+    labelSprites: seam?.labels.group ? seam.labels.group.children.length : 0,
+    // Every pin the sphere has ever built a sprite for, and the ones a
+    // filter is currently letting through: the second is the globe's own
+    // answer to the count the footer gives for the chart.
+    pinSprites: seam ? seam.sprites.size : 0,
+    visibleSprites: seam
+      ? [...seam.sprites.values()].filter((sprite) => sprite.visible).length
+      : 0,
+    overviewShelfHidden: Boolean(tourQuery("#overview-shelf")?.hidden),
+    // The locator's box, in whole pixels, and only while the sphere is up.
+    // There it is the one place the globe's camera is ever written down, and
+    // it is recomputed on every camera event, so it is exact. Over the chart
+    // it is not readable as a golden: the overview memoizes on the view's
+    // extent rounded to whole world units and writes the box from the
+    // unrounded extent, so two runs that finish a fly-to a fraction of a unit
+    // apart share the memo key and keep whichever box their own last frame
+    // happened to write. The chart's camera is in the snapshot proper and
+    // says the same thing without the staleness.
+    reticle: globeActive(toggle) && box
+      ? [box.left, box.top, box.width, box.height].map(pixel).join(" ")
+      : "",
+  };
+}
+
+function globeActive(toggle) {
+  return toggle?.getAttribute("aria-pressed") === "true";
+}
+
+function pixel(value) {
+  const number = Number.parseFloat(value);
+  return Number.isFinite(number) ? Math.round(number) : 0;
+}
+
+// The library as the chrome offers it: which volumes, worlds and lenses are
+// on the selects, and whether the two ways into an import are open.
+function libraryOf() {
+  const values = (selector) => [...(tourQuery(selector)?.options || [])].map((o) => o.value);
+  return {
+    volumes: values("#volume-select"),
+    volumeValue: tourQuery("#volume-select")?.value ?? null,
+    worlds: values("#world-select"),
+    worldValue: tourQuery("#world-select")?.value ?? null,
+    lenses: values("#lens-select"),
+    lensValue: tourQuery("#lens-select")?.value ?? null,
+    lensFieldHidden: Boolean(tourQuery("#lens-field")?.hidden),
+    emptyStateHidden: Boolean(tourQuery("#empty-state")?.hidden),
+    addBundlesDisabled: Boolean(tourQuery("#add-bundles")?.disabled),
+    emptyOpenDisabled: Boolean(tourQuery("#empty-open")?.disabled),
+  };
+}
+
+// The label-policy ladder as it was actually rendered. Each toggle says
+// whether its collection's names are speaking; a surface that flipped the
+// model and forgot to repaint the button shows up here, and the two lists
+// together are the effective policy for the whole legend in one glance.
+function labelsOf() {
+  const speaking = [];
+  const silent = [];
+  for (const button of document.querySelectorAll("[data-label-toggle]")) {
+    const id = button.dataset.labelToggle;
+    (button.getAttribute("aria-pressed") === "true" ? speaking : silent).push(id);
+  }
+  speaking.sort();
+  silent.sort();
+  return { speaking, silent };
+}
+
+// The saved arrangement, read where the application writes it. It is the one
+// place the reader's choices are written down whole -- what is hidden, what
+// is folded, which collections were told to speak or keep quiet, where the
+// camera stands -- so it is the harness's ledger for everything the
+// diagnostics object summarizes only in counts. The camera is rounded the
+// way cameraOf rounds it: sub-pixel noise is not a difference.
+function sessionOf() {
+  let stored = null;
+  try {
+    stored = JSON.parse(localStorage.getItem(sessionKey) || "null");
+  } catch {
+    stored = null;
+  }
+  if (!stored || !stored.volumes) return { last: null, entry: null };
+  const entry = stored.volumes[stored.last];
+  if (!entry) return { last: stored.last ?? null, entry: null };
+  return {
+    last: stored.last ?? null,
+    entry: {
+      volume: entry.volume,
+      world: entry.world,
+      lens: entry.lens,
+      center: (entry.center || []).map((value) => Math.round(value)),
+      zoom: Number((entry.zoom || 0).toFixed(3)),
+      hidden: [...(entry.hidden || [])].sort(),
+      collapsed: [...(entry.collapsed || [])].sort(),
+      expanded: [...(entry.expanded || [])].sort(),
+      // Pairs of collection id and the word the reader chose for it.
+      labels: [...(entry.labels || [])].map((pair) => pair.join("=")).sort(),
+      overviewDocked: entry.overviewDocked ?? null,
+      dockFolded: entry.dockFolded ?? null,
+      dockDismissed: entry.dockDismissed ?? null,
+    },
+  };
+}
+
+function observe() {
+  return {
+    pane: paneOf(),
+    library: libraryOf(),
+    labels: labelsOf(),
+    session: sessionOf(),
+    route: location.hash,
+  };
+}
+
 // A step is settled when tiles stop arriving and the view stops moving. Each
 // poll waits through a real animation frame so work the app deferred with
 // requestAnimationFrame - the post-selection map fit above all - lands during
-// the step that caused it rather than surfacing in a later one.
+// the step that caused it rather than surfacing in a later one. The pane's
+// own readings are part of the key: on the globe the chart's view never
+// moves, so a step that flew the camera across the planet and pulled a
+// neighborhood of tiles down after it would otherwise read as settled before
+// any of it had happened.
 async function settle() {
   let previous = "";
-  for (let i = 0; i < 100; i += 1) {
+  // Two agreeing polls in a row, not one. A fly-to that pauses at the top of
+  // its arc reads as arrived for a single poll, and the next interaction then
+  // begins over a camera still in motion -- which lands the same reader in
+  // the same place by a different route, and a route is what a tile counter
+  // measures.
+  let stable = 0;
+  for (let i = 0; i < 150; i += 1) {
     await sleep(120);
     await new Promise((resolve) => requestAnimationFrame(resolve));
     window.advanceTime?.();
     const s = window.__atlasDebug.snapshot();
-    const key = JSON.stringify([s.zoom, s.center, s.resolution, s.tileStats]);
-    if (key === previous) return;
+    const pane = paneOf();
+    const key = JSON.stringify([
+      s.zoom, s.center, s.resolution, s.tileStats,
+      pane.detailTiles, pane.detailZoom, pane.gridCells, pane.gridFitKey,
+      pane.labelKey, pane.labelSprites, pane.visibleSprites, pane.reticle,
+    ]);
+    if (key === previous) {
+      stable += 1;
+      if (stable >= 2) return;
+    } else {
+      stable = 0;
+    }
     previous = key;
   }
 }
@@ -139,13 +312,14 @@ function badge(text, failed = false) {
   element.textContent = text;
 }
 
-async function tour() {
+async function tour(options = {}) {
   const steps = [];
   const problems = [];
   const snapshotOf = (name) => steps.find((step) => step.name === name)?.snapshot;
+  const complain = (message) => problems.push(message);
   const record = async (name) => {
     await settle();
-    const snapshot = JSON.parse(window.render_game_to_text());
+    const snapshot = { ...JSON.parse(window.render_game_to_text()), ...observe() };
     steps.push({ name, snapshot });
     // Every step is a filter check: whatever the tour just did, the map, the
     // footer and the dock have to be telling the same story afterwards.
@@ -153,12 +327,15 @@ async function tour() {
     return snapshot;
   };
 
-  // Start from a virgin session on the first game so every run of the tour
-  // begins in the same place regardless of what was explored beforehand.
+  // Start from a virgin session so every run of the tour begins in the same
+  // place regardless of what was explored beforehand. A baseline is captured
+  // per volume, so the caller may name which volume this run is about; with
+  // nothing named -- the F9 route -- it is the first on offer, as ever.
   await waitForBoot();
   localStorage.clear();
   const gameSelect = tourQuery("#volume-select");
-  const firstGame = gameSelect.options[0].value;
+  const offered = [...gameSelect.options].map((option) => option.value);
+  const firstGame = offered.includes(options.volume) ? options.volume : offered[0];
   change(gameSelect, firstGame);
   await record("initial");
 
@@ -393,25 +570,247 @@ async function tour() {
     change(mapSelect, mapSelect.options[0].value);
     await record("map-first");
   }
-  if (gameSelect.options.length > 1) {
-    change(gameSelect, gameSelect.options[1].value);
+  // The neighbour rather than the second option: with a volume pinned, the
+  // second on the list may be the one already open, and a switch to where the
+  // reader is standing proves nothing about coming back.
+  const otherGame = offered.find((slug) => slug !== firstGame);
+  if (otherGame) {
+    change(gameSelect, otherGame);
     await record("game-second");
     change(gameSelect, firstGame);
     await record("game-first");
   }
 
+  await globePane(record, complain);
+  await libraryFlow(record, complain);
+  await labelLadder(record, complain);
+
   localStorage.clear();
-  return { viewport: [window.innerWidth, window.innerHeight], problems, steps };
+  return {
+    volume: firstGame,
+    viewport: [window.innerWidth, window.innerHeight],
+    problems,
+    steps,
+  };
+}
+
+// The globe pane. A world that declares itself a sphere with a mapping the
+// viewer can invert offers a second camera on the same data, and everything
+// the chart answers to -- zoom, Z, the cell grid, a filter, a selection --
+// has to answer there too. Which is what makes leaving it the real check:
+// the chart opens on what the globe was facing, so a flip out and back is a
+// round trip through the declared projection and must land where it started.
+async function globePane(record, complain) {
+  const before = await record("globe-offered");
+  const toggle = tourQuery("#globe-toggle");
+  if (!before.pane.globeOffered || !toggle) return;
+
+  toggle.click();
+  const entered = await record("globe-entered");
+  if (!entered.pane.globeActive || entered.pane.globeHidden || !entered.pane.chartHidden) {
+    complain("globe-entered: the toggle reads pressed but the panes did not swap");
+  }
+  // The zoom controls read as distance on the sphere. Past the depth the
+  // base skin was woven at, the neighborhood of pyramid tiles under the
+  // camera comes down after it -- three presses is what it takes to get
+  // below that depth on the shallowest lens a sphere is published with, and
+  // the layer is the whole point of the pane, so the tour goes there.
+  tourQuery("#zoom-in").click();
+  await record("globe-zoomed-in");
+  tourQuery("#zoom-in").click();
+  tourQuery("#zoom-in").click();
+  const deep = await record("globe-zoomed-deep");
+  if (deep.pane.detailTiles === 0) {
+    complain("globe-zoomed-deep: no pyramid tiles arrived under a camera past the skin's depth");
+  }
+  // Z raises the names nearest what the camera faces, and lets them go.
+  keydown("z");
+  await record("globe-labels-held");
+  keyup("z");
+  const released = await record("globe-labels-released");
+  if (released.pane.labelSprites !== 0) {
+    complain("globe-labels-released: the sphere kept its names after Z was let go");
+  }
+  // A second lens is a second skin over the same ground: the neighborhood
+  // under the camera is dropped and refetched through the new pyramid.
+  const lensSelect = tourQuery("#lens-select");
+  if (lensSelect && lensSelect.options.length > 1) {
+    change(lensSelect, lensSelect.options[1].value);
+    const swapped = await record("globe-lens-second");
+    if (swapped.pane.detailLens === deep.pane.detailLens) {
+      complain("globe-lens-second: the sphere kept the pyramid of the lens it left");
+    }
+    change(lensSelect, lensSelect.options[0].value);
+    await record("globe-lens-first");
+  }
+  // The cell grid divides the sphere from the same plan the chart tiles.
+  keydown("g");
+  await record("globe-grid-open");
+  type("#grid-input", "m");
+  await record("globe-grid-descended");
+  keydown("Escape");
+  keydown("Escape");
+  await record("globe-grid-closed");
+  // A filter is one filter: hiding a collection culls its pins from the
+  // sphere the same moment it culls them from the chart.
+  const checkbox = tourQuery("#legend input[data-collection]");
+  if (checkbox) {
+    const lit = await record("globe-collection-shown");
+    checkbox.click();
+    const hidden = await record("globe-collection-hidden");
+    if (hidden.pane.visibleSprites >= lit.pane.visibleSprites) {
+      complain("globe-collection-hidden: the sphere kept every pin the chart just lost");
+    }
+    checkbox.click();
+    const restored = await record("globe-collection-restored");
+    if (restored.pane.visibleSprites !== lit.pane.visibleSprites) {
+      complain("globe-collection-restored: the sphere did not get its pins back");
+    }
+  }
+  // A row in the dock is a selection wherever the reader is standing.
+  const row = [...document.querySelectorAll("#dock-results .search-result")][0];
+  if (row) {
+    row.click();
+    await record("globe-selected");
+    tourQuery("#close-detail").click();
+    await record("globe-detail-closed");
+  }
+  tourQuery("#zoom-out").click();
+  tourQuery("#zoom-out").click();
+  tourQuery("#zoom-out").click();
+  await record("globe-zoomed-out");
+  toggle.click();
+  const left = await record("globe-left");
+  if (left.pane.globeActive || !left.pane.globeHidden || left.pane.chartHidden) {
+    complain("globe-left: the toggle reads unpressed but the panes did not swap back");
+  }
+  if (left.pane.detailTiles !== 0) {
+    complain("globe-left: a put-away globe kept the neighborhood of tiles under its camera");
+  }
+  // Out and straight back: the flip carries the reader's place both ways, so
+  // the chart has to be where it was before the pane ever changed.
+  const parked = await record("globe-parked");
+  toggle.click();
+  await record("globe-reentered");
+  toggle.click();
+  const returned = await record("globe-returned");
+  if (!sameCamera(parked, returned)) {
+    complain("globe-returned: a flip to the sphere and back moved the chart's camera");
+  }
+}
+
+// The library: adding a volume, and reconciling with whatever the catalog
+// now holds. The picker itself is native and cannot be raised without a
+// window, so a headless run exercises the refusal rather than the choosing;
+// what it does exercise whole is the reconcile the import ends with, which
+// is the same reconcile a bundle dropped into the watched directory causes.
+// Against an unchanged catalog that reconcile must be invisible: the reader
+// keeps their volume, their world, their camera and their filters.
+async function libraryFlow(record, complain) {
+  const before = await record("library-initial");
+  const button = tourQuery("#add-bundles");
+  if (button) {
+    button.click();
+    const asked = await record("import-refused");
+    if (asked.library.volumes.join() !== before.library.volumes.join()) {
+      complain("import-refused: a refused import changed the volumes on offer");
+    }
+    if (asked.library.addBundlesDisabled) {
+      complain("import-refused: the import button was left disabled");
+    }
+  }
+  await window.__atlasDebug.refreshCatalog();
+  const same = await record("catalog-reconciled");
+  if (same.volume !== before.volume || same.world !== before.world) {
+    complain("catalog-reconciled: reconciling an unchanged catalog moved the reader");
+  }
+  if (!sameCamera(before, same)) {
+    complain("catalog-reconciled: reconciling an unchanged catalog moved the camera");
+  }
+  // The same reconcile with the reader's work on the map: a filter standing,
+  // a card open. None of it belongs to the catalog and none of it may move.
+  const checkbox = tourQuery("#legend input[data-collection]");
+  if (checkbox) {
+    checkbox.click();
+    const filtered = await record("catalog-reconcile-filtered");
+    await window.__atlasDebug.refreshCatalog();
+    const after = await record("catalog-reconciled-filtered");
+    if (after.sync.drawn !== filtered.sync.drawn ||
+      JSON.stringify(after.filters) !== JSON.stringify(filtered.filters)) {
+      complain("catalog-reconciled-filtered: the reconcile spent the reader's filter");
+    }
+    checkbox.click();
+    await record("catalog-reconcile-cleared");
+  }
+}
+
+// The label-policy ladder. A collection's names speak or wait by the
+// producer's word, and the reader's toggle overrides it -- but only while it
+// disagrees: flipped back to what was curated, the override has nothing left
+// to say and is dropped rather than stored, which is visible in the saved
+// session and nowhere else. And a collection the reader silenced stays
+// silent under Z, because holding Z reveals what is merely optional, never
+// what someone chose to quiet.
+async function labelLadder(record, complain) {
+  const initial = await record("label-ladder-initial");
+  const buttons = [...document.querySelectorAll("[data-label-toggle]")];
+  if (buttons.length === 0) return;
+
+  // A collection whose names speak by curation is the one that can be
+  // silenced; with none speaking, the first toggle still proves the ladder.
+  const speaking = buttons.find(
+    (button) => button.getAttribute("aria-pressed") === "true",
+  ) || buttons[0];
+  const id = speaking.dataset.labelToggle;
+  const overridden = (snapshot) =>
+    snapshot.session.entry?.labels.some((pair) => pair.startsWith(`${id}=`)) ?? false;
+
+  speaking.click();
+  const flipped = await record("label-override-set");
+  if (!overridden(flipped)) {
+    complain("label-override-set: the flip disagreed with the curation and was not recorded");
+  }
+  // Held down, Z speaks for everything optional. What the reader quieted is
+  // not optional, and must stay quiet.
+  keydown("z");
+  const held = await record("label-silenced-held");
+  if (held.labels.speaking.includes(id) !== flipped.labels.speaking.includes(id)) {
+    complain("label-silenced-held: Z overrode a policy the reader chose");
+  }
+  keyup("z");
+  await record("label-silenced-released");
+
+  speaking.click();
+  const restored = await record("label-override-dropped");
+  if (overridden(restored)) {
+    complain("label-override-dropped: flipping back to the curated word left an override behind");
+  }
+  if (JSON.stringify(restored.labels) !== JSON.stringify(initial.labels)) {
+    complain("label-override-dropped: the ladder did not come back to where it started");
+  }
+
+  // Every toggle at once, then every toggle back: the whole legend's policy
+  // is one ledger, and it has to survive being turned over.
+  for (const button of buttons) button.click();
+  await record("label-ladder-all-flipped");
+  for (const button of buttons) button.click();
+  const back = await record("label-ladder-restored");
+  if (JSON.stringify(back.labels) !== JSON.stringify(initial.labels)) {
+    complain("label-ladder-restored: turning the whole ladder over and back did not restore it");
+  }
+  if (back.session.entry?.labels.length) {
+    complain("label-ladder-restored: overrides that agree with the curation were kept");
+  }
 }
 
 let touring = false;
 
-async function runTour() {
+async function runTour(options = {}) {
   if (touring) return;
   touring = true;
   badge("parity tour running…");
   try {
-    const result = await tour();
+    const result = await tour(options);
     const response = await fetch("/parity/result", {
       method: "POST",
       headers: { "Content-Type": "application/json" },

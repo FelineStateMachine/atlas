@@ -1,0 +1,16 @@
+# The link farm capture.mjs assembles from the installed registry. Links to
+# hundreds of megabytes of bundles; rebuilt from FIXTURES.json on every run.
+.bundles/
+
+# A fixture volume that may not be named in the repository, and its baseline.
+# The public proof city takes the slot over when it has a bundle; see the
+# city entry under pendingSlots in FIXTURES.json.
+FIXTURES.private.json
+private/
+
+# Anything the harness renders rather than records. Baselines are JSON; a
+# raster never enters the repository.
+*.png
+*.jpg
+*.webp
+screenshots/
