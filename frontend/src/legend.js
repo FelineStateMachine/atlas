@@ -175,7 +175,7 @@ export function collectionRow(collection) {
       '<svg class="collection-chevron" viewBox="0 0 16 16" aria-hidden="true"><path d="m6 4 4 4-4 4"/></svg>' +
       (kind === "path"
         ? '<svg class="collection-kind" viewBox="0 0 16 16" aria-hidden="true"><path d="M2.5 12.5c3-6 8-2 11-9"/></svg>'
-        : '<svg class="collection-kind" viewBox="0 0 16 16" aria-hidden="true"><path d="M3.5 4.5h9v7h-9z"/></svg>');
+        : '<svg class="collection-kind collection-kind-area" viewBox="0 0 16 16" aria-hidden="true"><path d="M8 4.2 12.6 11.6H3.4z"/></svg>');
   } else if (renderAs(collection) === "text") {
     icon = document.createElement("span");
     icon.className = "text-symbol";

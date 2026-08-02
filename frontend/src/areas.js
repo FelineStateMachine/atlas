@@ -212,6 +212,13 @@ export function syncZoneLayers() {
     renderZoneScrim();
     updateZoneIndexState();
   }
+  // Which features draw is each feature's own style to answer, and the
+  // answer may just have changed while the layers' visibility did not:
+  // soloing one collection keeps the layers up but must repaint them, or
+  // the last frame -- every collection drawn -- keeps standing.
+  state.layers.zones.changed();
+  state.layers.zoneTitles.changed();
+  state.layers.zoneTitleDetail.changed();
 }
 
 export function jumpToZone(zoneID) {

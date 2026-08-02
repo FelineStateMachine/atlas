@@ -157,6 +157,12 @@
   stroke-width: 1.5;
 }
 
+/* Ground reads as a rounded triangle, not a box: the join rounding only
+   shows once the stroke is heavy enough to carry it. */
+.collection-kind-area {
+  stroke-width: 2.6;
+}
+
 /* The reader's word over whether a collection speaks its names unasked.
    Revealed on rest like the isolate target beside it; lit while the
    effective policy is "always". */
