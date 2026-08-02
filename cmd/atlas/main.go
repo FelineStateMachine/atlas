@@ -3,6 +3,7 @@
 // spells one path.
 //
 //	atlas serve -bundles DIR      # the headless application host
+//	atlas dev   -bundles DIR      # the same, reading its chrome from the working copy
 //
 // The subcommand table is explicit and lives in this file. Each subcommand is
 // defined in its own file beside it, as a function returning its entry --
@@ -29,6 +30,7 @@ type command struct {
 // commands is the table. One line per subcommand.
 func commands() []command {
 	return []command{
+		devCommand(),
 		serveCommand(),
 	}
 }
