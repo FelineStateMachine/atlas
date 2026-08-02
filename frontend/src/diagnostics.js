@@ -53,7 +53,7 @@ export function exposeDiagnostics() {
         .map((zoneID) => state.zoneRecords.get(zoneID)?.zone.title)
         .filter(Boolean),
       focusedPins: state.pins.filter((pin) => !pin.filteredHidden &&
-        pin.insideHighlightedZone).length,
+        pin.passesZoneFilters).length,
     },
     grid: {
       enabled: state.gridEnabled,

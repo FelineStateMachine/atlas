@@ -1,6 +1,7 @@
 import Feature from "ol/Feature.js";
 import Point from "ol/geom/Point.js";
 
+import { groupByCollection, passesZoneFilters } from "./collections.js";
 import { closeDetail } from "./detail.js";
 import { elements } from "./dom.js";
 import { pinInGridCell } from "./grid.js";
@@ -62,26 +63,21 @@ export function applyPinFilters() {
   document.dispatchEvent(new Event("atlas:filters"));
 }
 
+// Highlights conjoin across collections and union within one: a pin stands
+// only where every highlighted collection claims it. With the v2 wire's one
+// implicit collection that is the plain union, so today's maps read exactly
+// as they always have; the second collection arrives with the v3 wire.
 export function updateZonePinFocus() {
   if (!state.highlightedZones.size) {
-    for (const pin of state.pins) pin.insideHighlightedZone = false;
+    for (const pin of state.pins) pin.passesZoneFilters = false;
     return;
   }
-  const records = [...state.highlightedZones]
+  const groups = groupByCollection([...state.highlightedZones]
     .map((zoneID) => state.zoneRecords.get(zoneID))
-    .filter(Boolean);
+    .filter(Boolean));
   for (const pin of state.pins) {
-    pin.insideHighlightedZone = records.some((record) =>
-      record.geometries.some((geometry) => geometryContainsCoordinate(geometry, pin.coordinate)));
+    pin.passesZoneFilters = passesZoneFilters(groups, pin.coordinate);
   }
-}
-
-export function geometryContainsCoordinate(geometry, coordinate) {
-  if (geometry.intersectsCoordinate(coordinate)) return true;
-  const closest = geometry.getClosestPoint(coordinate);
-  const x = closest[0] - coordinate[0];
-  const y = closest[1] - coordinate[1];
-  return x * x + y * y <= 1;
 }
 
 export function refreshPinRendering() {
@@ -152,7 +148,7 @@ export function onActiveShard(item) {
 }
 
 export function pinIsZoneCulled(pin) {
-  if (!state.highlightedZones.size || pin.insideHighlightedZone) return false;
+  if (!state.highlightedZones.size || pin.passesZoneFilters) return false;
   if (pin === state.selectedPin) return false;
   return !(Boolean(state.search) &&
     pin.location.title.toLocaleLowerCase().includes(state.search));

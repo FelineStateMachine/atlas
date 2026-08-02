@@ -31,13 +31,13 @@ export function featureOrder(left, right) {
 
 export function pinFeatureStyle(feature) {
   const pin = feature.get("pin");
-  if (!pin || pinIsHidden(pin) || pin.insideHighlightedZone || isPriorityPin(pin)) return null;
+  if (!pin || pinIsHidden(pin) || pin.passesZoneFilters || isPriorityPin(pin)) return null;
   return markerStyles(pin, false);
 }
 
 export function zonePinFeatureStyle(feature) {
   const pin = feature.get("pin");
-  if (!pin || !state.highlightedZones.size || !pin.insideHighlightedZone ||
+  if (!pin || !state.highlightedZones.size || !pin.passesZoneFilters ||
       pinIsHidden(pin) || isPriorityPin(pin)) {
     return null;
   }
@@ -55,7 +55,7 @@ export function pinLabelFeatureStyle(feature) {
 
 export function textFeatureStyle(feature) {
   const pin = feature.get("pin");
-  if (!pin || pinIsHidden(pin) || pin.insideHighlightedZone || isPriorityPin(pin)) return null;
+  if (!pin || pinIsHidden(pin) || pin.passesZoneFilters || isPriorityPin(pin)) return null;
   if (atMaximumNativeZoom()) return null;
   // A text pin is its own label, so the key that shows every name shows these
   // too -- otherwise the crowded categories, the ones held back the longest,
@@ -68,7 +68,7 @@ export function textFeatureStyle(feature) {
 
 export function textDetailFeatureStyle(feature) {
   const pin = feature.get("pin");
-  if (!pin || pinIsHidden(pin) || pin.insideHighlightedZone ||
+  if (!pin || pinIsHidden(pin) || pin.passesZoneFilters ||
       isPriorityPin(pin) || !atMaximumNativeZoom()) {
     return null;
   }
@@ -77,7 +77,7 @@ export function textDetailFeatureStyle(feature) {
 
 export function zoneTextFeatureStyle(feature) {
   const pin = feature.get("pin");
-  if (!pin || !state.highlightedZones.size || !pin.insideHighlightedZone ||
+  if (!pin || !state.highlightedZones.size || !pin.passesZoneFilters ||
       pinIsHidden(pin) || isPriorityPin(pin)) {
     return null;
   }
