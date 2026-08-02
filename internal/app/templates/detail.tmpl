@@ -10,7 +10,7 @@
 */}}
 {{define "detail"}}<article id="atlas-detail" class="pin-detail">{{with .Detail}}{{if .Open}}
   <button type="button" class="detail-back" id="close-detail" aria-label="Back to results"
-          hx-post="/session/select" hx-vals='{"feature":""}'>
+          hx-post="/session/select" hx-vals:append='{"feature":""}'>
     <svg viewBox="0 0 16 16" aria-hidden="true"><path d="M10 3 5 8l5 5"/></svg>
     Back to results
   </button>
@@ -22,7 +22,7 @@
   <p id="detail-description">{{.Description}}</p>
   <nav class="detail-links" id="detail-links"{{if not .Links}} hidden{{end}}>
     {{range .Links}}<button type="button" class="detail-link" data-location="{{.ID}}"
-            hx-post="/session/select" hx-vals='{"feature":"{{.ID}}"}'>{{.Title}}</button>
+            hx-post="/session/select" hx-vals:append='{"feature":"{{.ID}}"}'>{{.Title}}</button>
     {{end}}
   </nav>
   <dl>

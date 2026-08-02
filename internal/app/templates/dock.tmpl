@@ -11,7 +11,7 @@
   <button type="button" class="dock-readout" id="dock-fold"
           aria-expanded="{{.Dock.Open}}" aria-label="{{.Dock.FoldLabel}}" title="{{.Dock.FoldLabel}}"
           hx-post="/session/dock"
-          hx-vals='{"open":"{{if .Dock.Open}}0{{else}}1{{end}}","byHand":"1"}'>
+          hx-vals:append='{"open":"{{if .Dock.Open}}0{{else}}1{{end}}","byHand":"1"}'>
     <span id="dock-count">{{.Dock.Count}}</span>
     <span class="dock-flag" id="dock-flag"{{if not .Dock.Flag}} hidden{{end}}>{{.Dock.Flag}}</span>
     <span class="dock-fold" aria-hidden="true"><svg viewBox="0 0 16 16"><path d="m6 3 5 5-5 5"/></svg></span>
@@ -23,7 +23,7 @@
       {{range .Dock.Rows}}<button type="button" class="search-result{{if .Selected}} is-selected{{end}}"
               {{if eq .Kind "point"}}data-location="{{.ID}}"{{else}}data-zone="{{.ID}}"{{end}}
               style="--pin-color: {{.Color}}"
-              hx-post="/session/select" hx-vals='{"feature":"{{.ID}}"}'>
+              hx-post="/session/select" hx-vals:append='{"feature":"{{.ID}}"}'>
         <span class="result-dot" style="background: {{.Color}}">{{.Glyph}}</span>
         <span><strong>{{.Title}}</strong><small>{{.Collection}}{{if .Group}} · {{.Group}}{{end}}</small></span>
       </button>

@@ -16,7 +16,16 @@
 <div class="map-pickers">
   <label>
     <span>Volume</span>
-    <select id="volume-select" name="volume" aria-label="Volume"
+    {{/*
+      The empty hx-vals is this control saying it inherits nothing, and it is
+      load-bearing. Values declared on an element replace the parameters its
+      own name and value contributed, so the volume the shell declares --
+      the volume the reader is leaving -- would otherwise overwrite the one
+      they just chose, and every switch would navigate back to where it
+      started. This is the one control on the page whose own value shares a
+      name with the inherited one.
+    */}}
+    <select id="volume-select" name="volume" aria-label="Volume" hx-vals='{}'
             hx-get="/open" hx-trigger="change"
             hx-target="#atlas-shell" hx-select="#atlas-shell"
             hx-swap="outerMorph" hx-push-url="true">
@@ -56,7 +65,7 @@
 </div>
 <button type="button" class="icon-button mobile-legend" id="mobile-legend"
         aria-label="Toggle legend" aria-expanded="{{if .Session.Sidebar.Collapsed}}false{{else}}true{{end}}"
-        hx-post="/session/sidebar" hx-vals='{"open":"{{if .Session.Sidebar.Collapsed}}1{{else}}0{{end}}"}'>
+        hx-post="/session/sidebar" hx-vals:append='{"open":"{{if .Session.Sidebar.Collapsed}}1{{else}}0{{end}}"}'>
   <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h16M4 12h16M4 17h16"/></svg>
 </button>
 {{end}}

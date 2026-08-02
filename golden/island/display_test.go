@@ -122,9 +122,12 @@ func ladderOf(page string) (speaking, silent []string) {
 			break
 		}
 		id := page[at : at+end]
-		// aria-pressed follows on the button, before the next toggle.
+		// aria-pressed follows on this button and nowhere else, so the
+		// window is the button's own tag: reading as far as the next toggle
+		// let the last one in the legend take its answer from whatever
+		// pressable chrome happened to be rendered after it.
 		rest := page[at:]
-		if next := strings.Index(rest, marker); next >= 0 {
+		if next := strings.Index(rest, "</button>"); next >= 0 {
 			rest = rest[:next]
 		}
 		if strings.Contains(rest, `aria-pressed="true"`) {

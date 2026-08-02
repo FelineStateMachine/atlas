@@ -133,6 +133,51 @@ export class AtlasChart extends HTMLElement {
     for (const source of Object.values(this.sources)) source.changed();
     this.map?.render();
     this.overview?.draw();
+    this.writeCount();
+  }
+
+  /**
+   * The footer's sentence.
+   *
+   * "N of M features in view": M is what the map is drawing and the server
+   * renders it, N is how many of them the window is actually over and nobody
+   * but this pane can say -- it is a question about the camera. The
+   * application leaves the element carrying its own half and this completes
+   * it once there is a camera to ask (docs/app.md §6.1).
+   *
+   * It is one set counted twice, said as one sentence, and the number after
+   * "of" is the same number the dock puts at the top of its list.
+   */
+  writeCount(): void {
+    const footer = document.querySelector("#visible-count");
+    const context = this.context;
+    if (!footer || !context) return;
+    const drawn = context.visibility.drawn;
+    if (drawn === 0) {
+      footer.textContent = "No features shown";
+      return;
+    }
+    footer.textContent = `${this.inView(context)} of ${count(drawn)} features` +
+      ` in view`;
+  }
+
+  /** How many of the standing features the window is over. */
+  private inView(context: WorldContext): string {
+    const size = this.map?.getSize();
+    const extent = size ? this.view?.calculateExtent(size) : null;
+    if (!extent) return count(context.visibility.drawn);
+    const [minX = 0, minY = 0, maxX = 0, maxY = 0] = extent;
+    const inside = (x: number, y: number) =>
+      x >= minX && x <= maxX && y >= minY && y <= maxY;
+    let seen = 0;
+    context.model.points.forEach((point, index) => {
+      if (context.visibility.at(index).hidden) return;
+      if (inside(point.coordinate[0], point.coordinate[1])) seen += 1;
+    });
+    for (const shape of context.visibility.shapesShown) {
+      if (shape.lines.some((line) => line.some(([x, y]) => inside(x, y)))) seen += 1;
+    }
+    return count(seen);
   }
 
   /** The camera, as the diagnostics and the globe both read it. */
@@ -142,6 +187,26 @@ export class AtlasChart extends HTMLElement {
     const zoom = view?.getZoom();
     if (!view || !centre || zoom === undefined) return null;
     return { x: centre[0] ?? 0, y: centre[1] ?? 0, zoom, rotation: view.getRotation() };
+  }
+
+  /**
+   * One step of a zoom control, held to the lens's own depth.
+   *
+   * A step, not a factor: the chart's zoom is a level and the buttons move it
+   * by one, easing rather than cutting so a reader can see which way the
+   * ground went. The floor and the ceiling are the lens's -- there is nothing
+   * shallower than its first level and nothing deeper than two levels of
+   * overzoom past its last.
+   */
+  nudgeZoom(delta: number): void {
+    const view = this.view;
+    const lens = this.context?.lens;
+    if (!view || !lens) return;
+    const standing = view.getZoom() ?? 0;
+    view.animate({
+      zoom: Math.min(Math.max(standing + delta, lens.minZoom), viewMaxZoom(lens)),
+      duration: 140,
+    });
   }
 
   /** Put the camera somewhere — the globe handing a view back, or a jump. */
@@ -179,6 +244,7 @@ export class AtlasChart extends HTMLElement {
    * looking at.
    */
   locate(extent: readonly number[] | null): void {
+    if (!extent) this.overview?.release();
     this.overview?.draw(extent ?? undefined);
   }
 
@@ -458,7 +524,13 @@ export class AtlasChart extends HTMLElement {
         detail: { feature: found?.id ?? "", kind: found?.kind ?? "" },
       }));
     });
-    map.on("moveend", () => this.report());
+    map.on("moveend", () => {
+      this.report();
+      // The window moved, so how much of what is drawn it is over has moved
+      // with it. The count is the camera's answer and belongs to the camera's
+      // own event, not to a filter's.
+      this.writeCount();
+    });
   }
 
   private hit(pixel: number[]): { id: string; kind: string } | null {
@@ -531,4 +603,9 @@ function wind(line: readonly (readonly [number, number])[], counter: boolean): [
   }
   const copy = line.map((point) => [point[0], point[1]] as [number, number]);
   return (area < 0) === counter ? copy : copy.reverse();
+}
+
+/** A count as the chrome writes it: thousands separated, as the goldens read. */
+function count(value: number): string {
+  return value.toLocaleString("en-US");
 }

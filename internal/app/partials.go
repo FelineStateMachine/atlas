@@ -21,7 +21,16 @@ import (
 // deliberate and load-bearing:
 //
 //   - morph swaps for legend, dock and detail, so scroll position, focus and
-//     open <details> survive a re-render (issue #5 §4.3);
+//     open <details> survive a re-render (issue #5 §4.3). They are *outer*
+//     morphs, and that is not a style choice: a region's template renders the
+//     region's own container (§4.1), so the answer to a swap always carries an
+//     element with the target's own id. Asking htmx to morph that into the
+//     target's *children* asks it to make an element a descendant of itself,
+//     which it declines -- silently, leaving the page as it was, which is a
+//     legend that never recounts and a dock that never reloses a row. Morphing
+//     the element onto itself is the reading that matches what the templates
+//     actually render, and it keeps the first-paint bytes and the swap bytes
+//     identical, which is the property §4.1 wanted in the first place;
 //   - the viewport's state node is swapped whole and the viewport's own
 //     internals are never touched -- the seam owns what is inside it, and a
 //     swap that reached in would tear down a WebGL context mid-gesture. The
@@ -45,13 +54,15 @@ type partialTarget struct {
 // swapped, which is the point: the set of things an interaction may move is
 // declared, not discovered.
 var partialTargets = map[string]partialTarget{
+	// shell and empty-state render a whole document rather than a region's
+	// container, so their inside is what lands inside #atlas-shell.
 	"shell":          {"#atlas-shell", "innerMorph"},
 	"topbar":         {"#atlas-topbar", "innerMorph"},
-	"legend":         {"#atlas-legend", "innerMorph"},
-	"dock":           {"#atlas-dock", "innerMorph"},
-	"detail":         {"#atlas-detail", "innerMorph"},
-	"grid-navigator": {"#atlas-grid-navigator", "innerMorph"},
-	"overview":       {"#atlas-overview", "innerMorph"},
+	"legend":         {"#atlas-legend", "outerMorph"},
+	"dock":           {"#atlas-dock", "outerMorph"},
+	"detail":         {"#atlas-detail", "outerMorph"},
+	"grid-navigator": {"#atlas-grid-navigator", "outerMorph"},
+	"overview":       {"#atlas-overview", "outerMorph"},
 	"viewport":       {"#atlas-viewport-state", "outerMorph"},
 	"empty-state":    {"#atlas-shell", "innerMorph"},
 	"import":         {"#atlas-import", "beforeend"},

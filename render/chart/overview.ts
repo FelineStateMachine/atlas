@@ -27,8 +27,21 @@ const log = logger("overview");
 /** How big the drawn world should be before it is worth reading. */
 const TARGET_SIZE = 168;
 
+/** The mark the sphere's camera leaves: a dot, in whole pixels. */
+const MARK_SIZE = 22;
+
+function clamp(value: number, low: number, high: number): number {
+  return Math.min(Math.max(value, low), high);
+}
+
 export class Overview {
   private drawnKey = "";
+  /**
+   * The mark the sphere last left, kept so a redraw the chart asked for does
+   * not overwrite it. While the globe is up the chart has not moved, so its
+   * extent is a stale answer to a question only the sphere can answer.
+   */
+  private marked: readonly number[] | null = null;
 
   private readonly map: OLMap;
   private readonly context: () => WorldContext | null;
@@ -61,10 +74,29 @@ export class Overview {
       this.drawnKey = key;
       void this.compose(canvas, context, extent);
     }
-    this.locate(box, canvas, extent, over);
+    if (over && over.length === 2) this.marked = over;
+    this.locate(box, canvas, extent, over ?? this.marked ?? undefined);
   }
 
-  /** Where the camera is, as a box in whole pixels over the drawn world. */
+  /** Give the locator back to the chart: the sphere has been put away. */
+  release(): void {
+    this.marked = null;
+  }
+
+  /**
+   * Where the camera is, as a box in whole pixels over the drawn world.
+   *
+   * `over` of length two is a *point* rather than a window, which is the
+   * sphere's case: half a planet is always out of sight, so what the locator
+   * marks there is the place the camera faces and not an extent it can see.
+   * The mark is a fixed dot -- 22 pixels, the size every recorded globe step
+   * carries -- because a rectangle drawn true to a camera hanging over a
+   * curved surface says nothing a reader can use.
+   *
+   * The pixels are the canvas's own, not its CSS box: the composite is
+   * written at one device pixel per drawn pixel and the reticle is read back
+   * in those, which is what makes "117 53 22 22" reproducible.
+   */
   private locate(
     box: HTMLElement,
     canvas: HTMLCanvasElement,
@@ -73,12 +105,40 @@ export class Overview {
   ): void {
     const size = this.map.getSize();
     if (!size && !over) return;
-    const camera = over ?? this.map.getView().calculateExtent(size ?? [1, 1]);
     const width = (extent[2] ?? 0) - (extent[0] ?? 0);
     const height = (extent[3] ?? 0) - (extent[1] ?? 0);
     if (!width || !height) return;
-    const scaleX = canvas.clientWidth / width;
-    const scaleY = canvas.clientHeight / height;
+    const scaleX = canvas.width / width;
+    const scaleY = canvas.height / height;
+    if (over && over.length === 2) {
+      // On the sphere the locator is always worth having: half a planet is
+      // out of sight whatever the camera does.
+      const marked = document.querySelector<HTMLElement>("#atlas-overview");
+      if (marked) marked.hidden = false;
+      const across = clamp(((over[0] ?? 0) - (extent[0] ?? 0)) / width, 0, 1);
+      const down = clamp(((extent[3] ?? 0) - (over[1] ?? 0)) / height, 0, 1);
+      box.style.left = `${Math.round(across * canvas.width - MARK_SIZE / 2)}px`;
+      box.style.top = `${Math.round(down * canvas.height - MARK_SIZE / 2)}px`;
+      box.style.width = `${MARK_SIZE}px`;
+      box.style.height = `${MARK_SIZE}px`;
+      return;
+    }
+    const camera = over ?? this.map.getView().calculateExtent(size ?? [1, 1]);
+    // Hidden while the whole map is on screen: a locator that says "all of
+    // it" tells the reader nothing they cannot already see. Fitting the map
+    // lands on its extent to within a fraction of a pixel, so the comparison
+    // carries four pixels of slack -- an exact one reports the whole map as
+    // not quite visible and leaves a locator on screen marking everything.
+    const shelf = document.querySelector<HTMLElement>("#atlas-overview");
+    if (shelf) {
+      const slack = (this.map.getView().getResolution() ?? 0) * 4;
+      shelf.hidden =
+        (camera[0] ?? 0) <= (extent[0] ?? 0) + slack &&
+        (camera[1] ?? 0) <= (extent[1] ?? 0) + slack &&
+        (camera[2] ?? 0) >= (extent[2] ?? 0) - slack &&
+        (camera[3] ?? 0) >= (extent[3] ?? 0) - slack;
+      if (shelf.hidden) return;
+    }
     const left = ((camera[0] ?? 0) - (extent[0] ?? 0)) * scaleX;
     const top = ((extent[3] ?? 0) - (camera[3] ?? 0)) * scaleY;
     box.style.left = `${Math.round(left)}px`;

@@ -49,15 +49,63 @@
     </div>
   </main>
   {{template "dock" .}}
+  {{/*
+    The state island: the arrangement this page was rendered from, in the key
+    names golden/parity/SCHEMA.md records. It is inert, it is read by the
+    parity harness and by nothing else, and it is the server's half of the
+    joint diagnostics issue #5 §6 asks for.
+
+    It stands *inside* #atlas-shell, which is not decoration. Every navigation
+    on this page swaps the shell and selects `#atlas-shell` out of the answer;
+    an island beside the shell is therefore never replaced, and a reader who
+    switched volumes would go on being told about the volume they left.
+  */}}
+  <script type="application/json" id="atlas-session-island">{{.Island}}</script>
+  {{/*
+    The keyboard, as hypermedia.
+
+    Every shortcut below moves discrete state, so every one of them is a route
+    rather than a handler: an hx-trigger naming the key and the element the
+    key is heard on, and nothing else. There is no hx-on here and no listener
+    in the page -- the only shortcut this application does not spell out is Z,
+    which holds the labels up while it is down and is continuous interaction
+    state, so it belongs to the seam (issue #5 §4.1).
+
+    They are declared here rather than beside the controls they double for
+    because a shortcut heard `from:body` has to survive the region that would
+    have carried it being swapped, and the shell is the one region a swap
+    never replaces from underneath.
+  */}}
+  <div hidden id="atlas-shortcuts">
+    <span hx-post="/session/grid" hx-vals:append='{"system":"toggle"}'
+          hx-trigger="keydown[key=='g'&&!metaKey&&!ctrlKey&&!altKey] from:body"></span>
+    <span hx-post="/session/grid" hx-vals:append='{"ascend":"1"}'
+          hx-trigger="keydown[key=='Escape'] from:body"></span>
+    <span hx-post="/session/grid" hx-vals:append='{"subgrid":"flip"}'
+          hx-trigger="keydown[key==' '] from:body"></span>
+    <span hx-post="/session/sidebar"
+          hx-vals:append='{"open":"{{if .Session.Sidebar.Collapsed}}1{{else}}0{{end}}"}'
+          hx-trigger="keydown[(metaKey||ctrlKey)&&key=='b'] from:body"></span>
+  </div>
+  {{/*
+    Live updates. The stream carries ready-to-swap partials and two event
+    names (docs/app.md §5); the page takes the plainer road of re-fetching
+    itself on either, because both events mean the library moved under it and
+    a page that re-reads its own URL cannot end up half-patched. The bodies
+    stay in the contract for a client that wants the cheaper path.
+
+    These stand inside #atlas-shell for the same reason the island does: the
+    address they re-fetch is the address of the volume they were rendered
+    for, and a pair left outside the shell goes on naming the volume the page
+    first opened on. A reconcile would then take the reader somewhere else,
+    which is exactly what an unchanged catalog must never do.
+  */}}
+  {{with .Volume}}<div hidden id="atlas-events" hx-sse:connect="/events?volume={{.Slug}}" hx-trigger="load"></div>
+  <div hidden hx-get="/v/{{.Slug}}/{{.World.Slug}}"
+       hx-trigger="catalog from:#atlas-events, refresh from:#atlas-events"
+       hx-target="#atlas-shell" hx-select="#atlas-shell" hx-swap="outerMorph"></div>{{end}}
 </div>
 {{template "import" .}}
-{{/*
-  The state island: the arrangement this page was rendered from, in the key
-  names golden/parity/SCHEMA.md records. It is inert, it is read by the parity
-  harness and by nothing else, and it is the server's half of the joint
-  diagnostics issue #5 §6 asks for.
-*/}}
-<script type="application/json" id="atlas-session-island">{{.Island}}</script>
 {{/*
   The seam. It is loaded from /static, which is whatever tree the host mounted
   and answers 404 when it mounted none. An undefined <atlas-viewport> renders
@@ -65,17 +113,6 @@
   page one script tag (issue #5 §5.5).
 */}}
 <script type="module" src="/static/app.js"></script>
-{{/*
-  Live updates. The stream carries ready-to-swap partials and two event names
-  (docs/app.md §5); the page takes the plainer road of re-fetching itself on
-  either, because both events mean the library moved under it and a page that
-  re-reads its own URL cannot end up half-patched. The bodies stay in the
-  contract for a client that wants the cheaper path.
-*/}}
-{{with .Volume}}<div hidden id="atlas-events" hx-sse:connect="/events?volume={{.Slug}}" hx-trigger="load"></div>
-<div hidden hx-get="/v/{{.Slug}}/{{.World.Slug}}"
-     hx-trigger="catalog from:#atlas-events, refresh from:#atlas-events"
-     hx-target="#atlas-shell" hx-select="#atlas-shell" hx-swap="outerMorph"></div>{{end}}
 </body>
 </html>
 {{end}}

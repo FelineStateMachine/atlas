@@ -57,7 +57,6 @@ export interface SeamSnapshot {
   zones: {
     visible: boolean;
     count: number;
-    focused: string | null;
     highlighted: string[];
     focusedPins: number;
   };
@@ -88,7 +87,7 @@ export function snapshot(viewport: AtlasViewport): SeamSnapshot {
 
   return {
     coordinateSystem: COORDINATE_SYSTEM,
-    world: model?.slug ?? "",
+    world: context?.worldTitle ?? "",
     lens: context?.lens?.name ?? "",
     zoom: readings?.zoom ?? null,
     center: readings?.center ?? null,
@@ -107,10 +106,13 @@ export function snapshot(viewport: AtlasViewport): SeamSnapshot {
     hoveredPin: hovered?.title ?? null,
     selectedPin: selected && "title" in selected ? selected.title || null : null,
     fitZoom: readings?.fitZoom ?? null,
+    // `focused` is deliberately absent: which shape a reader has open is the
+    // application's answer, not a renderer's, and the merge below leaves the
+    // application's half of `zones` standing rather than writing a null over
+    // it.
     zones: {
       visible: shapes.length > 0,
       count: model?.shapes.length ?? 0,
-      focused: null,
       highlighted: (visibility?.highlightedShapes ?? []).map((shape) => shape.title),
       focusedPins: visibility?.focusedPins ?? 0,
     },
@@ -127,6 +129,24 @@ export function snapshot(viewport: AtlasViewport): SeamSnapshot {
       priorityPins: visibility?.priorityPins ?? 0,
     },
   };
+}
+
+/** Merge the application's half under the seam's, one level deep. */
+function mergeHalves(
+  app: Record<string, unknown>,
+  seam: SeamSnapshot,
+): Record<string, unknown> {
+  const out: Record<string, unknown> = { ...app };
+  for (const [key, value] of Object.entries(seam)) {
+    const held = out[key];
+    if (isPlain(held) && isPlain(value)) out[key] = { ...held, ...value };
+    else out[key] = value;
+  }
+  return out;
+}
+
+function isPlain(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 
 /** The window the harness reads. Typed here rather than cast at every use. */
@@ -152,10 +172,17 @@ export function expose(viewport: AtlasViewport): void {
   host.__atlasSeam = { snapshot: take, level: "1" };
   host.__atlasDebug = { snapshot: take };
   host.advanceTime = () => viewport.chart?.renderSync();
-  host.render_game_to_text = () => JSON.stringify({
-    ...(host.__atlasAppDiagnostics?.() ?? {}),
-    ...take(),
-  });
+  // The two halves, merged one level deep.
+  //
+  // A flat spread would be wrong for the three keys both halves speak to:
+  // `sync` is the model's counts from here and the rendered words from the
+  // application, `zones` is what is drawn from here and what is open from
+  // there. Merging only the top level would let this half's four keys erase
+  // the application's four, which is how a snapshot ends up missing the
+  // footer's own sentence. Nested objects are merged; everything else, this
+  // half wins, because it is the half that watched it happen.
+  host.render_game_to_text = () => JSON.stringify(
+    mergeHalves(host.__atlasAppDiagnostics?.() ?? {}, take()));
   Object.defineProperty(window, "__atlasGlobe", {
     configurable: true,
     get: () => viewport.globe?.built ? viewport.globe.diagnostics() : undefined,

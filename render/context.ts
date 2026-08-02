@@ -18,6 +18,12 @@ export interface WorldContext {
   readonly base: string;
   readonly grid: TileGrid;
   readonly model: WorldModel;
+  /**
+   * The world's title, as the catalog spells it. The model carries the slug
+   * -- which is what a URL and a payload name a world by -- and the parity
+   * baselines record the title, because that is the word a reader is shown.
+   */
+  readonly worldTitle: string;
   readonly lens: Lens | null;
   readonly lensIndex: number;
   /** The rim markers wear on this world: `light`, `dark`, or none. */
