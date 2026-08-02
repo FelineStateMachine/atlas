@@ -177,6 +177,13 @@ func answer(t *testing.T, at ground, held vector) (any, bool) {
 		return cells.ApplicableSystems(at.World.Attrs), true
 	case "appliesTo":
 		return cells.Applicable(at.World.Attrs, held.System), true
+	case "equivalentCell":
+		// The carry is server arithmetic now: cycling the grid system moves
+		// the held cell through cells.Equivalent, so the recorded pairs bind
+		// the Go side the same way they bind the seam's.
+		var from, to, id string
+		args(t, held, &from, &to, &id)
+		return cells.Equivalent(at.extent(), at.World.Attrs, from, to, id), true
 	}
 
 	switch held.System {
