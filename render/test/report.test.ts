@@ -1,4 +1,4 @@
-// The two reports that leave the seam, checked against the page they write to.
+// The three reports that leave the seam, checked against the page they write to.
 //
 // `render/data/report.ts` is the one module in the lane that touches the
 // document and never touches the network, and both halves of that are worth
@@ -11,11 +11,14 @@
 // The rule the pick tests exist for is the miss. A click on open water is not
 // a request to close the card the reader is reading; the card is put away by
 // Escape and by its own button, and a report that posted an empty identity
-// would take it away on every stray click.
+// would take it away on every stray click. The cell's report keeps the same
+// rule for a reason of its own: an empty address *is* a place -- the root --
+// but neither surface that reports one can mean it, and the sphere's descent
+// answers empty for "there is nothing below this".
 
 import test from "node:test";
 import { strict as assert } from "node:assert";
-import { reportCamera, reportPick } from "../data/report.ts";
+import { reportCamera, reportGridPick, reportPick } from "../data/report.ts";
 
 interface Field {
   value: string;
@@ -42,6 +45,7 @@ function mount(ids: string[]): Page {
   // The forms themselves are only ever looked up, never written.
   if (ids.some((id) => id.startsWith("#atlas-pick"))) nodes.set("#atlas-pick", {});
   if (ids.some((id) => id.startsWith("#atlas-camera"))) nodes.set("#atlas-camera", {});
+  if (ids.some((id) => id.startsWith("#atlas-grid-pick"))) nodes.set("#atlas-grid-pick", {});
   const events: CustomEvent[] = [];
   globalThis.document = {
     querySelector: (selector: string) => nodes.get(selector) ?? null,
@@ -88,6 +92,32 @@ test("a miss posts nothing and leaves the open card alone", () => {
 test("a page that renders no pick form loses the report and nothing else", () => {
   const page = mount([]);
   assert.doesNotThrow(() => reportPick({ feature: "1849", kind: "point" }));
+  assert.equal(page.events.length, 0);
+});
+
+test("a cell fills the address the page rendered and says so", () => {
+  const page = mount(["#atlas-grid-pick-cell"]);
+  reportGridPick("9qb");
+  assert.equal(page.fields.get("#atlas-grid-pick-cell")?.value, "9qb");
+  const raised = page.events[0];
+  assert.equal(raised?.type, "atlas:grid-pick");
+  assert.equal(raised?.bubbles, false);
+  assert.deepEqual(raised?.detail, { cell: "9qb" });
+});
+
+test("an empty address is a miss, not the root", () => {
+  const page = mount(["#atlas-grid-pick-cell"]);
+  const field = page.fields.get("#atlas-grid-pick-cell");
+  assert.ok(field);
+  field.value = "9qb";
+  reportGridPick("");
+  assert.equal(field.value, "9qb", "a miss overwrote the address that was posted");
+  assert.equal(page.events.length, 0, "the telescope's floor was posted as the root");
+});
+
+test("a page that renders no grid-pick form loses the report and nothing else", () => {
+  const page = mount([]);
+  assert.doesNotThrow(() => reportGridPick("9qb"));
   assert.equal(page.events.length, 0);
 });
 

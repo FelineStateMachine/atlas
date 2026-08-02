@@ -1,9 +1,9 @@
-// What leaves this lane: a settled camera, and a pick.
+// What leaves this lane: a settled camera, a pick, and a cell.
 //
-// They are the only two, and they leave the same way -- as a DOM event rather
-// than as a request. The application renders a form for each and the fields it
-// wants filled; this fills them and says so; the page's own hypermedia runtime
-// posts it and applies the answer.
+// They are the only three, and they leave the same way -- as a DOM event
+// rather than as a request. The application renders a form for each and the
+// fields it wants filled; this fills them and says so; the page's own
+// hypermedia runtime posts it and applies the answer.
 //
 // THAT SPLIT IS DELIBERATE and it is the reason this module makes no network
 // call at all. A report the seam posted for itself would throw the answer
@@ -82,4 +82,33 @@ export function reportPick(pick: PickPost): void {
   log.debug("a pick off the canvas", {
     op: "session", feature: pick.feature, kind: pick.kind,
   });
+}
+
+/**
+ * Report a cell chosen off a surface -- the chart's canvas, or the sphere.
+ *
+ * The second form, and the same arrangement as the first: the panes resolve a
+ * pixel into an address, which is a question only they can answer, and the
+ * address is the session's to keep. What comes back is the whole scene the new
+ * cell implies -- the navigator's field, the dock's narrowed list, the state
+ * island the panes redraw from -- so this cannot be a request the seam makes
+ * for itself any more than a pick can.
+ *
+ * AN EMPTY ADDRESS IS NOT THE ROOT HERE. It is a place -- the field posts it
+ * on the way out, and Escape telescopes to it -- but neither of this
+ * function's callers can mean it: the canvas only ever names a cell it drew,
+ * and the sphere's descent answers `""` for "there is nothing below this",
+ * which is the floor of the telescope rather than the top of it. So an empty
+ * cell is a miss, and a miss says nothing, exactly as a pick's does.
+ */
+export function reportGridPick(cell: string): void {
+  if (!cell) return;
+  const form = document.querySelector("#atlas-grid-pick");
+  if (!form) return;
+  const field = document.querySelector<HTMLInputElement>("#atlas-grid-pick-cell");
+  if (field) field.value = cell;
+  window.dispatchEvent(new CustomEvent("atlas:grid-pick", {
+    bubbles: false, detail: { cell },
+  }));
+  log.debug("a cell chosen off a surface", { op: "session", cell });
 }
