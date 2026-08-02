@@ -186,7 +186,7 @@ costs a reader their layout once and never corrupts it.
 {
   "schema": 2,
   "volume": "bend-or",
-  "stamp": "f0feba1cd00c",
+  "stamp": "3610a0f10798",
   "world": "2026-08-02",
   "lens": "Basemap",
   "hidden":      ["1496244488"],

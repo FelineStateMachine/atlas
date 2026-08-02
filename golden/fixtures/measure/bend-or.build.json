@@ -1,11 +1,11 @@
 {
   "build": {
     "Path": "",
-    "File": "bend-or-20260802-f0feba1cd00c.atlas",
+    "File": "bend-or-20260802-3610a0f10798.atlas",
     "VolumeSlug": "bend-or",
     "VolumeTitle": "Bend, Oregon",
-    "Stamp": "f0feba1cd00c2ad4a393e567acc8751f21371710231bc3562a23bfd7eac5936d",
-    "CreatedAt": "2026-08-02T09:09:17.410769Z",
+    "Stamp": "3610a0f107984c0fb61055d8c12ccc58739f12eedc6c55e5f263f925bd823a55",
+    "CreatedAt": "2026-08-02T10:45:19.464241Z",
     "Revision": 9,
     "MapSlugs": [
       "2026-08-02"
@@ -56,6 +56,6 @@
     "iconPct": "100%",
     "renderPct": "100%",
     "rasterMB": "11.9",
-    "shortStamp": "f0feba1cd00c"
+    "shortStamp": "3610a0f10798"
   }
 }
