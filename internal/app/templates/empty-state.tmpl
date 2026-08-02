@@ -25,7 +25,7 @@
   <p><code id="empty-path">{{.LibraryDir}}</code></p>
   <p>and it appears here at the next launch — or pick files to copy in:</p>
   <button type="button" id="empty-open"
-          hx-post="/bundles/import" hx-target="#atlas-import" hx-swap="beforeend">Open .atlas files…</button>
+          hx-post="/bundles/import" hx-swap="none">Open .atlas files…</button>
 </div>
 {{template "import" .}}
 {{template "island" .}}
