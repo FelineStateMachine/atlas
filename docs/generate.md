@@ -238,11 +238,78 @@ in the tree today.
 - Artwork is read once per key, `.svg` then `.png`, and carried in the
   document.
 
-### 2.3 Adding a sixth source
+### 2.3 The NASA Trek reader
 
-*(The source-authoring walkthrough lands with the next wave, when there is a
-second source in the clean room to generalize from. What is written down today
-is the interface, the rules of §2.1, and the registry seam.)*
+`internal/generate/sources/nasatrek` reads a planetary volume. A capture marries
+two publications that know nothing of each other: a global equirectangular
+mosaic from NASA's Trek tile services, and the IAU Gazetteer of Planetary
+Nomenclature's feature list for the same body.
+
+- Capture kind `trek-map`, one per body, carrying every mosaic captured for it.
+- The coordinate design is the whole trick. A Trek mosaic is two tiles wide and
+  one tall at its own zoom zero, so a Trek level sits one zoom up in the square
+  the corpus cuts and the planet fills the top half of the world square. A
+  feature's planetary coordinates become a pixel of that image — longitude across
+  the full width, latitude down the top half — and the pixel becomes a synthetic
+  position. The projection's distortion cancels exactly, because the raster and
+  the features ride one mapping.
+- The world declares the flattening as conventions (`atlas.geometry.surface`,
+  `.projection`, `.equirect.px`, `.equirect.deg`, `.body`), so a reader can run a
+  packed position backward and stand on the planet, and every feature carries the
+  coordinates the Gazetteer published verbatim as `atlas.geo.lat`/`.lon`.
+- One collection per Gazetteer feature type, sorted, all under the heading
+  `Nomenclature`. The type descriptor `"Crater, craters"` keeps its singular half
+  as the title and lends its slug as the artwork key.
+- The Gazetteer has no artwork, so each collection names a library glyph through
+  `atlas.icon.std`, chosen from the IAU's own type codes — a *mons* is a mountain,
+  a *patera* a volcano, a *palus* literally a marsh — falling back to shape
+  language where no glyph says the thing.
+- `idSpace: "derived"`: nothing in either publication numbers a mosaic or a
+  feature type, so every identity is minted from a stable name.
+
+### 2.4 Adding a sixth source
+
+A source is one directory, one constructor, and one line in
+`internal/generate/sources/registry.go`. The walkthrough:
+
+1. **Declare what you read.** Put the archived capture's shape in
+   `capture.go`, with only the fields the interchange document needs. A capture
+   holds a great deal else, and the way to keep it out of Atlas is to not have a
+   field for it. These are the only declarations in the tree permitted to carry
+   your publisher's field names.
+2. **Describe yourself.** `Describe() doc.Provenance` returns the registry slug a
+   ledger names you by, the label a person reads, the licence and attribution the
+   volume owes, and your id space. Every document you emit carries it verbatim,
+   and the workbench's source card reads it.
+3. **State your gates.** Before anything is read out of a capture, say what a
+   capture has to be: the right kind, a named map, a declared pyramid, features
+   that are actually somewhere. Refuse rather than guess. A volume that is merely
+   *not crawled yet* wraps `ErrNotReady` and is skipped; anything else fails the
+   build.
+4. **Number things.** If your captures carry stable numeric identities, pass them
+   through and declare `IDSpaceNative`. If they do not, mint them with
+   `doc.NewIDSpace()` from stable names, declare `IDSpaceDerived`, and let a
+   collision fail rather than rename something.
+5. **Place things.** If your ground is a real planet, publish real coordinates.
+   If it is a picture, measure in the world square's pixels and hand them to
+   `doc.SyntheticPosition`, which inverts the reader's own projection so a
+   feature lands on exactly the pixel you measured.
+6. **Resolve your links.** A publisher's link syntax is the publisher's business:
+   turn a deep link into a `doc.Link` where it names another feature of the same
+   world, and strip every URL that survives. A bundle serves offline.
+7. **Say it in the conventions.** A publisher's own render field, its declared
+   projection, a feature's true coordinates — speak them once through
+   `format/semconv`'s registered keys and let the field itself stop there.
+8. **Register.** One line in `registry.go`, naming a constructor. If you need a
+   second line there, the source is leaking.
+9. **Prove it.** A translator fixture test in `golden/pipeline` comparing what
+   your document *means* against the reference material, and — if the archive
+   holds a volume only your source reads — a row in `singleSource` so the whole
+   bundle is reproduced end to end.
+
+What you may not do: reach the network (`depcheck`'s `netconfine` rule forbids
+it outside `internal/generate/crawl`), sort anything the capture ordered, read a
+clock, or let your vocabulary out of your directory.
 
 ---
 
@@ -390,9 +457,23 @@ from the reference implementation:)*
 | `atlas.collection.key` | composition | from curation, unless declared |
 | `atlas.render.as` | the source | it is a reading of a publisher's own field |
 | `atlas.geometry.*`, `atlas.geo.*` | the source | only a source knows what its ground is |
-| `atlas.icon.std` | left unresolved | standard-icon resolution is an enricher (`stdicons`) |
+| `atlas.icon.std` | the source | naming a glyph is all a source without artwork can do |
 
 Nothing composition writes overwrites what a source said.
+
+**Standard icons are named by a source and resolved by composition.** A source
+with no artwork of its own — a gazetteer that names two thousand craters and
+draws none of them, a city's open data — names a library glyph through
+`atlas.icon.std` instead of inventing one. Composition resolves the name against
+the vendored library in `internal/generate/icons` and packs the glyph under a
+provenance-spelling asset name (`std--maki-mountain.svg`), so a source's own
+drawing of a thing can never be shadowed by a generic one and a bundle's icon
+listing reads honestly. A declaration the library cannot answer fails the build.
+
+Resolving a name is not choosing one. Deciding that a collection which named
+nothing should carry a standard glyph — and which — is a judgement made after two
+sources have been folded together, and it belongs to the enrich lane's
+`stdicons` enricher (issue #5 §5.3). The two meet at the attribute.
 
 ### 5.2 Splitting
 

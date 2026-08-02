@@ -65,6 +65,7 @@ var singleSource = []struct {
 	{"tunic", "plain: one world, one lens, one pyramid"},
 	{"fallout-new-vegas", "split sheet: thirteen worlds, eight of them insets of the first"},
 	{"zelda-tears-of-the-kingdom", "lens shards: one world offered three elevations at a time"},
+	{"mars", "a sphere, a derived id space, and artwork named rather than shipped"},
 }
 
 // fixturePath is where a volume's captured extractions sit.

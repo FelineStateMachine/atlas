@@ -1,6 +1,9 @@
 package sources
 
-import "github.com/FelineStateMachine/atlas/internal/generate/sources/mapgenie"
+import (
+	"github.com/FelineStateMachine/atlas/internal/generate/sources/mapgenie"
+	"github.com/FelineStateMachine/atlas/internal/generate/sources/nasatrek"
+)
 
 // All is the registered sources, in the order a report lists them.
 //
@@ -15,5 +18,6 @@ import "github.com/FelineStateMachine/atlas/internal/generate/sources/mapgenie"
 func All() []Source {
 	return []Source{
 		mapgenie.New(),
+		nasatrek.New(),
 	}
 }

@@ -27,8 +27,10 @@ import (
 	"log/slog"
 	"sort"
 
+	"github.com/FelineStateMachine/atlas/format/semconv"
 	"github.com/FelineStateMachine/atlas/internal/generate/curation"
 	"github.com/FelineStateMachine/atlas/internal/generate/doc"
+	"github.com/FelineStateMachine/atlas/internal/generate/icons"
 	"github.com/FelineStateMachine/atlas/internal/generate/tiles"
 	"github.com/FelineStateMachine/atlas/internal/logging"
 )
@@ -165,11 +167,53 @@ func Compose(o Options) (Result, error) {
 		return Result{}, fmt.Errorf("volume %s: no world is ready to compose", o.Document.Volume.Slug)
 	}
 	orderWorlds(o.Curation, o.Document.Volume.Slug, worlds)
-	icons := attachArtwork(o.Document, worlds)
+	artwork := attachArtwork(o.Document, worlds)
+	if err := resolveStandardIcons(worlds, artwork); err != nil {
+		return Result{}, fmt.Errorf("volume %s: %w", o.Document.Volume.Slug, err)
+	}
 	if err := speakConventions(o.Curation, o.Document.Volume.Slug, worlds); err != nil {
 		return Result{}, fmt.Errorf("volume %s: %w", o.Document.Volume.Slug, err)
 	}
-	return write(o, worlds, icons, log)
+	return write(o, worlds, artwork, log)
+}
+
+// resolveStandardIcons makes good on every atlas.icon.std declaration: the named
+// library glyph lands in the volume's artwork under its provenance-spelling
+// name, and the collection wears it exactly the way it would wear artwork the
+// source shipped itself.
+//
+// A source that has no artwork at all -- a gazetteer, a city's open data --
+// names a glyph rather than inventing one, and naming is all it may do: which
+// picture answers to the name is the library's business, and packing it is
+// composition's. It runs after the document's own artwork has been attached and
+// only where a source's own icon has not already won the slot, because a
+// publisher's own drawing of a thing always beats a generic one.
+//
+// A declaration the library cannot answer fails the build. The promise was made
+// in a translator; it is kept here or heard about, rather than reaching a
+// reader as a collection with a hole where its marker should be.
+func resolveStandardIcons(worlds []composedWorld, artwork map[string][]byte) error {
+	for worldIndex := range worlds {
+		world := &worlds[worldIndex]
+		for index := range world.Collections {
+			collection := &world.Collections[index]
+			if collection.Kind != doc.KindPoint {
+				continue
+			}
+			ref := collection.Attrs[semconv.KeyIconStd]
+			if ref == "" || collection.IconAsset != "" {
+				continue
+			}
+			data, asset, err := icons.Standard(ref)
+			if err != nil {
+				return fmt.Errorf("world %s collection %q: %w", world.Slug, collection.Title, err)
+			}
+			artwork[asset] = data
+			collection.IconAsset = asset
+			collection.IconPicture = false
+		}
+	}
+	return nil
 }
 
 // resolveWorld turns one document world into the worlds under composition it
