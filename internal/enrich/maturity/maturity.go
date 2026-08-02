@@ -11,13 +11,13 @@
 // for what they say about their surface and for how much raster a reader can
 // actually get to.
 //
-// There are no denominators and no ceilings. That is the whole point of
-// replacing the bundle-maturity percentages: a share moves when its denominator
+// There are no denominators and no ceilings, and that is the whole of why this
+// scores points rather than percentages: a share moves when its denominator
 // moves, so a build that added five hundred features and described half of them
-// could read as a regression. The five absolute axes the reference tree
-// measured survive here as diagnostics -- they are good for reading, useless as
-// a gate -- and the known DescribedPct-above-100 defect is retired by
-// construction, because nothing is divided by anything.
+// reads as a regression. The five absolute axes survive as diagnostics -- good
+// for reading, useless as a gate -- and a described *share* above 100% is not
+// a defect that can be reached from here, because nothing is divided by
+// anything.
 //
 // # The gate
 //
@@ -124,8 +124,8 @@ type Score struct {
 	Total  int
 	Worlds []WorldScore
 
-	// Axes are the absolute measurements the reference tree reported, carried
-	// as diagnostics. Nothing gates on them.
+	// Axes are the absolute measurements, kept as diagnostics for a reader
+	// comparing two builds. Nothing gates on them.
 	Axes Axes
 
 	// Ledger is every provenance account the build's payloads carry.
@@ -151,13 +151,12 @@ type LedgerLine struct {
 type Axes struct {
 	// Annotation.
 	Points int
-	// Features is every feature of every kind. It is the denominator the
+	// Features is every feature of every kind, and it is the denominator a
 	// described share is actually a share of: prose defers into one text
-	// payload whatever kind of feature wrote it, and the reference tooling
-	// divided that whole by the point features alone, which is how a city whose
-	// zones are all described came to report that 235% of it was described.
-	// Retiring percentages as a score retired the consequence; giving the
-	// diagnostic its right denominator retires the arithmetic.
+	// payload whatever kind of feature wrote it, so dividing that whole by the
+	// point features alone is how a city whose zones are all described comes
+	// to report that 235% of it is described. Scoring in points retired the
+	// consequence; naming the right denominator here retires the arithmetic.
 	Features     int
 	Described    int
 	MedianLength int
@@ -341,9 +340,9 @@ func ScoreParts(manifest bundle.Manifest, parts []WorldParts, table Table) (*Sco
 		byWorld[part.Slug] = part
 	}
 	var lengths []int
-	// One group set for the whole volume: a group title shared by thirteen
-	// worlds of a split sheet is one group, and the reference tooling rebuilt
-	// this set per world and so counted it thirteen times.
+	// One group set for the whole volume, built once outside the loop: a group
+	// title shared by thirteen worlds of a split sheet is one group, and a set
+	// rebuilt per world would count it thirteen times.
 	groups := map[string]bool{}
 	for _, entry := range manifest.Worlds {
 		part, held := byWorld[entry.Slug]

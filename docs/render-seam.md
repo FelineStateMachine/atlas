@@ -237,22 +237,33 @@ the same way on every run and in both panes.
 
 ## 5. What flows back
 
-**`atlas:pick`** — a `CustomEvent`, bubbling and composed, dispatched from the
-pane that resolved the hit:
+**`atlas:pick`** — a `CustomEvent` raised **on the window**, non-bubbling,
+dispatched by the pane that resolved the hit:
 
 ```js
-new CustomEvent("atlas:pick", { bubbles: true, composed: true,
-  detail: { feature: "1849", kind: "point" } })   // kind: point | path | area
+window.dispatchEvent(new CustomEvent("atlas:pick", { bubbles: false,
+  detail: { feature: "1849", kind: "point" } }))   // kind: point | path | area
 ```
 
-The seam resolves the hit and submits nothing: **the page is meant to turn it
-into an ordinary `POST /session/select`**, and the new selection comes back as
-a new scene. A click on nothing dispatches too, with `feature` and `kind` both
-empty — a deselection is a decision and the page should hear it. *Today
-nothing listens: `atlas:pick` is dispatched by both panes and consumed by no
-template, so a canvas pick is inert and selection happens through the dock and
-the card. That is an application-side hole, not a seam one, and it is §10's
-last entry.*
+The seam resolves the hit and submits nothing: **the page turns it into an
+ordinary `POST /session/select`**, and the new selection comes back as a new
+scene. That is wired: the shell renders a hidden form,
+`<form id="atlas-pick" hx-post="/session/select" hx-trigger="atlas:pick
+from:window">`, whose one field the seam fills in before it raises the event
+(`render/data/report.ts`, `internal/app/templates/shell.tmpl`). A pick off
+either canvas therefore opens the card, exactly as a row in the dock does.
+
+Two details are contract rather than taste. **The window, and no bubbling**:
+there is one listener for the whole page and it is on the window, so the event
+is raised where it is heard rather than left to travel — a swap can carry the
+form across at any moment, and an event that depended on the path from a
+canvas to it would depend on a tree the application is free to reshape.
+**A miss does not post.** Clicking open water is not a request to close what
+the reader is reading, so an empty feature raises nothing at all; the card is
+put away by Escape and by its own button. A pick event that fired on a miss
+would clear the selection on every stray click, which is a thing the reference
+never did — and `pick-missed` in the parity tour is the step that holds this
+decision (`golden/parity/SCHEMA.md` §2.1.1).
 
 **The camera report** is `POST /session/view`, form-encoded
 (`volume world x y zoom rotation`), debounced 400 ms after the camera settles,
@@ -562,16 +573,15 @@ Recorded here rather than papered over.
   true-to-scale rectangle would be saying something false.
 - **Nearest-neighbour resampling is pinned by no fixture.** Every public lens
   declares `interpolate: true`.
-- **Hover, picks and the detail card** are implemented and unverified against
-  a baseline: they need the tour.
+- **Hover is implemented and unverified against a baseline.** Picks and the
+  detail card are no longer in that sentence: the tour drives a real pointer at
+  a real pixel and holds what comes back (`golden/parity/SCHEMA.md` §2.1.1,
+  the `pick-*` steps). What no baseline holds is the hover — a pointer that
+  moves without pressing, and the styling that answers it.
 - **The seam's bundle is 2.3 MB.** globe.gl brings three, d3 and turf. It is a
   desktop application served from its own binary, so this is a note rather
   than a problem — but it is the obvious thing to measure first if it ever
   becomes one.
-- **`atlas:pick` has no consumer.** Both panes dispatch it (§5); no template
-  listens. Canvas selection is therefore inert, and selection reaches the
-  session through the dock and the detail card instead. The seam's half of the
-  contract is kept; the page's half is not written yet.
 
 ## 10.1 What this document does not give you
 

@@ -1,11 +1,12 @@
 // The Ground descriptor: what a cell system is handed instead of reaching
 // into a running application (issue #5 §5.4).
 //
-// The pre-rewrite systems read three globals — the volume's tile grid, the
-// open lens, the current world — which is what made them untestable outside a
-// browser holding an app. A Ground is exactly those reads, written down, and
-// nothing else. `golden/analysis/vectors/grounds.json` records the same shape
-// a milestone early and the vectors gate holds this module to its numbers.
+// A cell system needs three facts about the world it is dividing — the
+// volume's tile grid, the open lens, the current world — and a system that
+// reaches for them is a system that cannot be run without a browser holding an
+// application. A Ground is exactly those three reads, written down and handed
+// in, and nothing else. `golden/analysis/vectors/grounds.json` records the
+// same shape, and the vectors gate holds this module to its numbers.
 //
 // What is deliberately NOT here: the active system, the held cell, whether
 // the subdivision is showing. Those are session state (§4.1) and they arrive

@@ -2,11 +2,11 @@
   chrome — the whole difference between the carried stylesheet system and the
   markup this application renders.
 
-  Every other file in this directory is the reference implementation's own,
-  unedited (issue #5 §9: the CSS system is carried as an asset, and the visual
-  identity is unchanged). What the new DOM has that the carried files cannot
-  know about is collected here rather than smeared through the files it would
-  belong to, so the delta stays one file long.
+  Every other file in this directory is carried unedited (issue #5 §9: the
+  cascade is an asset, and the visual identity is unchanged). What this
+  application's markup has that those files cannot know about is collected
+  here rather than smeared through the files it would belong to, so the delta
+  stays one file long.
 
   The list is short on purpose. A difference the markup can spell instead is
   not a difference: the detail card used to be patched here, keyed off
@@ -51,10 +51,10 @@ atlas-globe[hidden] { display: none; }
 /*
   3. The import region.
 
-  The reference implementation had no import panel: choosing a file was a
-  native dialog and the only sign of it was the button. An import is a
-  streamed answer now (internal/app/importing.go), so it needs somewhere to
-  stand and a word for each state it passes through.
+  An import is a streamed answer (internal/app/importing.go), so it needs
+  somewhere to stand and a word for each state it passes through. Nothing in
+  the carried cascade describes it, because a native file dialog whose only
+  sign was the button it was raised from needed no panel at all.
 
   It is one row, not a log: the region holds the run that is happening and
   nothing else, and the handler morphs it from state to state. The section

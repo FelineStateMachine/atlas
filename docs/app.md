@@ -331,23 +331,35 @@ record nobody has touched, and the next request would put the curation back.
 
 ### 4.1 The regions
 
-Ten regions, one template file each (`internal/app/templates/<region>.tmpl`),
+Eleven regions, one template file each (`internal/app/templates/<region>.tmpl`),
 mirroring the one-file-per-region stylesheet system in
 `internal/app/assets/css`. A region's template renders that region's own
 container, so a first paint and a swap produce the same bytes.
 
 | Region | Element | Swap | What it is |
 |---|---|---|---|
-| `shell` | `#atlas-shell` | `innerMorph` | the whole page frame |
+| `shell` | `#atlas-shell` | `outerMorph` | the whole page frame |
 | `topbar` | `#atlas-topbar` | `innerMorph` | volume, world, lens, import |
-| `legend` | `#atlas-legend` | `innerMorph` | search field, toolbar, tree, footer count |
-| `dock` | `#atlas-dock` | `innerMorph` | count, flag, shortlist, and the card inside it |
-| `detail` | `#atlas-detail` | `innerMorph` | one feature's card |
-| `grid-navigator` | `#atlas-grid-navigator` | `innerMorph` | cell system, held cell, subgrid |
-| `overview` | `#atlas-overview` | `innerMorph` | the corner locator's chrome |
+| `legend` | `#atlas-legend` | `outerMorph` | search field, toolbar, tree, footer count |
+| `dock` | `#atlas-dock` | `outerMorph` | count, flag, shortlist, and the card inside it |
+| `detail` | `#atlas-detail` | `outerMorph` | one feature's card |
+| `grid-navigator` | `#atlas-grid-navigator` | `outerMorph` | cell system, held cell, subgrid |
+| `overview` | `#atlas-overview` | `outerMorph` | the corner locator's chrome |
 | `viewport` | `#atlas-viewport-state` | `outerMorph` | the inert state node the seam reads |
+| `island` | `#atlas-session-island` | `outerHTML` | the session record the seam reads, as JSON |
 | `empty-state` | `#atlas-shell` | `innerMorph` | the library card |
 | `import` | `#atlas-import` | `outerMorph` | the import that is happening, as one row |
+
+**Nearly every region is an *outer* morph**, and that is the reading that
+matches what the templates render: the element is morphed onto itself, which
+keeps the first-paint bytes and the swap bytes identical and is the only swap
+that can set an attribute on the region's own container. Three states are
+spelled exactly that way — the sidebar's collapsed class on the shell, the
+navigator's `hidden`, the detail card's `hidden`. The exceptions each have a
+reason: the topbar's container carries nothing a swap moves; the island is a
+`<script>` node with nothing inside worth preserving, so it is replaced rather
+than morphed, because morphing one leaves its text where it was.
+`internal/app/partials.go` is the table this one mirrors.
 
 **An import is one row, not a log.** The response is a stream — a hundred
 megabytes takes long enough that silence reads as failure — but it is a stream
@@ -611,13 +623,15 @@ says the same, so the rule lives in the registry rather than in a viewer.
 `internal/app/assets/css` is the reference implementation's token-first,
 one-file-per-region system, carried as an asset (issue #5 §9) and unedited. The
 whole difference between it and this application's markup lives in one file,
-`chrome.css`: the region containers carry ids of their own, the card says it is
-closed by being empty rather than by an attribute (an `innerMorph` region
-cannot set an attribute on its own container), the seam's custom elements need
-somewhere to stand, and the import row is new — including the delayed fade
-that takes it away when a run ended well, which is an animation and not a
-script. The visual identity is
-unchanged — neutral dark chrome, palette as accents.
+`chrome.css`: the region containers carry ids of their own, the seam's custom
+elements need somewhere to stand, and the import row is new — including the
+delayed fade that takes it away when a run ended well, which is an animation
+and not a script. The list is shorter than it was: the detail card used to be
+patched here, keyed off `:empty`, because a region rendered inside-out could
+not be given an attribute; it is an outerMorph region now (§4.1) and renders
+its own `hidden`, so the carried `pin-detail.css` works verbatim and there is
+nothing to say. The visual identity is unchanged — neutral dark chrome,
+palette as accents.
 
 ---
 

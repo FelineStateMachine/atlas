@@ -93,10 +93,10 @@ func (c city) datasets() []dataset {
 	return append(out, national...)
 }
 
-// cities is every city this source can read. A city that should stay out of the
-// repository is not registered here at all; the reference tree's habit of a
-// gitignored companion file is not carried over, because a table that can be
-// extended by a file nobody reviews is not a gate.
+// cities is every city this source can read. A city that should stay out of
+// the repository is not registered here at all, and there is deliberately no
+// gitignored companion file that would extend this table: a table a reviewer
+// cannot see the whole of is not a gate.
 var cities = map[string]city{
 	"bend-or":          bend,
 	"redondo-beach-ca": redondoBeach,
