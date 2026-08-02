@@ -872,15 +872,32 @@ Both write their event stream to stderr, so piped stdout stays clean. See
 
 ## 8. What is proven
 
-`golden/pipeline` composes the plain-MapGenie bundle fixture from archived
-captures and holds the result against every extraction the reference build was
-captured into: part hashes, the canonicalized manifest, the world payload, the
-unpacked locations, the deferred prose, the icon set, the tile inventory and the
+`golden/pipeline` composes every bundle fixture whose ledger names one source
+and holds the result against every extraction the reference build was captured
+into: part hashes, the canonicalized manifest, the world payloads, the unpacked
+locations, the deferred prose, the icon set, the tile inventory and the
 archive's entry order. Canonical-content equality is mandatory; stamp identity
-is tracked as an aspiration.
+was tracked as an aspiration and, for these four, is now held.
 
-Today the fixture reproduces **byte for byte**: the same stamp, the same file
-name, the same 8,047,414 bytes, the same SHA-256.
+| fixture | shape it is a fixture of | source | result |
+| --- | --- | --- | --- |
+| `tunic` | plain: one world, one lens, one pyramid | mapgenie | byte-identical, 8,047,414 bytes |
+| `fallout-new-vegas` | a split sheet: 13 worlds, 8 of them insets | mapgenie | byte-identical, 23,188,369 bytes |
+| `zelda-tears-of-the-kingdom` | lens shards: three elevations of one ground | mapgenie | byte-identical, 58,031,657 bytes |
+| `mars` | a sphere, a derived id space, named artwork | nasa-trek | byte-identical, 255,455,078 bytes |
+| `cyberpunk-2077` | two sources merged | ign ⊕ piggyback | M3 — this lane is single-source |
+| `bend-or` | a city, basemap and national layers | arcgis-hub | blocked: the capture is gone |
+
+Every source is held against the reference tree's own reading of the same
+archived capture — what the two documents *mean*, since the shapes deliberately
+differ — collection for collection, feature for feature, attribute for
+attribute. All five have such a fixture; four of the five are checked against
+one today, and the ArcGIS one waits with its volume.
+
+The tile deriver is proven in two halves, for the reason §4.3 gives: the plan
+is bit-identical to the reference's for all nine pyramids of the four
+single-source fixtures, and tunic's 741 tiles rebuild from the archive byte for
+byte. `golden/format/STAMPS.md` carries the accounting and the ceiling.
 
 The tests are gated on the two inputs that are deliberately not in git — the
 capture archive and the derived tile set — and skip with an explanation when
@@ -889,6 +906,19 @@ gitignored copies are present.
 
 The harness's `generate-enrich` gate stays **skipped**: its contract is
 `generate ⊕ enrich` over every bundle fixture, and enrichment does not exist
-yet, so the merged, split-sheet, lens-sharded and city fixtures cannot be
-reproduced by anything. The single-source half runs as an ordinary test in the
-meantime.
+yet, so the merged fixture cannot be reproduced by anything. The single-source
+half runs as an ordinary test in the meantime.
+
+### 8.1 What the city fixture is waiting for
+
+`bend-or` was built during M0 from a live crawl of a public city's ArcGIS Hub,
+and that capture archive was not kept. The translator fixture is the reference
+tree's *output* for it, committed; the input is gone. Re-crawling is permitted
+and the data is public, but it would not reproduce the fixture either:
+`capturedAt` is first-seen, a build's `createdAt` is capture-derived by the
+format's own invariant, and the file name would differ even if every byte of
+the city's open data were unchanged.
+
+So the volume waits on three things, in this order: the ArcGIS/USGS crawler
+(§3.2), the offline basemap renderer (§4.4), and a fresh capture — after which
+it reproduces from *that* archive rather than from the fixture's.
