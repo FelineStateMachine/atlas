@@ -83,7 +83,10 @@ Returns the chosen file as a stream, the name it was chosen under, and an
 error. Three answers are distinct and must stay so: a file, `ErrNoSelection`
 (the reader cancelled), and `ErrNotAvailable` (this host has no picker). An
 import that cannot happen and an import nobody wanted are different things to
-say.
+say — and one of the two things to say is nothing. A host with no picker is
+refused out loud, because a reader who pressed the button is owed a reason; a
+reader who closed their own dialog is told nothing at all, and the row that
+was standing by is taken away again (§4.1).
 
 ### 1.4 The desktop shell
 
@@ -197,7 +200,7 @@ changing it is a deliberate act with a waiver in the same commit.
 | `GET /v/{volume}/{world}` | The whole explorer page, server rendered, in its remembered state. Also records that this is where the reader is. |
 | `GET /fragments/detail/{id}?volume=` | One feature's card. |
 | `POST /session/{concern}` | The partial set for the regions that concern touches (§4). |
-| `POST /bundles/import` | Streamed progress rows; picks, installs, rescans, announces. |
+| `POST /bundles/import` | One progress row, streamed through its states (§4.1); picks, installs, rescans, announces. |
 | `GET /events?volume=` | The SSE stream (§5). |
 | `GET /assets/{app.css,htmx.js}` | The application's own chrome, out of the binary. |
 | `GET /static/{path...}` | Whatever static tree the host mounted; `404` when it mounted none. |
@@ -344,7 +347,22 @@ container, so a first paint and a swap produce the same bytes.
 | `overview` | `#atlas-overview` | `innerMorph` | the corner locator's chrome |
 | `viewport` | `#atlas-viewport-state` | `outerMorph` | the inert state node the seam reads |
 | `empty-state` | `#atlas-shell` | `innerMorph` | the library card |
-| `import` | `#atlas-import` | `beforeend` | one streamed progress row |
+| `import` | `#atlas-import` | `outerMorph` | the import that is happening, as one row |
+
+**An import is one row, not a log.** The response is a stream — a hundred
+megabytes takes long enough that silence reads as failure — but it is a stream
+of *states of the same row*: the handler renders the whole region again, and
+flushes it, for every state a run reaches, and the morph carries one row from
+"choosing a bundle" to "installed" in place. The row's element id carries the
+run's number, so a second import is a different element rather than the first
+one's leftovers. Three things follow, and they are the point of the
+arrangement: a cancelled picker is **silent** (its last render holds no row at
+all, and the section renders itself `hidden`), a run that ended well marks its
+last row and the stylesheet fades it out on a delay, and a refusal stays until
+the next import replaces it — it is the only account of what went wrong, and
+nothing else on the page will say it. An append swap, which is what this was,
+made every state of every run a line of its own that outlived the run, the
+import, and everything short of a full page render.
 
 **The legend is one region because it is one answer.** Every filtering move
 changes the rows, the isolate chip and the footer count together; three
@@ -596,7 +614,9 @@ whole difference between it and this application's markup lives in one file,
 `chrome.css`: the region containers carry ids of their own, the card says it is
 closed by being empty rather than by an attribute (an `innerMorph` region
 cannot set an attribute on its own container), the seam's custom elements need
-somewhere to stand, and the import rows are new. The visual identity is
+somewhere to stand, and the import row is new — including the delayed fade
+that takes it away when a run ended well, which is an animation and not a
+script. The visual identity is
 unchanged — neutral dark chrome, palette as accents.
 
 ---

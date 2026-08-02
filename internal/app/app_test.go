@@ -41,10 +41,12 @@ type fakeVolumes struct {
 	location string
 
 	// arriving is what the next Install adds, and installs is what it was
-	// asked to take in.
+	// asked to take in. already makes it the successful import that copied
+	// nothing, because the library was holding this exact build already.
 	arriving hostenv.Volume
 	installs [][]byte
 	refuse   error
+	already  bool
 }
 
 func (s *fakeVolumes) Volumes() []hostenv.Volume { return s.volumes }
@@ -70,6 +72,7 @@ func (s *fakeVolumes) Install(name string, content io.Reader) (hostenv.Installed
 		Slug:    manifest.Volume.Slug,
 		Title:   manifest.Volume.Title,
 		Stamp:   manifest.Version.Stamp,
+		Already: s.already,
 		Changed: []string{manifest.Volume.Slug},
 	}, nil
 }

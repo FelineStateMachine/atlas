@@ -53,9 +53,21 @@ atlas-globe[hidden] { display: none; }
 
   The reference implementation had no import panel: choosing a file was a
   native dialog and the only sign of it was the button. An import is a
-  streamed answer now (internal/app/importing.go), so its rows need somewhere
-  to land and a word each. They read as a small log because that is what they
-  are, and the states are the ones the handler names.
+  streamed answer now (internal/app/importing.go), so it needs somewhere to
+  stand and a word for each state it passes through.
+
+  It is one row, not a log: the region holds the run that is happening and
+  nothing else, and the handler morphs it from state to state. The section
+  says so itself -- it renders `hidden` when it is holding nothing, which an
+  outerMorph region can do and the `:empty` rule this used to lean on could
+  only guess at.
+
+  A row that ended well takes itself away. The news that a volume installed is
+  worth a moment and is clutter after that, and the reader is not going to
+  dismiss a thing they never asked to see -- so the fade is the stylesheet's
+  job, on a delay, with no script and nothing for the handler to remember. A
+  refusal is the opposite and stays: it is the only account of what went
+  wrong, and the next import is what replaces it.
 */
 .import-rows {
   position: fixed;
@@ -67,7 +79,7 @@ atlas-globe[hidden] { display: none; }
   width: min(360px, calc(100% - 34px));
   font-size: 12px;
 }
-.import-rows:empty { display: none; }
+.import-rows[hidden] { display: none; }
 .import-row {
   margin: 0;
   padding: 8px 11px;
@@ -75,10 +87,40 @@ atlas-globe[hidden] { display: none; }
   border-radius: 7px;
   background: var(--panel-raised);
   color: var(--muted);
+  overflow: hidden;
 }
 .import-row[data-state="installed"] { color: var(--text-strong); border-color: var(--accent); }
 .import-row[data-state="refused"] { color: #d99; border-color: #7e3f3f; }
 .import-row[data-state="installing"] { color: var(--text); }
+
+/*
+  The row stands for a few seconds, fades, and then collapses out of the
+  corner it was standing in -- the collapse is what stops an invisible box
+  going on sitting over the map. `forwards` is load-bearing: an animation that
+  did not hold its last frame would put the row back at the end of it.
+*/
+.import-row-fading {
+  animation: import-row-fade 500ms ease-in 4s forwards;
+}
+@keyframes import-row-fade {
+  0% { opacity: 1; max-height: 8rem; }
+  60% { opacity: 0; max-height: 8rem; }
+  100% {
+    opacity: 0;
+    max-height: 0;
+    padding-block: 0;
+    border-block-width: 0;
+    visibility: hidden;
+  }
+}
+
+/*
+  A reader who asked for less motion still wants the row gone; what they do
+  not want is the going. The delay stands and the movement does not.
+*/
+@media (prefers-reduced-motion: reduce) {
+  .import-row-fading { animation-duration: 1ms; }
+}
 
 /*
   4. A feature index row is two elements.

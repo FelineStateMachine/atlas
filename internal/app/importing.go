@@ -4,6 +4,7 @@ import (
 	"errors"
 	"log/slog"
 	"net/http"
+	"sync/atomic"
 
 	"github.com/FelineStateMachine/atlas/internal/app/hostenv"
 	"github.com/FelineStateMachine/atlas/internal/logging"
@@ -17,9 +18,29 @@ import (
 // The response is a stream of rows rather than one answer at the end, because
 // a hundred-megabyte bundle takes long enough that silence reads as failure.
 // Each row is flushed as it happens.
+//
+// ONE RUN IS ONE ROW. The stream is a stream of *states of the same row*, not
+// a stream of rows: every write in this file renders the whole region with the
+// one row that is true right now, and the region is morphed onto itself
+// (internal/app/partials.go). An append would make each state a line of its
+// own and leave every line on screen for the life of the page, which is what
+// this used to do -- a cancelled picker alone left two of them.
+//
+// The row carries the run's number as its element id, so the morph has an
+// identity to work against: within a run the id is the same and the row is
+// updated in place, and a *second* run's row is a different element, which is
+// what makes a fresh dismissal animation start rather than the finished one
+// being inherited. The number is a name on the page and nothing else -- it is
+// not application state and nobody remembers it -- so a counter for the
+// process is all it takes.
+var importRuns atomic.Uint64
 
 // ImportRow is one line of an import's progress, as the rows region renders it.
 type ImportRow struct {
+	// Run is which import this row belongs to. It is the row's identity on
+	// the page: one run's row is one element, morphed from state to state.
+	Run uint64
+
 	// State is one of "picking", "installing", "installed", "unchanged",
 	// "refused". It is a class name as much as a word: the CSS system styles
 	// a row by it.
@@ -29,14 +50,31 @@ type ImportRow struct {
 	Detail string
 }
 
+// Fading says whether a row takes itself off the screen. An import that
+// finished well is news for a moment and clutter after that, so the good ends
+// are marked here and faded out by the stylesheet; a refusal is the opposite,
+// and stays until the next import replaces it (it is the only thing left to
+// read about what went wrong).
+func (r ImportRow) Fading() bool {
+	return r.State == "installed" || r.State == "unchanged"
+}
+
 // handleImport runs one import.
 func (a *App) handleImport(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
 	w.Header().Set("Cache-Control", "no-store")
 	control := http.NewResponseController(w)
 
+	run := importRuns.Add(1)
 	row := func(state, detail string) {
-		a.writeRow(w, ImportRow{State: state, Detail: detail})
+		a.writeRegion(w, []ImportRow{{Run: run, State: state, Detail: detail}})
+		_ = control.Flush()
+	}
+	// quiet takes the row away again: the region is rendered with nothing in
+	// it, which is how a run that turned out to be nothing at all leaves the
+	// screen exactly as it found it.
+	quiet := func() {
+		a.writeRegion(w, nil)
 		_ = control.Flush()
 	}
 
@@ -44,7 +82,11 @@ func (a *App) handleImport(w http.ResponseWriter, r *http.Request) {
 	chosen, name, err := a.env.PickFile(r.Context())
 	switch {
 	case errors.Is(err, hostenv.ErrNoSelection):
-		row("unchanged", "nothing was chosen")
+		// A cancelled picker is silent. The reader closed a dialog they
+		// opened; they know what they did, and being told about it is the
+		// application talking to itself. The reference implementation said
+		// nothing here either.
+		quiet()
 		return
 	case errors.Is(err, hostenv.ErrNotAvailable):
 		// The status is set before anything is written for a host that
@@ -79,9 +121,10 @@ func (a *App) handleImport(w http.ResponseWriter, r *http.Request) {
 	a.announce(installed.Changed)
 }
 
-// writeRow renders one progress row into the response.
-func (a *App) writeRow(w http.ResponseWriter, row ImportRow) {
-	body, err := renderPartials([]string{"import"}, View{Rows: []ImportRow{row}})
+// writeRegion renders the import region, holding the one row that is true now
+// -- or nothing, which is a region that is not on screen at all.
+func (a *App) writeRegion(w http.ResponseWriter, rows []ImportRow) {
+	body, err := renderPartials([]string{"import"}, View{Rows: rows})
 	if err != nil {
 		slog.Error("rendering an import row", logging.Op("render"), slog.Any("error", err))
 		return
