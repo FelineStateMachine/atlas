@@ -2,7 +2,6 @@ import { elements } from "./dom.js";
 import { state } from "./state.js";
 import { saveSession } from "./session.js";
 import { applyPinFilters } from "./features.js";
-import { renderSearchResults } from "./search.js";
 import { curatedLabelPolicy, labelPolicy, renderAs } from "./semconv.js";
 import { recountZoneTitles, syncZoneLayers } from "./areas.js";
 import { applyCategoryVisual, applyCategoryGlyph, initials } from "./theme.js";
@@ -320,8 +319,8 @@ export function setAllCollections(visible) {
   }
   syncLegendCheckboxes();
   syncZoneLayers();
+  // applyPinFilters relists the dock along with the canvas.
   applyPinFilters();
-  renderSearchResults();
   syncSectionSwitches();
 }
 
@@ -398,8 +397,8 @@ export function showOnly(target) {
   }
   syncLegendCheckboxes();
   syncZoneLayers();
+  // applyPinFilters relists the dock along with the canvas.
   applyPinFilters();
-  renderSearchResults();
   syncSectionSwitches();
 }
 

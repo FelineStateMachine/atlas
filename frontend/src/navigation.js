@@ -2,8 +2,8 @@ import { intersects } from "ol/extent.js";
 import XYZ from "ol/source/XYZ.js";
 import TileGrid from "ol/tilegrid/TileGrid.js";
 
-import { isCollectionHidden } from "./collections.js";
 import { state } from "./state.js";
+import { visiblePins, visibleZones } from "./visibility.js";
 import { elements, populateSelect } from "./dom.js";
 import { overzoomLevels } from "./constants.js";
 import { loadWorld } from "./catalog.js";
@@ -19,7 +19,6 @@ import { renderLegend } from "./legend.js";
 import {
   applyPinFilters,
   buildFeatures,
-  pinIsHidden,
   refreshPrioritySource,
   setHoveredPin,
 } from "./features.js";
@@ -345,29 +344,38 @@ export function changeZoom(delta) {
   });
 }
 
-// The footer counts features of every kind: pins by their coordinate, zones
-// by whether their ground reaches into the view. "Enabled" is what the
-// legend's ledger lets draw; "in view" is the part of it under the window.
+// The footer counts features of every kind: points by their coordinate, shape
+// features by whether their ground reaches into the view. It used to read
+// "N features enabled · M in view", which asked the reader to hold two words
+// for two different sets and told them neither: "enabled" was the legend's
+// ledger, "in view" the window over it, and the pair read as a distinction
+// without a difference. It is one set counted twice now -- the features the
+// map is drawing, and how many of them the window is over -- said as one
+// sentence, and the number after "of" is the same number the dock puts at the
+// top of its list.
 export function updateVisibleCount() {
   const zoom = state.engine?.getView().getZoom();
   elements.viewport.dataset.zoom = Number.isFinite(zoom) ? zoom.toFixed(3) : "";
   if (!state.engine || !state.world) {
-    elements.visibleCount.textContent = "0 features enabled";
+    elements.visibleCount.textContent = "No features shown";
     return;
   }
   const extent = state.engine.getView().calculateExtent(state.engine.getSize());
-  let enabled = state.eligibleLocations;
+  const pins = visiblePins();
+  const zones = visibleZones();
+  const shown = pins.length + zones.length;
+  if (!shown) {
+    elements.visibleCount.textContent = "No features shown";
+    return;
+  }
   let inView = 0;
-  for (const pin of state.features) {
-    if (pinIsHidden(pin)) continue;
+  for (const pin of pins) {
     const [x, y] = pin.coordinate;
     if (x >= extent[0] && x <= extent[2] && y >= extent[1] && y <= extent[3]) inView++;
   }
-  for (const record of state.zoneRecords.values()) {
-    if (isCollectionHidden(record.zone.collectionId)) continue;
-    enabled++;
+  for (const record of zones) {
     if (intersects(record.extent, extent)) inView++;
   }
-  elements.visibleCount.textContent =
-    `${formatNumber(enabled)} features enabled · ${formatNumber(inView)} in view`;
+  elements.visibleCount.textContent = `${formatNumber(inView)} of ` +
+    `${formatNumber(shown)} ${shown === 1 ? "feature" : "features"} in view`;
 }

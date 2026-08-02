@@ -19,7 +19,7 @@ import { gridTheme, palette } from "./constants.js";
 import { closeDetail } from "./detail.js";
 import { elements } from "./dom.js";
 import { viewMaxZoom } from "./navigation.js";
-import { refreshPrioritySource } from "./features.js";
+import { refreshPinRendering } from "./features.js";
 import { state } from "./state.js";
 
 export function handleGridKey(event) {
@@ -60,9 +60,9 @@ export function toggleGrid(enabled = !state.gridEnabled) {
   // and then closed the grid altogether is starting over, not resuming.
   if (enabled) setSubgridVisible(true);
   renderGrid();
-  refreshPrioritySource();
-  state.layers.pins.changed();
-  state.layers.priority.changed();
+  // A cell already chosen starts holding the map to itself again the moment
+  // the grid is opened, so the footer and the dock have to hear about it too.
+  refreshPinRendering();
 }
 
 // Dividing the chosen cell and being held to it are two questions. The
@@ -100,9 +100,7 @@ export function selectGridCell(raw) {
   state.gridCell = id;
   if (!state.gridEnabled) state.gridEnabled = true;
   renderGrid();
-  refreshPrioritySource();
-  state.layers.pins.changed();
-  state.layers.priority.changed();
+  refreshPinRendering();
   if (!changed) return;
   closeDetail();
   state.engine.getView().fit(currentGridExtent(), {
@@ -182,9 +180,9 @@ export function setGridSystem(slug) {
   state.gridSystem = slug;
   state.gridCell = held ? equivalentCell(from, activeSystem(), held, state.world) : "";
   renderGrid();
-  refreshPrioritySource();
-  state.layers.pins.changed();
-  state.layers.priority.changed();
+  // The carried cell covers slightly different ground, so which features it
+  // holds the map to has moved with it.
+  refreshPinRendering();
 }
 
 // gridCellColor is the accent a cell wears everywhere it is drawn, chosen

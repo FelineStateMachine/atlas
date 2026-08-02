@@ -1,31 +1,23 @@
-import { isCollectionHidden } from "./collections.js";
 import { elements } from "./dom.js";
 import { saveSession } from "./session.js";
 import { state } from "./state.js";
 import { applyCategoryVisual, applyCategoryGlyph, initials } from "./theme.js";
 import { formatNumber } from "./util.js";
+import { filtersApply, listableFeatures } from "./visibility.js";
 
 // The dock lists at most this many rows. Every annotation still renders on
 // the canvas; the list is a shortlist, and it says when it is one.
 const dockListLimit = 100;
 
-// The dock's results pane: every feature that survives the current search and
-// collection filters, alphabetically, capped -- named shape features listed
-// beside the locations, since ground is as findable as anything standing on
-// it. With a search underway the list is exactly the matches; with none it is
-// a browsable index of what the legend has left visible.
+// The dock's results pane: exactly the features the map is drawing, in
+// alphabetical order and capped -- named shape features listed beside the
+// locations, since ground is as findable as anything standing on it. It used
+// to list everything the legend allowed, which is a longer answer than the map
+// gives whenever ground or a cell is holding the view: the panel offered sixty
+// places while one stood on the chart. What is listed is what is out there.
 export function renderSearchResults() {
   if (!elements.searchResults) return;
-  const eligible = [
-    ...state.features
-      .filter((pin) => !pin.filteredHidden)
-      .map((pin) => ({ title: pin.location.title, pin })),
-    ...[...state.zoneRecords.values()]
-      .filter((record) => record.zone.title &&
-        !isCollectionHidden(record.zone.collectionId) &&
-        (!state.search || record.zone.title.toLocaleLowerCase().includes(state.search)))
-      .map((record) => ({ title: record.zone.title, record })),
-  ].sort((a, b) => a.title.localeCompare(b.title));
+  const eligible = listableFeatures();
   const shown = eligible.slice(0, dockListLimit);
   const fragment = document.createDocumentFragment();
   if (!shown.length) {
@@ -33,7 +25,9 @@ export function renderSearchResults() {
     empty.className = "search-empty";
     empty.textContent = state.search
       ? "No visible features match."
-      : "Nothing is enabled. Show a collection to list its features.";
+      : state.highlightedZones.size
+        ? "Nothing stands inside the highlighted ground."
+        : "Nothing is shown. Bring a collection back to list its features.";
     fragment.append(empty);
   }
   for (const entry of shown) {
@@ -110,13 +104,18 @@ export function updateDockRail() {
   elements.dockRailName.hidden = !shown;
 }
 
+// The header counts the list under it and says why it is as short as it is:
+// the search in the reader's own words, or the flag for the filters they set
+// on the other side of the map. Every filter that can move the number raises
+// the flag -- a collection put away, ground highlighted, a cell holding the
+// view -- so a count that drops always has its reason on screen beside it.
 function updateDockReadout(count) {
   elements.dockCount.textContent =
     `${formatNumber(count)} ${count === 1 ? "feature" : "features"}`;
   if (state.search) {
     elements.dockFlag.textContent = `“${state.search}”`;
     elements.dockFlag.hidden = false;
-  } else if (state.hiddenCollections.size > 0) {
+  } else if (filtersApply()) {
     elements.dockFlag.textContent = "filtered";
     elements.dockFlag.hidden = false;
   } else {

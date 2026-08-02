@@ -56,7 +56,6 @@ export function applyPinFilters() {
   updateZonePinFocus();
   refreshPinRendering();
   if (state.selectedPin?.filteredHidden) closeDetail();
-  renderSearchResults();
   // Anything else drawing the pins -- the globe -- filters the same moment
   // the chart does.
   document.dispatchEvent(new Event("atlas:filters"));
@@ -79,6 +78,11 @@ export function updateZonePinFocus() {
   }
 }
 
+// The one funnel for "what stands has changed": the canvas repaints, the
+// footer recounts, and the dock relists, in that order and together. They used
+// to be three calls each caller had to remember, and the callers that reached
+// for the canvas alone -- highlighting ground, descending into a cell -- left
+// the panel beside the map listing features the map had just put away.
 export function refreshPinRendering() {
   state.eligibleLocations = state.features.filter((pin) => !pinIsHidden(pin)).length;
   refreshPrioritySource();
@@ -87,6 +91,7 @@ export function refreshPinRendering() {
   state.layers.pinLabels.changed();
   state.layers.priority.changed();
   updateVisibleCount();
+  renderSearchResults();
 }
 
 export function refreshPrioritySource() {
