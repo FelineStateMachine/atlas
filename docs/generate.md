@@ -950,7 +950,7 @@ was tracked as an aspiration and, for these four, is now held.
 | `fallout-new-vegas` | a split sheet: 13 worlds, 8 of them insets | mapgenie | byte-identical, 23,188,369 bytes |
 | `zelda-tears-of-the-kingdom` | lens shards: three elevations of one ground | mapgenie | byte-identical, 58,031,657 bytes |
 | `mars` | a sphere, a derived id space, named artwork | nasa-trek | byte-identical, 255,455,078 bytes |
-| `cyberpunk-2077` | two sources merged | ign ⊕ piggyback | M3 — this lane is single-source |
+| `cyberpunk-2077` | two sources merged | ign-wiki ⊕ piggyback | canonically identical; the stamp is waived (§8.2) |
 | `bend-or` | a city, basemap and national layers | arcgis-hub | blocked: the capture is gone |
 
 Every source is held against the reference tree's own reading of the same
@@ -970,12 +970,30 @@ capture archive and the derived tile set — and skip with an explanation when
 neither `ATLAS_ARCHIVE_DIR`/`ATLAS_TILES_INDEX` nor the repository's own
 gitignored copies are present.
 
-The harness's `generate-enrich` gate stays **skipped**: its contract is
-`generate ⊕ enrich` over every bundle fixture, and the merged fixture is not
-reproduced end to end yet. The single-source half runs as an ordinary test in
-the meantime.
+The harness's `generate-enrich` gate is **green**, over five of the six bundle
+fixtures. The sixth, `bend-or`, is out of scope for a reason no milestone can
+lift, and the gate prints that scope on every run rather than omitting the
+fixture quietly.
 
-### 8.1 What the city fixture is waiting for
+### 8.1 The merged volume
+
+`cyberpunk-2077` is the one fixture no single lane can answer for, and it is
+reproduced by the shipped command rather than by a test's own reassembly of it:
+`golden/pipeline` runs `atlas enrich` over the archive and holds what lands in an
+empty registry to the fixture. Every part is byte-identical — the world payload
+including its whole merge ledger, the packed locations, the deferred prose, all
+38 icons, both pyramids' 17,507 tiles, and the archive's entry order — except
+the manifest, whose `version` object carries the enriched build's revision.
+
+That one difference is the `enriched-build-revision` waiver and it is a
+consequence, not a divergence: §5.3 of issue #5 requires an enrich write to bump
+the revision past the serving build's so the registry fold serves it, the
+revision rides the manifest, the manifest rides the stamp, and the stamp names
+the file. The gate asserts the shape of the difference rather than shrugging at
+it — the capture time is unmoved, the revision is exactly this lane's bump of the
+fixture's own, the stamp differs, and the file name follows.
+
+### 8.2 What the city fixture is waiting for
 
 `bend-or` was built during M0 from a live crawl of a public city's ArcGIS Hub,
 and that capture archive was not kept. The translator fixture is the reference

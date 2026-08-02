@@ -66,11 +66,43 @@ a real library, so the table can be checked rather than believed.
 | Fixture | stamp12 | Parts | Recomputable | Pyramid parts | Stamp identity |
 | --- | --- | ---: | ---: | ---: | --- |
 | `tunic` | `13d5657ed903` | 34 | 33 | 1 | **HELD** (M2) |
-| `cyberpunk-2077` | `e191f1964b71` | 44 | 42 | 2 | ASPIRATION — multi-source, M3 |
+| `cyberpunk-2077` | `e191f1964b71` | 44 | 42 | 2 | WAIVED — enriched build, see below |
 | `fallout-new-vegas` | `e6cd7eb1936e` | 93 | 88 | 5 | **HELD** (M2) |
 | `zelda-tears-of-the-kingdom` | `9dc737d9871e` | 98 | 97 | 1 | **HELD** (M2) |
 | `mars` | `68e141f26b1a` | 20 | 18 | 2 | **HELD** (M2) |
 | `bend-or` | `f0feba1cd00c` | — | — | 1 | BLOCKED — the capture is gone, see below |
+
+## What the merged volume closed, and what it cannot
+
+`cyberpunk-2077` now rebuilds through `generate ⊕ enrich` — `atlas enrich` over
+the two archived captures, into an empty registry — and everything a bundle *is*
+comes back identical: the world payload with its whole merge ledger, the packed
+locations, the deferred prose, all 38 icons, both pyramids' 17,507 tiles, and the
+archive's entry order, byte for byte.
+
+Its stamp cannot be identical, and the reason is a rule rather than a defect.
+Issue #5 §5.3 requires an enrich write to bump the build revision past the
+serving build's so the registry fold deterministically serves the enriched build;
+`docs/enrich.md` §2 does that by packing the enrich policy into the high field,
+so the reference's revision 9 becomes 109. The revision rides the manifest, the
+manifest is a stamped part, and the stamp names the file. One rule, three
+consequences, all of them downstream of a decision the issue makes on purpose.
+
+That is the `enriched-build-revision` waiver. The gate does not shrug at it: it
+asserts the *shape* of the difference — the capture time is unmoved, the revision
+is exactly this lane's bump of the fixture's own, the stamp differs, the file
+name follows — so a second, unrelated divergence could not hide inside the first.
+Retiring the waiver would mean either giving up the fold-winning rule or
+restamping every bundle in every library.
+
+The volume's two pyramid parts are also unrecoverable for the reason every
+pyramid part is, and one of them is the corpus's only **warped** pyramid: the IGN
+raster resampled into the Piggyback world. Its plan half is proven the same way
+every other plan half is, and proves more while doing it — the stamp covers the
+alignment itself, six coefficients to nine decimal places, so reproducing it says
+the anchors, the name matching, the trimming, the least-squares fit and the
+target zoom all came out identical from the captures alone. Its 1,365 tiles
+rebuild byte for byte.
 
 ## What M2 closed, and how far
 
@@ -113,16 +145,20 @@ So the deriver is proven in two halves, in `golden/pipeline/derive_test.go`:
 
 - **The plan is identical.** Everything the stamp covers except the tool hash —
   the frame, the deepest complete level, the deepest usable level, the encoding,
-  the interpolation flag, the content bounds, and every captured tile of every
-  level with its content hash and format, in the stamp's own sort order — is
-  reproduced bit for bit. Feeding the reference implementation's tool hash into
-  the clean room's stamp function returns the stamp the tile cache recorded, for
-  **all nine pyramids of the four single-source fixtures**. Two plans that agree
-  under one tool hash are the same plan.
+  the interpolation flag, the content bounds, the alignment where there is one,
+  and every captured tile of every level with its content hash and format, in the
+  stamp's own sort order — is reproduced bit for bit. Feeding the reference
+  implementation's tool hash into the clean room's stamp function returns the
+  stamp the tile cache recorded, for **all nine pyramids of the four
+  single-source fixtures and for cyberpunk's warped variant**. Two plans that
+  agree under one tool hash are the same plan.
 - **The tiles are identical.** Tunic's pyramid is rebuilt from the frames the
   archive holds and compared against the reference cache: **741 tiles, byte for
   byte**, plus the register entry's zoom range, window, formats, content bounds,
-  background colour and per-level coverage bitsets.
+  background colour and per-level coverage bitsets. Cyberpunk's warped pyramid is
+  rebuilt the same way from the archive *and the fit*: **1,365 tiles, byte for
+  byte**, including the level the resampler renders and every level folded down
+  from it.
 
 What that adds up to: a fresh archive derived by the clean-room deriver would
 produce the same rasters and the same volumes, under different pyramid stamps
@@ -151,3 +187,11 @@ so a fresh capture carries today's time, a volume's `createdAt` is
 capture-derived by the format's own invariant, and the file name would differ
 even if every byte of the city's open data were unchanged. The row stays
 BLOCKED with its reason rather than being quietly dropped.
+
+A re-capture is in flight on another branch. What it can close is *reproduction*
+— the volume rebuilding from an archive that exists — and what it closes it
+against is a fixture re-captured from that same build. It cannot close this row,
+because this row is about the build the M0 oracle recorded, and that build's
+inputs are gone. The `generate-enrich` gate therefore names `bend-or` in its
+printed scope rather than counting it: a fixture nothing can rebuild is a stated
+absence, not a passing test.

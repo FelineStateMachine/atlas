@@ -27,18 +27,29 @@ A run prints one line per gate, then the waiver file, then a count:
 
 ```
   PASS  format-roundtrip  ok  github.com/FelineStateMachine/atlas/golden/format  0.35s
-  SKIP  generate-enrich   awaiting M2+M3 — the pipeline lanes: …
+  PASS  generate-enrich   ok  github.com/FelineStateMachine/atlas/golden/pipeline  15.2s
+                          scope: five of six bundle fixtures: … bend-or is out of
+                          scope — its capture archive was not kept, so nothing can
+                          rebuild it (golden/format/STAMPS.md). …
   PASS  analysis-vectors  9 grounds, 178 vectors in 8 families, 28 plans over …
   PASS  analysis-lane     analysis lane: the boundary rules, tsc --strict and …
+  SKIP  parity-compare    awaiting M5+M6 — the app and the seam: …
+  PASS  island            ok  github.com/FelineStateMachine/atlas/golden/island
   PASS  http-replay       ok  github.com/FelineStateMachine/atlas/golden/http
   PASS  depcheck          depcheck: 5 rules over …
 
-waivers: 2 accepted divergences from the goldens (golden/waivers.json)
+waivers: 3 accepted divergences from the goldens (golden/waivers.json)
   WAIVED  app-shell-page   http-replay/GET /: …
   WAIVED  seam-assets      http-replay/GET /static/app.css, …
+  WAIVED  enriched-build-revision  generate-enrich/bundles/cyberpunk-2077 …
 
-7 suites: 5 passed, 2 skipped, 0 failed
+8 suites: 7 passed, 1 skipped, 0 failed
 ```
+
+A ready gate that does not judge everything its contract names prints a **scope**
+line under its result, every run. A gate answering for five of six fixtures is a
+different gate from one answering for all six, and the difference belongs on the
+scoreboard rather than in a paragraph somebody has to go and find.
 
 A run where everything skips is green. That is deliberate: the harness lands
 before the lanes it judges, and its skip lines are the running list of what
@@ -58,8 +69,10 @@ recorded bodies too when the variable names a bundles directory holding the
 fixture builds (see `golden/http/NOTES.md`). Both modes must pass; CI runs the
 first.
 
-Five gates run today. `depcheck`, `format-roundtrip` and `http-replay` need
-only Go. The two
+Six gates run today. `depcheck`, `format-roundtrip`, `island`, `http-replay` and
+`generate-enrich` need only Go — though `generate-enrich` needs two directories
+that are not in git before it judges anything, and says so when it has them.
+The two
 analysis gates run on plain node and need one `npm ci` at the **repository
 root** — the workspace install that brings the analysis lane its single
 dependency (s2js), plus eslint and tsc — and a node that strips TypeScript
@@ -78,7 +91,7 @@ seam — and the order the harness runs.
 | Gate | Milestone | What it checks |
 | --- | --- | --- |
 | `format-roundtrip` | M1 | A fixture bundle read and rewritten by `format/bundle` is canonically identical. Canonical-content equality is mandatory; stamp identity is tracked per fixture as an aspiration (issue #5 §6). Runs today. |
-| `generate-enrich` | M2+M3 | `generate ⊕ enrich` reproduces the composed bundle fixtures. Correctness is defined at the composed-bundle level, which is why the internal interchange shape is free to differ from the old tree's (§5.1). |
+| `generate-enrich` | M2+M3 | `generate ⊕ enrich` reproduces the composed bundle fixtures. Correctness is defined at the composed-bundle level, which is why the internal interchange shape is free to differ from the old tree's (§5.1). Runs today, over five of the six fixtures; the sixth prints as scope, not silence. |
 | `analysis-vectors` | M0 | The hand-derived geohash and S2 goldens and every recorded cell plan, byte-exact, compared **positionally** — plan emission order is frozen (§5.4). Runs today, against `analysis/cellsystems`: M6 re-pointed it by changing one import, and the fixtures did not move. |
 | `analysis-lane` | M6 | The analysis lane's own gate: the TypeScript boundary rules of §9 (`eslint.config.mjs`), `tsc` at its strictest, and the conformance suite every cell system must pass (§5.4), run over geohash, S2 and a third system that exists only to prove the contract admits one. `make analysis-lane` is the same run on its own. |
 | `parity-compare` | M5+M6 | The ~45-step tour, extended into its blind spots, re-pointed at the new app. Diagnostics are emitted jointly: server session state as a JSON island plus seam state, under the golden key names. |
@@ -144,17 +157,43 @@ family pins and what a ground carries are in
 
 ## generate-enrich
 
-**Half-built, and it stays skipped.** Its contract is
-`generate ⊕ enrich` over *every* bundle fixture, merge included, and the enrich
-lane does not exist — so the merged, split-sheet, lens-sharded and city
-fixtures cannot be reproduced by anything yet. `golden/pipeline` exists and runs
-the single-source half as an ordinary test: it composes the plain-MapGenie
-fixture from archived captures and holds it against the committed extractions,
-byte for byte as things stand. Those tests read the capture archive and the
-derived tile set, which are deliberately not in git, so they skip unless
+**Ready, over five of six fixtures.** Its contract is `generate ⊕ enrich` over
+every bundle fixture, merge included, and `golden/pipeline` now answers it for
+every fixture that can be rebuilt at all:
+
+| fixture | shape | rebuilt by | result |
+| --- | --- | --- | --- |
+| `tunic` | plain: one world, one lens | generate | byte-identical |
+| `fallout-new-vegas` | a split sheet, 13 worlds | generate | byte-identical |
+| `zelda-tears-of-the-kingdom` | lens shards | generate | byte-identical |
+| `mars` | a sphere, named artwork | generate | byte-identical |
+| `cyberpunk-2077` | two sources merged | generate ⊕ enrich | canonically identical; one waived stamp |
+| `bend-or` | a city | — | **out of scope: the capture is gone** |
+
+`bend-or` is not skipped for want of a lane. Its bundle was built during M0 from
+a live crawl and that capture archive was not kept, so nothing can rebuild it
+from anything — and a fresh capture would not reproduce it either, because
+`capturedAt` is first-seen and a build's `createdAt` is capture-derived by the
+format's own invariant. `golden/format/STAMPS.md` carries the row and the
+reason; the gate prints the scope on every run, so the missing sixth is a stated
+cost rather than a silent omission. A sibling is re-capturing the city; when that
+lands, the fixture is re-captured with it and the row moves.
+
+The merged fixture is reproduced **by the shipped command**, not by a test's own
+reassembly of the pipeline: the gate runs `atlas enrich` over the archive into an
+empty registry and holds what lands there to the committed extractions. Every
+part is byte-identical — the world payload with its whole merge ledger, the
+packed locations, the prose, the icons, both pyramids' tiles, the entry order —
+except the manifest's `version`, which is the `enriched-build-revision` waiver
+and is asserted in shape rather than shrugged at.
+
+These tests read the capture archive and the derived tile set, which are
+deliberately not in git, so they skip with an explanation unless
 `ATLAS_ARCHIVE_DIR` and `ATLAS_TILES_INDEX` — or the repository's own gitignored
-`crawl/` and `tiles/` — are present. The gate's `ready` flag flips when
-enrichment can answer for the rest. See `docs/generate.md` §8.
+`crawl/` and `tiles/` — are present. A run without them is green and proves
+nothing about the pipeline, which is the same bargain every fixture-backed gate
+here makes with a machine that cannot hold gigabytes of somebody else's bytes.
+See `docs/generate.md` §8 and `docs/enrich.md`.
 
 ## depcheck
 
