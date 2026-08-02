@@ -15,7 +15,8 @@ var laneImports = &analysis.Analyzer{
 format/ depends on the standard library only. generate/ and enrich/ depend on
 format/ and never on each other, app/, workbench/, render/, or analysis/.
 app/ depends on format/ and its own packages. workbench/ depends on format/
-plus enrich/maturity. Nothing imports render/.`,
+plus enrich/maturity. Nothing imports render/. Every lane may import
+internal/logging, and internal/logging imports no lane back.`,
 	Requires: []*analysis.Analyzer{inspect.Analyzer},
 	Run:      runImportRule(laneImportEdge),
 }
@@ -74,6 +75,19 @@ func laneImportEdge(from Lane, fromRel, importPath string) string {
 	}
 	if to == LaneFormat {
 		return "" // every lane may depend on the center
+	}
+	if to == LaneLogging {
+		// One event stream narrates the whole system, so every lane may speak
+		// it. format/ still may not: the stdlib-only rule above has already
+		// refused it, which is the stricter and clearer thing to say.
+		return ""
+	}
+	if from == LaneLogging {
+		return contractf(
+			"logging must not import "+string(to)+", but imports "+quote(importPath),
+			"9",
+			"the event stream is a foundation every lane speaks: stdlib log/slog and the format's own vocabulary, and nothing that could import it back",
+		)
 	}
 
 	switch from {

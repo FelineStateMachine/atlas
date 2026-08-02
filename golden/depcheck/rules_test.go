@@ -42,6 +42,11 @@ func TestLaneImportEdge(t *testing.T) {
 		{"nothing imports render, not even the CLI", "cmd/atlas", mod + "render/scene", "nothing imports render"},
 		{"analysis is TypeScript", "internal/app/handler", mod + "analysis/cellsystems", "not importable from Go"},
 
+		{"every lane may speak the event stream", "internal/generate/compose", mod + "internal/logging", ""},
+		{"format may not, by the stricter rule", "format/bundle", mod + "internal/logging", "standard library only"},
+		{"logging may use the center", "internal/logging", mod + "format/bundle", ""},
+		{"logging may not use a lane", "internal/logging", mod + "internal/generate/doc", "logging must not import generate"},
+
 		{"the CLI wires every lane", "cmd/atlas", mod + "internal/enrich/merge", ""},
 		{"the harness may read a lane", "golden/depcheck", mod + "internal/generate/doc", ""},
 		{"the old tree is not judged", "internal/measure", mod + "internal/bundle", ""},
@@ -172,6 +177,7 @@ func TestLaneOf(t *testing.T) {
 		{"cmd/atlas", LaneCLI},
 		{"cmd/cartograph", LaneOutside},
 		{"golden/depcheck", LaneGolden},
+		{"internal/logging", LaneLogging},
 		{"internal/bundle", LaneOutside},
 		{"tools/tiles", LaneOutside},
 	}

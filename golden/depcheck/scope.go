@@ -21,6 +21,14 @@ const (
 	LaneCLI       Lane = "cmd/atlas"
 	LaneGolden    Lane = "golden"
 
+	// LaneLogging is the one shared foundation package outside format/: the
+	// structured event stream every lane narrates itself through (issue #5 §9).
+	// It sits in internal/ rather than at the module root because format/ stays
+	// log-free and CLI flag wiring is not the format's concern, and it is a
+	// lane of its own so that "everyone may depend on it, it may depend on no
+	// lane back" is a checked rule rather than a habit.
+	LaneLogging Lane = "logging"
+
 	// LaneOutside covers everything the clean room does not own yet: the
 	// golden-reference tree (the pre-rewrite packages), tools/, and the root
 	// desktop shell. Rules never fire on it — the old tree is the oracle, not
@@ -34,6 +42,7 @@ const (
 // trivially rather than erroring.
 var cleanRoomRoots = []string{
 	"format",
+	"internal/logging",
 	"internal/generate",
 	"internal/enrich",
 	"internal/app",
@@ -49,6 +58,7 @@ var lanePrefixes = []struct {
 	prefix string
 }{
 	{LaneFormat, "format"},
+	{LaneLogging, "internal/logging"},
 	{LaneGenerate, "internal/generate"},
 	{LaneEnrich, "internal/enrich"},
 	{LaneApp, "internal/app"},
