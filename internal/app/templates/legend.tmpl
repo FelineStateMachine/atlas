@@ -1,0 +1,8 @@
+{{/*
+  legend — the collection tree: hides, sections, label policy, solo, search.
+  All of its algebra runs in Go before this file is given anything.
+*/}}
+{{define "legend"}}<div class="legend" data-hidden="{{len .Session.Hidden}}" data-collapsed="{{len .Session.Collapsed}}" data-search="{{.Session.Search}}">
+{{with .Volume}}<p class="legend-world">{{.World.Title}}: {{.World.Points}} points, {{.World.Paths}} paths, {{.World.Areas}} areas</p>{{end}}
+</div>
+{{end}}

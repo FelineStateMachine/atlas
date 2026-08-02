@@ -1,0 +1,21 @@
+{{/*
+  viewport — the seam's two custom elements and the inert state node they
+  read. The elements themselves are morph-skipped: a swap may touch their
+  attributes and must never touch their internals (issue #5 §4.3).
+*/}}
+{{define "viewport"}}<atlas-viewport state-src="#atlas-viewport-state" data-morph-skip="true">
+  <atlas-chart></atlas-chart>
+  <atlas-globe hidden></atlas-globe>
+</atlas-viewport>
+<div id="atlas-viewport-state" hidden
+     data-volume="{{with .Volume}}{{.Slug}}{{end}}"
+     data-base="{{with .Volume}}{{.Base}}{{end}}"
+     data-world="{{with .Volume}}{{.World.Slug}}{{end}}"
+     data-lens="{{.Session.Lens}}"
+     data-selected="{{.Session.Selected}}"
+     data-grid-system="{{.Session.Grid.System}}"
+     data-grid-cell="{{.Session.Grid.Cell}}">
+  {{range .Session.Hidden}}<data value="{{.}}" class="hidden-collection"></data>
+  {{end}}
+</div>
+{{end}}

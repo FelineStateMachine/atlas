@@ -1,0 +1,10 @@
+{{/* topbar — volume selector, world selector, lens, solo chips, search. */}}
+{{define "topbar"}}<div class="topbar" id="atlas-volume-selector">
+  {{range .Library}}<a class="volume{{if .Current}} current{{end}}" href="/v/{{.Slug}}/" data-stamp="{{.Stamp}}">{{.Title}}</a>
+  {{end}}
+</div>
+{{with .Volume}}<div class="worlds">
+  {{range .Worlds}}<a class="world{{if .Current}} current{{end}}" href="/v/{{$.Volume.Slug}}/{{.Slug}}">{{.Title}}</a>
+  {{end}}
+</div>{{end}}
+{{end}}
