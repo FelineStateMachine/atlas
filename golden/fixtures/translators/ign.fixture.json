@@ -1,0 +1,33 @@
+{
+  "source": "ign",
+  "kind": "ign-map",
+  "passthrough": false,
+  "mapSlug": "night-city",
+  "capture": {
+    "capturedAt": "2026-08-01T04:03:49.679312Z",
+    "contentHash": "4d97349df5dd53f69f4b11c960fba625e8ff7c075109c2a74f79146c0ab61066",
+    "sourceId": 5079662952,
+    "sourceUrl": "https://www.ign.com/maps/cyberpunk-2077/night-city",
+    "bytes": 134006
+  },
+  "output": {
+    "bytes": 42061,
+    "sha256": "52b037232366adb83f16844fee14ec6e4d41a8fb6402805c40562193ab54b049",
+    "file": "ign.doc.json"
+  },
+  "document": {
+    "mapId": 1612549660,
+    "mapSlug": "night-city",
+    "mapTitle": "Full World",
+    "gameId": 1707818407,
+    "gameSlug": "cyberpunk-2077",
+    "gameTitle": "Cyberpunk 2077",
+    "tileSets": 1,
+    "groups": 1,
+    "categories": 15,
+    "locations": 368,
+    "regions": 0,
+    "collections": 0,
+    "attrs": 0
+  }
+}
