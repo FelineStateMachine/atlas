@@ -281,7 +281,7 @@ func (a *App) view(held library, volume hostenv.Volume, session Session) View {
 	out.Title = manifest.Volume.Title
 
 	standing := visible(model, session, lens)
-	out.Legend = legend(model, session, standing)
+	out.Legend = legend(model, session, standing, lens)
 	out.Dock = dockView(session, standing, model)
 	out.Detail = a.detail(volume, model, session, session.Selected)
 	out.Grid = gridView(session, model)

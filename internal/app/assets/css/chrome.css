@@ -85,3 +85,26 @@ atlas-globe[hidden] { display: none; }
 .import-row[data-state="installed"] { color: var(--text-strong); border-color: var(--accent); }
 .import-row[data-state="refused"] { color: #d99; border-color: #7e3f3f; }
 .import-row[data-state="installing"] { color: var(--text); }
+
+/*
+  5. A feature index row is two elements.
+
+  One element carries one request, and a row of a feature index answers two:
+  the left button goes to the ground, the right button highlights it
+  (internal/app/templates/legend.tmpl). The wrapper is the one that hears the
+  contextmenu, and it lays out as the row the carried system already styles.
+*/
+.zone-index-row {
+  display: block;
+}
+
+/*
+  6. A pane put away is put away.
+
+  Both panes are absolutely positioned and `display: block`, which is stronger
+  than the `[hidden]` the browser's own sheet carries — so without this the
+  chart went on standing behind the sphere at full size, and the one question
+  a renderer answers from its window (how much of the map is in view, how a
+  cell fits it) went on being answered by a window nobody was looking through.
+*/
+atlas-chart[hidden] { display: none; }

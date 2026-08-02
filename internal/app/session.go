@@ -81,6 +81,14 @@ type Session struct {
 	Overview Overview `json:"overview"`
 	Selected string   `json:"selected,omitempty"`
 
+	// Focused is the ground the reader last went to from a list, and it is a
+	// different fact from Selected: closing the card puts the selection down
+	// and leaves the index still marking where the reader has been. The
+	// reference kept exactly this (`focusedZoneID`), cleared it whenever the
+	// ground itself was rebuilt -- a world opened, a split world's layer
+	// swapped -- and never on a card being closed.
+	Focused string `json:"focused,omitempty"`
+
 	// Cameras is the last settled camera per world, reported by the seam.
 	// It is the one piece of continuous state the server keeps, and it is
 	// kept because a reader expects a volume to open where they left it.
@@ -253,8 +261,14 @@ type concernContext struct {
 // list), and the viewport's state node (what the seam draws). Nothing touches
 // the topbar but the things that change what is on offer.
 var concerns = map[string]concern{
-	"world":       {apply: applyWorld, regions: []string{"topbar", "legend", "dock", "overview", "viewport"}},
-	"lens":        {apply: applyLens, regions: []string{"topbar", "overview", "viewport"}},
+	"world": {apply: applyWorld, regions: []string{"topbar", "legend", "dock", "overview", "viewport"}},
+	// A lens is usually a different picture of one ground and moves nothing
+	// but the raster. On a split sheet it is a different *layer*, and the
+	// ground under the reader changes with it: which shapes the index lists,
+	// which features the panel can name, what the footer counts. The legend
+	// and the dock are therefore in the set -- a lens swap that left them
+	// showing the layer it came from is a page half in one world.
+	"lens":        {apply: applyLens, regions: []string{"topbar", "legend", "dock", "overview", "viewport"}},
 	"collections": {apply: applyCollections, regions: []string{"legend", "dock", "viewport"}},
 	"sections":    {apply: applySections, regions: []string{"legend"}},
 	"expand":      {apply: applyExpand, regions: []string{"legend"}},
@@ -408,6 +422,7 @@ func applyWorld(c *concernContext, form formValues) error {
 		// and a held cell all belong to the ground they were made on, and
 		// the arrangement is the new world's to supply.
 		c.session.Selected = ""
+		c.session.Focused = ""
 		c.session.Detail.Open = false
 		c.session.Highlighted = nil
 		c.session.Search = ""
@@ -415,14 +430,40 @@ func applyWorld(c *concernContext, form formValues) error {
 		c.session.Labels = nil
 		c.session.Lens = ""
 		c.session.Arranged = false
+		// A map opens on the map. The panel is away until something gives it
+		// a reason to come out, and a world nobody has arranged yet has not
+		// been put away by hand either -- which is what lets it open itself
+		// again on the first search of the new ground.
+		c.session.Dock = Dock{Section: c.session.Dock.Section}
 	}
 	c.session.World = world
 	return nil
 }
 
 func applyLens(c *concernContext, form formValues) error {
-	c.session.Lens = form.get("lens")
+	name := form.get("lens")
+	// A lens is usually a different picture of the same ground and the reader
+	// keeps their place in it. A lens drawing another *layer* of a split world
+	// is different ground, and the ground the reader last went to is not on it.
+	if lensShard(c.world, name) != lensShard(c.world, c.session.Lens) {
+		c.session.Focused = ""
+	}
+	c.session.Lens = name
 	return nil
+}
+
+// lensShard is the layer a named lens draws, or the first lens's when the name
+// is empty and nothing has been chosen yet.
+func lensShard(model *worldModel, name string) int {
+	if model == nil || len(model.Lenses) == 0 {
+		return 0
+	}
+	for at := range model.Lenses {
+		if model.Lenses[at].Name == name {
+			return model.Lenses[at].Shard
+		}
+	}
+	return model.Lenses[0].Shard
 }
 
 // applyCollections carries every move on the hide set: one row toggled, one
@@ -581,6 +622,13 @@ func applyHighlight(c *concernContext, form formValues) error {
 		on = form.on("on")
 	}
 	s.Highlighted = toggle(s.Highlighted, id, on)
+	// Asking to look at a piece of ground and keeping its collection put away
+	// cannot both be meant, so a highlight brings the collection back.
+	if on && c.world != nil {
+		if shape, held := c.world.ShapeByID[id]; held {
+			s.Hidden = toggle(s.Hidden, shape.Collection.ID, false)
+		}
+	}
 	revealDock(s)
 	return nil
 }
@@ -621,6 +669,14 @@ func applySelect(c *concernContext, form formValues) error {
 	s.Detail.Open = s.Selected != ""
 	if s.Detail.Open {
 		revealDock(s)
+	}
+	// A row reached for from a list says so, and going to a piece of ground
+	// marks it in the index for as long as the reader is standing on it. A
+	// pick off the canvas says nothing: the reader was already there.
+	if form.on("focus") && c.world != nil {
+		if _, ground := c.world.ShapeByID[s.Selected]; ground {
+			s.Focused = s.Selected
+		}
 	}
 	return nil
 }

@@ -23,7 +23,7 @@
       {{range .Dock.Rows}}<button type="button" class="search-result{{if .Selected}} is-selected{{end}}"
               {{if eq .Kind "point"}}data-location="{{.ID}}"{{else}}data-zone="{{.ID}}"{{end}}
               style="--pin-color: {{.Color}}"
-              hx-post="/session/select" hx-vals:append='{"feature":"{{.ID}}"}'>
+              hx-post="/session/select" hx-vals:append='{"feature":"{{.ID}}","focus":"1"}'>
         <span class="result-dot" style="background: {{.Color}}">{{.Glyph}}</span>
         <span><strong>{{.Title}}</strong><small>{{.Collection}}{{if .Group}} · {{.Group}}{{end}}</small></span>
       </button>

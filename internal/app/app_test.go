@@ -344,7 +344,14 @@ func TestSessionConcerns(t *testing.T) {
 		{
 			concern: "lens",
 			form:    url.Values{"lens": {"satellite"}},
-			targets: []string{"#atlas-topbar", "#atlas-overview", "#atlas-viewport-state"},
+			// The legend and the dock are in the set because a lens can be a
+			// different *layer* of a split sheet, and the ground under the
+			// reader changes with it: which shapes the index lists and which
+			// features the panel can name are the new layer's answers.
+			targets: []string{
+				"#atlas-topbar", "#atlas-legend", "#atlas-dock", "#atlas-overview",
+				"#atlas-viewport-state",
+			},
 			check: func(t *testing.T, s app.Session) {
 				if s.Lens != "satellite" {
 					t.Errorf("lens = %q", s.Lens)

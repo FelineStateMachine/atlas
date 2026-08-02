@@ -22,7 +22,7 @@
   <p id="detail-description">{{.Description}}</p>
   <nav class="detail-links" id="detail-links"{{if not .Links}} hidden{{end}}>
     {{range .Links}}<button type="button" class="detail-link" data-location="{{.ID}}"
-            hx-post="/session/select" hx-vals:append='{"feature":"{{.ID}}"}'>{{.Title}}</button>
+            hx-post="/session/select" hx-vals:append='{"feature":"{{.ID}}","focus":"1"}'>{{.Title}}</button>
     {{end}}
   </nav>
   <dl>

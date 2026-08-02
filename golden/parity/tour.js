@@ -111,15 +111,22 @@ window.__atlasAppDiagnostics = () => {
   };
 };
 
-// The shape a card is open about, by title -- and nothing when the card is
-// closed or is about a point.
+// The ground the reader last went to, by title.
+//
+// RE-POINTED, and the re-pointing is the whole of what this read is about.
+// The reference held a `focusedZoneID` that a jump set and only a rebuilt
+// ground cleared -- closing the card put the selection down and left the index
+// still marking where the reader had been -- and it published that id here.
+// Reading the card instead would answer null the moment a card closes, which
+// is a different question from the one the baselines recorded.
+//
+// The new page carries the same fact where the reference carried it on screen:
+// the row of the feature index the jump marked as current. So that is what is
+// asked. Nothing is redefined -- the value is still the title of the ground
+// the reader went to -- only the element carrying it has changed.
 function focusedZone() {
-  const detail = tourQuery("#atlas-detail");
-  if (!detail || detail.children.length === 0) return null;
-  const id = textOf("#detail-id");
-  if (!id) return null;
-  const row = document.querySelector(`#dock-results [data-zone="${CSS.escape(id)}"]`);
-  return row ? textOf("#detail-title") || null : null;
+  const current = document.querySelector("#legend .zone-index-item.is-current");
+  return current?.querySelector("span:last-child")?.textContent?.trim() || null;
 }
 
 // ---- what the harness observes for itself -----------------------------

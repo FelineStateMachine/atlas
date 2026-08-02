@@ -104,6 +104,17 @@ func (a *App) handleExplorer(w http.ResponseWriter, r *http.Request) {
 		session.Detail.Open = false
 		session.Highlighted = nil
 		session.Search = ""
+		// A map opens on the map: the panel is away until the new ground gives
+		// it something to hold, and nobody has yet put it away by hand here.
+		session.Dock = Dock{Section: session.Dock.Section}
+	}
+	// The ground the reader last went to is a mark on a world they were
+	// standing on. Coming back to this volume from another one stands them on
+	// it again -- the reference rebuilt the whole index at exactly this moment
+	// and dropped the mark with it -- while re-reading the page the reader is
+	// already on, which is what a catalog reconcile does, changes nothing.
+	if session.World != world || a.lastVolume() != slug {
+		session.Focused = ""
 	}
 	session.World = world
 	session.Stamp = bundle.ShortStamp(manifest.Version.Stamp)
