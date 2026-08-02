@@ -148,7 +148,7 @@ func TestRenderAsPrefersAttributesOverLegacy(t *testing.T) {
 	}
 }
 
-func TestLabelPolicyCuratesAreasOnly(t *testing.T) {
+func TestLabelPolicyReadsTheCuration(t *testing.T) {
 	cases := []struct {
 		kind  string
 		attrs map[string]string
@@ -158,6 +158,17 @@ func TestLabelPolicyCuratesAreasOnly(t *testing.T) {
 		{semconv.GeometryArea, map[string]string{semconv.KeyLabelPolicy: "quiet"}, semconv.LabelQuiet},
 		{semconv.GeometryPath, nil, semconv.LabelQuiet},
 		{semconv.GeometryPoint, nil, semconv.LabelQuiet},
+		// A point collection drawn as text is a producer pinning names on,
+		// so its names speak unasked; one drawn as pins waits to be asked.
+		{semconv.GeometryPoint, map[string]string{semconv.KeyRenderAs: semconv.RenderAsText}, semconv.LabelAlways},
+		{semconv.GeometryPoint, map[string]string{semconv.KeyRenderAs: semconv.RenderAsPin}, semconv.LabelQuiet},
+		// A declared policy is the answer whatever the kind, including
+		// against the text default.
+		{semconv.GeometryPoint, map[string]string{
+			semconv.KeyRenderAs:    semconv.RenderAsText,
+			semconv.KeyLabelPolicy: semconv.LabelQuiet,
+		}, semconv.LabelQuiet},
+		{semconv.GeometryPath, map[string]string{semconv.KeyLabelPolicy: semconv.LabelAlways}, semconv.LabelAlways},
 	}
 	for _, test := range cases {
 		if got := semconv.LabelPolicy(test.kind, test.attrs); got != test.want {

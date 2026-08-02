@@ -103,6 +103,20 @@ func suites() []suite {
 			argv:       []string{"node", "golden/parity/compare.mjs"},
 		},
 		{
+			// The server's half of the joint diagnostics §6 asks for: the
+			// state island held to the `session` object every parity
+			// baseline records, key for key, over sequences driven through
+			// the application's own routes. The other half -- the seam's
+			// state, and the whole tour -- is parity-compare, which lands
+			// with M6.
+			name:       "island",
+			milestone:  "M5",
+			awaiting:   "",
+			entrypoint: "golden/island/island_test.go",
+			argv:       []string{"go", "test", "./golden/island/..."},
+			ready:      true,
+		},
+		{
 			name:       "http-replay",
 			milestone:  "M5",
 			awaiting:   "",

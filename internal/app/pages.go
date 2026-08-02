@@ -40,6 +40,36 @@ func (a *App) handleHome(w http.ResponseWriter, r *http.Request) {
 	http.Redirect(w, r, "/v/"+manifest.Volume.Slug+"/"+world, http.StatusFound)
 }
 
+// handleOpen is the doorway the volume and world selects go through.
+//
+// A select cannot build a path out of its own value, and a volume and a world
+// are both in the address, so the two crumbs name what they want and this
+// redirects to it. It exists so that the topbar can be pure hypermedia
+// without the page holding a second, private idea of where it is: after the
+// redirect the reader is at the real URL, which is the only place the
+// explorer lives.
+func (a *App) handleOpen(w http.ResponseWriter, r *http.Request) {
+	slug := r.URL.Query().Get("volume")
+	held := a.library()
+	volume, serving := held.bySlug[slug]
+	if !serving {
+		if len(held.order) == 0 {
+			http.Redirect(w, r, "/", http.StatusFound)
+			return
+		}
+		volume = held.order[0]
+	}
+	manifest := volume.Manifest()
+	world := r.URL.Query().Get("world")
+	if _, ok := worldEntry(manifest, world); !ok {
+		world = a.session(manifest.Volume.Slug).World
+	}
+	if _, ok := worldEntry(manifest, world); !ok {
+		world = manifest.Worlds[0].Slug
+	}
+	http.Redirect(w, r, "/v/"+manifest.Volume.Slug+"/"+world, http.StatusFound)
+}
+
 // handleExplorer serves one world of one volume: the whole page, server
 // rendered, with every region already in its remembered state.
 func (a *App) handleExplorer(w http.ResponseWriter, r *http.Request) {
@@ -65,8 +95,19 @@ func (a *App) handleExplorer(w http.ResponseWriter, r *http.Request) {
 	// way round. A store that refuses the write costs the reader their place
 	// on the next launch and nothing else, so the page is still served.
 	session := a.session(slug)
+	if session.World != world {
+		// Arriving on a different ground is arriving on a different
+		// ground however it was reached, so the arrangement is the new
+		// world's to supply.
+		session.Arranged = false
+		session.Selected = ""
+		session.Detail.Open = false
+		session.Highlighted = nil
+		session.Search = ""
+	}
 	session.World = world
 	session.Stamp = bundle.ShortStamp(manifest.Version.Stamp)
+	a.arrange(volume, &session)
 	if err := a.saveSession(&session); err != nil {
 		slog.Warn("the session could not be written", logging.Op("session"),
 			logging.Volume(slug), slog.Any("error", err))
@@ -94,8 +135,15 @@ func (a *App) handleDetail(w http.ResponseWriter, r *http.Request) {
 		http.NotFound(w, r)
 		return
 	}
-	view := a.view(held, volume, a.session(slug))
-	view.Feature = r.PathValue("id")
+	// A fragment is asked for by a target that wants it, so the card it
+	// answers with is the one asked for rather than the one the session
+	// happens to have open. The record is not written: fetching a card is
+	// reading, and reading is not an arrangement.
+	session := a.session(slug)
+	session.Selected = r.PathValue("id")
+	session.Detail.Open = session.Selected != ""
+	view := a.view(held, volume, session)
+	view.Feature = session.Selected
 	a.writePage(w, "detail", view)
 }
 

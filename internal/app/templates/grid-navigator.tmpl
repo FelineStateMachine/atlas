@@ -1,3 +1,33 @@
-{{/* grid-navigator — cell system cycling, the held cell, the subgrid. */}}
-{{define "grid-navigator"}}<div class="grid-navigator" data-system="{{.Session.Grid.System}}" data-cell="{{.Session.Grid.Cell}}" data-subgrid="{{.Session.Grid.Subgrid}}"></div>
+{{/*
+  grid-navigator — the cell system in play, the cell held, and the subgrid.
+
+  What a cell system is and what a cell draws belong to the analysis lane
+  (issue #5 §5.4); which one is chosen and which cell is held belong to the
+  session. This region is the second half only, which is why it names a system
+  and never computes one.
+*/}}
+{{define "grid-navigator"}}<div id="atlas-grid-navigator" class="grid-navigator"{{if not .Grid.Enabled}} hidden{{end}}>
+  <button type="button" class="grid-system" id="grid-system" aria-label="Cell system"
+          hx-post="/session/grid" hx-vals='{"system":"cycle"}'>{{.Grid.Name}}</button>
+  <button type="button" id="grid-back" aria-label="Back one cell level"
+          hx-post="/session/grid" hx-vals='{"cell":"{{.Grid.Cell}}","ascend":"1"}'>←</button>
+  <label>
+    <span id="grid-system-name">{{.Grid.Name}}</span>
+    <input type="text" id="grid-input" name="cell" value="{{.Grid.Cell}}"
+           inputmode="text" autocomplete="off" autocapitalize="none" spellcheck="false"
+           aria-label="Grid cell"
+           hx-post="/session/grid" hx-trigger="input changed delay:150ms">
+  </label>
+  <button type="button" class="subgrid-toggle" id="subgrid-toggle"
+          aria-pressed="{{.Grid.Subgrid}}"
+          aria-label="{{if .Grid.Subgrid}}Hide the subgrid{{else}}Show the subgrid{{end}}"
+          title="Space · show or hide the subgrid"
+          hx-post="/session/grid" hx-vals='{"subgrid":"{{if .Grid.Subgrid}}0{{else}}1{{end}}"}'>
+    <svg viewBox="0 0 16 16" aria-hidden="true">
+      <path d="M2.5 2.5h11v11h-11z"/>
+      <path d="M6.2 2.5v11M9.8 2.5v11M2.5 6.2h11M2.5 9.8h11"/>
+      <path class="subgrid-toggle-slash" d="m2.6 13.4 10.8-10.8"/>
+    </svg>
+  </button>
+</div>
 {{end}}

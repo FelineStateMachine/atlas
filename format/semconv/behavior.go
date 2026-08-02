@@ -25,16 +25,30 @@ func RenderAs(attrs map[string]string, legacyDisplayType string) string {
 }
 
 // LabelPolicy answers whether a collection's features wear their names on the
-// map. Only areas curate their labels: absent, an area is [LabelAlways], and
-// every other kind is [LabelQuiet].
+// map, in the producer's word alone: a reader's own override is the
+// application's to lay over the top of this.
+//
+// The ladder, widest step first. A declared [KeyLabelPolicy] is the answer
+// whatever the kind. Absent one, an area speaks -- [LabelAlways] -- because
+// every map drew its region names before the key existed; a path waits; and a
+// point collection speaks exactly when its curation drew it as text, since
+// floating names are labels a producer pinned on rather than a different kind
+// of thing to draw.
 func LabelPolicy(kind string, attrs map[string]string) string {
-	if kind != GeometryArea {
-		return LabelQuiet
-	}
 	if value, declared := attrs[KeyLabelPolicy]; declared {
 		return value
 	}
-	return LabelAlways
+	switch kind {
+	case GeometryArea:
+		return LabelAlways
+	case GeometryPath:
+		return LabelQuiet
+	default:
+		if RenderAs(attrs, "") == RenderAsText {
+			return LabelAlways
+		}
+		return LabelQuiet
+	}
 }
 
 // Equirect is a declared flattening of a sphere: the raster window it fills

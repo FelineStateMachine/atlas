@@ -2,9 +2,10 @@
 
 **Status: in progress (M5).** This document specifies the hypermedia
 application: the URL surface, the session record, the partial and event
-envelopes, and the contract between the handler and whatever host it is
-mounted in. Sections marked **next wave** name what is deliberately a stub
-today, so nobody mistakes a placeholder for a decision.
+envelopes, the region and template system, the state island, and the contract
+between the handler and whatever host it is mounted in. Sections marked
+**next wave** name what is deliberately a stub today, so nobody mistakes a
+placeholder for a decision.
 
 The implementation is `internal/app`, its host seam is
 `internal/app/hostenv`, and the headless host is `atlas serve`
@@ -128,11 +129,13 @@ changing it is a deliberate act with a waiver in the same commit.
 | Route | Answers |
 |---|---|
 | `GET /` | 302 to the last volume's world; the library card when nothing is installed. |
+| `GET /open?volume=&world=` | 302 to the explorer page those two name. The doorway the topbar's two selects go through. |
 | `GET /v/{volume}/{world}` | The whole explorer page, server rendered, in its remembered state. Also records that this is where the reader is. |
 | `GET /fragments/detail/{id}?volume=` | One feature's card. |
 | `POST /session/{concern}` | The partial set for the regions that concern touches (§4). |
 | `POST /bundles/import` | Streamed progress rows; picks, installs, rescans, announces. |
 | `GET /events?volume=` | The SSE stream (§5). |
+| `GET /assets/{app.css,htmx.js}` | The application's own chrome, out of the binary. |
 | `GET /static/{path...}` | Whatever static tree the host mounted; `404` when it mounted none. |
 
 Real URLs replace the reference implementation's hash routing: a world can be
@@ -142,7 +145,28 @@ the explorer.
 A `GET` of an explorer page writes the session's `world` and the last-volume
 pointer. That is deliberate: arriving at a URL is a choice whether it was
 clicked, typed, or restored by the browser, and the session follows the
-address bar rather than the other way round.
+address bar rather than the other way round. Arriving on a *different* world
+also clears what belonged to the old one — the selection, the highlights, the
+search — and re-derives the arrangement (§3.1).
+
+**`/open` exists because a `<select>` cannot build a path out of its own
+value.** The volume and the world are both in the address, so the two crumbs
+name what they want and the server redirects to it; after the redirect the
+reader is at the real URL, which is the only place the explorer lives. It is
+one route rather than client-side glue, which is the same trade the rest of
+this document makes.
+
+**`/assets` is a different mount from `/static`, and the difference is the
+deletability principle in the URL space.** `/static` is whatever tree a host
+handed over — the seam's built bundle, which lands in M6 — and answers `404`
+when a host handed over nothing. `/assets` is the part of the page that is the
+application's own: the stylesheet system and the vendored hypermedia runtime,
+compiled into the binary (`internal/app/assets`). A build with no seam serves
+a complete, styled, interactive page.
+
+Both assets are vendored rather than linked. The offline invariant is not only
+about bundles: an atlas opens on a machine with no network, forever, and a
+page that fetches its runtime from a CDN is a page that does not.
 
 ---
 
@@ -160,95 +184,187 @@ costs a reader their layout once and never corrupts it.
 
 ```json
 {
-  "schema": 1,
-  "volume": "tunic",
-  "stamp": "13d5657ed903",
-  "world": "world",
-  "lens": "Default",
-  "hidden":    ["12", "31"],
-  "collapsed": ["quests"],
-  "labels":    {"31": "always"},
-  "solo":      ["hydro"],
-  "search":    "shrine",
-  "dock":     {"open": true, "section": "counts"},
+  "schema": 2,
+  "volume": "bend-or",
+  "stamp": "f0feba1cd00c",
+  "world": "2026-08-02",
+  "lens": "Basemap",
+  "hidden":      ["1496244488"],
+  "collapsed":   ["zones"],
+  "expanded":    ["1951802496", "253393030"],
+  "highlighted": ["277390785"],
+  "arranged":    true,
+  "labels":      {"39191589": "quiet"},
+  "search":      "mill",
+  "dock":     {"open": true, "dismissed": false, "section": "counts"},
   "detail":   {"open": true},
   "grid":     {"system": "geohash", "cell": "9q5c", "subgrid": 2},
-  "sidebar":  {"open": true},
-  "selected": "1849",
-  "cameras":  {"world": {"x": 4096, "y": 4096, "zoom": 3.5, "rotation": 0, "at": "2026-08-02T09:12:44Z"}},
+  "sidebar":  {"collapsed": false},
+  "overview": {"docked": false},
+  "selected": "277390785",
+  "cameras":  {"2026-08-02": {"x": 4096, "y": -4096, "zoom": 1.34, "rotation": 0, "at": "2026-08-02T09:12:44Z"}},
   "updatedAt": "2026-08-02T09:12:44Z"
 }
 ```
 
 Notes that are contract, not style:
 
-- `hidden`, `collapsed` and `solo` are **sorted sets**, so a record is stable
-  to diff and two paths to the same state produce the same bytes.
+- `hidden`, `collapsed`, `expanded` and `highlighted` are **sorted sets**, so a
+  record is stable to diff and two paths to the same state produce the same
+  bytes. They are stored as strings — collection and feature ids ride the DOM
+  as strings — and the island writes them back as the numbers the payload
+  declares (§6).
+- `lens` is the lens's **name**, not its index. A name outlives a build's
+  ordering; the island renders the index because that is what the golden
+  baselines record.
+- `sidebar` and `overview` are spelled as the thing a reader *does* to them —
+  collapsed, docked — so the zero value is the ordinary page.
+- `dock.dismissed` is the reader having folded the panel by hand. Until they
+  have, the panel comes out on its own the first time it has something to say;
+  after that it stays where they put it.
 - `stamp` is the serving build the record was last written against. A record
   behind the serving build is still read — slugs outlive builds — and the
   difference is what a stamp-move refresh is about.
-- `cameras` is keyed by world slug, because a camera belongs to a ground.
-- The server stores the camera and hands it back. It never reasons about it.
+- `cameras` is keyed by world slug, because a camera belongs to a ground. The
+  server stores it and hands it back. It never reasons about it.
+
+**Schema 2** is the templates wave. It gained `expanded`, `highlighted`,
+`arranged` and `overview`, renamed `sidebar.open` to `sidebar.collapsed`, and
+lost `solo`: isolating turned out to be a move on the hide set rather than a
+state of its own, and the chip is derived from what is hidden so that it is
+right however that set was reached — including by switching rows off one at a
+time.
+
+### 3.1 The arrangement a world opens with
+
+Three of the sets have non-empty defaults that the *world* supplies, not the
+reader:
+
+| Set | Default | Why |
+|---|---|---|
+| `hidden` | every collection the payload marks `visible: false` | the producer's own curation |
+| `collapsed` | `["zones"]` | shape collections are a navigation aid, not the primary filter surface, so their section folds and pin groups stay above the fold |
+| `expanded` | every ungrouped shape collection | their feature indexes are there the moment the section is opened, and in the DOM for anything reaching for a feature without unfolding first |
+
+`arranged` is what tells a fresh record from an arranged one. Without it an
+empty hide set — a reader who asked to see everything — is the same bytes as a
+record nobody has touched, and the next request would put the curation back.
 
 ---
 
-## 4. The partial envelope
+## 4. Regions, templates, and the partial envelope
+
+### 4.1 The regions
+
+Ten regions, one template file each (`internal/app/templates/<region>.tmpl`),
+mirroring the one-file-per-region stylesheet system in
+`internal/app/assets/css`. A region's template renders that region's own
+container, so a first paint and a swap produce the same bytes.
+
+| Region | Element | Swap | What it is |
+|---|---|---|---|
+| `shell` | `#atlas-shell` | `innerMorph` | the whole page frame |
+| `topbar` | `#atlas-topbar` | `innerMorph` | volume, world, lens, import |
+| `legend` | `#atlas-legend` | `innerMorph` | search field, toolbar, tree, footer count |
+| `dock` | `#atlas-dock` | `innerMorph` | count, flag, shortlist, and the card inside it |
+| `detail` | `#atlas-detail` | `innerMorph` | one feature's card |
+| `grid-navigator` | `#atlas-grid-navigator` | `innerMorph` | cell system, held cell, subgrid |
+| `overview` | `#atlas-overview` | `innerMorph` | the corner locator's chrome |
+| `viewport` | `#atlas-viewport-state` | `outerMorph` | the inert state node the seam reads |
+| `empty-state` | `#atlas-shell` | `innerMorph` | the library card |
+| `import` | `#atlas-import` | `beforeend` | one streamed progress row |
+
+**The legend is one region because it is one answer.** Every filtering move
+changes the rows, the isolate chip and the footer count together; three
+regions would be three ways for them to disagree, which is the exact defect
+the reference implementation carried until every surface was made to ask one
+place.
+
+**The card is nested inside the dock and is still its own region.** That is
+where it belongs on screen, and `select` moves the card and the list together,
+so a dock render carries the card with it and the two cannot disagree about
+what is open.
+
+`viewport.tmpl` defines two templates. `viewport` is the partial — the state
+node alone, because that node is what an interaction moves. `viewport-surface`
+is the shell's alone and is never swapped.
+
+### 4.2 The envelope
 
 Every `/session/*` POST answers with an `<hx-partial>` set covering **exactly**
 the regions that interaction touches — never a page-wide refresh standing in
 for knowing what moved.
 
 ```html
-<hx-partial target="#atlas-legend" swap="innerMorph">…</hx-partial>
-<hx-partial target="#atlas-dock"   swap="innerMorph">…</hx-partial>
+<hx-partial hx-target="#atlas-legend" hx-swap="innerMorph">…</hx-partial>
+<hx-partial hx-target="#atlas-dock"   hx-swap="innerMorph">…</hx-partial>
 ```
 
-| Region | Element | Swap |
-|---|---|---|
-| `shell` | `#atlas-shell` | `innerMorph` |
-| `topbar` | `#atlas-topbar` | `innerMorph` |
-| `legend` | `#atlas-legend` | `innerMorph` |
-| `dock` | `#atlas-dock` | `innerMorph` |
-| `detail` | `#atlas-detail` | `innerMorph` |
-| `grid-navigator` | `#atlas-grid-navigator` | `innerMorph` |
-| `overview` | `#atlas-overview` | `innerMorph` |
-| `viewport` | `#atlas-viewport-state` | `outerMorph` |
-| `empty-state` | `#atlas-shell` | `innerMorph` |
-| `import` | `#atlas-import` | `beforeend` |
+The target and swap are spelled `hx-target` and `hx-swap`: htmx 4 reads an
+`<hx-partial>` through the same attribute vocabulary it reads everything else
+through, and an unprefixed `target` is silently no target at all. The region
+names and the element ids either side of it are the same as they ever were.
 
 Morph swaps are what let scroll position, focus, and open `<details>` survive a
-re-render. **The viewport's own elements are morph-skipped**: a swap replaces
-the inert `#atlas-viewport-state` node beside them and never reaches inside
-`<atlas-viewport>`, because tearing down a WebGL context mid-gesture is not a
-re-render.
+re-render. **The seam's surfaces are morph-skipped**: `<atlas-viewport>`, the
+map pane and the overview's canvas holder carry `hx-morph-skip-children`, htmx
+4's own spelling of "touch my attributes, never my internals". Tearing down a
+WebGL context mid-gesture is not a re-render.
 
-### 4.1 The concern table
+### 4.3 The concern table
 
-One route per concern, each declaring the regions its answer covers.
+One route per concern, each declaring the regions its answer covers. Reading
+the regions column downward is the fastest way to see what the application
+thinks is coupled to what.
 
 | `POST /session/…` | Fields | Regions |
 |---|---|---|
 | `world` | `world` | topbar, legend, dock, overview, viewport |
-| `lens` | `lens` | topbar, viewport |
-| `collections` | `collection`+`visible`, or `hidden` (repeated) | legend, dock, viewport |
-| `sections` | `section`, `open` | legend |
-| `labels` | `collection`, `policy` (empty clears) | legend, viewport |
-| `solo` | `domain`+`on`, or `solo` (repeated) | topbar, legend, viewport |
+| `lens` | `lens` (the lens's name) | topbar, overview, viewport |
+| `collections` | `collection`+`visible`, or `section`, or `all`=`show`\|`hide`, or `hidden` (repeated) | legend, dock, viewport |
+| `sections` | `section`+`open`, or `all`=`fold`\|`unfold` | legend |
+| `expand` | `collection`+`open`, or `all`=`fold`\|`unfold` | legend |
+| `labels` | `collection` + `flip`, or `collection`+`policy` (empty clears) | legend, viewport |
+| `solo` | `collection` or `section`; neither means show everything | legend, dock, viewport |
 | `search` | `q` | legend, dock, viewport |
-| `dock` | `open`, `section` | dock |
-| `select` | `feature` | detail, dock, viewport |
+| `highlight` | `feature` (+ optional `on`), or `all`=`clear` | legend, dock, viewport |
+| `dock` | `open`, `byHand`, `section` | dock |
+| `select` | `feature` (empty closes) | legend, dock, detail, viewport |
 | `grid` | `system`, `cell`, `subgrid` | grid-navigator, dock, viewport |
-| `view` | `world`, `x`, `y`, `zoom`, `rotation` | — answers `204` |
+| `overview` | `docked` | overview |
 | `sidebar` | `open` | shell |
+| `view` | `world`, `x`, `y`, `zoom`, `rotation` | — answers `204` |
 
-Every request carries `volume`. A volume that is not installed is a `404`; a
-malformed slug or a missing required field is a `400`.
+Every request carries `volume`, declared once on the shell as
+`hx-vals:inherited`. A volume that is not installed is a `404`; a malformed
+slug or a missing required field is a `400`.
 
 `view` is the camera report: the seam's one debounced upward whisper, answered
 with `204 No Content`, because swapping anything in response to a settling
 camera would fight the reader's own hand. The other upward flow is the pick:
 the seam resolves a canvas hit and submits the *identity* through an ordinary
 `POST /session/select`.
+
+**`labels` is spelled as a flip, not a destination.** The policy turns over,
+and if the other word is what the producer curated anyway the override has
+nothing left to say and is dropped rather than stored. That is what keeps a
+ladder turned over and back from leaving overrides behind it — and it is why
+the route needs the world, not just the id.
+
+### 4.4 Template rules
+
+- **One file per region**, named for the region.
+- **No `hx-on`.** Every interaction is an `hx-*` attribute naming a route. The
+  only glue on the page is the seam's boot module.
+- **Explicit inheritance.** `hx-vals:inherited` and `hx-swap:inherited` are
+  declared once, on the shell, and nothing else inherits.
+- **Templates render; they do not decide.** Every display decision runs in Go
+  first (§7). A template that needs an `if` about what a collection *means* is
+  a decision in the wrong place.
+- **`hx-*` lives in templates only.** The routes, the region names, the partial
+  envelope and the viewport state node are all framework-neutral, so replacing
+  HTMX would be an afternoon in one directory rather than an architecture
+  event.
 
 ---
 
@@ -260,19 +376,23 @@ Two event names, and no more:
 
 ```
 event: catalog
-data: <hx-partial target="#atlas-topbar" swap="innerMorph">…</hx-partial>
+data: <hx-partial hx-target="#atlas-topbar" hx-swap="innerMorph">…</hx-partial>
 
 event: refresh
-data: <hx-partial target="#atlas-shell" swap="innerMorph" src="/v/tunic/world"></hx-partial>
+data: <hx-partial hx-target="#atlas-shell" hx-swap="innerMorph" hx-get="/v/tunic/world"></hx-partial>
 ```
 
 - **`catalog`** — the library's composition moved. Carries the regions that
-  list it: the volume selector, and the library card when the library has
-  emptied. Sent to every connection.
+  list it. Sent to every connection.
 - **`refresh`** — the one directive. The volume this connection is watching now
   serves a different build, every URL under its old stamp is gone, and the page
   has to be fetched whole rather than patched. Sent **only** to connections
-  watching that volume, which is why a connection names what it is watching.
+  watching that volume.
+
+The page takes the plainer road of re-fetching its own URL on either event: a
+page that re-reads where it is cannot end up half-patched, and both events mean
+the library moved under it. The bodies stay in the contract for a client that
+wants the cheaper path.
 
 There is no event for "a file appeared in the library directory", because
 nothing watches it. An import is what triggers a rescan, and the rescan is what
@@ -280,38 +400,210 @@ produces these events.
 
 ---
 
-## 6. Logging
+## 6. The state island
+
+The explorer page carries the session it was rendered from as an inert JSON
+script node:
+
+```html
+<script type="application/json" id="atlas-session-island">{…}</script>
+```
+
+It exists for one reason. Issue #5 §6 asks the rewritten application to publish
+"server session state as a JSON island … matching golden key names", so the
+parity tour can diff the application's account of the arrangement against the
+seam's. **These are the key names** — the ones the reference implementation
+wrote to `localStorage` under `atlas.session.v3`, documented in
+`golden/parity/SCHEMA.md` §3.2. Where the arrangement is stored is this
+application's business and has changed completely; what it contains is not.
+
+```json
+{"last": "bend-or",
+ "entry": {"volume": "bend-or", "world": "2026-08-02", "lens": 0,
+           "center": [4096, -4096], "zoom": 1.34,
+           "hidden": [], "collapsed": ["zones"],
+           "expanded": [39191589, 50985093, …],
+           "labels": ["39191589=quiet"],
+           "overviewDocked": false, "dockFolded": true, "dockDismissed": false}}
+```
+
+Shape notes: ids are emitted as the numbers a payload declares them as but
+sorted as the strings they ride the DOM as, which is what the baselines record;
+`labels` is the override ledger, one `"<collection>=<policy>"` per entry,
+sorted; `lens` is the index; `center` is rounded to whole world units and
+`zoom` to three decimals, exactly as the harness rounds what it reads, so a
+baseline and an island are diffable without a normalizer in between.
+
+`golden/island` is the gate. It drives session POST sequences derived from the
+baselines — twenty-seven steps across all six fixture volumes, over the legend,
+solo, search, label-policy, lens, grid and overview concerns — and holds the
+island to each step's `session` object key for key, in both directions: a key
+the baseline has and the island lacks is a hole, and a key the island invents
+is an invention.
+
+### 6.1 What is seam-side, and why
+
+Two of the twelve keys **cannot be produced server-side**, and are not forced
+to be:
+
+- **`center`** and **`zoom`** are the chart's camera. They are arrived at by
+  fitting a raster to a window and depend on the viewport's size, the lens's
+  own depth, and the fit the seam computes. No amount of session state produces
+  them. The server's only honest relationship with them is the one issue #5
+  §4.1 describes: the seam reports a settled camera upward, debounced, at
+  `POST /session/view`, and the server stores it and hands it back. Until the
+  seam has reported one they are `null`. The gate posts the baseline's own
+  camera and then checks the round trip, so what is proved about these two is
+  the echo, not the origin.
+
+Two further things belong to lanes that have not landed, and are recorded here
+rather than papered over:
+
+- **The grid cull.** A held cell narrows what stands, the same way a highlight
+  does. Deciding which features are inside a cell is the analysis lane's
+  (issue #5 §5.4, `analysis/cellsystems`, M6). Until it lands, the session
+  carries the held cell and the dock raises its "filtered" flag for it, but the
+  count is the count the other filters leave. It does not affect the island,
+  which records no cell.
+- **The footer's "in view" half.** The reference implementation's footer read
+  "N of M features in view", and N is the count inside the camera's extent —
+  seam-side by construction. The server renders M; refining it to the full
+  sentence is the seam's, once there is a camera to ask.
+
+---
+
+## 7. Display logic
+
+All of it runs in Go, once, before a template is handed anything (issue #5
+§4.5). It lives in four files beside the handler, and reads the conventions
+only through `format/semconv` — an `atlas.*` string literal outside the
+registry is a depcheck failure, not a review comment.
+
+| File | What it decides |
+|---|---|
+| `world.go` | the payload model: collections in order, points unpacked from `ATLASLOC`, shape rings projected onto the world square, the parent chain, containment |
+| `legend.go` | the tree — sections, rows, counts, the label ladder, the feature index order, isolating, the solo chip, the opening arrangement |
+| `filter.go` | what stands: the hide set, the search, the AND-across/OR-within highlight filter, the shard, the counts and the words above them |
+| `view.go` | the card, the dock, the grid and overview chrome, the viewport state node |
+
+Three rules worth stating because they are easy to get subtly wrong, all three
+extracted from the reference implementation's behaviour:
+
+1. **Highlighting reads AND across collections, OR within one.** Two districts
+   highlighted widens the question; a district and a subwatershed narrows it to
+   the ground they share. The city fixture is the test bed: nine shape
+   collections, and highlighting one boundary plus one waterbody takes the
+   drawn count from 213 to 148, because none of the 65 annotated places stands
+   in both. Two answers are exempt from the cull — the feature the reader has
+   open, and one they are searching for by name — because both were asked for
+   rather than merely drawn.
+2. **A search narrows points and never the ground.** Searching for a place has
+   never taken the ground out from under it, so a shape answers the search in
+   the list and not on the canvas.
+3. **Containment is boundary-inclusive with a pixel of grace.** A pin dropped
+   on a zone's border was put there to mean the zone, and exact point-in-polygon
+   arithmetic would flip it out over the width of the line it stands on.
+
+The label ladder is the one place a convention helper had to move. The
+reference implementation gave a point collection curated as `atlas.render.as =
+text` a speaking default, because floating names are labels a producer pinned
+on rather than a different kind of thing to draw; `semconv.LabelPolicy` now
+says the same, so the rule lives in the registry rather than in a viewer.
+
+### 7.1 The stylesheet system
+
+`internal/app/assets/css` is the reference implementation's token-first,
+one-file-per-region system, carried as an asset (issue #5 §9) and unedited. The
+whole difference between it and this application's markup lives in one file,
+`chrome.css`: the region containers carry ids of their own, the card says it is
+closed by being empty rather than by an attribute (an `innerMorph` region
+cannot set an attribute on its own container), the seam's custom elements need
+somewhere to stand, and the import rows are new. The visual identity is
+unchanged — neutral dark chrome, palette as accents.
+
+---
+
+## 8. The development loop
+
+```sh
+atlas dev                       # 127.0.0.1:7433, chrome read from the working copy
+atlas dev -bundles DIR -root .  # against another library
+atlas dev -seam-watch           # and the seam's bundler beside it
+```
+
+`atlas dev` is `atlas serve` with two additions and no third. Templates and
+stylesheets are read from the working copy instead of the binary and re-parsed
+the moment a file is written, so a template edit is one refresh away rather
+than one rebuild away; writes are coalesced over 60 ms, because editors write a
+file three times per save. A tree that will not parse is reported and the last
+set that parsed keeps serving — an unbalanced `{{if}}` halfway through an edit
+is a normal thing to type, and taking the page down over it would make the loop
+worse than a rebuild.
+
+**The watching lives in `cmd/`, and nowhere else.** `internal/app` is one pure
+`http.Handler` that touches no filesystem; what it exposes is
+`templates.Reload(fs.FS)` and `assets.Reload(fs.FS)`, and building an `fs.FS`
+out of a directory is the command's business. That is the hostenv rule
+surviving having a development loop.
+
+`-seam-watch` runs `npm run watch` in `render/`. The seam is M6 and does not
+exist yet, so today the flag says so and carries on rather than failing: it is
+the command a developer will want the day the seam lands, and it should not
+need writing then.
+
+---
+
+## 9. Logging
 
 `internal/logging`, per [`logging.md`](logging.md). The application speaks
 `op=` values `scan`, `serve`, `install`, `session`, `events`, `catalog`,
 `render`, and uses `volume`, `world`, `stamp` and `path` from the shared
-vocabulary. `atlas serve` prints its address to **stdout** — a script starts
-the host and reads where it landed — and everything else to the stream on
-stderr.
+vocabulary. `atlas serve` and `atlas dev` print their address to **stdout** — a
+script starts the host and reads where it landed — and everything else to the
+stream on stderr.
 
 ---
 
-## 7. Next wave
+## 10. The pragmatism clause
+
+Issue #5 §4.3: HTMX ownership is a means, not a loyalty test. If an interaction
+proves laggy or awkward as a round trip, it is re-classified by editing the
+issue's interaction inventory — never patched with ad-hoc client code. Three
+things are worth watching, recorded here so the edit has evidence behind it
+rather than a feeling:
+
+1. **Search-as-you-type.** Debounced 150 ms on the client attribute and
+   answered with three region partials. On the city (213 features) and the
+   games (up to 1,400) the round trip is comfortable; on a volume an order of
+   magnitude larger the legend partial is the expensive half, because it
+   re-renders every row to move one count. If it ever bites, the fix inside
+   this architecture is a narrower region — a `legend-count` region — not a
+   client-side filter.
+2. **The feature index.** A shape row's index is rendered whether or not the
+   row is unfolded, which is what the reference implementation did and what
+   keeps a feature reachable by name without unfolding first. It is also the
+   largest thing in the legend partial.
+3. **The grid navigator's text field.** Typing a cell address round-trips per
+   keystroke like the search. It is a short string and a cheap region, but it
+   is the interaction most likely to feel like typing through a straw, and it
+   is the first candidate for the hybrid bucket if it does.
+
+None of the three has been re-classified. They are listed because the clause is
+worth nothing without a habit of writing down what it would apply to.
+
+---
+
+## 11. Next wave
 
 Named here so a stub is never mistaken for a decision.
 
-- **Templates.** `internal/app/templates` holds one file per region, and today
-  each is a container with the right id and the data already flowing into it.
-  The chrome, the legend tree, the label ladders and the dock readout are the
-  templates wave. What must not drift is the *names*: region names, element
-  ids, and the swap table of §4.
-- **Display logic in Go.** Legend algebra, AND-across/OR-within filtering,
-  label policy and semconv reading all run in Go before a template is handed
-  anything (issue #5 §4.5). None of it exists yet; when it does, it belongs
-  beside `view.go`, not in a template.
 - **The Wails host.** ~150 lines: `wails.Run` with this handler as the asset
   server, an `fs.Sub` mount for the seam bundle, and the native dialog behind
   `PickFile`. No Wails runtime JS in the page; events are SSE.
-- **`atlas dev`.** Template hot-reload, headless HTTP, and the seam's
-  `esbuild --watch` under one command.
-- **Diagnostics for the parity tour.** The tour compares server session state
-  as a JSON island against seam state, under the golden key names. The island
-  is not rendered yet.
-- **Detail fragments.** `/fragments/detail/{id}` answers with the region stub;
-  reading prose, links and attributes out of `worlds/<slug>.text` is the
-  templates wave's.
+- **The seam.** `render/` lands in M6. Until it does, `/static` answers `404`,
+  an undefined `<atlas-viewport>` renders nothing, and every non-viewport
+  interaction works — which is the deletability principle demonstrated in the
+  build order itself.
+- **The grid cull and the cell systems.** §6.1.
+- **The globe toggle.** The topbar offers it on a world that declares a sphere
+  and it is inert until the seam exists to press it.

@@ -1,0 +1,45 @@
+/* The group's mark reads the same way as the marks in its rows: lit when the
+   group is showing, hollow when it is not. */
+.layer-switch {
+  position: relative;
+  display: grid;
+  justify-self: end;
+  width: 15px;
+  height: 15px;
+  flex: none;
+  place-items: center;
+  cursor: pointer;
+}
+
+.layer-switch input {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  opacity: 0;
+}
+
+.layer-switch > span {
+  width: 9px;
+  height: 9px;
+  border: 1px solid #6b665a;
+  transition: background 140ms ease, border-color 140ms ease;
+}
+
+.layer-switch:hover > span {
+  border-color: var(--accent);
+}
+
+.layer-switch:has(input:checked) > span {
+  border-color: var(--accent);
+  background: var(--accent);
+}
+
+.layer-switch:has(input:focus-visible) > span {
+  outline: 1px solid var(--accent);
+  outline-offset: 2px;
+}
+
+.layer-section.is-collapsed .category-toggles {
+  display: none;
+}
+
