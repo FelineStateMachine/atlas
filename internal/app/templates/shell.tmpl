@@ -128,6 +128,32 @@
     <input type="hidden" name="rotation" id="atlas-camera-rotation" value="0">
   </form>
   {{/*
+    The pick's way in.
+
+    The panes resolve a hit themselves -- a pixel is theirs and an identity is
+    this application's (docs/render-seam.md §5) -- and this is the half that
+    was missing: the seam handed an identity up and nothing was standing there
+    to take it, so a click on the canvas moved nothing at all.
+
+    It is the camera's arrangement exactly, and for the same reason. The
+    application renders the form and the field it wants filled, the seam fills
+    it in and raises the event, htmx posts it and applies the answer -- and the
+    answer is the selection the legend marks and the dock and the card draw,
+    which are the page's regions, not the seam's. A request the seam made for
+    itself would throw all of that away.
+
+    ONE FIELD, and the two absences are the point. The volume is not here
+    because it is inherited from the shell above like every other interaction's
+    on this page, and `focus` is not here because a pick off the canvas is not
+    a jump: a row reached for from a list marks the ground it opened in the
+    index, and a reader who clicked the ground was already standing on it
+    (applySelect, internal/app/session.go).
+  */}}
+  <form hidden id="atlas-pick" hx-post="/session/select"
+        hx-trigger="atlas:pick from:window">
+    <input type="hidden" name="feature" id="atlas-pick-feature">
+  </form>
+  {{/*
     Live updates. The stream carries ready-to-swap partials and two event
     names (docs/app.md §5); the page takes the plainer road of re-fetching
     itself on either, because both events mean the library moved under it and

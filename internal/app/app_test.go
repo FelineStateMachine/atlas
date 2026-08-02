@@ -578,6 +578,78 @@ func TestCameraReportIsQuiet(t *testing.T) {
 	}
 }
 
+// A pick off the canvas, end to end: the page's half and the handler's.
+//
+// The seam resolves a hit and can do nothing with it on its own -- it fills a
+// form this page renders and says so, exactly as the camera does. So the
+// first half of this is that the form is there and wired, which is the whole
+// of the defect it was written for: both panes reported picks for a milestone
+// and nothing was listening, so clicking a feature moved nothing.
+//
+// The second half is the field the form deliberately does not carry. `focus`
+// is what a row reached for from a list means -- take me there, and mark it
+// in the index while I stand on it -- and a pick is not that: the reader who
+// clicked the ground was already on it. Selecting and going are two facts,
+// and only one of them is a canvas click's to state.
+func TestCanvasPickSelectsWithoutFocusing(t *testing.T) {
+	handler, host := newApp(t, volume("tunic", "TUNIC", tunicStamp))
+
+	page := get(t, handler, "/v/tunic/overworld", nil)
+	if page.Code != http.StatusOK {
+		t.Fatalf("the explorer answered %d", page.Code)
+	}
+	shell := page.Body.String()
+	opens := strings.Index(shell, `<form hidden id="atlas-pick"`)
+	if opens < 0 {
+		t.Fatalf("the page renders no pick form, so a canvas pick posts nothing:\n%s", shell)
+	}
+	closes := strings.Index(shell[opens:], "</form>")
+	if closes < 0 {
+		t.Fatalf("the pick form is never closed:\n%s", shell[opens:])
+	}
+	pickForm := shell[opens : opens+closes]
+	for _, want := range []string{
+		`hx-post="/session/select"`,
+		`hx-trigger="atlas:pick from:window"`,
+		`name="feature" id="atlas-pick-feature"`,
+	} {
+		if !strings.Contains(pickForm, want) {
+			t.Errorf("the pick form is missing %s:\n%s", want, pickForm)
+		}
+	}
+	// The volume is inherited from the shell like every other interaction's,
+	// and the focus flag is not here at all.
+	if strings.Contains(pickForm, "focus") {
+		t.Errorf("the pick form posts a focus field, so a pick would jump:\n%s", pickForm)
+	}
+
+	got := post(t, handler, "/session/select", url.Values{
+		"volume": {"tunic"}, "feature": {"1849"},
+	})
+	if got.Code != http.StatusOK {
+		t.Fatalf("a canvas pick answered %d: %s", got.Code, got.Body)
+	}
+	if body := got.Body.String(); !strings.Contains(body, `target="#atlas-detail"`) {
+		t.Errorf("a pick answered without the card it opened:\n%s", body)
+	}
+
+	held, err := host.sessions.Load("volume.tunic.json")
+	if err != nil {
+		t.Fatalf("a pick wrote no session record: %v", err)
+	}
+	var session app.Session
+	if err := json.Unmarshal(held, &session); err != nil {
+		t.Fatal(err)
+	}
+	if session.Selected != "1849" || !session.Detail.Open {
+		t.Errorf("selection = %q, detail = %+v", session.Selected, session.Detail)
+	}
+	if session.Focused != "" {
+		t.Errorf("a canvas pick moved the index mark to %q; only a list row does that",
+			session.Focused)
+	}
+}
+
 func TestSessionRefusals(t *testing.T) {
 	handler, _ := newApp(t, volume("tunic", "TUNIC", tunicStamp))
 	cases := []struct {
