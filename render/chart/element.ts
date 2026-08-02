@@ -517,7 +517,41 @@ export class AtlasChart extends HTMLElement {
     this.map.renderSync();
   }
 
+  /**
+   * Come back to the page.
+   *
+   * A morph can take an element out and put the same one back, and everything
+   * the disconnect gave up has to go back on when it does — the observer, and
+   * the map's own target, which `setTarget(undefined)` took away.
+   *
+   * Only a *re*-connect has anything to rewire. On the first one there is no
+   * map yet: the observer is wired with the world, from `show`, and wiring it
+   * here as well would start measuring a pane before there is anything in it
+   * to measure.
+   */
+  connectedCallback(): void {
+    if (!this.map) return;
+    this.map.setTarget(this);
+    this.watchSize();
+  }
+
+  /**
+   * Leave the page.
+   *
+   * The map lets go of its target, which is what stops OpenLayers drawing into
+   * an element nobody can see. The observer has to be told separately: a
+   * `ResizeObserver` is held by the browser, not by this element, so one left
+   * running outlives the pane it was watching and keeps its callback — and the
+   * map, the overview and the world context that callback closes over — alive
+   * for as long as the page is open. The settle timer is the same fact in a
+   * smaller form: a camera reported four hundred milliseconds after the pane
+   * went away is a report about a world the reader has left.
+   */
   disconnectedCallback(): void {
+    this.sizes?.disconnect();
+    this.sizes = null;
+    if (this.settle !== undefined) clearTimeout(this.settle);
+    this.settle = undefined;
     this.map?.setTarget(undefined);
   }
 
