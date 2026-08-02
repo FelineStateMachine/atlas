@@ -7,13 +7,26 @@
   and never computes one.
 */}}
 {{define "grid-navigator"}}<div id="atlas-grid-navigator" class="grid-navigator"{{if not .Grid.Enabled}} hidden{{end}}>
-  <button type="button" class="grid-system" id="grid-system" aria-label="Cell system"
-          hx-post="/session/grid" hx-vals:append='{"system":"cycle"}'>{{.Grid.Name}}</button>
+  {{/*
+    One small button wearing the current system's mark, cycling to the next on
+    click -- and nothing at all when geohash is the only system this world
+    offers. The full name lives on the field label beside it.
+  */}}
+  <button type="button" class="grid-system" id="grid-system"{{if not .Grid.Cycles}} hidden{{end}}
+          title="Dividing by {{.Grid.Name}} · ⌘G for {{.Grid.Next}}"
+          aria-label="Cell system: {{.Grid.Name}}. Switch to {{.Grid.Next}}"
+          hx-post="/session/grid" hx-vals:append='{"system":"cycle"}'>{{.Grid.Mark}}</button>
+  {{/*
+    Escape and the arrow telescope out one level. At the root there is no
+    level left, so the same press closes the grid -- which is what the title
+    says rather than leaving a reader to find out.
+  */}}
   <button type="button" id="grid-back" aria-label="Back one cell level"
+          title="{{if .Grid.Cell}}Back one {{.Grid.System}} level{{else}}Close {{.Grid.System}} grid{{end}}"
           hx-post="/session/grid" hx-vals:append='{"cell":"{{.Grid.Cell}}","ascend":"1"}'>←</button>
   <label>
     <span id="grid-system-name">{{.Grid.Name}}</span>
-    <input type="text" id="grid-input" name="cell" value="{{.Grid.Cell}}"
+    <input type="text" id="grid-input" name="cell" value="{{.Grid.Cell}}"{{if .Grid.Length}} maxlength="{{.Grid.Length}}"{{end}}
            inputmode="text" autocomplete="off" autocapitalize="none" spellcheck="false"
            aria-label="Grid cell"
            hx-post="/session/grid" hx-trigger="input changed delay:150ms">

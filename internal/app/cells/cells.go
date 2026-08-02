@@ -27,6 +27,14 @@ import (
 // arriving on a request means nothing except against a world — which is what
 // [ApplicableSystems] answers and what the session spends it on.
 //
+// THE THIRD QUESTION arrived with the second system, and it is the reader's: I
+// am standing here, now divide it that way instead. Cycling the navigator
+// carries the held place across (carry.go, [Equivalent]), and the *record* has
+// to name the cell that lands, because the record is what the first question
+// is asked of. A crossing the seam made alone would be a cell the server never
+// heard of, and the first question would start answering about a cell nobody
+// is holding.
+//
 // WHY THIS IS HERE AND NOT IN THE ANALYSIS LANE. Cell systems belong to
 // `analysis/cellsystems` (issue #5 §5.4) and that lane is TypeScript, consumed
 // by the seam. The seam is deletable and the application is not, so a fact the
@@ -36,14 +44,17 @@ import (
 //
 // TWO SYSTEMS, TWO PROVENANCES. The geohash halving here is a second copy of
 // an arithmetic, and that is a cost rather than a design: it is kept to the
-// smallest possible piece of it — the recursive halving and nothing else, no
-// plan, no ring, no pole closure, no style token, none of which the server has
-// any use for. S2 is not a copy at all. Its spherical math is
-// github.com/golang/geo/s2, the canonical Google library; the seam's s2js is
-// that library ported, test vectors and all. The two lanes agree because they
-// are the same arithmetic, not because two authors read the same paper, and
-// what is written here is only the bridge from world pixels to the sphere plus
-// the port's own level bookkeeping.
+// smallest piece of it the three questions need — the halving, the same
+// halving run backward, and nothing else. No plan, no style token, no pole
+// closure, none of which the server has any use for. S2 is not a copy at all.
+// Its spherical math is github.com/golang/geo/s2, the canonical Google
+// library; the seam's s2js is that library ported, test vectors and all. The
+// two lanes agree because they are the same arithmetic, not because two
+// authors read the same paper, and what is written here is only the bridge
+// from world pixels to the sphere, the port's own level bookkeeping, and the
+// one measurement the third question needs: a cell's rectangle *as drawn*,
+// which is an edge walk rather than a spherical area and says why at
+// [S2Extent].
 //
 // AND IT IS GATED. `golden/cells` reproduces every geohash cell extent
 // recorded in the parity baselines, and holds the S2 side, the surface ladder
@@ -128,6 +139,13 @@ func Applicable(attrs map[string]string, system string) bool {
 // `a`, `i`, `l` or `o`, so a hash read aloud cannot be misheard.
 const GeohashAlphabet = "0123456789bcdefghjkmnpqrstuvwxyz"
 
+// GeohashMaxDepth is where the geohash telescope stops: three characters,
+// fifteen halvings, a cell a few world pixels across on an 8192 square. It is
+// the seam's floor (analysis/cellsystems/geohash.ts) and the length the
+// navigator's field accepts, which is why a request carrying more than this
+// is clamped rather than refused.
+const GeohashMaxDepth = 3
+
 // Masks are the five bits of one character, most significant first.
 var Masks = [5]int{16, 8, 4, 2, 1}
 
@@ -193,6 +211,47 @@ func GeohashExtent(ground Extent, hash string) Extent {
 		}
 	}
 	return out
+}
+
+// GeohashCellAt is the halving run backward: the same divisions, choosing at
+// each one the side the point is on, to the depth asked for. It is the seam's
+// `cellAt` (analysis/cellsystems/geohash.ts) and the descent the carry uses to
+// walk a new hierarchy down toward an old cell's centre.
+//
+// A point off the surface names nothing, which is the empty answer -- not the
+// root, which is a place.
+func GeohashCellAt(ground Extent, x, y float64, depth int) string {
+	if !ground.Holds(x, y) {
+		return ""
+	}
+	out := ground
+	splitX := true
+	hash := make([]byte, 0, depth)
+	for range depth {
+		value := 0
+		for _, mask := range Masks {
+			if splitX {
+				middle := (out.MinX + out.MaxX) / 2
+				if x >= middle {
+					value |= mask
+					out.MinX = middle
+				} else {
+					out.MaxX = middle
+				}
+			} else {
+				middle := (out.MinY + out.MaxY) / 2
+				if y >= middle {
+					value |= mask
+					out.MinY = middle
+				} else {
+					out.MaxY = middle
+				}
+			}
+			splitX = !splitX
+		}
+		hash = append(hash, GeohashAlphabet[value])
+	}
+	return string(hash)
 }
 
 // GeohashHeld is the held-cell question for a geohash address: the halving,
