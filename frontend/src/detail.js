@@ -30,8 +30,6 @@ export function showPin(pin, focus = false) {
   refreshPrioritySource();
   state.layers.pins.changed();
   state.layers.pinLabels.changed();
-  state.layers.text.changed();
-  state.layers.textDetail.changed();
   state.layers.priority.changed();
   elements.detailTitle.textContent = pin.location.title;
   elements.detailCategory.textContent =
@@ -341,8 +339,6 @@ export function closeDetail() {
     refreshPrioritySource();
     state.layers.pins.changed();
     state.layers.pinLabels.changed();
-    state.layers.text.changed();
-    state.layers.textDetail.changed();
     state.layers.priority.changed();
     // A quiet zone that spoke while selected falls silent again.
     state.layers.zoneTitles.changed();

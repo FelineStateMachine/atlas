@@ -62,7 +62,6 @@ export function toggleGrid(enabled = !state.gridEnabled) {
   renderGrid();
   refreshPrioritySource();
   state.layers.pins.changed();
-  state.layers.text.changed();
   state.layers.priority.changed();
 }
 
@@ -103,7 +102,6 @@ export function selectGridCell(raw) {
   renderGrid();
   refreshPrioritySource();
   state.layers.pins.changed();
-  state.layers.text.changed();
   state.layers.priority.changed();
   if (!changed) return;
   closeDetail();
@@ -186,7 +184,6 @@ export function setGridSystem(slug) {
   renderGrid();
   refreshPrioritySource();
   state.layers.pins.changed();
-  state.layers.text.changed();
   state.layers.priority.changed();
 }
 

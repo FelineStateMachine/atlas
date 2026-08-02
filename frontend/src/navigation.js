@@ -80,7 +80,6 @@ export async function selectWorld(slug) {
   state.gridSystem = "geohash";
   state.hiddenCollections.clear();
   state.labelOverrides.clear();
-  state.renderOverrides.clear();
   // Zones are a navigation aid, not the primary filter surface: keep boundaries
   // drawn but fold their section away so pin groups stay above the fold. The
   // ungrouped shape collections that section holds start unfolded, so their
@@ -101,7 +100,6 @@ export async function selectWorld(slug) {
     state.collapsedSections = new Set(restore.collapsed);
     state.expandedCollections = new Set(restore.expanded || []);
     state.labelOverrides = new Map(restore.labels || []);
-    state.renderOverrides = new Map(restore.render || []);
   }
   // Where the corner of the screen is wanted is a preference about the volume
   // rather than about one of its maps, so it carries across them.
@@ -223,7 +221,6 @@ export function selectLens(index, resetView = false) {
   if (state.gridEnabled) {
     refreshPrioritySource();
     state.layers.pins.changed();
-    state.layers.text.changed();
     state.layers.priority.changed();
   }
   state.overviewKey = "";

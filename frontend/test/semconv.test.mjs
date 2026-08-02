@@ -5,7 +5,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { featureAttributeRows, labelPolicy, renderAs } from "../src/semconv.js";
+import { featureAttributeRows, labelPolicy, labelSilenced, renderAs } from "../src/semconv.js";
 import { state } from "../src/state.js";
 
 test("labelPolicy climbs override, collection, kind default", () => {
@@ -20,6 +20,21 @@ test("labelPolicy climbs override, collection, kind default", () => {
 
   state.labelOverrides.set(42, "always");
   assert.equal(labelPolicy(null, hydro), "always", "the reader outranks the producer");
+  state.labelOverrides.clear();
+});
+
+test("a point collection's labels wait unless its curation asked for text", () => {
+  state.labelOverrides.clear();
+  const garages = { id: 51, kind: "point", attrs: { "atlas.render.as": "pin" } };
+  const cities = { id: 52, kind: "point", attrs: { "atlas.render.as": "text" } };
+
+  assert.equal(labelPolicy(null, garages), "quiet", "markers wait for Z");
+  assert.equal(labelPolicy(null, cities), "always", "curated text means names speak");
+
+  state.labelOverrides.set(52, "quiet");
+  assert.equal(labelPolicy(null, cities), "quiet", "the reader can quiet the names");
+  assert.ok(labelSilenced(cities), "and that silence is theirs, so Z respects it");
+  assert.ok(!labelSilenced(garages), "curated quiet is merely optional, so Z reveals it");
   state.labelOverrides.clear();
 });
 

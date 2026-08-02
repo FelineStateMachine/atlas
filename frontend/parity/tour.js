@@ -187,12 +187,17 @@ async function tour() {
     labelToggle.click();
     await record("labels-curated");
   }
-  const renderToggle = tourQuery("[data-render-toggle]");
-  if (renderToggle) {
-    renderToggle.click();
-    await record("render-flipped");
-    renderToggle.click();
-    await record("render-curated");
+  // A point collection's labels answer the same toggle: static names on,
+  // and back to the curation.
+  const pointLabelToggle = [...document.querySelectorAll(".category-row")]
+    .filter((row) => !row.querySelector("[data-expand-collection]"))
+    .map((row) => row.querySelector("[data-label-toggle]"))
+    .find(Boolean);
+  if (pointLabelToggle) {
+    pointLabelToggle.click();
+    await record("point-labels-flipped");
+    pointLabelToggle.click();
+    await record("point-labels-curated");
   }
 
   // Highlights across two collections read AND: the ground both name is

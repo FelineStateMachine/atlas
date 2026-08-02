@@ -9,7 +9,6 @@ import VectorSource from "ol/source/Vector.js";
 
 import { collectionOf, isCollectionHidden } from "./collections.js";
 import { elements } from "./dom.js";
-import { renderAs } from "./semconv.js";
 import { state } from "./state.js";
 import {
   featureOrder,
@@ -17,12 +16,9 @@ import {
   pinFeatureStyle,
   pinLabelFeatureStyle,
   priorityFeatureStyle,
-  textDetailFeatureStyle,
-  textFeatureStyle,
   zonePinFeatureStyle,
   zoneScrimStyle,
   zoneStyle,
-  zoneTextFeatureStyle,
   zoneTitleDetailStyle,
   zoneTitleStyle,
 } from "./styles.js";
@@ -54,7 +50,6 @@ export function initializeMap() {
     zoneScrim: new VectorSource({ wrapX: false }),
     zones: new VectorSource({ wrapX: false }),
     zoneTitles: new VectorSource({ wrapX: false }),
-    text: new VectorSource({ wrapX: false }),
     pins: new VectorSource({ wrapX: false }),
     priority: new VectorSource({ wrapX: false }),
   };
@@ -97,27 +92,6 @@ export function initializeMap() {
       renderOrder: featureOrder,
       renderBuffer: 160,
       zIndex: 44,
-    }),
-    text: eagerVector({
-      source: state.sources.text,
-      style: textFeatureStyle,
-      renderOrder: featureOrder,
-      renderBuffer: 220,
-      zIndex: 30,
-    }),
-    textDetail: eagerVector({
-      source: state.sources.text,
-      style: textDetailFeatureStyle,
-      renderOrder: featureOrder,
-      renderBuffer: 220,
-      zIndex: 45,
-    }),
-    zoneText: eagerVector({
-      source: state.sources.text,
-      style: zoneTextFeatureStyle,
-      renderOrder: featureOrder,
-      renderBuffer: 220,
-      zIndex: 41,
     }),
     // Nothing is decluttered. Dropping whatever overlaps makes a crowded area
     // quietly show less than it holds, for text labels as much as for markers;
@@ -250,8 +224,7 @@ export function initializeMap() {
       (feature, layer) => (isAnnotationLayer(layer) && feature.get("pin")) || null,
       { hitTolerance: 4, layerFilter: isAnnotationLayer },
     );
-    const hovered = hit && renderAs(hit.category) === "text" ? null : hit;
-    setHoveredPin(hovered || null);
+    setHoveredPin(hit || null);
     const gridHit = state.gridEnabled && state.engine.hasFeatureAtPixel(event.pixel, {
       layerFilter: (layer) =>
         layer === state.layers.grid || layer === state.layers.gridContext,
@@ -266,9 +239,7 @@ export function initializeMap() {
 // the only ones still on screen -- answering neither the pointer nor a click.
 export function isAnnotationLayer(layer) {
   return layer === state.layers.pins || layer === state.layers.zonePins ||
-    layer === state.layers.pinLabels || layer === state.layers.priority ||
-    layer === state.layers.text || layer === state.layers.textDetail ||
-    layer === state.layers.zoneText;
+    layer === state.layers.pinLabels || layer === state.layers.priority;
 }
 
 // createView holds the camera to the map rather than to the world square

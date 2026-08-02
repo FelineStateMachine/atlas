@@ -10,13 +10,12 @@ import {
 import { anyShapeCollectionVisible, collectionFor, collectionOf, isCollectionHidden } from "./collections.js";
 import { gridTheme } from "./constants.js";
 import { gridCellVisual } from "./grid.js";
-import { labelPolicy, renderAs } from "./semconv.js";
+import { labelPolicy, labelSilenced } from "./semconv.js";
 import { state } from "./state.js";
 import {
   atMaximumNativeZoom,
   isPriorityPin,
   pinIsHidden,
-  textDetailRatio,
 } from "./features.js";
 import {
   categoryColor,
@@ -45,50 +44,23 @@ export function zonePinFeatureStyle(feature) {
   return markerStyles(pin, false);
 }
 
-// Held, so the zoom has no say in it. What the reader asked for is every name
-// on the map at once, and a rule that waited for the deepest zoom answered it
-// with the names of the few places already on screen.
+// A pin's label draws when its collection's names are spoken -- curated
+// always, or the reader's toggle -- or while Z is held. The key reveals what
+// is merely optional, never what the reader silenced by hand, and the zoom
+// has no say either way: what was asked for is every name at once.
 export function pinLabelFeatureStyle(feature) {
   const pin = feature.get("pin");
-  if (!pin || pinIsHidden(pin) || !state.labelsHeld) return null;
+  if (!pin || pinIsHidden(pin)) return null;
+  if (labelPolicy(null, pin.category) !== "always" &&
+      !(state.labelsHeld && !labelSilenced(pin.category))) {
+    return null;
+  }
   return markerLabelStyle(pin);
-}
-
-export function textFeatureStyle(feature) {
-  const pin = feature.get("pin");
-  if (!pin || pinIsHidden(pin) || pin.passesZoneFilters || isPriorityPin(pin)) return null;
-  if (atMaximumNativeZoom()) return null;
-  // A text pin is its own label, so the key that shows every name shows these
-  // too -- otherwise the crowded categories, the ones held back the longest,
-  // would be the ones it never reached.
-  if (state.labelsHeld) return textStyles(pin, false);
-  const minimumZoom = state.fitZoom + Math.log2(textDetailRatio(pin.category));
-  if ((state.engine.getView().getZoom() || 0) < minimumZoom) return null;
-  return textStyles(pin, false);
-}
-
-export function textDetailFeatureStyle(feature) {
-  const pin = feature.get("pin");
-  if (!pin || pinIsHidden(pin) || pin.passesZoneFilters ||
-      isPriorityPin(pin) || !atMaximumNativeZoom()) {
-    return null;
-  }
-  return textStyles(pin, false);
-}
-
-export function zoneTextFeatureStyle(feature) {
-  const pin = feature.get("pin");
-  if (!pin || !state.highlightedZones.size || !pin.passesZoneFilters ||
-      pinIsHidden(pin) || isPriorityPin(pin)) {
-    return null;
-  }
-  return textStyles(pin, false);
 }
 
 export function priorityFeatureStyle(feature) {
   const pin = feature.get("pin");
   if (!pin || pinIsHidden(pin)) return null;
-  if (renderAs(pin.category) === "text") return textStyles(pin, pin === state.selectedPin);
   const marker = markerStyles(pin, pin === state.selectedPin);
   if (pin === state.hoveredPin || pin === state.selectedPin) {
     return [marker, markerLabelStyle(pin)];
@@ -213,27 +185,6 @@ export function dropMarkerStyles() {
 
 export function markerIconKey(category) {
   return `${category.iconAsset || ""}:${categoryColor(category)}:${state.world?.iconOutset || "light"}`;
-}
-
-export function textStyles(pin, selected) {
-  const key = `text:${pin.location.id}:${selected ? 1 : 0}`;
-  if (state.styleCache.has(key)) return state.styleCache.get(key);
-  const style = new Style({
-    text: new Text({
-      text: pin.location.title,
-      font: `${selected ? "900" : "800"} 14px "Arial Narrow", "Roboto Condensed", sans-serif`,
-      fill: new Fill({ color: selected ? "#7fd0ea" : "#f2ece0" }),
-      stroke: new Stroke({ color: "rgba(0,0,0,0.95)", width: 4 }),
-      backgroundFill: new Fill({ color: selected ? "rgba(13,16,23,0.9)" : "rgba(10,12,17,0.58)" }),
-      backgroundStroke: selected ? new Stroke({ color: "#3aa5c9", width: 1 }) : undefined,
-      padding: [3, 6, 3, 6],
-      overflow: true,
-    }),
-    zIndex: selected ? 20_000_000 : pin.priority + 3_000_000,
-  });
-  const styles = [style];
-  state.styleCache.set(key, styles);
-  return styles;
 }
 
 // gridLabelFont spells one chunk of a cell label. Monospace, as the field

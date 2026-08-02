@@ -1,9 +1,9 @@
 import { elements } from "./dom.js";
 import { state } from "./state.js";
 import { saveSession } from "./session.js";
-import { applyPinFilters, buildFeatures } from "./features.js";
+import { applyPinFilters } from "./features.js";
 import { renderSearchResults } from "./search.js";
-import { labelPolicy, renderAs } from "./semconv.js";
+import { curatedLabelPolicy, labelPolicy } from "./semconv.js";
 import { recountZoneTitles, syncZoneLayers } from "./areas.js";
 import { applyCategoryVisual, applyCategoryGlyph, initials } from "./theme.js";
 import { formatNumber } from "./util.js";
@@ -196,20 +196,16 @@ export function collectionRow(collection) {
     labels.type = "button";
     labels.className = "label-toggle";
     labels.dataset.labelToggle = String(collection.id);
-    labels.dataset.label = `Label ${collection.title} on the map`;
-    labels.setAttribute("aria-label", `Label ${collection.title} on the map`);
-    labels.setAttribute("aria-pressed", String(labelPolicy(null, collection) === "always"));
     labels.innerHTML =
       '<svg viewBox="0 0 16 16" aria-hidden="true"><path d="M3.5 3.5h9M8 3.5v9"/></svg>';
+    syncLabelToggle(labels, collection);
   } else if (kind === "point") {
     labels = document.createElement("button");
     labels.type = "button";
     labels.className = "label-toggle render-toggle";
-    labels.dataset.renderToggle = String(collection.id);
-    labels.dataset.label = `Draw ${collection.title} as text`;
-    labels.setAttribute("aria-label", `Draw ${collection.title} as text`);
-    labels.setAttribute("aria-pressed", String(renderAs(collection) === "text"));
+    labels.dataset.labelToggle = String(collection.id);
     labels.textContent = "Tt";
+    syncLabelToggle(labels, collection);
   } else {
     labels = document.createElement("span");
     labels.className = "label-toggle-spacer";
@@ -269,47 +265,40 @@ export function toggleLabelPolicy(id) {
   const collection = findCollection(id);
   if (!collection) return;
   const flipped = labelPolicy(null, collection) === "always" ? "quiet" : "always";
-  const curated = collection.attrs?.["atlas.label.policy"] ?? "always";
-  if (flipped === curated) state.labelOverrides.delete(collection.id);
+  if (flipped === curatedLabelPolicy(collection)) state.labelOverrides.delete(collection.id);
   else state.labelOverrides.set(collection.id, flipped);
   syncLabelToggles();
-  // The crowd-thinning threshold counts spoken names only, and the toggle
-  // just changed which names speak.
-  recountZoneTitles();
-  // The names are drawn by the title layers, at either zoom depth.
-  state.layers.zoneTitles.changed();
-  state.layers.zoneTitleDetail.changed();
+  if (collection.kind === "point") {
+    // A point collection's names ride the pin-label layer.
+    state.layers.pinLabels.changed();
+  } else {
+    // The crowd-thinning threshold counts spoken names only, and the toggle
+    // just changed which names speak; ground names are drawn by the title
+    // layers, at either zoom depth.
+    recountZoneTitles();
+    state.layers.zoneTitles.changed();
+    state.layers.zoneTitleDetail.changed();
+  }
   saveSession();
+}
+
+// One toggle, one language: the button says what pressing it would do,
+// "Hide X labels" while the names are speaking and "Display X labels" while
+// they wait, whatever the kind of collection behind it.
+function syncLabelToggle(button, collection) {
+  const speaking = labelPolicy(null, collection) === "always";
+  const help = `${speaking ? "Hide" : "Display"} ${collection.title} labels`;
+  button.dataset.label = help;
+  button.setAttribute("aria-label", help);
+  button.title = help;
+  button.setAttribute("aria-pressed", String(speaking));
 }
 
 export function syncLabelToggles() {
   for (const button of elements.legend.querySelectorAll("[data-label-toggle]")) {
     const collection = findCollection(collectionID(button.dataset.labelToggle));
-    if (!collection) continue;
-    button.setAttribute("aria-pressed", String(labelPolicy(null, collection) === "always"));
+    if (collection) syncLabelToggle(button, collection);
   }
-  for (const button of elements.legend.querySelectorAll("[data-render-toggle]")) {
-    const collection = findCollection(collectionID(button.dataset.renderToggle));
-    if (!collection) continue;
-    button.setAttribute("aria-pressed", String(renderAs(collection) === "text"));
-  }
-}
-
-// The render toggle is the same two-state affair the label toggle is, around
-// how a point collection draws: press it and the markers become floating
-// names, or the names markers; an override that only restates the curation
-// is dropped rather than stored. Routing changed, so the features rebuild.
-export function toggleRenderAs(id) {
-  const collection = findCollection(id);
-  if (!collection) return;
-  const flipped = renderAs(collection) === "text" ? "pin" : "text";
-  const curated = collection.attrs?.["atlas.render.as"] || "pin";
-  if (flipped === curated) state.renderOverrides.delete(collection.id);
-  else state.renderOverrides.set(collection.id, flipped);
-  buildFeatures();
-  applyPinFilters();
-  syncLabelToggles();
-  saveSession();
 }
 
 export function setAllCollections(visible) {

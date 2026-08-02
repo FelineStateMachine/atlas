@@ -12,28 +12,44 @@ import { state } from "./state.js";
 export const geometryKinds = Object.freeze({ point: "point", path: "path", area: "area" });
 export const labelPolicies = Object.freeze({ always: "always", quiet: "quiet" });
 
-// labelPolicy answers whether a zone's name draws on its own or waits to be
-// asked: "always" or "quiet". The reader's per-collection override wins,
-// then the collection's declared word, then the kind's own default -- areas
-// speak unasked, which is what every map before the key already did, and
-// paths wait.
+// labelPolicy answers whether a collection's names draw on their own or wait
+// to be asked: "always" or "quiet". The reader's per-collection override
+// wins, then the collection's declared word, then the kind's own default --
+// areas speak unasked, which is what every map before the key already did;
+// paths wait; and a point collection speaks when its curation asked for
+// text, because floating names are labels a producer pinned on, not a
+// different kind of thing.
 export function labelPolicy(zone, collection) {
   const declared = collection ?? collectionFor(zone);
   const override = state.labelOverrides.get(declared?.id);
   if (override) return override;
-  const curated = declared?.attrs?.["atlas.label.policy"];
-  if (curated) return curated;
-  return declared?.kind === geometryKinds.path ? labelPolicies.quiet : labelPolicies.always;
+  return curatedLabelPolicy(declared);
 }
 
-// renderAs answers how a point collection draws: "pin" or "text". This is
-// the one display rule the viewer holds, spelled once; a collection saying
-// nothing is markers, and since the v3 wire every producer says. Text is a
-// capability of an ordinary point collection, not a kind of its own, so the
-// reader's override outranks the curation the same way label policy does.
+// curatedLabelPolicy is the producer's word alone -- what the toggle returns
+// to when the reader's override is dropped.
+export function curatedLabelPolicy(collection) {
+  const curated = collection?.attrs?.["atlas.label.policy"];
+  if (curated) return curated;
+  if ((collection?.kind ?? geometryKinds.point) === geometryKinds.point) {
+    return renderAs(collection) === "text" ? labelPolicies.always : labelPolicies.quiet;
+  }
+  return collection?.kind === geometryKinds.path ? labelPolicies.quiet : labelPolicies.always;
+}
+
+// labelSilenced says whether the reader themselves quieted a collection's
+// names. Z reveals what is merely optional, never what was silenced: the
+// choice was the reader's, and the key is not an override.
+export function labelSilenced(collection) {
+  return state.labelOverrides.get(collection?.id) === labelPolicies.quiet;
+}
+
+// renderAs is the curation's word on a point collection: "pin" or "text".
+// Since text became a label policy rather than a way of drawing, this is
+// read only as the curated default the policy ladder falls back to --
+// markers draw either way.
 export function renderAs(collection) {
-  return state.renderOverrides.get(collection?.id) ??
-    (collection.attrs?.["atlas.render.as"] || "pin");
+  return collection?.attrs?.["atlas.render.as"] || "pin";
 }
 
 // The labels the detail card gives a feature's own attributes. Anything in

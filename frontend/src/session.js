@@ -21,7 +21,6 @@ export function saveSession() {
       collapsed: [...state.collapsedSections],
       expanded: [...state.expandedCollections],
       labels: [...state.labelOverrides],
-      render: [...state.renderOverrides],
       overviewDocked: state.overviewDocked,
       dockFolded: state.dockFolded,
       dockDismissed: state.dockDismissed,

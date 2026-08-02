@@ -6,7 +6,6 @@ import { closeDetail } from "./detail.js";
 import { elements } from "./dom.js";
 import { pinInGridCell } from "./grid.js";
 import { renderSearchResults } from "./search.js";
-import { renderAs } from "./semconv.js";
 import { updateVisibleCount } from "./navigation.js";
 import { state } from "./state.js";
 import { prepareMarkerIcon } from "./styles.js";
@@ -19,13 +18,12 @@ import { project } from "./areas.js";
 // arrive inline with their collections and never pass through here.
 export function buildFeatures() {
   state.sources.pins.clear();
-  state.sources.text.clear();
   state.sources.priority.clear();
   state.features = [];
   state.featureByID.clear();
   for (const category of state.world.collections) {
     if (category.kind !== "point") continue;
-    if (renderAs(category) !== "text") prepareMarkerIcon(category);
+    prepareMarkerIcon(category);
     for (const location of category.locations) {
       const pin = {
         location,
@@ -42,8 +40,7 @@ export function buildFeatures() {
       });
       state.features.push(pin);
       state.featureByID.set(location.id, pin);
-      if (renderAs(category) === "text") state.sources.text.addFeature(pin.feature);
-      else state.sources.pins.addFeature(pin.feature);
+      state.sources.pins.addFeature(pin.feature);
     }
   }
   applyPinFilters();
@@ -88,9 +85,6 @@ export function refreshPinRendering() {
   state.layers.pins.changed();
   state.layers.zonePins.changed();
   state.layers.pinLabels.changed();
-  state.layers.text.changed();
-  state.layers.zoneText.changed();
-  state.layers.textDetail.changed();
   state.layers.priority.changed();
   updateVisibleCount();
 }
@@ -125,7 +119,6 @@ export function setLabelsHeld(held) {
   state.labelsHeld = held;
   elements.labelsHint.textContent = held ? "Z · labels shown" : "Z · hold for labels";
   state.layers.pinLabels.changed();
-  state.layers.text.changed();
   // Quiet zone names answer the same key, so the title layers must hear it
   // the moment the pin labels do.
   state.layers.zoneTitles.changed();
@@ -173,12 +166,6 @@ export function pinIsGridCulled(pin) {
 export function pinPriority(category, location) {
   const rarity = Math.max(0, 1_000_000 - Math.min(category.locations.length, 999) * 1000);
   return rarity + (stableRank(location.id) % 1000);
-}
-
-export function textDetailRatio(category) {
-  if (category.locations.length > 200) return 4;
-  if (category.locations.length > 75) return 2.5;
-  return 1;
 }
 
 export function atMaximumNativeZoom() {

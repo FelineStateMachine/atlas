@@ -44,7 +44,6 @@ export const state = {
   // The reader's word over a collection's label policy, keyed by collection
   // id. Written by the legend's label toggle, read by the policy ladder.
   labelOverrides: new Map(),
-  renderOverrides: new Map(),
   search: "",
   fitZoom: 0,
   zoneTitleCount: 0,
