@@ -924,6 +924,71 @@ func TestDetailFragment(t *testing.T) {
 	}
 }
 
+// A legend row wears the collection's artwork, and only a collection with no
+// artwork wears its initials.
+//
+// The reference set `--pin-icon` and the `has-source-icon` class on the row's
+// icon cell and emptied its text, or wrote the initials into it
+// (frontend/src/theme.js, applyCategoryGlyph); the stylesheet that draws one
+// from the other came over verbatim, so the whole of the port is what the
+// template emits. A city is the volume that showed it missing -- its
+// collections are enriched rather than curated, so they carry a standard glyph
+// and no colour of their own -- and it is the shape the payload below has.
+func TestALegendRowWearsTheCollectionsArtwork(t *testing.T) {
+	held := volume("bend-or", "Bend, Oregon", tunicStamp)
+	held.entries["worlds/overworld.json"] = []byte(`{"lenses":[],"collections":[
+		{"id":1496244488,"title":"Historic Resources","kind":"point","group":"Heritage",
+		 "icon":"historic-resources","iconAsset":"std--maki-monument.svg",
+		 "attrs":{"atlas.geometry.kind":"point","atlas.icon.kind":"glyph"}},
+		{"id":42,"title":"Fire Stations","kind":"point","group":"Heritage",
+		 "attrs":{"atlas.geometry.kind":"point"}}
+	]}`)
+	handler, _ := newApp(t, held)
+
+	page := get(t, handler, "/v/bend-or/overworld", nil)
+	if page.Code != http.StatusOK {
+		t.Fatalf("the explorer answered %d", page.Code)
+	}
+	shell := page.Body.String()
+	base := "/data/v/bend-or/" + bundle.ShortStamp(tunicStamp)
+
+	// The collection that carries a glyph: the artwork, named the way the
+	// seam names it, and no initials to draw over it.
+	wearing := `<span class="category-icon has-source-icon" style="--pin-icon: ` +
+		`url('` + base + `/icons/std--maki-monument.svg')" title="historic-resources"></span>`
+	if !strings.Contains(shell, wearing) {
+		t.Errorf("the Historic Resources row draws no artwork; want\n\t%s\nin\n%s", wearing, legendOf(t, shell))
+	}
+	// The collection that carries none: its initials, and nothing that would
+	// make the stylesheet look for a picture.
+	if want := `<span class="category-icon" title="Fire Stations">FS</span>`; !strings.Contains(shell, want) {
+		t.Errorf("a collection with no artwork lost its initials; want\n\t%s\nin\n%s", want, legendOf(t, shell))
+	}
+
+	// And the colour: first in the payload is first on the wheel, which is
+	// the colour the seam draws the same collection's pins in
+	// (render/chart/styles.ts, collectionColor). The two used to disagree
+	// -- the legend hashed the collection's id -- and a city, whose
+	// collections declare no colour of their own, is where it showed.
+	if want := `class="category-row" style="--pin-color: #4fb3d5"`; !strings.Contains(shell, want) {
+		t.Errorf("the first collection is not wearing the first colour of the wheel:\n%s", legendOf(t, shell))
+	}
+}
+
+// legendOf is the sidebar alone, for a failure message that is readable.
+func legendOf(t *testing.T, shell string) string {
+	t.Helper()
+	opens := strings.Index(shell, `<aside id="atlas-legend"`)
+	if opens < 0 {
+		return shell
+	}
+	closes := strings.Index(shell[opens:], "</aside>")
+	if closes < 0 {
+		return shell[opens:]
+	}
+	return shell[opens : opens+closes]
+}
+
 // contains is the membership question a handful of checks above ask of a
 // sorted set.
 func contains(set []string, member string) bool {
