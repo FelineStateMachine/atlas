@@ -105,13 +105,31 @@
             <span class="category-count">{{.Count}}</span>
           </label>
           {{if .Shapes}}<div class="feature-index" data-feature-index="{{.ID}}"{{if not .Expanded}} hidden{{end}}>
-            {{range .Index}}<button type="button" class="zone-index-item{{if .Highlighted}} is-highlighted{{end}}{{if .Current}} is-current{{end}}"
-                    data-zone="{{.ID}}" aria-pressed="{{.Highlighted}}"
-                    style="--zone-color: {{.Color}}; --zone-depth: {{.Depth}}"
-                    hx-post="/session/highlight" hx-vals:append='{"feature":"{{.ID}}"}'>
-              <span class="zone-index-marker" aria-hidden="true"></span>
-              <span>{{.Title}}</span>
-            </button>
+            {{/*
+              TWO VERBS, TWO BUTTONS OF THE MOUSE. A left click on a row of a
+              feature index *goes* to that ground: it selects the feature,
+              opens its card and flies the camera, which is the way a reader
+              reaches a place they cannot see. The right button asks after the
+              ground instead — highlight it, and narrow every other surface to
+              what it holds.
+
+              They are two elements because one element carries one request.
+              The row is the button and answers the click; the wrapper around
+              it hears the contextmenu the click bubbles past and answers that.
+              `prevent` is what keeps the platform's own menu out of the way.
+            */}}
+            {{range .Index}}<div class="zone-index-row"
+                 hx-post="/session/highlight" hx-trigger="contextmenu prevent"
+                 hx-vals:append='{"feature":"{{.ID}}"}'>
+              <button type="button" class="zone-index-item{{if .Highlighted}} is-highlighted{{end}}{{if .Current}} is-current{{end}}"
+                      data-zone="{{.ID}}" aria-pressed="{{.Highlighted}}"
+                      style="--zone-color: {{.Color}}; --zone-depth: {{.Depth}}"
+                      hx-post="/session/select" hx-trigger="click"
+                      hx-vals:append='{"feature":"{{.ID}}","focus":"1"}'>
+                <span class="zone-index-marker" aria-hidden="true"></span>
+                <span>{{.Title}}</span>
+              </button>
+            </div>
             {{end}}
           </div>
           {{end}}{{end}}

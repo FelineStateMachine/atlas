@@ -26,7 +26,7 @@
 //   an accepted divergence stays visible as a cost rather than disappearing
 //   into a green tick.
 
-import { readFileSync, writeFileSync } from "node:fs";
+import { existsSync, readFileSync, writeFileSync } from "node:fs";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { fixtures, linkFarm } from "./library.mjs";
@@ -65,17 +65,25 @@ function* leaves(value, path = "") {
 }
 
 /**
- * Whether a leaf is exempt.
+ * Whether a leaf is exempt at this step.
  *
  * Advisory names match as dotted suffixes, which is how the reference
  * comparer spelled them and what lets one name cover `tileStats.requested`
  * wherever it appears. Waived names match as prefixes of a path, so
  * `library.lenses` covers every element of that array without a waiver having
  * to know how many there are.
+ *
+ * A waiver may also name the steps it covers. That is not a loosening: a
+ * divergence that happens at one step of sixty is a smaller accepted cost than
+ * a field waived across the whole walk, and spelling the step is what keeps
+ * the same field bound everywhere else. A waiver naming no steps covers all of
+ * them, which is what the three standing ones do.
  */
-function exempt(path, waived) {
+function exempt(path, step, waived) {
   if (ADVISORY.some((suffix) => path === suffix || path.endsWith(`.${suffix}`))) return true;
-  return waived.some((prefix) => path === prefix || path.startsWith(`${prefix}.`));
+  return waived.some((waiver) =>
+    (!waiver.steps || waiver.steps.includes(step)) &&
+    (waiver.paths ?? []).some((prefix) => path === prefix || path.startsWith(`${prefix}.`)));
 }
 
 function diffStep(name, left, right, waived) {
@@ -83,12 +91,14 @@ function diffStep(name, left, right, waived) {
   const b = new Map(leaves(right));
   const problems = [];
   for (const [path, value] of a) {
-    if (exempt(path, waived)) continue;
+    if (exempt(path, name, waived)) continue;
     if (!b.has(path)) problems.push(`  ${path}: ${value} → (missing)`);
     else if (b.get(path) !== value) problems.push(`  ${path}: ${value} → ${b.get(path)}`);
   }
   for (const [path, value] of b) {
-    if (!a.has(path) && !exempt(path, waived)) problems.push(`  ${path}: (missing) → ${value}`);
+    if (!a.has(path) && !exempt(path, name, waived)) {
+      problems.push(`  ${path}: (missing) → ${value}`);
+    }
   }
   if (problems.length > 0) {
     console.log(`step ${name}:`);
@@ -97,7 +107,12 @@ function diffStep(name, left, right, waived) {
   return problems.length;
 }
 
-/** Diff two logs. Answers the number of differences that were not exempt. */
+/**
+ * Diff two logs. Answers the number of differences that were not exempt.
+ *
+ * `waived` is the waiver *entries* rather than a flat list of paths, because a
+ * waiver's paths and the steps it covers have to be read together.
+ */
 export function compare(baseline, candidate, waived = []) {
   let total = 0;
   const baselineSteps = baseline.steps.map((step) => step.name);
@@ -136,9 +151,38 @@ function waiversFor(slug) {
   };
 }
 
+/** One waiver as one line of the run's standing bill. */
+function billOf(waiver) {
+  const paths = (waiver.paths ?? []).join(", ");
+  return waiver.steps
+    ? `${paths} (at ${waiver.steps.join(", ")})`
+    : paths;
+}
+
 // ---- the gate ---------------------------------------------------------
 
+/**
+ * The one thing this gate needs that the others do not.
+ *
+ * Every other gate in the harness reads bytes; this one drives the real
+ * application in a real browser, over the seam's built bundle. A tree that has
+ * not built the seam cannot walk the tour at all -- and saying so is a
+ * different answer from saying the build is wrong, which is the same bargain
+ * `generate-enrich` makes with a machine that does not hold the capture
+ * archive. It says which command would let it judge, and it does not pretend
+ * to have judged.
+ */
+function seamIsBuilt() {
+  return existsSync(join(repoRoot, "dist/static/app.js"));
+}
+
 async function gate() {
+  if (!seamIsBuilt()) {
+    console.log("not judged: there is no built seam at dist/static/app.js, and the tour" +
+      " walks the real application over it. `make static` builds it; a Playwright" +
+      " Chromium is the other prerequisite.");
+    return;
+  }
   const set = fixtures();
   const only = flag("--only");
   const wanted = only ? set.volumes.filter((v) => v.slug === only) : set.volumes;
@@ -177,9 +221,9 @@ async function gate() {
       writeFileSync(join(flag("--save"), `${volume.slug}.json`),
         `${JSON.stringify(candidate, null, 2)}\n`);
     }
-    const differences = compare(baseline, candidate, paths);
+    const differences = compare(baseline, candidate, entries);
     for (const waiver of entries) {
-      console.log(`  waived: ${waiver.id} — ${(waiver.paths ?? []).join(", ")}`);
+      console.log(`  waived: ${waiver.id} — ${billOf(waiver)}`);
     }
     if (differences === 0 && !red) {
       console.log(`  identical across ${baseline.steps.length} steps` +
@@ -209,7 +253,7 @@ if (positional.length === 2) {
   const total = compare(
     JSON.parse(readFileSync(baselinePath, "utf8")),
     JSON.parse(readFileSync(candidatePath, "utf8")),
-    waiversFor(slug).paths,
+    waiversFor(slug).entries,
   );
   if (total === 0) console.log("identical");
   else { console.log(`${total} differences`); process.exit(1); }

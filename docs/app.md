@@ -282,6 +282,13 @@ Notes that are contract, not style:
 - `lens` is the lens's **name**, not its index. A name outlives a build's
   ordering; the island renders the index because that is what the golden
   baselines record.
+- `focused` is the ground the reader last *went to* from a list, and it is not
+  `selected`: closing the card puts the selection down and leaves the feature
+  index still marking where the reader has been. It is set only by a row that
+  says `focus=1` — a feature index row, a panel row, a link inside a card —
+  because a pick off the canvas is a reader who was already there, and it is
+  cleared when the ground itself is rebuilt: a world opened, a split sheet's
+  layer swapped, the volume come back to from another one.
 - `sidebar` and `overview` are spelled as the thing a reader *does* to them —
   collapsed, docked — so the zero value is the ordinary page.
 - `dock.dismissed` is the reader having folded the panel by hand. Until they
@@ -385,7 +392,7 @@ thinks is coupled to what.
 | `POST /session/…` | Fields | Regions |
 |---|---|---|
 | `world` | `world` | topbar, legend, dock, overview, viewport |
-| `lens` | `lens` (the lens's name) | topbar, overview, viewport |
+| `lens` | `lens` (the lens's name) | topbar, legend, dock, overview, viewport |
 | `collections` | `collection`+`visible`, or `section`, or `all`=`show`\|`hide`, or `hidden` (repeated) | legend, dock, viewport |
 | `sections` | `section`+`open`, or `all`=`fold`\|`unfold` | legend |
 | `expand` | `collection`+`open`, or `all`=`fold`\|`unfold` | legend |
@@ -394,7 +401,7 @@ thinks is coupled to what.
 | `search` | `q` | legend, dock, viewport |
 | `highlight` | `feature` (+ optional `on`), or `all`=`clear` | legend, dock, viewport |
 | `dock` | `open`, `byHand`, `section` | dock |
-| `select` | `feature` (empty closes) | legend, dock, detail, viewport |
+| `select` | `feature` (empty closes), `focus` | legend, dock, detail, viewport |
 | `grid` | `system`, `cell`, `subgrid` | grid-navigator, dock, viewport |
 | `overview` | `docked` | overview |
 | `sidebar` | `open` | shell |

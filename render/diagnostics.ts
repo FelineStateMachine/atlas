@@ -104,7 +104,11 @@ export function snapshot(viewport: AtlasViewport): SeamSnapshot {
     rasterCacheSize: RASTER_CACHE_SIZE,
     labelsHeld: context?.labelsHeld ?? false,
     hoveredPin: hovered?.title ?? null,
-    selectedPin: selected && "title" in selected ? selected.title || null : null,
+    // A *pin*, and only a pin. The reference put the selection down when a
+    // card opened on ground (`showFeature` sets `selectedPin = null`), so a
+    // shape being read about is recorded here as nothing — which is what every
+    // baseline with ground in it carries.
+    selectedPin: selected && "coordinate" in selected ? selected.title || null : null,
     fitZoom: readings?.fitZoom ?? null,
     // `focused` is deliberately absent: which shape a reader has open is the
     // application's answer, not a renderer's, and the merge below leaves the

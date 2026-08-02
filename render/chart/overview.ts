@@ -37,6 +37,15 @@ function clamp(value: number, low: number, high: number): number {
 export class Overview {
   private drawnKey = "";
   /**
+   * The canvas the world was drawn onto.
+   *
+   * A swap can replace the corner's markup — a reconcile re-renders the whole
+   * shell — and what comes back is a blank canvas with the same id. Keyed on
+   * the world alone, the composite would never be redrawn onto it and the
+   * locator would sit over an empty square.
+   */
+  private drawnCanvas: HTMLCanvasElement | null = null;
+  /**
    * The mark the sphere last left, kept so a redraw the chart asked for does
    * not overwrite it. While the globe is up the chart has not moved, so its
    * extent is a stale answer to a question only the sphere can answer.
@@ -70,8 +79,9 @@ export class Overview {
     if (!context || !context.lens || !canvas || !box) return;
     const extent = lensExtent(context.lens, context.grid);
     const key = `${context.base}/${context.model.slug}/${context.lens.tiles}`;
-    if (key !== this.drawnKey) {
+    if (key !== this.drawnKey || canvas !== this.drawnCanvas) {
       this.drawnKey = key;
+      this.drawnCanvas = canvas;
       void this.compose(canvas, context, extent);
     }
     if (over && over.length === 2) this.marked = over;

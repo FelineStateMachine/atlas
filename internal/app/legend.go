@@ -134,11 +134,17 @@ type IndexEntry struct {
 	Current     bool
 }
 
-// legend builds the tree for one world under one session.
-func legend(model *worldModel, session Session, shown visibility) LegendView {
+// legend builds the tree for one world under one session, seen through one
+// lens: a split world offers one layer at a time, and the feature index lists
+// the layer the reader is standing on.
+func legend(model *worldModel, session Session, shown visibility, lens *payloadLens) LegendView {
 	out := LegendView{Search: session.Search, Count: shown.FooterText}
 	if model == nil {
 		return out
+	}
+	shard := int64(0)
+	if lens != nil {
+		shard = int64(lens.Shard)
 	}
 	hidden := setOf(session.Hidden)
 	collapsed := setOf(session.Collapsed)
@@ -171,14 +177,14 @@ func legend(model *worldModel, session Session, shown visibility) LegendView {
 				row.Labels = &toggle
 			}
 			if row.Shapes {
-				for _, entry := range orderedShapes(model, collection) {
+				for _, entry := range orderedShapes(collection, shard) {
 					row.Index = append(row.Index, IndexEntry{
 						ID:          entry.shape.ID,
 						Title:       entry.shape.Title,
 						Color:       colorFor(entry.shape.ID),
 						Depth:       entry.depth,
 						Highlighted: highlighted[entry.shape.ID],
-						Current:     session.Selected == entry.shape.ID,
+						Current:     session.Focused == entry.shape.ID,
 					})
 				}
 			}
@@ -349,13 +355,26 @@ type indexed struct {
 // orderedShapes is the parent-first order of the ground itself: children
 // under their parent, siblings by title, and anything orphaned appended so
 // nothing is lost to a broken parent link.
-func orderedShapes(model *worldModel, collection *collectionModel) []indexed {
-	held := map[string]bool{}
+//
+// The index holds the ground the reader is standing on and nothing else: a
+// shape belonging to another layer of a split world is *elsewhere in the
+// world* rather than filtered out, and a shape carrying no geometry the chart
+// can draw was never on the map to be indexed. Both are the same two questions
+// the map itself asks before drawing a shape (filter.go), asked here so the
+// index and the map cannot list different ground.
+func orderedShapes(collection *collectionModel, shard int64) []indexed {
+	standing := make([]*shapeModel, 0, len(collection.Shapes))
 	for _, shape := range collection.Shapes {
+		if onShard(shape.Shard, shard) && shape.Drawn {
+			standing = append(standing, shape)
+		}
+	}
+	held := map[string]bool{}
+	for _, shape := range standing {
 		held[shape.ID] = true
 	}
 	children := map[string][]*shapeModel{}
-	for _, shape := range collection.Shapes {
+	for _, shape := range standing {
 		parent := shape.Parent
 		if !held[parent] {
 			parent = ""
@@ -364,7 +383,7 @@ func orderedShapes(model *worldModel, collection *collectionModel) []indexed {
 	}
 	for _, group := range children {
 		sort.SliceStable(group, func(i, j int) bool {
-			return foldTitle(group[i].Title) < foldTitle(group[j].Title)
+			return compareIndexTitles(group[i].Title, group[j].Title) < 0
 		})
 	}
 
@@ -384,15 +403,11 @@ func orderedShapes(model *worldModel, collection *collectionModel) []indexed {
 	for _, shape := range children[""] {
 		append_(shape, 0)
 	}
-	for _, shape := range collection.Shapes {
+	for _, shape := range standing {
 		append_(shape, 0)
 	}
 	return out
 }
-
-// foldTitle is the case-insensitive key titles sort under, which is what a
-// reader scanning an alphabetical index expects.
-func foldTitle(title string) string { return strings.ToLower(title) }
 
 // ---------------------------------------------------------------------------
 // Isolating

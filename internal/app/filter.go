@@ -118,17 +118,15 @@ func visible(model *worldModel, session Session, lens *payloadLens) visibility {
 	}
 	out.Eligible = len(out.Points)
 
-	// Ground is drawn while its collection is shown: highlighting narrows
-	// which points stand, not which ground is drawn. The shard is the one
-	// question ground answers the same way a point does -- a shape on
-	// another lens's layer is elsewhere in the world, not filtered out, so
-	// it is neither drawn nor counted nor listed.
+	// Ground is drawn while its collection is shown. Highlighting narrows
+	// which points stand, not which ground is drawn, and so does a held cell:
+	// descending into a cell is a question about what is standing in it, and
+	// the ground it is standing on goes on being the ground. The shard is the
+	// one question ground answers the same way a point does -- a shape on
+	// another lens's layer is elsewhere in the world, not filtered out, so it
+	// is neither drawn nor counted nor listed.
 	for _, shape := range model.Shapes {
 		if !onShard(shape.Shard, shard) || hidden[shape.Collection.ID] || !shape.Drawn {
-			continue
-		}
-		if cell != nil && !cell.Holds((shape.MinX+shape.MaxX)/2, (shape.MinY+shape.MaxY)/2) &&
-			shape.ID != session.Selected {
 			continue
 		}
 		out.Shapes = append(out.Shapes, shape)
@@ -168,7 +166,7 @@ func visible(model *worldModel, session Session, lens *payloadLens) visibility {
 		})
 	}
 	sort.SliceStable(out.Listable, func(i, j int) bool {
-		return foldTitle(out.Listable[i].Title) < foldTitle(out.Listable[j].Title)
+		return compareTitles(out.Listable[i].Title, out.Listable[j].Title) < 0
 	})
 
 	out.Filtered = len(session.Hidden) > 0 || len(session.Highlighted) > 0 ||
