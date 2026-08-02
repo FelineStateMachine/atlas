@@ -47,7 +47,6 @@ var cleanRoomRoots = []string{
 	"internal/enrich",
 	"internal/app",
 	"internal/workbench",
-	"internal/logging",
 	"cmd/atlas",
 	"golden",
 }
@@ -64,7 +63,6 @@ var lanePrefixes = []struct {
 	{LaneEnrich, "internal/enrich"},
 	{LaneApp, "internal/app"},
 	{LaneWorkbench, "internal/workbench"},
-	{LaneLogging, "internal/logging"},
 	{LaneCLI, "cmd/atlas"},
 	{LaneGolden, "golden"},
 }

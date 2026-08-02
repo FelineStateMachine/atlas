@@ -29,6 +29,11 @@ func TestCommandTable(t *testing.T) {
 	if len(seen) == 0 {
 		t.Fatal("the binary does nothing")
 	}
+	for _, name := range []string{"compose", "serve", "translate"} {
+		if !seen[name] {
+			t.Errorf("the table does not carry %s", name)
+		}
+	}
 }
 
 func TestRunRefusals(t *testing.T) {

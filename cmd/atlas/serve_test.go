@@ -48,21 +48,3 @@ func TestLibraryDir(t *testing.T) {
 		}
 	})
 }
-
-// The subcommand table is the command's whole surface. A duplicate name or an
-// entry with nothing behind it is the kind of mistake a merge makes.
-func TestCommandTable(t *testing.T) {
-	seen := map[string]bool{}
-	for _, cmd := range commands() {
-		if cmd.name == "" || cmd.summary == "" || cmd.run == nil {
-			t.Errorf("subcommand %+v is not whole", cmd)
-		}
-		if seen[cmd.name] {
-			t.Errorf("subcommand %q is listed twice", cmd.name)
-		}
-		seen[cmd.name] = true
-	}
-	if !seen["serve"] {
-		t.Error("the table does not carry serve")
-	}
-}
