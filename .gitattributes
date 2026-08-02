@@ -20,6 +20,11 @@ golden/analysis/plans/contract.json -text
 golden/parity/FIXTURES.json     -text
 golden/parity/**/tour.json      -text
 
+# The parity pictures are photographs, compared pixel for pixel against a
+# fresh walk's own. A checkout that touched one would be a difference nobody
+# introduced, on the one gate whose whole point is that no count can see it.
+golden/parity/screens/**/*.png  binary
+
 # Bundles are zip archives. None is committed today; if one ever is, it is
 # bytes.
 *.atlas binary
