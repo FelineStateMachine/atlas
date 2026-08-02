@@ -1,17 +1,19 @@
 import { worldText } from "./catalog.js";
 import { applicableSystems } from "./cellsystems/index.js";
 import { geohashCellAt } from "./cellsystems/geohash.js";
+import { collectionFor, geometryContainsCoordinate } from "./collections.js";
 import { elements } from "./dom.js";
 import { syncLegendCheckboxes, syncSectionSwitches } from "./legend.js";
 import { viewMaxZoom } from "./navigation.js";
-import { applyPinFilters, refreshPrioritySource } from "./pins.js";
+import { applyPinFilters, onActiveShard, refreshPrioritySource } from "./features.js";
 import { renderSearchResults, revealDock } from "./search.js";
+import { featureAttributeRows, geoMapping } from "./semconv.js";
 import { state } from "./state.js";
 import { applyCategoryVisual, applyCategoryGlyph, colorFor, initials } from "./theme.js";
-import { cleanDescription } from "./util.js";
+import { cleanDescription, formatNumber } from "./util.js";
 
 export function revealPin(pin) {
-  state.hiddenCategories.delete(pin.category.id);
+  state.hiddenCollections.delete(pin.category.id);
   syncLegendCheckboxes();
   applyPinFilters();
   syncSectionSwitches();
@@ -28,13 +30,13 @@ export function showPin(pin, focus = false) {
   refreshPrioritySource();
   state.layers.pins.changed();
   state.layers.pinLabels.changed();
-  state.layers.text.changed();
-  state.layers.textDetail.changed();
   state.layers.priority.changed();
   elements.detailTitle.textContent = pin.location.title;
-  elements.detailCategory.textContent = `${pin.group.title} / ${pin.category.title}`;
+  elements.detailCategory.textContent =
+    [pin.category.group, pin.category.title].filter(Boolean).join(" / ");
   elements.detailDescription.textContent = "";
   elements.detailLinks.hidden = true;
+  clearFeatureRows();
   fillPinText(pin);
   elements.detailID.textContent = String(pin.location.id);
   elements.detailCoordinates.textContent =
@@ -87,19 +89,27 @@ export function showPin(pin, focus = false) {
   }
 }
 
-// showZone opens the panel on a zone: its title and kind, its prose when the
-// archive carries any -- fetched the same lazy way a pin's is -- and the
-// volume's own provenance. Ground has no single coordinate or cell, so those
-// rows step aside.
-export function showZone(zone) {
+// showFeature opens the panel on a shape feature: its title and collection,
+// its prose when the archive carries any -- fetched the same lazy way a
+// pin's is -- its measure on the ground where the world declares a geographic
+// mapping, and whatever attributes it carries in its own right. Ground has
+// no single coordinate or cell, so those rows step aside.
+export function showFeature(zone) {
   state.selectedPin = null;
   state.selectedZone = zone;
   document.dispatchEvent(new Event("atlas:selection"));
   refreshPrioritySource();
   state.layers.pins.changed();
   state.layers.priority.changed();
+  // A quiet zone speaks its name for as long as it is the one being read
+  // about, so selection repaints the chips.
+  state.layers.zoneTitles.changed();
+  state.layers.zoneTitleDetail.changed();
+  const collection = collectionFor(zone);
   elements.detailTitle.textContent = zone.title;
-  elements.detailCategory.textContent = zone.subtitle || "Zone";
+  elements.detailCategory.textContent =
+    [collection?.group, collection?.title].filter(Boolean).join(" / ") ||
+    zone.subtitle || "Zone";
   elements.detailDescription.textContent = "";
   elements.detailLinks.hidden = true;
   elements.detailLinks.replaceChildren();
@@ -115,11 +125,129 @@ export function showZone(zone) {
   elements.detailDot.textContent = "";
   elements.detailDot.removeAttribute("style");
   elements.detailDot.style.setProperty("background", colorFor(zone.id));
+  clearFeatureRows();
+  renderFeatureRows([...featureMeasureRows(zone, collection), ...featureAttributeRows(zone.attrs)]);
   if (zone.hasText) void fillZoneText(zone);
   else elements.detailDescription.textContent = "No description is included in the archive.";
   elements.detail.hidden = false;
   revealDock();
   renderSearchResults();
+}
+
+// featureMeasureRows says what a feature's ground amounts to, in the units of
+// the planet -- so only where the world declares a mapping back to one. An
+// area gets its extent and how many visible locations stand inside it; a path
+// gets its length.
+function featureMeasureRows(zone, collection) {
+  const record = state.zoneRecords.get(zone.id);
+  if (!record || !collection) return [];
+  const rows = [];
+  const mapping = geoMapping(state.world);
+  if (collection.kind === "area") {
+    if (mapping) {
+      const km2 = record.geometries.reduce((sum, geometry) => sum + geometryAreaKm2(geometry, mapping), 0);
+      if (km2 > 0) rows.push({ label: "Area", value: formatKm2(km2) });
+    }
+    const inside = state.features.filter((pin) =>
+      !pin.filteredHidden && onActiveShard(pin.location) &&
+      record.geometries.some((geometry) => geometryContainsCoordinate(geometry, pin.coordinate))).length;
+    rows.push({ label: "Locations inside", value: formatNumber(inside) });
+  }
+  if (collection.kind === "path" && mapping) {
+    const km = record.geometries.reduce((sum, geometry) => sum + geometryLengthKm(geometry, mapping), 0);
+    if (km > 0) rows.push({ label: "Length", value: formatKm(km) });
+  }
+  return rows;
+}
+
+// The measures below flatten small grounds locally: latitude and longitude
+// come back through the world's declared mapping, and a city-sized ring is
+// near enough planar that the shoelace over locally scaled kilometres is the
+// honest figure.
+const kmPerDegreeLat = 110.574;
+
+function toLatLng(mapping, [x, y]) {
+  return mapping.toLatLng(x, -y);
+}
+
+function ringAreaKm2(ring, mapping) {
+  const points = ring.map((position) => toLatLng(mapping, position));
+  if (points.length < 3) return 0;
+  const midLat = points.reduce((sum, point) => sum + point[0], 0) / points.length;
+  const kmPerDegreeLng = 111.320 * Math.cos((midLat * Math.PI) / 180);
+  let doubled = 0;
+  for (let index = 0, prior = points.length - 1; index < points.length; prior = index++) {
+    const [latA, lngA] = points[prior];
+    const [latB, lngB] = points[index];
+    doubled += lngA * kmPerDegreeLng * latB * kmPerDegreeLat -
+      lngB * kmPerDegreeLng * latA * kmPerDegreeLat;
+  }
+  return Math.abs(doubled) / 2;
+}
+
+function geometryAreaKm2(geometry, mapping) {
+  const polygons = geometry.getType() === "MultiPolygon"
+    ? geometry.getPolygons()
+    : geometry.getType() === "Polygon" ? [geometry] : [];
+  let total = 0;
+  for (const polygon of polygons) {
+    polygon.getLinearRings().forEach((ring, index) => {
+      const area = ringAreaKm2(ring.getCoordinates(), mapping);
+      total += index === 0 ? area : -area;
+    });
+  }
+  return Math.max(0, total);
+}
+
+function geometryLengthKm(geometry, mapping) {
+  const lines = geometry.getType() === "MultiLineString"
+    ? geometry.getCoordinates()
+    : geometry.getType() === "LineString" ? [geometry.getCoordinates()] : [];
+  let total = 0;
+  for (const line of lines) {
+    for (let index = 1; index < line.length; index++) {
+      const [latA, lngA] = toLatLng(mapping, line[index - 1]);
+      const [latB, lngB] = toLatLng(mapping, line[index]);
+      const midLat = ((latA + latB) / 2) * (Math.PI / 180);
+      const dx = (lngB - lngA) * 111.320 * Math.cos(midLat);
+      const dy = (latB - latA) * kmPerDegreeLat;
+      total += Math.hypot(dx, dy);
+    }
+  }
+  return total;
+}
+
+function formatKm2(km2) {
+  return `${km2 >= 10 ? formatNumber(Math.round(km2)) : km2.toFixed(2)} km²`;
+}
+
+function formatKm(km) {
+  if (km < 1) return `${Math.round(km * 1000)} m`;
+  return `${km >= 10 ? formatNumber(Math.round(km)) : km.toFixed(1)} km`;
+}
+
+// The card's own rows -- a feature's measures and attributes -- live in the
+// same definition list the fixed rows do, marked so the next selection can
+// sweep them.
+function clearFeatureRows() {
+  for (const stray of elements.detail.querySelectorAll("[data-feature-row]")) {
+    stray.remove();
+  }
+}
+
+function renderFeatureRows(rows) {
+  let anchor = elements.detailSourceField;
+  for (const row of rows) {
+    const field = document.createElement("div");
+    field.dataset.featureRow = "";
+    const term = document.createElement("dt");
+    term.textContent = row.label;
+    const value = document.createElement("dd");
+    value.textContent = row.value;
+    field.append(term, value);
+    anchor.after(field);
+    anchor = field;
+  }
 }
 
 // The words belonging to a zone arrive with the same text payload a pin's
@@ -156,7 +284,7 @@ function pinSource(pin) {
     state.pinSourceIndex = { world: state.world, byID };
   }
   for (const account of merged) {
-    if (!account.origin && pin.group.title === account.source) return account.source;
+    if (!account.origin && pin.category.group === account.source) return account.source;
   }
   return state.pinSourceIndex.byID.get(pin.location.id) || origin;
 }
@@ -173,6 +301,10 @@ export async function fillPinText(pin) {
   pin.location.links = entry.l || [];
   elements.detailDescription.textContent =
     cleanDescription(entry.d) || "No description is included in the archive.";
+  // A point feature's attributes travel with its text, so its card rows --
+  // the HUC-12 of a pin that knows its subwatershed -- arrive with the words.
+  clearFeatureRows();
+  renderFeatureRows(featureAttributeRows(entry.a));
   renderDetailLinks(pin);
 }
 
@@ -180,7 +312,7 @@ export async function fillPinText(pin) {
 // they still work with no network, and dropped when the target is not on this
 // map.
 export function renderDetailLinks(pin) {
-  const links = (pin.location.links || []).filter((link) => state.pinByID.has(link.locationId));
+  const links = (pin.location.links || []).filter((link) => state.featureByID.has(link.locationId));
   elements.detailLinks.hidden = links.length === 0;
   if (!links.length) {
     elements.detailLinks.replaceChildren();
@@ -207,9 +339,10 @@ export function closeDetail() {
     refreshPrioritySource();
     state.layers.pins.changed();
     state.layers.pinLabels.changed();
-    state.layers.text.changed();
-    state.layers.textDetail.changed();
     state.layers.priority.changed();
+    // A quiet zone that spoke while selected falls silent again.
+    state.layers.zoneTitles.changed();
+    state.layers.zoneTitleDetail.changed();
   }
   elements.detail.hidden = true;
   if (hadSelection) renderSearchResults();

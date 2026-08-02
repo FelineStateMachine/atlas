@@ -13,9 +13,12 @@ func TestValidateHoldsTheVocabulary(t *testing.T) {
 		entity Entity
 		attrs  map[string]string
 	}{
-		{EntityCategory, map[string]string{KeyRenderAs: "pin"}},
-		{EntityCategory, map[string]string{KeyRenderAs: "text", KeyIconStd: "maki/mountain"}},
-		{EntityCategory, map[string]string{KeyIconKind: "glyph", KeyCategoryKey: "ripperdoc"}},
+		{EntityCollection, map[string]string{KeyRenderAs: "pin"}},
+		{EntityCollection, map[string]string{KeyRenderAs: "text", KeyIconStd: "maki/mountain"}},
+		{EntityCollection, map[string]string{KeyIconKind: "glyph", KeyCollectionKey: "ripperdoc"}},
+		{EntityCollection, map[string]string{KeyGeometryKind: "point"}},
+		{EntityCollection, map[string]string{KeyGeometryKind: "path", KeyStrokeWidthPx: "12"}},
+		{EntityCollection, map[string]string{KeyGeometryKind: "area", KeyLabelPolicy: "quiet"}},
 		{EntityWorld, map[string]string{
 			KeyGeometrySurface:     "sphere",
 			KeyGeometryProjection:  "equirect",
@@ -25,9 +28,10 @@ func TestValidateHoldsTheVocabulary(t *testing.T) {
 			KeyGeometryRadiusKM:    "3389.5",
 		}},
 		{EntityWorld, map[string]string{KeyIconOutset: "dark"}},
-		{EntityLocation, map[string]string{KeyGeoLat: "-42.4301", KeyGeoLon: "70.5025"}},
+		{EntityFeature, map[string]string{KeyGeoLat: "-42.4301", KeyGeoLon: "70.5025"}},
+		{EntityFeature, map[string]string{KeyHydroHUC12: "170703010101"}},
 		// Empty is always fine: conventions are declared, never demanded.
-		{EntityCategory, nil},
+		{EntityCollection, nil},
 	}
 	for _, test := range good {
 		if err := Validate(test.entity, test.attrs); err != nil {
@@ -40,16 +44,21 @@ func TestValidateHoldsTheVocabulary(t *testing.T) {
 		attrs   map[string]string
 		mention string
 	}{
-		{EntityCategory, map[string]string{"atlas.render.like": "pin"}, "not registered"},
-		{EntityCategory, map[string]string{KeyRenderAs: "zone"}, "not one of"},
+		{EntityCollection, map[string]string{"atlas.render.like": "pin"}, "not registered"},
+		{EntityCollection, map[string]string{KeyRenderAs: "zone"}, "not one of"},
 		{EntityWorld, map[string]string{KeyRenderAs: "pin"}, "attaches to"},
-		{EntityCategory, map[string]string{KeyIconStd: "mountain"}, "set/name"},
-		{EntityCategory, map[string]string{KeyIconStd: "Maki/Mountain"}, "slug"},
+		{EntityCollection, map[string]string{KeyIconStd: "mountain"}, "set/name"},
+		{EntityCollection, map[string]string{KeyIconStd: "Maki/Mountain"}, "slug"},
+		{EntityCollection, map[string]string{KeyGeometryKind: "polygon"}, "not one of"},
+		{EntityCollection, map[string]string{KeyLabelPolicy: "loud"}, "not one of"},
+		{EntityFeature, map[string]string{KeyGeometryKind: "area"}, "attaches to"},
+		{EntityFeature, map[string]string{KeyStrokeWidthPx: "12"}, "attaches to"},
 		{EntityWorld, map[string]string{KeyGeometryEquirectPx: "0,0,8192"}, "4"},
 		{EntityWorld, map[string]string{KeyGeometryRadiusKM: "big"}, "number"},
-		{EntityLocation, map[string]string{KeyGeoLat: "north"}, "number"},
+		{EntityFeature, map[string]string{KeyGeoLat: "north"}, "number"},
+		{EntityCollection, map[string]string{KeyHydroHUC12: "170703010101"}, "attaches to"},
 		// The policy name never rides a payload.
-		{EntityLocation, map[string]string{KeyNoteText: "words"}, "not registered"},
+		{EntityFeature, map[string]string{KeyNoteText: "words"}, "not registered"},
 	}
 	for _, test := range bad {
 		err := Validate(test.entity, test.attrs)
@@ -131,7 +140,7 @@ func TestRegistryAgreesWithItsDocument(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	row := regexp.MustCompile("(?m)^\\| `(atlas\\.[a-z0-9_.]+)` \\| (bundle|world|zone|category|location) \\|.*\\| (stable|experimental) \\|")
+	row := regexp.MustCompile("(?m)^\\| `(atlas\\.[a-z0-9_.]+)` \\| (bundle|world|collection|feature) \\|.*\\| (stable|experimental) \\|")
 	documented := make(map[string][2]string)
 	for _, match := range row.FindAllStringSubmatch(string(doc), -1) {
 		documented[match[1]] = [2]string{match[2], match[3]}

@@ -7,16 +7,16 @@ import {
   Text,
 } from "ol/style.js";
 
+import { anyShapeCollectionVisible, collectionFor, collectionOf, isCollectionHidden } from "./collections.js";
 import { gridTheme } from "./constants.js";
 import { gridCellVisual } from "./grid.js";
-import { renderAs } from "./semconv.js";
+import { labelPolicy, labelSilenced } from "./semconv.js";
 import { state } from "./state.js";
 import {
   atMaximumNativeZoom,
   isPriorityPin,
   pinIsHidden,
-  textDetailRatio,
-} from "./pins.js";
+} from "./features.js";
 import {
   categoryColor,
   hexToRGBA,
@@ -31,63 +31,36 @@ export function featureOrder(left, right) {
 
 export function pinFeatureStyle(feature) {
   const pin = feature.get("pin");
-  if (!pin || pinIsHidden(pin) || pin.insideHighlightedZone || isPriorityPin(pin)) return null;
+  if (!pin || pinIsHidden(pin) || pin.passesZoneFilters || isPriorityPin(pin)) return null;
   return markerStyles(pin, false);
 }
 
 export function zonePinFeatureStyle(feature) {
   const pin = feature.get("pin");
-  if (!pin || !state.highlightedZones.size || !pin.insideHighlightedZone ||
+  if (!pin || !state.highlightedZones.size || !pin.passesZoneFilters ||
       pinIsHidden(pin) || isPriorityPin(pin)) {
     return null;
   }
   return markerStyles(pin, false);
 }
 
-// Held, so the zoom has no say in it. What the reader asked for is every name
-// on the map at once, and a rule that waited for the deepest zoom answered it
-// with the names of the few places already on screen.
+// A pin's label draws when its collection's names are spoken -- curated
+// always, or the reader's toggle -- or while Z is held. The key reveals what
+// is merely optional, never what the reader silenced by hand, and the zoom
+// has no say either way: what was asked for is every name at once.
 export function pinLabelFeatureStyle(feature) {
   const pin = feature.get("pin");
-  if (!pin || pinIsHidden(pin) || !state.labelsHeld) return null;
+  if (!pin || pinIsHidden(pin)) return null;
+  if (labelPolicy(null, pin.category) !== "always" &&
+      !(state.labelsHeld && !labelSilenced(pin.category))) {
+    return null;
+  }
   return markerLabelStyle(pin);
-}
-
-export function textFeatureStyle(feature) {
-  const pin = feature.get("pin");
-  if (!pin || pinIsHidden(pin) || pin.insideHighlightedZone || isPriorityPin(pin)) return null;
-  if (atMaximumNativeZoom()) return null;
-  // A text pin is its own label, so the key that shows every name shows these
-  // too -- otherwise the crowded categories, the ones held back the longest,
-  // would be the ones it never reached.
-  if (state.labelsHeld) return textStyles(pin, false);
-  const minimumZoom = state.fitZoom + Math.log2(textDetailRatio(pin.category));
-  if ((state.engine.getView().getZoom() || 0) < minimumZoom) return null;
-  return textStyles(pin, false);
-}
-
-export function textDetailFeatureStyle(feature) {
-  const pin = feature.get("pin");
-  if (!pin || pinIsHidden(pin) || pin.insideHighlightedZone ||
-      isPriorityPin(pin) || !atMaximumNativeZoom()) {
-    return null;
-  }
-  return textStyles(pin, false);
-}
-
-export function zoneTextFeatureStyle(feature) {
-  const pin = feature.get("pin");
-  if (!pin || !state.highlightedZones.size || !pin.insideHighlightedZone ||
-      pinIsHidden(pin) || isPriorityPin(pin)) {
-    return null;
-  }
-  return textStyles(pin, false);
 }
 
 export function priorityFeatureStyle(feature) {
   const pin = feature.get("pin");
   if (!pin || pinIsHidden(pin)) return null;
-  if (renderAs(pin.category) === "text") return textStyles(pin, pin === state.selectedPin);
   const marker = markerStyles(pin, pin === state.selectedPin);
   if (pin === state.hoveredPin || pin === state.selectedPin) {
     return [marker, markerLabelStyle(pin)];
@@ -214,27 +187,6 @@ export function markerIconKey(category) {
   return `${category.iconAsset || ""}:${categoryColor(category)}:${state.world?.iconOutset || "light"}`;
 }
 
-export function textStyles(pin, selected) {
-  const key = `text:${pin.location.id}:${selected ? 1 : 0}`;
-  if (state.styleCache.has(key)) return state.styleCache.get(key);
-  const style = new Style({
-    text: new Text({
-      text: pin.location.title,
-      font: `${selected ? "900" : "800"} 14px "Arial Narrow", "Roboto Condensed", sans-serif`,
-      fill: new Fill({ color: selected ? "#7fd0ea" : "#f2ece0" }),
-      stroke: new Stroke({ color: "rgba(0,0,0,0.95)", width: 4 }),
-      backgroundFill: new Fill({ color: selected ? "rgba(13,16,23,0.9)" : "rgba(10,12,17,0.58)" }),
-      backgroundStroke: selected ? new Stroke({ color: "#3aa5c9", width: 1 }) : undefined,
-      padding: [3, 6, 3, 6],
-      overflow: true,
-    }),
-    zIndex: selected ? 20_000_000 : pin.priority + 3_000_000,
-  });
-  const styles = [style];
-  state.styleCache.set(key, styles);
-  return styles;
-}
-
 // gridLabelFont spells one chunk of a cell label. Monospace, as the field
 // these are typed into already is: every hash at a level is the same length,
 // so in a fixed pitch a level keeps or drops its labels as one.
@@ -353,19 +305,24 @@ export function measureLabel(text, font) {
 
 export const zoneScrimFill = new Style({ fill: new Fill({ color: "rgba(5, 8, 16, 0.62)" }) });
 
+// The scrim exists only while something is highlighted, and hiding a
+// collection withdraws its highlights, so an all-hidden map has no scrim
+// feature left to draw; the check covers the moment in between.
 export function zoneScrimStyle() {
-  return state.zonesVisible ? zoneScrimFill : null;
+  return anyShapeCollectionVisible() ? zoneScrimFill : null;
 }
 
 export function zoneStyle(feature, resolution) {
-  if (!state.zonesVisible) return null;
   const zone = feature.get("zone");
+  if (isCollectionHidden(collectionOf(zone))) return null;
   const child = feature.get("child");
   const highlighted = state.highlightedZones.has(zone.id);
   const dimmed = zoneContextDimmed(zone.id);
-  // A path zone carries its ground width: the stroke is the zone, drawn at
-  // the width the world gives it rather than a width the screen does.
-  const groundWidth = Number(zone.attrs?.["atlas.stroke.width_px"]) || 0;
+  // A path is a line and a weight, and the weight is its collection's to
+  // declare -- drawn at the width the world gives it rather than a width the
+  // screen does. A feature spelling a width of its own is still honoured.
+  const groundWidth = Number(zone.attrs?.["atlas.stroke.width_px"]) ||
+    Number(collectionFor(zone)?.attrs?.["atlas.stroke.width_px"]) || 0;
   if (groundWidth > 0 && feature.getGeometry()?.getType() === "MultiLineString") {
     return pathZoneStyle(zone, feature.get("color"), groundWidth / resolution, highlighted, dimmed);
   }
@@ -467,9 +424,15 @@ function pathZoneStyle(zone, color, width, highlighted, dimmed) {
 }
 
 export function zoneTitleStyle(feature) {
-  if (!state.zonesVisible || atMaximumNativeZoom()) return null;
+  if (atMaximumNativeZoom()) return null;
+  const zone = feature.get("zone");
+  if (isCollectionHidden(collectionOf(zone))) return null;
+  if (quietChipHidden(zone)) return null;
+  const highlighted = state.highlightedZones.has(zone.id);
+  // A quiet name, once asked for, skips the crowd-thinning below: like
+  // holding Z for pin labels, asking means every one of them.
+  if (labelPolicy(zone) === "quiet") return renderedZoneTitleStyle(feature);
   const child = feature.get("child");
-  const highlighted = state.highlightedZones.has(feature.get("zone").id);
   const zoom = state.engine.getView().getZoom() || 0;
   if (!highlighted && child && zoom < state.fitZoom + 3) return null;
   const spanPixels = feature.get("span") / state.engine.getView().getResolution();
@@ -478,8 +441,24 @@ export function zoneTitleStyle(feature) {
 }
 
 export function zoneTitleDetailStyle(feature) {
-  if (!state.zonesVisible || !atMaximumNativeZoom()) return null;
+  if (!atMaximumNativeZoom()) return null;
+  const zone = feature.get("zone");
+  if (isCollectionHidden(collectionOf(zone))) return null;
+  if (quietChipHidden(zone)) return null;
   return renderedZoneTitleStyle(feature);
+}
+
+// A quiet zone's name is context, not headline: the chip waits until the
+// reader asks after that zone in particular -- highlighting it, selecting it
+// -- or asks after every name at once by holding Z. Z reveals what is merely
+// optional, never what was silenced: a collection the reader quieted by hand
+// stays quiet under the key, because the choice was theirs and the key is
+// not an override.
+function quietChipHidden(zone) {
+  if (labelPolicy(zone) !== "quiet") return false;
+  if (state.highlightedZones.has(zone.id) || state.selectedZone === zone) return false;
+  const silenced = state.labelOverrides.get(collectionOf(zone)) === "quiet";
+  return silenced || !state.labelsHeld;
 }
 
 export function renderedZoneTitleStyle(feature) {
@@ -533,11 +512,11 @@ export function zoneContextDimmed(zoneID) {
 
 export function zoneIsAncestorOf(candidateID, zoneID) {
   const visited = new Set();
-  let parentID = state.zoneRecords.get(zoneID)?.zone.parentRegionId;
+  let parentID = state.zoneRecords.get(zoneID)?.zone.parent;
   while (parentID != null && !visited.has(parentID)) {
     if (parentID === candidateID) return true;
     visited.add(parentID);
-    parentID = state.zoneRecords.get(parentID)?.zone.parentRegionId;
+    parentID = state.zoneRecords.get(parentID)?.zone.parent;
   }
   return false;
 }

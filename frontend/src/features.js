@@ -1,57 +1,57 @@
 import Feature from "ol/Feature.js";
 import Point from "ol/geom/Point.js";
 
+import { groupByCollection, isCollectionHidden, passesZoneFilters } from "./collections.js";
 import { closeDetail } from "./detail.js";
 import { elements } from "./dom.js";
 import { pinInGridCell } from "./grid.js";
 import { renderSearchResults } from "./search.js";
-import { renderAs } from "./semconv.js";
 import { updateVisibleCount } from "./navigation.js";
 import { state } from "./state.js";
 import { prepareMarkerIcon } from "./styles.js";
 import { stableRank } from "./util.js";
-import { project } from "./zones.js";
+import { project } from "./areas.js";
 
-export function buildPins() {
+// buildFeatures stands the world's point features up: every point collection's
+// locations become pin records in the features registry, each already wearing
+// its OpenLayers feature. Shape features are areas.js's to render -- they
+// arrive inline with their collections and never pass through here.
+export function buildFeatures() {
   state.sources.pins.clear();
-  state.sources.text.clear();
   state.sources.priority.clear();
-  state.pins = [];
-  state.pinByID.clear();
-  for (const group of state.world.groups) {
-    for (const category of group.categories) {
-      if (renderAs(category) !== "text") prepareMarkerIcon(category);
-      for (const location of category.locations) {
-        const pin = {
-          location,
-          category,
-          group,
-          coordinate: project(location.lat, location.lng),
-          filteredHidden: false,
-          priority: pinPriority(category, location),
-          feature: null,
-        };
-        pin.feature = new Feature({
-          geometry: new Point(pin.coordinate),
-          pin,
-          priority: pin.priority,
-        });
-        state.pins.push(pin);
-        state.pinByID.set(location.id, pin);
-        if (renderAs(category) === "text") state.sources.text.addFeature(pin.feature);
-        else state.sources.pins.addFeature(pin.feature);
-      }
+  state.features = [];
+  state.featureByID.clear();
+  for (const category of state.world.collections) {
+    if (category.kind !== "point") continue;
+    prepareMarkerIcon(category);
+    for (const location of category.locations) {
+      const pin = {
+        location,
+        category,
+        coordinate: project(location.lat, location.lng),
+        filteredHidden: false,
+        priority: pinPriority(category, location),
+        feature: null,
+      };
+      pin.feature = new Feature({
+        geometry: new Point(pin.coordinate),
+        pin,
+        priority: pin.priority,
+      });
+      state.features.push(pin);
+      state.featureByID.set(location.id, pin);
+      state.sources.pins.addFeature(pin.feature);
     }
   }
   applyPinFilters();
 }
 
 export function applyPinFilters() {
-  for (const pin of state.pins) {
-    const categoryHidden = state.hiddenCategories.has(pin.category.id);
+  for (const pin of state.features) {
+    const collectionHidden = isCollectionHidden(pin.category.id);
     const searchHidden = state.search &&
       !pin.location.title.toLocaleLowerCase().includes(state.search);
-    pin.filteredHidden = Boolean(categoryHidden || searchHidden);
+    pin.filteredHidden = Boolean(collectionHidden || searchHidden);
   }
   updateZonePinFocus();
   refreshPinRendering();
@@ -62,44 +62,36 @@ export function applyPinFilters() {
   document.dispatchEvent(new Event("atlas:filters"));
 }
 
+// Highlights conjoin across collections and union within one: a pin stands
+// only where every highlighted collection claims it. With the v2 wire's one
+// implicit collection that is the plain union, so today's maps read exactly
+// as they always have; the second collection arrives with the v3 wire.
 export function updateZonePinFocus() {
   if (!state.highlightedZones.size) {
-    for (const pin of state.pins) pin.insideHighlightedZone = false;
+    for (const pin of state.features) pin.passesZoneFilters = false;
     return;
   }
-  const records = [...state.highlightedZones]
+  const groups = groupByCollection([...state.highlightedZones]
     .map((zoneID) => state.zoneRecords.get(zoneID))
-    .filter(Boolean);
-  for (const pin of state.pins) {
-    pin.insideHighlightedZone = records.some((record) =>
-      record.geometries.some((geometry) => geometryContainsCoordinate(geometry, pin.coordinate)));
+    .filter(Boolean));
+  for (const pin of state.features) {
+    pin.passesZoneFilters = passesZoneFilters(groups, pin.coordinate);
   }
-}
-
-export function geometryContainsCoordinate(geometry, coordinate) {
-  if (geometry.intersectsCoordinate(coordinate)) return true;
-  const closest = geometry.getClosestPoint(coordinate);
-  const x = closest[0] - coordinate[0];
-  const y = closest[1] - coordinate[1];
-  return x * x + y * y <= 1;
 }
 
 export function refreshPinRendering() {
-  state.eligibleLocations = state.pins.filter((pin) => !pinIsHidden(pin)).length;
+  state.eligibleLocations = state.features.filter((pin) => !pinIsHidden(pin)).length;
   refreshPrioritySource();
   state.layers.pins.changed();
   state.layers.zonePins.changed();
   state.layers.pinLabels.changed();
-  state.layers.text.changed();
-  state.layers.zoneText.changed();
-  state.layers.textDetail.changed();
   state.layers.priority.changed();
   updateVisibleCount();
 }
 
 export function refreshPrioritySource() {
   state.sources.priority.clear();
-  for (const pin of state.pins) {
+  for (const pin of state.features) {
     if (pinIsHidden(pin)) continue;
     const searched = Boolean(state.search) &&
       pin.location.title.toLocaleLowerCase().includes(state.search);
@@ -127,7 +119,10 @@ export function setLabelsHeld(held) {
   state.labelsHeld = held;
   elements.labelsHint.textContent = held ? "Z · labels shown" : "Z · hold for labels";
   state.layers.pinLabels.changed();
-  state.layers.text.changed();
+  // Quiet zone names answer the same key, so the title layers must hear it
+  // the moment the pin labels do.
+  state.layers.zoneTitles.changed();
+  state.layers.zoneTitleDetail.changed();
   // Anything else writing names beside its pins -- the globe -- holds and
   // releases them the same moment the chart does.
   document.dispatchEvent(new Event("atlas:labels"));
@@ -152,7 +147,7 @@ export function onActiveShard(item) {
 }
 
 export function pinIsZoneCulled(pin) {
-  if (!state.highlightedZones.size || pin.insideHighlightedZone) return false;
+  if (!state.highlightedZones.size || pin.passesZoneFilters) return false;
   if (pin === state.selectedPin) return false;
   return !(Boolean(state.search) &&
     pin.location.title.toLocaleLowerCase().includes(state.search));
@@ -171,12 +166,6 @@ export function pinIsGridCulled(pin) {
 export function pinPriority(category, location) {
   const rarity = Math.max(0, 1_000_000 - Math.min(category.locations.length, 999) * 1000);
   return rarity + (stableRank(location.id) % 1000);
-}
-
-export function textDetailRatio(category) {
-  if (category.locations.length > 200) return 4;
-  if (category.locations.length > 75) return 2.5;
-  return 1;
 }
 
 export function atMaximumNativeZoom() {

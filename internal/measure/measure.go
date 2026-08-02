@@ -73,12 +73,26 @@ type MergeAccount struct {
 	Map       string
 	Source    string
 	DonorPins int
-	Matched   []MatchedPair
-	Added     int
-	Adopted   []AdoptedPin
-	Held      []HeldPin
-	Rejected  []HeldPin
-	Alignment string
+	// DonorFeatures is the donor's offering counted per kind. Bundles from
+	// before the ledger spoke features carry only donorPins; for those the
+	// point count stands in and the shapes read zero.
+	DonorFeatures FeatureCounts
+	Matched       []MatchedPair
+	Added         int
+	// AddedShapes is the ledger's reserved shape-merge count, zero in every
+	// bundle written so far.
+	AddedShapes int
+	Adopted     []AdoptedPin
+	Held        []HeldPin
+	Rejected    []HeldPin
+	Alignment   string
+}
+
+// FeatureCounts counts donor features by kind, in the ledger's own words.
+type FeatureCounts struct {
+	Point int `json:"point"`
+	Path  int `json:"path"`
+	Area  int `json:"area"`
 }
 
 // MatchedPair records one place both sources pin, in the ledger's own words.
@@ -105,29 +119,30 @@ type HeldPin struct {
 
 // worldDetail is the sliver of a world payload measurement reads.
 type worldDetail struct {
-	Attrs  map[string]string `json:"attrs"`
-	Groups []struct {
-		Categories []struct {
-			IconAsset   string            `json:"iconAsset"`
-			DisplayType string            `json:"displayType"`
-			Attrs       map[string]string `json:"attrs"`
-		} `json:"categories"`
-	} `json:"groups"`
-	Merged []struct {
-		Source    string        `json:"source"`
-		DonorPins int           `json:"donorPins"`
-		Matched   []MatchedPair `json:"matched"`
-		Added     int           `json:"added"`
-		Adopted   []AdoptedPin  `json:"adopted"`
-		Held      []HeldPin     `json:"held"`
-		Rejected  []HeldPin     `json:"rejected"`
-		Alignment string        `json:"alignment"`
-	} `json:"merged"`
-	Zones []struct {
-		Features []struct {
-			Coordinates json.RawMessage `json:"coordinates"`
+	Attrs       map[string]string `json:"attrs"`
+	Collections []struct {
+		Kind      string            `json:"kind"`
+		Group     string            `json:"group"`
+		IconAsset string            `json:"iconAsset"`
+		Attrs     map[string]string `json:"attrs"`
+		Features  []struct {
+			Geometry []struct {
+				Coordinates json.RawMessage `json:"coordinates"`
+			} `json:"geometry"`
 		} `json:"features"`
-	} `json:"zones"`
+	} `json:"collections"`
+	Merged []struct {
+		Source        string         `json:"source"`
+		DonorPins     int            `json:"donorPins"`
+		DonorFeatures *FeatureCounts `json:"donorFeatures"`
+		Matched       []MatchedPair  `json:"matched"`
+		Added         int            `json:"added"`
+		AddedShapes   int            `json:"addedShapes"`
+		Adopted       []AdoptedPin   `json:"adopted"`
+		Held          []HeldPin      `json:"held"`
+		Rejected      []HeldPin      `json:"rejected"`
+		Alignment     string         `json:"alignment"`
+	} `json:"merged"`
 	Lenses []struct {
 		Name    string `json:"name"`
 		MaxZoom int    `json:"maxZoom"`
@@ -147,6 +162,11 @@ func (m MergeAccount) MedianMatchPx() int {
 	sort.Ints(distances)
 	return distances[len(distances)/2]
 }
+
+// DonorShapesN is how many shape features -- paths and areas together --
+// the donor offered; none of them merge yet, so each one shows up again in
+// the held ledger.
+func (m MergeAccount) DonorShapesN() int { return m.DonorFeatures.Path + m.DonorFeatures.Area }
 
 func (m MergeAccount) MatchedN() int  { return len(m.Matched) }
 func (m MergeAccount) AdoptedN() int  { return len(m.Adopted) }
@@ -249,7 +269,7 @@ func MeasureBundle(path string) (*Build, error) {
 	var lengths []int
 	for _, entry := range manifest.Worlds {
 		b.MapSlugs = append(b.MapSlugs, entry.Slug)
-		b.Pins += entry.PinCount
+		b.Pins += entry.Points
 		var text map[string]struct {
 			Description string            `json:"d"`
 			Attrs       map[string]string `json:"a"`
@@ -287,46 +307,60 @@ func MeasureBundle(path string) (*Build, error) {
 		for _, lens := range detail.Lenses {
 			b.Depth = max(b.Depth, lens.MaxZoom)
 		}
-		b.Zones += len(detail.Zones)
-		for _, zone := range detail.Zones {
-			for _, feature := range zone.Features {
-				b.Vertices += countVertices(feature.Coordinates)
+		groups := make(map[string]bool)
+		for _, collection := range detail.Collections {
+			b.UnknownAttrs += unknownAttrs(collection.Attrs)
+			if collection.Kind != semconv.GeometryPoint {
+				b.Zones += len(collection.Features)
+				for _, feature := range collection.Features {
+					for _, geometry := range feature.Geometry {
+						b.Vertices += countVertices(geometry.Coordinates)
+					}
+				}
+				continue
 			}
-		}
-		for _, group := range detail.Groups {
-			b.Groups++
-			for _, category := range group.Categories {
-				b.Categories++
-				b.UnknownAttrs += unknownAttrs(category.Attrs)
-				if _, declared := category.Attrs[semconv.KeyRenderAs]; declared {
-					b.RenderDeclared++
-				}
-				if category.Attrs[semconv.KeyIconStd] != "" {
-					b.StdIcons++
-				}
-				// The conventions decide what a category is, so the metric
-				// judging it reads the same attribute the viewer does.
-				if semconv.RenderAs(category.Attrs, category.DisplayType) == semconv.RenderAsText {
-					b.TextSets++
-					continue
-				}
-				b.IconsWanted++
-				if category.IconAsset != "" {
-					b.IconsCarried++
-				}
+			b.Categories++
+			if !groups[collection.Group] {
+				groups[collection.Group] = true
+				b.Groups++
+			}
+			if _, declared := collection.Attrs[semconv.KeyRenderAs]; declared {
+				b.RenderDeclared++
+			}
+			if collection.Attrs[semconv.KeyIconStd] != "" {
+				b.StdIcons++
+			}
+			// The conventions decide what a collection is, so the metric
+			// judging it reads the same attribute the viewer does.
+			if semconv.RenderAs(collection.Attrs, "") == semconv.RenderAsText {
+				b.TextSets++
+				continue
+			}
+			b.IconsWanted++
+			if collection.IconAsset != "" {
+				b.IconsCarried++
 			}
 		}
 		for _, merged := range detail.Merged {
+			// Bundles in the wild predate the per-kind count: where the
+			// account says only donorPins, the points stand for the whole
+			// offering, exactly as the writer of that day meant it.
+			counts := FeatureCounts{Point: merged.DonorPins}
+			if merged.DonorFeatures != nil {
+				counts = *merged.DonorFeatures
+			}
 			b.Merges = append(b.Merges, MergeAccount{
-				Map:       entry.Slug,
-				Source:    merged.Source,
-				DonorPins: merged.DonorPins,
-				Matched:   merged.Matched,
-				Added:     merged.Added,
-				Adopted:   merged.Adopted,
-				Held:      merged.Held,
-				Rejected:  merged.Rejected,
-				Alignment: merged.Alignment,
+				Map:           entry.Slug,
+				Source:        merged.Source,
+				DonorPins:     counts.Point,
+				DonorFeatures: counts,
+				Matched:       merged.Matched,
+				Added:         merged.Added,
+				AddedShapes:   merged.AddedShapes,
+				Adopted:       merged.Adopted,
+				Held:          merged.Held,
+				Rejected:      merged.Rejected,
+				Alignment:     merged.Alignment,
 			})
 		}
 	}

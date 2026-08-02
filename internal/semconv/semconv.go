@@ -28,18 +28,20 @@ import (
 
 // Version names the vocabulary a bundle was written against. It rides the
 // manifest as "conventions" and moves only when an existing key's meaning
-// breaks -- additions ride on per-key stability instead.
-const Version = 1
+// breaks -- additions ride on per-key stability instead. v2 collapsed the
+// zone/category/location entities into collection/feature when the format
+// unified them: every kind of thing on a map is a feature, every named set
+// of them a collection.
+const Version = 2
 
 // Entity is what an attribute attaches to.
 type Entity string
 
 const (
-	EntityBundle   Entity = "bundle"
-	EntityWorld    Entity = "world"
-	EntityZone     Entity = "zone"
-	EntityCategory Entity = "category"
-	EntityLocation Entity = "location"
+	EntityBundle     Entity = "bundle"
+	EntityWorld      Entity = "world"
+	EntityCollection Entity = "collection"
+	EntityFeature    Entity = "feature"
 )
 
 // Stability says how settled a key is. Experimental keys may still change
@@ -53,18 +55,31 @@ const (
 
 // The registered keys.
 const (
-	// RenderAs says how a category's locations are drawn: as markers or as
-	// floating text labels. It replaces the pipeline's single unspoken
+	// GeometryKind says what shape of thing a collection holds: points,
+	// paths, or areas. Every collection declares one kind and every feature
+	// in it is that kind; readers pick their rendering and UX by this key
+	// instead of sniffing geometry types at draw time.
+	KeyGeometryKind = "atlas.geometry.kind"
+
+	// LabelPolicy says whether an area collection's features wear their
+	// names on the map always, or quietly -- only on highlight, selection,
+	// or an explicit reveal. It attaches to area collections only: absent
+	// means always for areas, which is today's look, and paths are always
+	// quiet.
+	KeyLabelPolicy = "atlas.label.policy"
+
+	// RenderAs says how a point collection's features are drawn: as markers
+	// or as floating text labels. It replaces the pipeline's single unspoken
 	// display rule, the string compare on MapGenie's display_type.
 	KeyRenderAs = "atlas.render.as"
 
-	// IconStd names a standard-library icon for a category that has no
+	// IconStd names a standard-library icon for a collection that has no
 	// artwork of its own, as set/name, e.g. "maki/mountain". The ingestion
 	// pipeline resolves it to embedded bytes; the app only ever sees the
 	// resolved asset.
 	KeyIconStd = "atlas.icon.std"
 
-	// IconKind says whether a category's icon asset is a monochrome glyph
+	// IconKind says whether a collection's icon asset is a monochrome glyph
 	// the viewer tints, or a picture drawn as-is. It names what used to be
 	// inferred from the asset's file extension.
 	KeyIconKind = "atlas.icon.kind"
@@ -109,7 +124,7 @@ const (
 	// decimal string.
 	KeyGeometryRadiusKM = "atlas.geometry.radius_km"
 
-	// GeoLat and GeoLon carry a location's true planetary coordinates as
+	// GeoLat and GeoLon carry a feature's true planetary coordinates as
 	// the source published them: planetocentric degrees, east-positive
 	// longitude. They are provenance and card material; rendering derives
 	// positions from the map-level mapping instead.
@@ -117,22 +132,23 @@ const (
 	KeyGeoLon = "atlas.geo.lon"
 
 	// HydroHUC12 names the USGS twelve-digit hydrologic unit -- the
-	// subwatershed -- a zone's ground lies wholly within, from the national
-	// Watershed Boundary Dataset, so watershed membership is machine-readable
-	// beside whatever sentence the zone's card shows. A zone spanning
-	// subwatersheds carries no key rather than a misleading one.
+	// subwatershed -- a feature's ground lies wholly within, from the
+	// national Watershed Boundary Dataset, so watershed membership is
+	// machine-readable beside whatever sentence the feature's card shows. A
+	// feature spanning subwatersheds carries no key rather than a misleading
+	// one.
 	KeyHydroHUC12 = "atlas.hydro.huc12"
 
-	// StrokeWidthPx is the ground width of a zone whose features are lines
-	// rather than areas, in world pixels: a trail is a line and a weight,
-	// and declaring the weight lets a reader draw the path as one
-	// continuous stroke instead of an area faked around it.
+	// StrokeWidthPx is the ground width of a path collection's features, in
+	// world pixels: a trail is a line and a weight, and declaring the weight
+	// lets a reader draw the path as one continuous stroke instead of an
+	// area faked around it.
 	KeyStrokeWidthPx = "atlas.stroke.width_px"
 
-	// CategoryKey is a category's merge identity: the slug categories from
-	// different sources meet under when they mean the same concept. Absent,
-	// the icon key stands in, which is today's behavior named.
-	KeyCategoryKey = "atlas.category.key"
+	// CollectionKey is a collection's merge identity: the slug collections
+	// from different sources meet under when they mean the same concept.
+	// Absent, the icon key stands in, which is today's behavior named.
+	KeyCollectionKey = "atlas.collection.key"
 
 	// NoteText never appears in a payload: it is the name the merge policy
 	// table and ledger use for a pin's description, so "which description
@@ -143,6 +159,13 @@ const (
 
 // Vocabulary values.
 const (
+	GeometryPoint = "point"
+	GeometryPath  = "path"
+	GeometryArea  = "area"
+
+	LabelAlways = "always"
+	LabelQuiet  = "quiet"
+
 	RenderAsPin  = "pin"
 	RenderAsText = "text"
 
@@ -244,9 +267,11 @@ func numbers(count int) func(string) error {
 // registry is the whole vocabulary. REGISTRY.md is its prose twin, and a
 // test holds the two to the same list of keys.
 var registry = map[string]definition{
-	KeyRenderAs:            {EntityCategory, Stable, enum(RenderAsPin, RenderAsText)},
-	KeyIconStd:             {EntityCategory, Stable, setName},
-	KeyIconKind:            {EntityCategory, Stable, enum(IconKindGlyph, IconKindPicture)},
+	KeyGeometryKind:        {EntityCollection, Stable, enum(GeometryPoint, GeometryPath, GeometryArea)},
+	KeyLabelPolicy:         {EntityCollection, Experimental, enum(LabelAlways, LabelQuiet)},
+	KeyRenderAs:            {EntityCollection, Stable, enum(RenderAsPin, RenderAsText)},
+	KeyIconStd:             {EntityCollection, Stable, setName},
+	KeyIconKind:            {EntityCollection, Stable, enum(IconKindGlyph, IconKindPicture)},
 	KeyIconOutset:          {EntityWorld, Stable, enum(OutsetLight, OutsetDark)},
 	KeyGeometrySurface:     {EntityWorld, Stable, enum(SurfacePlane, SurfaceSphere)},
 	KeyGeometryProjection:  {EntityWorld, Stable, enum(ProjectionEquirect)},
@@ -256,11 +281,11 @@ var registry = map[string]definition{
 	KeyGeometryMercatorDeg: {EntityWorld, Experimental, numbers(4)},
 	KeyGeometryBody:        {EntityWorld, Experimental, slug},
 	KeyGeometryRadiusKM:    {EntityWorld, Experimental, decimal},
-	KeyGeoLat:              {EntityLocation, Experimental, decimal},
-	KeyGeoLon:              {EntityLocation, Experimental, decimal},
-	KeyHydroHUC12:          {EntityZone, Experimental, huc12},
-	KeyStrokeWidthPx:       {EntityZone, Experimental, positiveDecimal},
-	KeyCategoryKey:         {EntityCategory, Experimental, slug},
+	KeyGeoLat:              {EntityFeature, Experimental, decimal},
+	KeyGeoLon:              {EntityFeature, Experimental, decimal},
+	KeyHydroHUC12:          {EntityFeature, Experimental, huc12},
+	KeyStrokeWidthPx:       {EntityCollection, Experimental, positiveDecimal},
+	KeyCollectionKey:       {EntityCollection, Experimental, slug},
 }
 
 // Keys lists every registered key in a stable order, for the tests and the
@@ -310,10 +335,13 @@ func Validate(entity Entity, attrs map[string]string) error {
 	return nil
 }
 
-// RenderAs answers how a category draws, from its attributes first and the
-// legacy display_type field when no attribute speaks. This is the one rule
-// the viewer used to hold as a string compare, spelled once for every
-// consumer: text is text, and everything else is a pin.
+// RenderAs answers how a point collection draws, from its attributes first
+// and the legacy display_type field when no attribute speaks. This is the
+// one rule the viewer used to hold as a string compare, spelled once for
+// every consumer: text is text, and everything else is a pin. The legacy
+// parameter survives only at ingestion, where the generator speaks this key
+// for MapGenie captures that predate the conventions; the wire itself
+// carries no displayType any more.
 func RenderAs(attrs map[string]string, legacyDisplayType string) string {
 	if value, declared := attrs[KeyRenderAs]; declared {
 		return value

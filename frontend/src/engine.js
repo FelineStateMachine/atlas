@@ -7,8 +7,8 @@ import VectorLayer from "ol/layer/Vector.js";
 import Projection from "ol/proj/Projection.js";
 import VectorSource from "ol/source/Vector.js";
 
+import { collectionOf, isCollectionHidden } from "./collections.js";
 import { elements } from "./dom.js";
-import { renderAs } from "./semconv.js";
 import { state } from "./state.js";
 import {
   featureOrder,
@@ -16,20 +16,17 @@ import {
   pinFeatureStyle,
   pinLabelFeatureStyle,
   priorityFeatureStyle,
-  textDetailFeatureStyle,
-  textFeatureStyle,
   zonePinFeatureStyle,
   zoneScrimStyle,
   zoneStyle,
-  zoneTextFeatureStyle,
   zoneTitleDetailStyle,
   zoneTitleStyle,
 } from "./styles.js";
 import { settleView } from "./navigation.js";
 import { updateOverviewViewport } from "./overview.js";
 import { selectGridCell } from "./grid.js";
-import { setHoveredPin } from "./pins.js";
-import { showPin } from "./detail.js";
+import { setHoveredPin } from "./features.js";
+import { showFeature, showPin } from "./detail.js";
 
 // A vector layer left to itself stretches the last frame it drew through an
 // animation, which leaves markers the wrong size mid-zoom and blank ground
@@ -53,7 +50,6 @@ export function initializeMap() {
     zoneScrim: new VectorSource({ wrapX: false }),
     zones: new VectorSource({ wrapX: false }),
     zoneTitles: new VectorSource({ wrapX: false }),
-    text: new VectorSource({ wrapX: false }),
     pins: new VectorSource({ wrapX: false }),
     priority: new VectorSource({ wrapX: false }),
   };
@@ -96,27 +92,6 @@ export function initializeMap() {
       renderOrder: featureOrder,
       renderBuffer: 160,
       zIndex: 44,
-    }),
-    text: eagerVector({
-      source: state.sources.text,
-      style: textFeatureStyle,
-      renderOrder: featureOrder,
-      renderBuffer: 220,
-      zIndex: 30,
-    }),
-    textDetail: eagerVector({
-      source: state.sources.text,
-      style: textDetailFeatureStyle,
-      renderOrder: featureOrder,
-      renderBuffer: 220,
-      zIndex: 45,
-    }),
-    zoneText: eagerVector({
-      source: state.sources.text,
-      style: zoneTextFeatureStyle,
-      renderOrder: featureOrder,
-      renderBuffer: 220,
-      zIndex: 41,
     }),
     // Nothing is decluttered. Dropping whatever overlaps makes a crowded area
     // quietly show less than it holds, for text labels as much as for markers;
@@ -220,7 +195,24 @@ export function initializeMap() {
       (feature, layer) => (isAnnotationLayer(layer) && feature.get("pin")) || null,
       { hitTolerance: 5, layerFilter: isAnnotationLayer },
     );
-    if (pin) showPin(pin);
+    if (pin) {
+      showPin(pin);
+      return;
+    }
+    // A click that lands on no marker falls through to the ground itself:
+    // the topmost shape feature under the pointer opens the same card its
+    // legend row does. A hidden collection's ground is not drawn and so
+    // answers no hit-test, but the rule is spelled out here rather than
+    // left riding on a renderer detail.
+    const zone = state.engine.forEachFeatureAtPixel(
+      event.pixel,
+      (feature) => {
+        const ground = feature.get("zone");
+        return ground && !isCollectionHidden(collectionOf(ground)) ? ground : null;
+      },
+      { layerFilter: (layer) => layer === state.layers.zones },
+    );
+    if (zone) showFeature(zone);
   });
   state.engine.on("pointermove", (event) => {
     if (event.dragging) {
@@ -232,8 +224,7 @@ export function initializeMap() {
       (feature, layer) => (isAnnotationLayer(layer) && feature.get("pin")) || null,
       { hitTolerance: 4, layerFilter: isAnnotationLayer },
     );
-    const hovered = hit && renderAs(hit.category) === "text" ? null : hit;
-    setHoveredPin(hovered || null);
+    setHoveredPin(hit || null);
     const gridHit = state.gridEnabled && state.engine.hasFeatureAtPixel(event.pixel, {
       layerFilter: (layer) =>
         layer === state.layers.grid || layer === state.layers.gridContext,
@@ -248,9 +239,7 @@ export function initializeMap() {
 // the only ones still on screen -- answering neither the pointer nor a click.
 export function isAnnotationLayer(layer) {
   return layer === state.layers.pins || layer === state.layers.zonePins ||
-    layer === state.layers.pinLabels || layer === state.layers.priority ||
-    layer === state.layers.text || layer === state.layers.textDetail ||
-    layer === state.layers.zoneText;
+    layer === state.layers.pinLabels || layer === state.layers.priority;
 }
 
 // createView holds the camera to the map rather than to the world square

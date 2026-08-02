@@ -451,9 +451,10 @@ func asMaps(m catalogWorld, pieces []shard) []catalogWorld {
 	out := make([]catalogWorld, 0, len(pieces))
 	for index, piece := range pieces {
 		copied := m
-		copied.Groups = keepLocations(m.Groups, piece.Locations)
-		copied.Zones = keepZones(m.Zones, piece.Regions, piece.Region.ID)
-		copied.PinCount = countLocations(copied.Groups)
+		copied.Collections = keepShapeFeatures(
+			keepPointFeatures(m.Collections, piece.Locations),
+			piece.Regions, piece.Region.ID,
+		)
 		copied.Center = piece.Center
 		copied.Lenses = boundVariants(m.Lenses, piece.Bounds, piece.Surface, 0)
 		if index > 0 {
@@ -479,26 +480,22 @@ func asVariants(m catalogWorld, pieces []shard) catalogWorld {
 			bound[index].Name = piece.Region.Title
 		}
 		variants = append(variants, bound...)
-		for groupIndex := range m.Groups {
-			categories := m.Groups[groupIndex].Categories
-			for categoryIndex := range categories {
-				locations := categories[categoryIndex].Locations
-				for locationIndex := range locations {
-					if piece.Locations[locations[locationIndex].ID] {
-						locations[locationIndex].Shard = piece.Region.ID
-					}
-				}
+		for collectionIndex := range m.Collections {
+			collection := &m.Collections[collectionIndex]
+			claims := piece.Regions
+			if collection.Kind == kindPoint {
+				claims = piece.Locations
 			}
-		}
-		for zoneIndex := range m.Zones {
-			if piece.Regions[m.Zones[zoneIndex].ID] {
-				m.Zones[zoneIndex].Shard = piece.Region.ID
+			for featureIndex := range collection.Features {
+				if claims[collection.Features[featureIndex].ID] {
+					collection.Features[featureIndex].Shard = piece.Region.ID
+				}
 			}
 		}
 		dropped = append(dropped, piece.Region.ID)
 	}
 	m.Lenses = variants
-	m.Zones = keepZones(m.Zones, nil, dropped...)
+	m.Collections = keepShapeFeatures(m.Collections, nil, dropped...)
 	if len(pieces) > 0 {
 		m.Center = pieces[0].Center
 	}
@@ -576,25 +573,21 @@ func contentExtent(m catalogWorld, shard int64, window contentBounds, grid tileG
 		found = true
 	}
 
-	for _, group := range m.Groups {
-		for _, category := range group.Categories {
-			for _, location := range category.Locations {
-				if shard != 0 && location.Shard != shard {
-					continue
-				}
-				x, y := projectPoint(location.Latitude, location.Longitude, grid)
-				grow(x, y)
+	for _, collection := range m.Collections {
+		for _, f := range collection.Features {
+			if shard != 0 && f.Shard != shard {
+				continue
 			}
-		}
-	}
-	for _, z := range m.Zones {
-		if shard != 0 && z.Shard != shard {
-			continue
-		}
-		for _, feature := range z.Features {
-			for _, point := range flattenCoordinates(feature.Coordinates) {
-				x, y := projectPoint(point[1], point[0], grid)
+			if collection.Kind == kindPoint {
+				x, y := projectPoint(f.Lat, f.Lng, grid)
 				grow(x, y)
+				continue
+			}
+			for _, part := range f.Geometry {
+				for _, point := range flattenCoordinates(part.Coordinates) {
+					x, y := projectPoint(point[1], point[0], grid)
+					grow(x, y)
+				}
 			}
 		}
 	}
@@ -635,58 +628,59 @@ func intersectBounds(a, b contentBounds) contentBounds {
 	return contentBounds{X: left, Y: top, Width: right - left, Height: bottom - top}
 }
 
-func keepLocations(groups []catalogGroup, wanted map[int64]bool) []catalogGroup {
-	out := make([]catalogGroup, 0, len(groups))
-	for _, group := range groups {
-		kept := make([]catalogCategory, 0, len(group.Categories))
-		for _, category := range group.Categories {
-			locations := make([]catalogLocation, 0, len(category.Locations))
-			for _, location := range category.Locations {
-				if wanted[location.ID] {
-					locations = append(locations, location)
-				}
+// keepPointFeatures pares each point collection down to the piece's own pins.
+// A collection left with none is dropped, which is also what empties a group
+// out of the piece's payload: no collection carries its number any more.
+func keepPointFeatures(collections []worldCollection, wanted map[int64]bool) []worldCollection {
+	out := make([]worldCollection, 0, len(collections))
+	for _, collection := range collections {
+		if collection.Kind != kindPoint {
+			out = append(out, collection)
+			continue
+		}
+		kept := make([]feature, 0, len(collection.Features))
+		for _, pin := range collection.Features {
+			if wanted[pin.ID] {
+				kept = append(kept, pin)
 			}
-			if len(locations) == 0 {
-				continue
-			}
-			category.Locations = locations
-			kept = append(kept, category)
 		}
 		if len(kept) == 0 {
 			continue
 		}
-		group.Categories = kept
-		out = append(out, group)
+		collection.Features = kept
+		out = append(out, collection)
 	}
 	return out
 }
 
-// keepZones drops the piece's own outline. Once a region has been used to cut
-// a map or a layer out of a sheet, drawing it again just traces the edge of
-// what the reader is already looking at.
-func keepZones(zones []zone, wanted map[int64]bool, drop ...int64) []zone {
+// keepShapeFeatures drops the piece's own outline. Once a region has been
+// used to cut a map or a layer out of a sheet, drawing it again just traces
+// the edge of what the reader is already looking at.
+func keepShapeFeatures(collections []worldCollection, wanted map[int64]bool, drop ...int64) []worldCollection {
 	discard := make(map[int64]bool, len(drop))
 	for _, id := range drop {
 		discard[id] = true
 	}
-	out := make([]zone, 0, len(zones))
-	for _, z := range zones {
-		if discard[z.ID] || (wanted != nil && !wanted[z.ID]) {
+	out := make([]worldCollection, 0, len(collections))
+	for _, collection := range collections {
+		if collection.Kind == kindPoint {
+			out = append(out, collection)
 			continue
 		}
-		out = append(out, z)
+		kept := make([]feature, 0, len(collection.Features))
+		for _, shape := range collection.Features {
+			if discard[shape.ID] || (wanted != nil && !wanted[shape.ID]) {
+				continue
+			}
+			kept = append(kept, shape)
+		}
+		if len(kept) == 0 {
+			continue
+		}
+		collection.Features = kept
+		out = append(out, collection)
 	}
 	return out
-}
-
-func countLocations(groups []catalogGroup) int {
-	total := 0
-	for _, group := range groups {
-		for _, category := range group.Categories {
-			total += len(category.Locations)
-		}
-	}
-	return total
 }
 
 func slugify(value string) string {

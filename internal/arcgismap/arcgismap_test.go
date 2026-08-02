@@ -207,7 +207,7 @@ func TestTranslateShapesTheDocument(t *testing.T) {
 	if historic.Title != "Historic Resources" || len(historic.Locations) != 2 {
 		t.Fatalf("category is %q with %d pins", historic.Title, len(historic.Locations))
 	}
-	if err := semconv.Validate(semconv.EntityCategory, historic.Attrs); err != nil {
+	if err := semconv.Validate(semconv.EntityCollection, historic.Attrs); err != nil {
 		t.Fatalf("category attrs: %v", err)
 	}
 	pin := historic.Locations[0]
@@ -217,7 +217,7 @@ func TestTranslateShapesTheDocument(t *testing.T) {
 	if pin.Description != "Residential · 42 NW Hawthorne Ave · Constructed: 1910" {
 		t.Fatalf("pin card reads %q", pin.Description)
 	}
-	if err := semconv.Validate(semconv.EntityLocation, pin.Attrs); err != nil {
+	if err := semconv.Validate(semconv.EntityFeature, pin.Attrs); err != nil {
 		t.Fatalf("pin attrs: %v", err)
 	}
 	if pin.Attrs[semconv.KeyGeoLat] != "44.0581" || pin.Attrs[semconv.KeyGeoLon] != "-121.3081" {
@@ -243,6 +243,64 @@ func TestTranslateShapesTheDocument(t *testing.T) {
 		}
 	}
 
+	// The document declares its zone-making datasets as collections, in the
+	// same curated order, each saying its kind -- and its stroke, when its
+	// features are lines -- in the registered vocabulary. The hydro areas
+	// declare quiet labels: the nation's water is the city's context, not
+	// its headline. The stream lines say nothing, because a path is quiet
+	// by the registry's own default and label policy is an area's word.
+	wantDecls := []struct{ key, title, kind, label string }{
+		{"mpo-boundary", "MPO Boundary", "area", ""},
+		{"zoning", "Zoning", "area", ""},
+		{"annexations", "Annexations", "area", ""},
+		{"wetlands", "Wetlands", "area", ""},
+		{"trails", "Paths & Trails", "path", ""},
+		{"watersheds", "Watersheds", "area", "quiet"},
+		{"subwatersheds", "Subwatersheds", "area", "quiet"},
+		{"streams", "Streams", "path", ""},
+		{"waterbodies", "Waterbodies", "area", "quiet"},
+	}
+	if len(out.Collections) != len(wantDecls) {
+		t.Fatalf("document declares %d collections, want %d: %+v",
+			len(out.Collections), len(wantDecls), out.Collections)
+	}
+	for at, want := range wantDecls {
+		decl := out.Collections[at]
+		if decl.Key != want.key || decl.Title != want.title {
+			t.Fatalf("collection %d is %q titled %q, want %q titled %q",
+				at, decl.Key, decl.Title, want.key, want.title)
+		}
+		if err := semconv.Validate(semconv.EntityCollection, decl.Attrs); err != nil {
+			t.Fatalf("collection %q attrs: %v", decl.Key, err)
+		}
+		if got := decl.Attrs[semconv.KeyGeometryKind]; got != want.kind {
+			t.Fatalf("collection %q declares kind %q, want %q", decl.Key, got, want.kind)
+		}
+		if got := decl.Attrs[semconv.KeyLabelPolicy]; got != want.label {
+			t.Fatalf("collection %q declares label policy %q, want %q", decl.Key, got, want.label)
+		}
+		_, stroked := decl.Attrs[semconv.KeyStrokeWidthPx]
+		if stroked != (want.kind == "path") {
+			t.Fatalf("collection %q: only path collections declare a stroke, got %v", decl.Key, decl.Attrs)
+		}
+	}
+	if out.Collections[4].Attrs[semconv.KeyStrokeWidthPx] != "12" ||
+		out.Collections[7].Attrs[semconv.KeyStrokeWidthPx] != "10" {
+		t.Fatalf("path collections declare strokes %q and %q",
+			out.Collections[4].Attrs[semconv.KeyStrokeWidthPx],
+			out.Collections[7].Attrs[semconv.KeyStrokeWidthPx])
+	}
+
+	// Every region claims the collection its dataset declared.
+	wantHomes := []string{"mpo-boundary", "zoning", "zoning", "annexations",
+		"wetlands", "trails", "watersheds", "subwatersheds", "subwatersheds",
+		"streams", "waterbodies"}
+	for at, home := range wantHomes {
+		if got := out.Regions[at].Collection; got != home {
+			t.Fatalf("zone %q claims collection %q, want %q", out.Regions[at].Title, got, home)
+		}
+	}
+
 	// The national zones say which grain of the nation they are.
 	if got := out.Regions[6].Subtitle; got != "Watershed · HUC 1707030101" {
 		t.Fatalf("watershed subtitle is %q", got)
@@ -263,7 +321,7 @@ func TestTranslateShapesTheDocument(t *testing.T) {
 	if pf.Description != "Lies in the Tumalo Creek subwatershed (HUC 170703010101)." {
 		t.Fatalf("PF card reads %q", pf.Description)
 	}
-	if err := semconv.Validate(semconv.EntityZone, pf.Attrs); err != nil {
+	if err := semconv.Validate(semconv.EntityFeature, pf.Attrs); err != nil {
 		t.Fatalf("PF attrs: %v", err)
 	}
 	if pf.Attrs[semconv.KeyHydroHUC12] != "170703010101" {
@@ -278,10 +336,10 @@ func TestTranslateShapesTheDocument(t *testing.T) {
 			t.Fatalf("zone %q claims membership: %q %v", zone.Title, zone.Description, zone.Attrs)
 		}
 	}
-	// A line zone in one subwatershed claims it alongside its stroke.
+	// A line zone in one subwatershed claims it; its stroke is its
+	// collection's to declare, never its own.
 	riley := out.Regions[5]
-	if riley.Attrs[semconv.KeyHydroHUC12] != "170703010102" ||
-		riley.Attrs[semconv.KeyStrokeWidthPx] != "12" {
+	if riley.Attrs[semconv.KeyHydroHUC12] != "170703010102" {
 		t.Fatalf("trail attrs are %v", riley.Attrs)
 	}
 	if out.Regions[1].Subtitle != "Zoning" {
@@ -294,12 +352,14 @@ func TestTranslateShapesTheDocument(t *testing.T) {
 	if trail.Subtitle != "Riley Ranch Nature Reserve" || len(trail.Features) != 1 {
 		t.Fatalf("trail zone is %+v", trail)
 	}
-	// A line zone stays the line it is, and declares the width it is drawn at.
-	if err := semconv.Validate(semconv.EntityZone, trail.Attrs); err != nil {
+	// A line zone stays the line it is. Its width lives on the collection
+	// declaration alone, so the zone's own attributes validate as the
+	// feature they attach to, with nothing borrowed.
+	if err := semconv.Validate(semconv.EntityFeature, trail.Attrs); err != nil {
 		t.Fatalf("trail attrs: %v", err)
 	}
-	if trail.Attrs[semconv.KeyStrokeWidthPx] != "12" {
-		t.Fatalf("trail declares width %q", trail.Attrs[semconv.KeyStrokeWidthPx])
+	if _, stroked := trail.Attrs[semconv.KeyStrokeWidthPx]; stroked {
+		t.Fatalf("the trail zone spells a stroke of its own: %v", trail.Attrs)
 	}
 	if trail.Features[0].Geometry.Type != "MultiLineString" {
 		t.Fatalf("trail geometry is %q", trail.Features[0].Geometry.Type)
@@ -526,6 +586,14 @@ func TestCuratedTableIsSound(t *testing.T) {
 			}
 			if dataset.Geometry == "line" && dataset.ZoneOf != nil && dataset.StrokeWidth <= 0 {
 				t.Fatalf("dataset %q zones lines without a ribbon", dataset.Slug)
+			}
+			// A label policy, when curated, must be a word the registry
+			// admits, because it rides the declaration verbatim.
+			if dataset.Label != "" {
+				if err := semconv.Validate(semconv.EntityCollection,
+					map[string]string{semconv.KeyLabelPolicy: dataset.Label}); err != nil {
+					t.Fatalf("dataset %q label: %v", dataset.Slug, err)
+				}
 			}
 		}
 	}

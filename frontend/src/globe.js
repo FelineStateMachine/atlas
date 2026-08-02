@@ -26,6 +26,7 @@ import { Line2 } from "three/examples/jsm/lines/Line2.js";
 import { LineGeometry } from "three/examples/jsm/lines/LineGeometry.js";
 import { LineMaterial } from "three/examples/jsm/lines/LineMaterial.js";
 
+import { isCollectionHidden } from "./collections.js";
 import { gridTheme, overzoomLevels } from "./constants.js";
 import { showPin } from "./detail.js";
 import { elements } from "./dom.js";
@@ -41,7 +42,7 @@ import { state } from "./state.js";
 import { markerIconKey, measureLabel } from "./styles.js";
 import { categoryColor, iconOutsetColor, initials } from "./theme.js";
 import { clamp } from "./util.js";
-import { project } from "./zones.js";
+import { project } from "./areas.js";
 
 // textureZoom picks the pyramid level the sphere wears everywhere: deep
 // enough to read from orbit, shallow enough that one canvas holds the whole
@@ -302,8 +303,8 @@ async function enterGlobe() {
       globe.globeImageUrl(texture);
     }
   }
-  if (pinsBuilt !== state.pins) {
-    pinsBuilt = state.pins;
+  if (pinsBuilt !== state.features) {
+    pinsBuilt = state.features;
     sprites.clear();
     placed.clear();
     globe.objectsData(spherePins(mapping));
@@ -884,7 +885,7 @@ function syncSelection() {
 // legend's and search's filters, and the chosen geohash cell, exactly as
 // the chart holds them.
 function pinShown(pin) {
-  if (pin.filteredHidden || state.hiddenCategories.has(pin.category.id)) return false;
+  if (pin.filteredHidden || isCollectionHidden(pin.category.id)) return false;
   if (state.gridEnabled && state.gridCell && !pinInGridCell(pin)) return false;
   return true;
 }
@@ -997,7 +998,7 @@ function regridWhenFitChanges() {
 // backward through the declared mapping to true latitude and longitude.
 function spherePins(mapping) {
   const points = [];
-  for (const pin of state.pins) {
+  for (const pin of state.features) {
     const [x, negY] = project(pin.location.lat, pin.location.lng);
     const [lat, lng] = mapping.toLatLng(x, -negY);
     points.push({ lat, lng, pin });

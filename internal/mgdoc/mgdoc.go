@@ -41,7 +41,22 @@ type Map struct {
 	Game             Game              `json:"game"`
 	Groups           []Group           `json:"groups"`
 	Regions          []Region          `json:"regions"`
+	Collections      []CollectionDecl  `json:"atlas_collections,omitempty"`
 	Attrs            map[string]string `json:"atlas_attrs,omitempty"`
+}
+
+// CollectionDecl names a curated collection the map's regions may claim: a
+// translator that knows its regions come in kinds -- the zoning districts, the
+// streams -- declares each kind once and lets every region say which it is.
+// Attrs carry the collection's conventions -- its geometry kind, its label
+// policy, the stroke width its paths draw at -- under the same registered keys
+// everything else speaks. The field rides a name no real MapGenie capture
+// spells, so an untranslated snapshot simply declares nothing and its regions
+// fold into the map's implicit region collection as they always have.
+type CollectionDecl struct {
+	Key   string            `json:"key"`
+	Title string            `json:"title"`
+	Attrs map[string]string `json:"atlas_attrs,omitempty"`
 }
 
 // Region is a named piece of ground: the generator reads it into a zone, and
@@ -58,11 +73,15 @@ type Region struct {
 	// what a place is -- deferred by the generator into the text payload
 	// the way a pin's description is, so naming ground stays cheap and
 	// explaining it costs only the reader who asks.
-	Description string            `json:"description,omitempty"`
-	CenterX     *float64          `json:"center_x,omitempty"`
-	CenterY     *float64          `json:"center_y,omitempty"`
-	Features    []RegionFeature   `json:"features,omitempty"`
-	Attrs       map[string]string `json:"atlas_attrs,omitempty"`
+	Description string          `json:"description,omitempty"`
+	CenterX     *float64        `json:"center_x,omitempty"`
+	CenterY     *float64        `json:"center_y,omitempty"`
+	Features    []RegionFeature `json:"features,omitempty"`
+	// Collection is the key of the declared collection this region belongs
+	// to. A region naming nothing folds into the map's implicit region
+	// collection, which is every region a real MapGenie capture holds.
+	Collection string            `json:"atlas_collection,omitempty"`
+	Attrs      map[string]string `json:"atlas_attrs,omitempty"`
 }
 
 type RegionFeature struct {

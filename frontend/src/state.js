@@ -7,10 +7,21 @@ export const state = {
   projection: null,
   layers: null,
   sources: null,
-  hiddenCategories: new Set(),
+  // One hide-set across every kind of collection, keyed by the numeric ids
+  // the wire declares. Nothing downstream cares which kind an id names; it
+  // only asks isCollectionHidden.
+  hiddenCollections: new Set(),
   collapsedSections: new Set(),
-  pins: [],
-  pinByID: new Map(),
+  // Which area and path rows have their feature index unfolded in the legend.
+  expandedCollections: new Set(),
+  // The point-feature registry: one pin record per packed location, built by
+  // buildFeatures. Shape features keep their own registry in zoneRecords
+  // below -- that name (and highlightedZones, focusedZoneID with it) stays as
+  // it is because the diagnostics snapshot and the parity baselines grew up
+  // around the zone spelling, and the records it holds really are the zone
+  // layers' to draw.
+  features: [],
+  featureByID: new Map(),
   selectedPin: null,
   selectedZone: null,
   hoveredPin: null,
@@ -27,10 +38,12 @@ export const state = {
   // of them is holding the view to a place.
   subgridVisible: true,
   gridCell: "",
-  zonesVisible: true,
   zoneRecords: new Map(),
   highlightedZones: new Set(),
   focusedZoneID: null,
+  // The reader's word over a collection's label policy, keyed by collection
+  // id. Written by the legend's label toggle, read by the policy ladder.
+  labelOverrides: new Map(),
   search: "",
   fitZoom: 0,
   zoneTitleCount: 0,

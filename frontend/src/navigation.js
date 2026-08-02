@@ -1,6 +1,8 @@
+import { intersects } from "ol/extent.js";
 import XYZ from "ol/source/XYZ.js";
 import TileGrid from "ol/tilegrid/TileGrid.js";
 
+import { isCollectionHidden } from "./collections.js";
 import { state } from "./state.js";
 import { elements, populateSelect } from "./dom.js";
 import { overzoomLevels } from "./constants.js";
@@ -12,15 +14,15 @@ import { renderOverview, setOverviewDocked } from "./overview.js";
 import { setDockFolded } from "./search.js";
 import { renderGrid } from "./grid.js";
 import { syncGlobe } from "./globe.js";
-import { renderZones } from "./zones.js";
+import { renderShapes } from "./areas.js";
 import { renderLegend } from "./legend.js";
 import {
   applyPinFilters,
-  buildPins,
+  buildFeatures,
   pinIsHidden,
   refreshPrioritySource,
   setHoveredPin,
-} from "./pins.js";
+} from "./features.js";
 import { closeDetail } from "./detail.js";
 import { iconOutsetColor } from "./theme.js";
 import { clamp, formatNumber } from "./util.js";
@@ -76,20 +78,28 @@ export async function selectWorld(slug) {
   setHoveredPin(null);
   state.gridCell = "";
   state.gridSystem = "geohash";
-  state.hiddenCategories.clear();
+  state.hiddenCollections.clear();
+  state.labelOverrides.clear();
   // Zones are a navigation aid, not the primary filter surface: keep boundaries
-  // drawn but fold the index away so pin groups stay above the fold.
+  // drawn but fold their section away so pin groups stay above the fold. The
+  // ungrouped shape collections that section holds start unfolded, so their
+  // feature indexes are there the moment the section is opened -- and in the
+  // DOM for anything that reaches for a zone row without unfolding first.
   state.collapsedSections.clear();
   state.collapsedSections.add("zones");
-  for (const group of state.world.groups) {
-    for (const category of group.categories) {
-      if (!category.visible) state.hiddenCategories.add(category.id);
+  state.expandedCollections.clear();
+  for (const collection of state.world.collections) {
+    if (collection.kind !== "point" && !collection.group) {
+      state.expandedCollections.add(collection.id);
     }
+    if (!collection.visible) state.hiddenCollections.add(collection.id);
   }
-  const restore = state.restore?.map === state.world.slug ? state.restore : null;
+  const restore = state.restore?.world === state.world.slug ? state.restore : null;
   if (restore) {
-    state.hiddenCategories = new Set(restore.hidden);
+    state.hiddenCollections = new Set(restore.hidden);
     state.collapsedSections = new Set(restore.collapsed);
+    state.expandedCollections = new Set(restore.expanded || []);
+    state.labelOverrides = new Map(restore.labels || []);
   }
   // Where the corner of the screen is wanted is a preference about the volume
   // rather than about one of its maps, so it carries across them.
@@ -104,8 +114,8 @@ export async function selectWorld(slug) {
   elements.dock.hidden = false;
   closeDetail();
   renderLegend();
-  renderZones();
-  buildPins();
+  renderShapes();
+  buildFeatures();
   selectLens(restore ? clamp(restore.lens, 0, state.world.lenses.length - 1) : 0, true);
   // A map that declares itself a sphere offers the globe; every map opens
   // on the chart either way.
@@ -211,7 +221,6 @@ export function selectLens(index, resetView = false) {
   if (state.gridEnabled) {
     refreshPrioritySource();
     state.layers.pins.changed();
-    state.layers.text.changed();
     state.layers.priority.changed();
   }
   state.overviewKey = "";
@@ -220,12 +229,12 @@ export function selectLens(index, resetView = false) {
   // picture of the ground the reader is already looking at -- spring for
   // summer, one layer of a split map for another -- so the swap is made
   // underneath them and everything else, the view included, stays as it is.
-  const resume = resetView && state.restore?.map === state.world.slug ? state.restore : null;
-  // Zones and pins are built before a lens is chosen, so on a split world the
+  const resume = resetView && state.restore?.world === state.world.slug ? state.restore : null;
+  // Shapes and pins are built before a lens is chosen, so on a split world the
   // first render shows every layer at once. Comparing against what was actually
   // rendered catches that as well as a later switch between layers.
   if (state.renderedShard !== (lens.shard || 0)) {
-    renderZones();
+    renderShapes();
     applyPinFilters();
   }
   if (resume?.center && Number.isFinite(resume.zoom)) {
@@ -336,20 +345,29 @@ export function changeZoom(delta) {
   });
 }
 
+// The footer counts features of every kind: pins by their coordinate, zones
+// by whether their ground reaches into the view. "Enabled" is what the
+// legend's ledger lets draw; "in view" is the part of it under the window.
 export function updateVisibleCount() {
   const zoom = state.engine?.getView().getZoom();
   elements.viewport.dataset.zoom = Number.isFinite(zoom) ? zoom.toFixed(3) : "";
-  if (!state.engine || !state.pins.length) {
-    elements.visibleCount.textContent = "0 locations visible";
+  if (!state.engine || !state.world) {
+    elements.visibleCount.textContent = "0 features enabled";
     return;
   }
   const extent = state.engine.getView().calculateExtent(state.engine.getSize());
+  let enabled = state.eligibleLocations;
   let inView = 0;
-  for (const pin of state.pins) {
+  for (const pin of state.features) {
     if (pinIsHidden(pin)) continue;
     const [x, y] = pin.coordinate;
     if (x >= extent[0] && x <= extent[2] && y >= extent[1] && y <= extent[3]) inView++;
   }
+  for (const record of state.zoneRecords.values()) {
+    if (isCollectionHidden(record.zone.collectionId)) continue;
+    enabled++;
+    if (intersects(record.extent, extent)) inView++;
+  }
   elements.visibleCount.textContent =
-    `${formatNumber(state.eligibleLocations)} enabled · ${formatNumber(inView)} in view`;
+    `${formatNumber(enabled)} features enabled · ${formatNumber(inView)} in view`;
 }

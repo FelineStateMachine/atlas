@@ -19,7 +19,7 @@ import { gridTheme, palette } from "./constants.js";
 import { closeDetail } from "./detail.js";
 import { elements } from "./dom.js";
 import { viewMaxZoom } from "./navigation.js";
-import { refreshPrioritySource } from "./pins.js";
+import { refreshPrioritySource } from "./features.js";
 import { state } from "./state.js";
 
 export function handleGridKey(event) {
@@ -62,7 +62,6 @@ export function toggleGrid(enabled = !state.gridEnabled) {
   renderGrid();
   refreshPrioritySource();
   state.layers.pins.changed();
-  state.layers.text.changed();
   state.layers.priority.changed();
 }
 
@@ -103,7 +102,6 @@ export function selectGridCell(raw) {
   renderGrid();
   refreshPrioritySource();
   state.layers.pins.changed();
-  state.layers.text.changed();
   state.layers.priority.changed();
   if (!changed) return;
   closeDetail();
@@ -186,7 +184,6 @@ export function setGridSystem(slug) {
   renderGrid();
   refreshPrioritySource();
   state.layers.pins.changed();
-  state.layers.text.changed();
   state.layers.priority.changed();
 }
 
@@ -305,7 +302,7 @@ function planCell(system, id, role, contextDistance) {
 
 export function addGridFeature(cell) {
   const system = activeSystem();
-  const count = state.pins.filter((pin) =>
+  const count = state.features.filter((pin) =>
     !pin.filteredHidden && system.contains(cell.hash, pin.coordinate)).length;
   const feature = new Feature({
     geometry: gridGeometry(cell),

@@ -83,8 +83,8 @@ func TestOpenRoundTripsWhatBuildWrites(t *testing.T) {
 	if opened.Manifest.Volume.Slug != "fixture" {
 		t.Errorf("game slug = %q", opened.Manifest.Volume.Slug)
 	}
-	if got := opened.Manifest.Worlds[0].PinCount; got != 2 {
-		t.Errorf("pin count = %d, want 2", got)
+	if got := opened.Manifest.Worlds[0].Points; got != 2 {
+		t.Errorf("point count = %d, want 2", got)
 	}
 	if err := opened.Validate(); err != nil {
 		t.Errorf("a fixture bundle fails validation: %v", err)
@@ -158,7 +158,7 @@ func TestValidateCatchesBrokenPromises(t *testing.T) {
 		}
 	}
 	must(writer.AddDeflated("worlds/overworld.json",
-		[]byte(`{"lenses":[{"tiles":"overworld","minZoom":0,"maxZoom":0,"formats":["jpg"]}],"groups":[]}`)))
+		[]byte(`{"lenses":[{"tiles":"overworld","minZoom":0,"maxZoom":0,"formats":["jpg"]}],"collections":[]}`)))
 	must(writer.AddStored("worlds/overworld.bin", bytes.NewReader(bundle.PackLocations(nil))))
 	must(writer.AddDeflated("worlds/overworld.text", []byte(`{}`)))
 	must(writer.AddStored("tiles/overworld/0/0/0.jpg", bytes.NewReader([]byte("raster"))))
@@ -175,52 +175,137 @@ func TestValidateCatchesBrokenPromises(t *testing.T) {
 	}
 }
 
-func TestValidateRefusesRuntimeURLsAndWrongCounts(t *testing.T) {
-	build := func(text string, pins int) *bundle.Bundle {
-		t.Helper()
-		manifest := validManifest()
-		manifest.Worlds[0].PinCount = pins
-		path := filepath.Join(t.TempDir(), "fixture.atlas")
-		file, err := os.Create(path)
-		if err != nil {
-			t.Fatal(err)
-		}
-		writer, err := bundle.NewWriter(file, manifest)
-		if err != nil {
-			t.Fatal(err)
-		}
-		steps := []error{
-			writer.AddDeflated("worlds/overworld.json",
-				[]byte(`{"lenses":[{"tiles":"overworld","minZoom":0,"maxZoom":0,"formats":["jpg"]}],"groups":[]}`)),
-			writer.AddStored("worlds/overworld.bin",
-				bytes.NewReader(bundle.PackLocations([]bundle.Location{{ID: 1, Title: "Origin"}}))),
-			writer.AddDeflated("worlds/overworld.text", []byte(text)),
-			writer.AddStored("tiles/overworld/0/0/0.jpg", bytes.NewReader([]byte("raster"))),
-			writer.Close(),
-			file.Close(),
-		}
-		for _, err := range steps {
-			if err != nil {
-				t.Fatal(err)
-			}
-		}
-		opened, err := bundle.Open(path)
-		if err != nil {
-			t.Fatal(err)
-		}
-		t.Cleanup(func() { opened.Close() })
-		return opened
+// buildForValidation writes a one-world bundle whose payload JSON, text, and
+// per-kind manifest counts a case chooses, so each promise Validate makes can
+// be broken one at a time.
+func buildForValidation(t *testing.T, detail, text string, points, paths, areas int) *bundle.Bundle {
+	t.Helper()
+	manifest := validManifest()
+	manifest.Worlds[0].Points = points
+	manifest.Worlds[0].Paths = paths
+	manifest.Worlds[0].Areas = areas
+	path := filepath.Join(t.TempDir(), "fixture.atlas")
+	file, err := os.Create(path)
+	if err != nil {
+		t.Fatal(err)
 	}
+	writer, err := bundle.NewWriter(file, manifest)
+	if err != nil {
+		t.Fatal(err)
+	}
+	// At most one location is packed however many the manifest promises, so
+	// a case can promise more than the payload holds.
+	locations := make([]bundle.Location, min(points, 1))
+	for index := range locations {
+		locations[index] = bundle.Location{ID: int64(index + 1), Title: "Origin"}
+	}
+	steps := []error{
+		writer.AddDeflated("worlds/overworld.json", []byte(detail)),
+		writer.AddStored("worlds/overworld.bin", bytes.NewReader(bundle.PackLocations(locations))),
+		writer.AddDeflated("worlds/overworld.text", []byte(text)),
+		writer.AddStored("tiles/overworld/0/0/0.jpg", bytes.NewReader([]byte("raster"))),
+		writer.Close(),
+		file.Close(),
+	}
+	for _, err := range steps {
+		if err != nil {
+			t.Fatal(err)
+		}
+	}
+	opened, err := bundle.Open(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { opened.Close() })
+	return opened
+}
 
-	if err := build(`{"1":{"d":"see https://mapgenie.io/x"}}`, 1).Validate(); err == nil ||
-		!strings.Contains(err.Error(), "runtime URL") {
+const validationLenses = `"lenses":[{"tiles":"overworld","minZoom":0,"maxZoom":0,"formats":["jpg"]}]`
+
+func TestValidateRefusesRuntimeURLsAndWrongCounts(t *testing.T) {
+	pointOnly := `{` + validationLenses + `,"collections":[{"id":1,"title":"Marker","kind":"point","visible":true}]}`
+
+	if err := buildForValidation(t, pointOnly, `{"1":{"d":"see https://mapgenie.io/x"}}`, 1, 0, 0).
+		Validate(); err == nil || !strings.Contains(err.Error(), "runtime URL") {
 		t.Errorf("a payload carrying a live URL validates with %v", err)
 	}
-	if err := build(`{}`, 7).Validate(); err == nil || !strings.Contains(err.Error(), "7") {
-		t.Errorf("a wrong pin count validates with %v", err)
+	if err := buildForValidation(t, pointOnly, `{}`, 7, 0, 0).
+		Validate(); err == nil || !strings.Contains(err.Error(), "7") {
+		t.Errorf("a wrong point count validates with %v", err)
 	}
-	if err := build(`{}`, 1).Validate(); err != nil {
+	if err := buildForValidation(t, pointOnly, `{}`, 1, 0, 0).Validate(); err != nil {
 		t.Errorf("a sound bundle is refused: %v", err)
+	}
+}
+
+// The v3 wire's structural promises: every collection is the kind it says,
+// paths carry their stroke, labels are curated only where labels draw, points
+// never inline, and the manifest's per-kind counts hold.
+func TestValidateHoldsCollectionsToTheirKinds(t *testing.T) {
+	area := func(attrs string) string {
+		return `{` + validationLenses + `,"collections":[{"id":9,"title":"Districts","kind":"area",` +
+			`"visible":true` + attrs + `,"features":[{"id":5,"title":"R-5",` +
+			`"geometry":[{"type":"MultiPolygon","coordinates":[[[[0,0],[1,0],[1,1],[0,0]]]]}]}]}]}`
+	}
+	line := `{"type":"MultiLineString","coordinates":[[[0,0],[1,1]]]}`
+	cases := []struct {
+		name          string
+		detail        string
+		paths, areas  int
+		wantSomewhere string
+	}{
+		{
+			name:          "geometry disagreeing with the declared kind",
+			detail:        `{` + validationLenses + `,"collections":[{"id":9,"title":"Districts","kind":"area","visible":true,"features":[{"id":5,"title":"R-5","geometry":[` + line + `]}]}]}`,
+			areas:         1,
+			wantSomewhere: "inlines a MultiLineString",
+		},
+		{
+			name:          "a path collection with no stroke width",
+			detail:        `{` + validationLenses + `,"collections":[{"id":9,"title":"Creeks","kind":"path","visible":true,"features":[{"id":5,"title":"Big Dry Creek","geometry":[` + line + `]}]}]}`,
+			paths:         1,
+			wantSomewhere: "declares no atlas.stroke.width_px",
+		},
+		{
+			name:          "a manifest counting more areas than the payload holds",
+			detail:        area(""),
+			areas:         2,
+			wantSomewhere: "manifest says",
+		},
+		{
+			name: "a label policy on a path collection",
+			detail: `{` + validationLenses + `,"collections":[{"id":9,"title":"Creeks","kind":"path","visible":true,` +
+				`"attrs":{"atlas.stroke.width_px":"10","atlas.label.policy":"quiet"},` +
+				`"features":[{"id":5,"title":"Big Dry Creek","geometry":[` + line + `]}]}]}`,
+			paths:         1,
+			wantSomewhere: "label policy",
+		},
+		{
+			name: "a point collection carrying inline features",
+			detail: `{` + validationLenses + `,"collections":[{"id":1,"title":"Marker","kind":"point","visible":true,` +
+				`"features":[{"id":5,"title":"Stray","geometry":[]}]}]}`,
+			wantSomewhere: "inline features",
+		},
+		{
+			name:          "a sound area collection",
+			detail:        area(`,"attrs":{"atlas.label.policy":"quiet"}`),
+			areas:         1,
+			wantSomewhere: "",
+		},
+	}
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			err := buildForValidation(t, c.detail, `{}`, 0, c.paths, c.areas).Validate()
+			if c.wantSomewhere == "" {
+				if err != nil {
+					t.Fatalf("a sound bundle is refused: %v", err)
+				}
+				return
+			}
+			if err == nil || !strings.Contains(err.Error(), c.wantSomewhere) {
+				t.Fatalf("validated with %v, want a complaint about %q", err, c.wantSomewhere)
+			}
+		})
 	}
 }
 

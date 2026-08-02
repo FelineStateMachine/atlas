@@ -19,7 +19,11 @@ export const overzoomLevels = 2;
 // to a default view discards work the reader did to reach where they were. The
 // whole arrangement is kept: which map, which layer, where the view sits, what
 // is filtered out and which groups are folded.
-export const sessionKey = "atlas.session";
+// The key carries the schema's generation: the unified hide-set writes ids of
+// more than one kind under "hidden", which a build from before the legend
+// tree would misread, and its sessions would misread us. A new key lets both
+// vintages keep their own arrangements rather than corrupt each other's.
+export const sessionKey = "atlas.session.v3";
 
 // The overview is drawn once per lens from the shallowest pyramid level big
 // enough to read, then only the viewport rectangle moves.

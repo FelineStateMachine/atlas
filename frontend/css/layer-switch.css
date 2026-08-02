@@ -39,8 +39,7 @@
   outline-offset: 2px;
 }
 
-.layer-section.is-collapsed .category-toggles,
-.layer-section.is-collapsed .zone-list {
+.layer-section.is-collapsed .category-toggles {
   display: none;
 }
 

@@ -38,7 +38,7 @@ const (
 
 // categoryEquivalents names the shared concept where two sources spell one
 // category differently, per game. It is applied by speakConventions, which
-// writes the shared name onto each category as atlas.category.key -- so the
+// writes the shared name onto each category as atlas.collection.key -- so the
 // payloads themselves carry the merge identity, and the merge below reads
 // only the attribute. Slugs equal after normalization pair automatically;
 // everything else stays source-specific rather than being guessed together.
@@ -58,7 +58,7 @@ var categoryEquivalents = map[string]map[string]string{
 // the payload carries one, its icon key otherwise -- which is today's
 // behavior, named.
 func categoryKey(icon string, attrs map[string]string) string {
-	if key := attrs[semconv.KeyCategoryKey]; key != "" {
+	if key := attrs[semconv.KeyCollectionKey]; key != "" {
 		return key
 	}
 	return icon
@@ -94,18 +94,37 @@ type mergedSource struct {
 	Slug string `json:"slug,omitempty"`
 	// Origin marks the account of the source the map itself came from, so a
 	// single-source map still says where it is from and a composed map's
-	// unledgered pins have somewhere to answer to. DonorPins on an origin
-	// account is simply the map's own count at composition.
-	Origin    bool           `json:"origin,omitempty"`
-	DonorPins int            `json:"donorPins"`
-	Matched   []mergedPair   `json:"matched,omitempty"`
-	Added     int            `json:"added"`
-	Adopted   []adoptedPin   `json:"adopted,omitempty"`
-	Held      []heldPin      `json:"held,omitempty"`
-	Rejected  []heldPin      `json:"rejected,omitempty"`
-	Enriched  []categoryTake `json:"enrichedCategories,omitempty"`
-	Alignment string         `json:"alignment,omitempty"`
+	// unledgered pins have somewhere to answer to. DonorFeatures on an
+	// origin account is simply the map's own tally at composition.
+	Origin bool `json:"origin,omitempty"`
+	// DonorFeatures is the donor's whole offering counted per kind. The
+	// donorPins spelling it stood beside died with the v2 wire.
+	DonorFeatures featureCounts `json:"donorFeatures"`
+	Matched       []mergedPair  `json:"matched,omitempty"`
+	Added         int           `json:"added"`
+	// AddedShapes is reserved: no shape feature merges yet, so it is always
+	// zero, but the key holds the ledger's place for the day one does.
+	AddedShapes int            `json:"addedShapes,omitempty"`
+	Adopted     []adoptedPin   `json:"adopted,omitempty"`
+	Held        []heldPin      `json:"held,omitempty"`
+	Rejected    []heldPin      `json:"rejected,omitempty"`
+	Enriched    []categoryTake `json:"enrichedCategories,omitempty"`
+	Alignment   string         `json:"alignment,omitempty"`
 }
+
+// featureCounts counts features by kind: the three dimensionalities a
+// collection may declare, as the ledger speaks of them.
+type featureCounts struct {
+	Point int `json:"point"`
+	Path  int `json:"path"`
+	Area  int `json:"area"`
+}
+
+// heldShapeReason is the one reason a donor shape feature is held: matching
+// is point-only for now, so every donor path and area goes on the record
+// instead of vanishing. The gate reads the reason back off the ledger to
+// tell shape holds from point holds.
+const heldShapeReason = "shape features do not merge yet"
 
 // categoryTake records one attribute a serving category took from the
 // donor's counterpart: which category, which key.
@@ -313,34 +332,31 @@ func contributeWorld(winner, donor *catalogVolume, donorMap *catalogWorld) error
 	contributed := *donorMap
 	sourceTag := slugifyLabel(sourceLabelOf(donorMap, donor))
 	renamed := make(map[string]string)
-	for groupIndex := range contributed.Groups {
-		categories := contributed.Groups[groupIndex].Categories
-		for categoryIndex := range categories {
-			category := &categories[categoryIndex]
-			if category.IconAsset == "" {
-				continue
-			}
-			data, held := donor.Icons[category.IconAsset]
-			if !held {
-				category.IconAsset = ""
-				category.IconPicture = false
-				continue
-			}
-			name := category.IconAsset
-			if replacement, seen := renamed[name]; seen {
-				category.IconAsset = replacement
-				continue
-			}
-			if winner.Icons == nil {
-				winner.Icons = make(map[string][]byte)
-			}
-			if existing, taken := winner.Icons[name]; taken && !bytes.Equal(existing, data) {
-				name = sourceTag + "--" + name
-			}
-			winner.Icons[name] = data
-			renamed[category.IconAsset] = name
-			category.IconAsset = name
+	for collectionIndex := range contributed.Collections {
+		collection := &contributed.Collections[collectionIndex]
+		if collection.IconAsset == "" {
+			continue
 		}
+		data, held := donor.Icons[collection.IconAsset]
+		if !held {
+			collection.IconAsset = ""
+			collection.IconPicture = false
+			continue
+		}
+		name := collection.IconAsset
+		if replacement, seen := renamed[name]; seen {
+			collection.IconAsset = replacement
+			continue
+		}
+		if winner.Icons == nil {
+			winner.Icons = make(map[string][]byte)
+		}
+		if existing, taken := winner.Icons[name]; taken && !bytes.Equal(existing, data) {
+			name = sourceTag + "--" + name
+		}
+		winner.Icons[name] = data
+		renamed[collection.IconAsset] = name
+		collection.IconAsset = name
 	}
 	winner.Worlds = append(winner.Worlds, contributed)
 	return nil
@@ -382,117 +398,132 @@ func mergeWorld(
 	// the serving map does not have at all keep their donor categories, so
 	// the source-named group holds nothing but what is truly source-specific.
 	// Categories meet under their declared merge identity -- the
-	// atlas.category.key their payloads carry, their icon key otherwise --
+	// atlas.collection.key their payloads carry, their icon key otherwise --
 	// so the equivalence curation lives in the payloads, not here.
-	var keptCategories []catalogCategory
-	for _, group := range donor.Groups {
-		for _, category := range group.Categories {
-			kept := category
-			kept.Locations = nil
-			mappedKey := categoryKey(category.Icon, category.Attrs)
-			adoptive := index.categories[mappedKey]
-			// Attribute-level resolution at the category: a serving category
-			// with no artwork of any kind takes the donor's standard-icon
-			// declaration, and the ledger says so.
-			if adoptive != nil && attributeMergePolicy[semconv.KeyIconStd] == donorFillsEmpty &&
-				adoptive.IconAsset == "" && adoptive.Attrs[semconv.KeyIconStd] == "" &&
-				category.Attrs[semconv.KeyIconStd] != "" {
-				adoptive.Attrs = withAttr(adoptive.Attrs, semconv.KeyIconStd,
-					category.Attrs[semconv.KeyIconStd])
-				merge.Enriched = append(merge.Enriched, categoryTake{
-					Category: mappedKey, Key: semconv.KeyIconStd,
+	var keptCollections []worldCollection
+	for _, donorCollection := range donor.Collections {
+		if donorCollection.Kind != kindPoint {
+			// Matching is point-only, but the ledger is not: every donor
+			// path and area feature is held on the record, one line each
+			// with its title, rather than dropped without a word.
+			for _, shape := range donorCollection.Features {
+				if donorCollection.Kind == kindPath {
+					merge.DonorFeatures.Path++
+				} else {
+					merge.DonorFeatures.Area++
+				}
+				merge.Held = append(merge.Held, heldPin{
+					Donor: shape.ID, Title: shape.Title, Reason: heldShapeReason,
 				})
 			}
-			for _, location := range category.Locations {
-				merge.DonorPins++
-				x, y := affine.Apply(
-					projectX(location.Longitude, donorGrid),
-					projectY(location.Latitude, donorGrid),
-				)
-				outcome := resolvePin(location, x, y, index, mappedKey, nearbyRadius)
-				switch outcome.kind {
-				case pinMatched:
-					index.claimed[outcome.match] = location.ID
-					pair := mergedPair{
-						Donor:      location.ID,
-						Winner:     outcome.match.ID,
-						DistancePx: int(outcome.distance + 0.5),
-					}
-					// Attribute-level: the policy table says, key by key,
-					// what a serving pin takes from its donor, and every
-					// take is ledgered. The description travels under its
-					// policy name, and a pin's true coordinates fill in the
-					// same way words do: only where the serving side has
-					// none of its own.
-					if attributeMergePolicy[semconv.KeyNoteText] == donorFillsEmpty &&
-						outcome.match.Description == "" && location.Description != "" {
-						outcome.match.Description = location.Description
-						pair.Enriched = true
-						pair.Took = append(pair.Took, semconv.KeyNoteText)
-					}
-					for _, key := range []string{semconv.KeyGeoLat, semconv.KeyGeoLon} {
-						if attributeMergePolicy[key] != donorFillsEmpty {
-							continue
-						}
-						if location.Attrs[key] == "" || outcome.match.Attrs[key] != "" {
-							continue
-						}
-						outcome.match.Attrs = withAttr(outcome.match.Attrs, key, location.Attrs[key])
-						pair.Took = append(pair.Took, key)
-					}
-					merge.Matched = append(merge.Matched, pair)
-				case pinHeld:
-					merge.Held = append(merge.Held, heldPin{
-						Donor: location.ID, Title: location.Title, Reason: outcome.reason,
-					})
-				case pinDistinct:
-					if x < 0 || y < 0 || x > float64(shared.Size) || y > float64(shared.Size) {
-						merge.Rejected = append(merge.Rejected, heldPin{
-							Donor: location.ID, Title: location.Title,
-							Reason: "outside the shared world",
-						})
+			continue
+		}
+		kept := donorCollection
+		kept.Features = nil
+		mappedKey := categoryKey(donorCollection.Icon, donorCollection.Attrs)
+		adoptive := index.categories[mappedKey]
+		// Attribute-level resolution at the category: a serving category
+		// with no artwork of any kind takes the donor's standard-icon
+		// declaration, and the ledger says so.
+		if adoptive != nil && attributeMergePolicy[semconv.KeyIconStd] == donorFillsEmpty &&
+			adoptive.IconAsset == "" && adoptive.Attrs[semconv.KeyIconStd] == "" &&
+			donorCollection.Attrs[semconv.KeyIconStd] != "" {
+			adoptive.Attrs = withAttr(adoptive.Attrs, semconv.KeyIconStd,
+				donorCollection.Attrs[semconv.KeyIconStd])
+			merge.Enriched = append(merge.Enriched, categoryTake{
+				Category: mappedKey, Key: semconv.KeyIconStd,
+			})
+		}
+		for _, pin := range donorCollection.Features {
+			merge.DonorFeatures.Point++
+			x, y := affine.Apply(
+				projectX(pin.Lng, donorGrid),
+				projectY(pin.Lat, donorGrid),
+			)
+			outcome := resolvePin(pin, x, y, index, mappedKey, nearbyRadius)
+			switch outcome.kind {
+			case pinMatched:
+				index.claimed[outcome.match] = pin.ID
+				pair := mergedPair{
+					Donor:      pin.ID,
+					Winner:     outcome.match.ID,
+					DistancePx: int(outcome.distance + 0.5),
+				}
+				// Attribute-level: the policy table says, key by key,
+				// what a serving pin takes from its donor, and every
+				// take is ledgered. The description travels under its
+				// policy name, and a pin's true coordinates fill in the
+				// same way words do: only where the serving side has
+				// none of its own.
+				if attributeMergePolicy[semconv.KeyNoteText] == donorFillsEmpty &&
+					outcome.match.Description == "" && pin.Description != "" {
+					outcome.match.Description = pin.Description
+					pair.Enriched = true
+					pair.Took = append(pair.Took, semconv.KeyNoteText)
+				}
+				for _, key := range []string{semconv.KeyGeoLat, semconv.KeyGeoLon} {
+					if attributeMergePolicy[key] != donorFillsEmpty {
 						continue
 					}
-					if holder, taken := index.ids[location.ID]; taken {
-						return fmt.Errorf("pin id %d (%s) collides with serving pin %q",
-							location.ID, location.Title, holder)
+					if pin.Attrs[key] == "" || outcome.match.Attrs[key] != "" {
+						continue
 					}
-					index.ids[location.ID] = location.Title
-					moved := location
-					moved.Longitude = unprojectLongitude(x, winnerGrid)
-					moved.Latitude = unprojectLatitude(y, winnerGrid)
-					moved.RegionID = nil
-					moved.Shard = 0
-					merge.Added++
-					if adoptive != nil {
-						adoptive.Locations = append(adoptive.Locations, moved)
-						merge.Adopted = append(merge.Adopted, adoptedPin{
-							Donor: location.ID, Into: mappedKey,
-						})
-					} else {
-						kept.Locations = append(kept.Locations, moved)
-					}
+					outcome.match.Attrs = withAttr(outcome.match.Attrs, key, pin.Attrs[key])
+					pair.Took = append(pair.Took, key)
+				}
+				merge.Matched = append(merge.Matched, pair)
+			case pinHeld:
+				merge.Held = append(merge.Held, heldPin{
+					Donor: pin.ID, Title: pin.Title, Reason: outcome.reason,
+				})
+			case pinDistinct:
+				if x < 0 || y < 0 || x > float64(shared.Size) || y > float64(shared.Size) {
+					merge.Rejected = append(merge.Rejected, heldPin{
+						Donor: pin.ID, Title: pin.Title,
+						Reason: "outside the shared world",
+					})
+					continue
+				}
+				if holder, taken := index.ids[pin.ID]; taken {
+					return fmt.Errorf("pin id %d (%s) collides with serving pin %q",
+						pin.ID, pin.Title, holder)
+				}
+				index.ids[pin.ID] = pin.Title
+				moved := pin
+				moved.Lng = unprojectLongitude(x, winnerGrid)
+				moved.Lat = unprojectLatitude(y, winnerGrid)
+				moved.Member = nil
+				moved.Shard = 0
+				merge.Added++
+				if adoptive != nil {
+					adoptive.Features = append(adoptive.Features, moved)
+					merge.Adopted = append(merge.Adopted, adoptedPin{
+						Donor: pin.ID, Into: mappedKey,
+					})
+				} else {
+					kept.Features = append(kept.Features, moved)
 				}
 			}
-			if len(kept.Locations) == 0 {
-				continue
-			}
-			if err := carryIcon(winnerGame, donorGame, &kept, sourceLabel); err != nil {
-				return err
-			}
-			keptCategories = append(keptCategories, kept)
 		}
+		if len(kept.Features) == 0 {
+			continue
+		}
+		if err := carryIcon(winnerGame, donorGame, &kept, sourceLabel); err != nil {
+			return err
+		}
+		keptCollections = append(keptCollections, kept)
 	}
 
-	if len(keptCategories) > 0 {
-		winner.Groups = append(winner.Groups, catalogGroup{
-			ID:         mergedGroupID(winner),
-			Title:      sourceLabel,
-			Categories: keptCategories,
-		})
+	if len(keptCollections) > 0 {
+		// The kept collections file under a group named for their source, so
+		// the legend says where they came from without a section of its own
+		// machinery.
+		for index := range keptCollections {
+			keptCollections[index].Group = sourceLabel
+		}
+		winner.Collections = append(winner.Collections, keptCollections...)
 	}
 	winner.Merged = append(winner.Merged, *merge)
-	winner.PinCount += merge.Added
 	// The merged account is as fresh as its freshest ingredient, so a newer
 	// donor capture re-versions the merged bundle even when the serving
 	// capture stood still.
@@ -503,8 +534,9 @@ func mergeWorld(
 	if err := mergeGate(merge, winner); err != nil {
 		return err
 	}
-	fmt.Printf("merge %s/%s: %s: %d donor pins → %d matched (%d enriched) · %d added · %d held · %d outside\n",
-		winnerGame.Slug, winner.Slug, sourceLabel, merge.DonorPins, len(merge.Matched),
+	donorTotal := merge.DonorFeatures.Point + merge.DonorFeatures.Path + merge.DonorFeatures.Area
+	fmt.Printf("merge %s/%s: %s: %d donor features → %d matched (%d enriched) · %d added · %d held · %d outside\n",
+		winnerGame.Slug, winner.Slug, sourceLabel, donorTotal, len(merge.Matched),
 		enrichedCount(merge), merge.Added, len(merge.Held), len(merge.Rejected))
 	return nil
 }
@@ -515,16 +547,16 @@ func mergeWorld(
 type winnerIndex struct {
 	pins       []placedPin
 	byName     map[string][]int
-	categories map[string]*catalogCategory
+	categories map[string]*worldCollection
 	ids        map[int64]string
 	// claimed maps each serving pin already matched to the donor that
 	// matched it. A place is one place: the next donor bearing the same name
 	// must find its own, or say why it cannot.
-	claimed map[*catalogLocation]int64
+	claimed map[*feature]int64
 }
 
 type placedPin struct {
-	location *catalogLocation
+	feature  *feature
 	category string
 	x, y     float64
 	tokens   map[string]bool
@@ -533,30 +565,31 @@ type placedPin struct {
 func indexWinner(winner *catalogWorld, grid tileGrid) *winnerIndex {
 	index := &winnerIndex{
 		byName:     make(map[string][]int),
-		categories: make(map[string]*catalogCategory),
+		categories: make(map[string]*worldCollection),
 		ids:        make(map[int64]string),
-		claimed:    make(map[*catalogLocation]int64),
+		claimed:    make(map[*feature]int64),
 	}
-	for groupIndex := range winner.Groups {
-		for categoryIndex := range winner.Groups[groupIndex].Categories {
-			category := &winner.Groups[groupIndex].Categories[categoryIndex]
-			key := categoryKey(category.Icon, category.Attrs)
-			if _, held := index.categories[key]; !held {
-				index.categories[key] = category
-			}
-			for locationIndex := range category.Locations {
-				location := &category.Locations[locationIndex]
-				name := blend.NormalizeTitle(location.Title)
-				index.byName[name] = append(index.byName[name], len(index.pins))
-				index.pins = append(index.pins, placedPin{
-					location: location,
-					category: key,
-					x:        projectX(location.Longitude, grid),
-					y:        projectY(location.Latitude, grid),
-					tokens:   tokensOf(name),
-				})
-				index.ids[location.ID] = location.Title
-			}
+	for collectionIndex := range winner.Collections {
+		collection := &winner.Collections[collectionIndex]
+		if collection.Kind != kindPoint {
+			continue
+		}
+		key := categoryKey(collection.Icon, collection.Attrs)
+		if _, held := index.categories[key]; !held {
+			index.categories[key] = collection
+		}
+		for pinIndex := range collection.Features {
+			pin := &collection.Features[pinIndex]
+			name := blend.NormalizeTitle(pin.Title)
+			index.byName[name] = append(index.byName[name], len(index.pins))
+			index.pins = append(index.pins, placedPin{
+				feature:  pin,
+				category: key,
+				x:        projectX(pin.Lng, grid),
+				y:        projectY(pin.Lat, grid),
+				tokens:   tokensOf(name),
+			})
+			index.ids[pin.ID] = pin.Title
 		}
 	}
 	return index
@@ -564,7 +597,7 @@ func indexWinner(winner *catalogWorld, grid tileGrid) *winnerIndex {
 
 type pinOutcome struct {
 	kind     int
-	match    *catalogLocation
+	match    *feature
 	distance float64
 	reason   string
 }
@@ -584,7 +617,7 @@ const (
 // same mapped category is likewise held rather than guessed -- proximity
 // alone never merges -- and only a pin resembling nothing at all is added.
 func resolvePin(
-	donor catalogLocation,
+	donor feature,
 	x, y float64,
 	index *winnerIndex,
 	mappedKey string,
@@ -600,7 +633,7 @@ func resolvePin(
 		// A serving pin another donor already resolved to is one place, not
 		// two: it cannot be matched again, but its nearness is remembered so
 		// the refusal can say what stood in the way.
-		if _, taken := index.claimed[pin.location]; taken {
+		if _, taken := index.claimed[pin.feature]; taken {
 			if distance <= matchRadiusPx {
 				alreadyClaimed = true
 			}
@@ -631,11 +664,11 @@ func resolvePin(
 	if nearest != nil {
 		switch {
 		case nearestDistance <= matchRadiusPx:
-			return pinOutcome{kind: pinMatched, match: nearest.location, distance: nearestDistance}
+			return pinOutcome{kind: pinMatched, match: nearest.feature, distance: nearestDistance}
 		case nearestDistance <= separateRadiusPx:
 			return pinOutcome{kind: pinHeld, reason: fmt.Sprintf(
 				"named like %q %.0fpx away; too far to merge, too near to double",
-				nearest.location.Title, nearestDistance)}
+				nearest.feature.Title, nearestDistance)}
 		}
 	}
 	if alreadyClaimed {
@@ -649,7 +682,7 @@ func resolvePin(
 			}
 			if math.Hypot(pin.x-x, pin.y-y) <= nearbyRadius {
 				return pinOutcome{kind: pinHeld, reason: fmt.Sprintf(
-					"beside %q in the same category; names disagree", pin.location.Title)}
+					"beside %q in the same category; names disagree", pin.feature.Title)}
 			}
 		}
 	}
@@ -700,37 +733,23 @@ func tokensOf(normalized string) map[string]bool {
 // carryIcon brings a merged category's icon across from the donor's archive
 // under a source-prefixed name, so it cannot displace a serving icon that
 // shares its key.
-func carryIcon(winnerGame, donorGame *catalogVolume, category *catalogCategory, sourceLabel string) error {
-	if category.IconAsset == "" {
+func carryIcon(winnerGame, donorGame *catalogVolume, collection *worldCollection, sourceLabel string) error {
+	if collection.IconAsset == "" {
 		return nil
 	}
-	data, held := donorGame.Icons[category.IconAsset]
+	data, held := donorGame.Icons[collection.IconAsset]
 	if !held {
-		category.IconAsset = ""
-		category.IconPicture = false
+		collection.IconAsset = ""
+		collection.IconPicture = false
 		return nil
 	}
-	carried := slugifyLabel(sourceLabel) + "--" + category.IconAsset
+	carried := slugifyLabel(sourceLabel) + "--" + collection.IconAsset
 	if winnerGame.Icons == nil {
 		winnerGame.Icons = make(map[string][]byte)
 	}
 	winnerGame.Icons[carried] = data
-	category.IconAsset = carried
+	collection.IconAsset = carried
 	return nil
-}
-
-// mergedGroupID numbers the source's group away from every id the map
-// already uses.
-func mergedGroupID(winner *catalogWorld) int64 {
-	used := make(map[int64]bool)
-	for _, group := range winner.Groups {
-		used[group.ID] = true
-	}
-	id := int64(1)
-	for used[id] {
-		id++
-	}
-	return id
 }
 
 func sourceLabelOf(donor *catalogWorld, donorGame *catalogVolume) string {
@@ -793,15 +812,16 @@ func gridOf(m *catalogWorld, shared tileGrid) tileGrid {
 
 func anchorsOfWorld(m *catalogWorld, grid tileGrid) []blend.Anchor {
 	var anchors []blend.Anchor
-	for _, group := range m.Groups {
-		for _, category := range group.Categories {
-			for _, location := range category.Locations {
-				anchors = append(anchors, blend.Anchor{
-					Title: location.Title,
-					X:     projectX(location.Longitude, grid),
-					Y:     projectY(location.Latitude, grid),
-				})
-			}
+	for _, collection := range m.Collections {
+		if collection.Kind != kindPoint {
+			continue
+		}
+		for _, pin := range collection.Features {
+			anchors = append(anchors, blend.Anchor{
+				Title: pin.Title,
+				X:     projectX(pin.Lng, grid),
+				Y:     projectY(pin.Lat, grid),
+			})
 		}
 	}
 	return anchors
@@ -817,14 +837,28 @@ func enrichedCount(merge *mergedSource) int {
 	return count
 }
 
-// mergeGate is the merge's own audit: every donor pin accounted for, every
-// match one-to-one, no identifier doubled, nothing the serving map held made
-// worse. It fails the build rather than writing a bundle that quietly lost
-// something -- or quietly agreed too much.
+// mergeGate is the merge's own audit: every donor feature of every kind
+// accounted for, every match one-to-one, no identifier doubled, nothing the
+// serving map held made worse. It fails the build rather than writing a
+// bundle that quietly lost something -- or quietly agreed too much.
 func mergeGate(merge *mergedSource, winner *catalogWorld) error {
-	accounted := len(merge.Matched) + merge.Added + len(merge.Held) + len(merge.Rejected)
-	if accounted != merge.DonorPins {
-		return fmt.Errorf("merge accounts for %d of %d donor pins", accounted, merge.DonorPins)
+	heldPoints, heldShapes := 0, 0
+	for _, held := range merge.Held {
+		if held.Reason == heldShapeReason {
+			heldShapes++
+		} else {
+			heldPoints++
+		}
+	}
+	accounted := len(merge.Matched) + merge.Added + heldPoints + len(merge.Rejected)
+	if accounted != merge.DonorFeatures.Point {
+		return fmt.Errorf("merge accounts for %d of %d donor points", accounted, merge.DonorFeatures.Point)
+	}
+	if shapes := merge.DonorFeatures.Path + merge.DonorFeatures.Area; heldShapes != shapes {
+		return fmt.Errorf("merge holds %d shape features of the %d the donor carries", heldShapes, shapes)
+	}
+	if merge.AddedShapes != 0 {
+		return fmt.Errorf("merge claims %d added shapes; no shape feature merges yet", merge.AddedShapes)
 	}
 	claimed := make(map[int64]int64)
 	for _, pair := range merge.Matched {
@@ -842,7 +876,7 @@ func mergeGate(merge *mergedSource, winner *catalogWorld) error {
 				tookNote = true
 				continue
 			}
-			if entity, known := semconv.EntityOf(key); !known || entity != semconv.EntityLocation {
+			if entity, known := semconv.EntityOf(key); !known || entity != semconv.EntityFeature {
 				return fmt.Errorf("pair %d took %q, which no pin may carry", pair.Donor, key)
 			}
 		}
@@ -852,25 +886,55 @@ func mergeGate(merge *mergedSource, winner *catalogWorld) error {
 		}
 	}
 	for _, take := range merge.Enriched {
-		if entity, known := semconv.EntityOf(take.Key); !known || entity != semconv.EntityCategory {
+		if entity, known := semconv.EntityOf(take.Key); !known || entity != semconv.EntityCollection {
 			return fmt.Errorf("category %q took %q, which no category may carry", take.Category, take.Key)
 		}
 	}
+	// One identifier space for every kind: a point and an area may not share
+	// an id any more than two points may.
 	seen := make(map[int64]string)
-	counted := 0
-	for _, group := range winner.Groups {
-		for _, category := range group.Categories {
-			for _, location := range category.Locations {
-				if holder, taken := seen[location.ID]; taken {
-					return fmt.Errorf("pin id %d held by both %q and %q", location.ID, holder, location.Title)
-				}
-				seen[location.ID] = location.Title
-				counted++
+	var counted featureCounts
+	for _, collection := range winner.Collections {
+		for _, held := range collection.Features {
+			if holder, taken := seen[held.ID]; taken {
+				return fmt.Errorf("feature id %d held by both %q and %q", held.ID, holder, held.Title)
+			}
+			seen[held.ID] = held.Title
+			switch collection.Kind {
+			case kindPoint:
+				counted.Point++
+			case kindPath:
+				counted.Path++
+			default:
+				counted.Area++
 			}
 		}
 	}
-	if counted != winner.PinCount {
-		return fmt.Errorf("world holds %d pins but claims %d", counted, winner.PinCount)
+	// The counts the map claims are no longer fields to drift; they are the
+	// sums of its own ledger -- what it opened with, plus what every merge
+	// says it added -- and the map must actually hold that many of each kind.
+	// Held shapes stay the donor's, so only the origin account speaks for the
+	// shapes the map draws.
+	var ledgered featureCounts
+	for _, account := range winner.Merged {
+		if account.Origin {
+			ledgered.Point += account.DonorFeatures.Point
+			ledgered.Path += account.DonorFeatures.Path
+			ledgered.Area += account.DonorFeatures.Area
+		} else {
+			ledgered.Point += account.Added
+			if account.AddedShapes != 0 {
+				return fmt.Errorf("account of %s claims %d added shapes; no shape feature merges yet",
+					account.Source, account.AddedShapes)
+			}
+		}
+	}
+	if counted.Point != ledgered.Point {
+		return fmt.Errorf("world holds %d points but its ledger claims %d", counted.Point, ledgered.Point)
+	}
+	if counted.Path != ledgered.Path || counted.Area != ledgered.Area {
+		return fmt.Errorf("world holds %d paths and %d areas but its ledger claims %d and %d",
+			counted.Path, counted.Area, ledgered.Path, ledgered.Area)
 	}
 	return nil
 }

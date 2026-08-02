@@ -4,12 +4,72 @@
 // used to carry the meaning; a key this build has never heard of is simply
 // ignored, because a bundle is never refused over vocabulary.
 
-// renderAs answers how a category draws: "pin" or "text". This is the one
-// display rule the viewer holds, spelled once.
-export function renderAs(category) {
-  const declared = category.attrs?.["atlas.render.as"];
-  if (declared) return declared;
-  return category.displayType === "text" ? "text" : "pin";
+import { collectionFor } from "./collections.js";
+import { state } from "./state.js";
+
+// The registry's vocabularies, mirrored: what shape of thing a collection
+// holds, and whether names draw unasked.
+export const geometryKinds = Object.freeze({ point: "point", path: "path", area: "area" });
+export const labelPolicies = Object.freeze({ always: "always", quiet: "quiet" });
+
+// labelPolicy answers whether a collection's names draw on their own or wait
+// to be asked: "always" or "quiet". The reader's per-collection override
+// wins, then the collection's declared word, then the kind's own default --
+// areas speak unasked, which is what every map before the key already did;
+// paths wait; and a point collection speaks when its curation asked for
+// text, because floating names are labels a producer pinned on, not a
+// different kind of thing.
+export function labelPolicy(zone, collection) {
+  const declared = collection ?? collectionFor(zone);
+  const override = state.labelOverrides.get(declared?.id);
+  if (override) return override;
+  return curatedLabelPolicy(declared);
+}
+
+// curatedLabelPolicy is the producer's word alone -- what the toggle returns
+// to when the reader's override is dropped.
+export function curatedLabelPolicy(collection) {
+  const curated = collection?.attrs?.["atlas.label.policy"];
+  if (curated) return curated;
+  if ((collection?.kind ?? geometryKinds.point) === geometryKinds.point) {
+    return renderAs(collection) === "text" ? labelPolicies.always : labelPolicies.quiet;
+  }
+  return collection?.kind === geometryKinds.path ? labelPolicies.quiet : labelPolicies.always;
+}
+
+// labelSilenced says whether the reader themselves quieted a collection's
+// names. Z reveals what is merely optional, never what was silenced: the
+// choice was the reader's, and the key is not an override.
+export function labelSilenced(collection) {
+  return state.labelOverrides.get(collection?.id) === labelPolicies.quiet;
+}
+
+// renderAs is the curation's word on a point collection: "pin" or "text".
+// Since text became a label policy rather than a way of drawing, this is
+// read only as the curated default the policy ladder falls back to --
+// markers draw either way.
+export function renderAs(collection) {
+  return collection?.attrs?.["atlas.render.as"] || "pin";
+}
+
+// The labels the detail card gives a feature's own attributes. Anything in
+// the reserved rendering namespaces is machinery rather than material, and
+// the geographic pair already has rows of its own.
+const attributeLabels = { "atlas.hydro.huc12": "HUC-12" };
+const attributeHidden = new Set(["atlas.geo.lat", "atlas.geo.lon"]);
+const reservedPrefixes = ["atlas.render.", "atlas.label.", "atlas.stroke.", "atlas.geometry."];
+
+// featureAttributeRows turns a feature's attributes into the rows its card
+// shows: curated label where one exists, the raw key where none does, and
+// nothing at all for machinery.
+export function featureAttributeRows(attrs) {
+  const rows = [];
+  for (const [key, value] of Object.entries(attrs || {})) {
+    if (attributeHidden.has(key)) continue;
+    if (reservedPrefixes.some((prefix) => key.startsWith(prefix))) continue;
+    rows.push({ label: attributeLabels[key] || key, value });
+  }
+  return rows.sort((left, right) => left.label.localeCompare(right.label));
 }
 
 // worldSurface answers what the map's raster pictures. A map that says

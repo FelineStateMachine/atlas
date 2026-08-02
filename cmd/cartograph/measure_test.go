@@ -23,6 +23,17 @@ func fixtureMerged() []map[string]any {
 		"held":      []map[string]any{{"d": 14, "t": "Old Well", "why": "name 200px away"}},
 		"rejected":  []map[string]any{{"d": 15, "t": "Off World", "why": "outside the world"}},
 		"alignment": "affine over 9 anchors, median 26px",
+	}, {
+		// A ledger that speaks features, the way builds write them now:
+		// donorPins repeats the point count and the shapes ride held.
+		"source":        "arcgis-hub",
+		"donorPins":     0,
+		"donorFeatures": map[string]any{"point": 0, "path": 1, "area": 2},
+		"held": []map[string]any{
+			{"d": 21, "t": "North Basin", "why": "shape features do not merge yet"},
+			{"d": 22, "t": "South Basin", "why": "shape features do not merge yet"},
+			{"d": 23, "t": "Mill Race", "why": "shape features do not merge yet"},
+		},
 	}}
 }
 
@@ -80,13 +91,19 @@ func TestMeasureBundle(t *testing.T) {
 		t.Errorf("icons: %d of %d; want 1 of 1", measured.IconsCarried, measured.IconsWanted)
 	}
 
-	// The merge account, kept whole rather than counted.
-	if len(measured.Merges) != 1 {
-		t.Fatalf("read %d merge accounts, want 1", len(measured.Merges))
+	// The merge accounts, kept whole rather than counted.
+	if len(measured.Merges) != 2 {
+		t.Fatalf("read %d merge accounts, want 2", len(measured.Merges))
 	}
 	account := measured.Merges[0]
 	if account.Map != "overworld" || account.Source != "ign-wiki" || account.DonorPins != 5 {
 		t.Errorf("account identity: map %s source %s donors %d", account.Map, account.Source, account.DonorPins)
+	}
+	// An account from before the ledger spoke features: the point count
+	// stands in for the whole offering.
+	if account.DonorFeatures != (featureCounts{Point: 5}) || account.DonorShapesN() != 0 {
+		t.Errorf("fallback features read as %+v (%d shapes), want 5 points standing in",
+			account.DonorFeatures, account.DonorShapesN())
 	}
 	if account.MatchedN() != 2 || account.MedianMatchPx() != 40 {
 		t.Errorf("matched %d at median %dpx, want 2 at 40px", account.MatchedN(), account.MedianMatchPx())
@@ -98,8 +115,19 @@ func TestMeasureBundle(t *testing.T) {
 	if account.HeldN() != 1 || account.Held[0].Title != "Old Well" || account.Held[0].Reason != "name 200px away" {
 		t.Errorf("held ledger read wrong: %+v", account.Held)
 	}
-	if got := measured.SourcesSeen(); len(got) != 1 || got[0] != "ign-wiki" {
-		t.Errorf("sources seen %v, want [ign-wiki]", got)
+	// An account that speaks features: the per-kind counts come through and
+	// the held shapes ride the same ledger the held pins do.
+	shapes := measured.Merges[1]
+	if shapes.DonorFeatures != (featureCounts{Point: 0, Path: 1, Area: 2}) || shapes.DonorShapesN() != 3 {
+		t.Errorf("feature counts read as %+v (%d shapes), want 1 path and 2 areas",
+			shapes.DonorFeatures, shapes.DonorShapesN())
+	}
+	if shapes.DonorPins != 0 || shapes.AddedShapes != 0 || shapes.HeldN() != 3 {
+		t.Errorf("shape account read as %d donor pins, %d added shapes, %d held; want 0, 0, 3",
+			shapes.DonorPins, shapes.AddedShapes, shapes.HeldN())
+	}
+	if got := measured.SourcesSeen(); len(got) != 2 || got[0] != "arcgis-hub" || got[1] != "ign-wiki" {
+		t.Errorf("sources seen %v, want [arcgis-hub ign-wiki]", got)
 	}
 }
 

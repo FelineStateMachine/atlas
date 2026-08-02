@@ -28,7 +28,8 @@ import (
 //	6  geometry declared: spheres say so, pins carry true coordinates
 //	7  attribute-level merge resolution; ledgers name canonical source slugs
 //	8  zone prose defers to the text payload; zones mark hasText
-const policyRevision = 8
+//	9  format v3: one collections array of point, path, and area features
+const policyRevision = 9
 
 // writeBundles packs each game into its own .atlas file, named by game,
 // capture day, and stamp. The directory is a registry, not a mirror: a new
@@ -70,9 +71,11 @@ func writeVolumeBundle(
 	manifest := bundle.Manifest{
 		Format:        bundle.Format,
 		FormatVersion: bundle.FormatVersion,
-		Conventions:   semconv.Version,
-		Volume:        bundle.Volume{Slug: game.Slug, Title: game.Title},
-		Version:       bundle.Version{Revision: policyRevision},
+		// The manifest names the vocabulary the payloads actually speak,
+		// which since the unified wire is the registry's own version.
+		Conventions: semconv.Version,
+		Volume:      bundle.Volume{Slug: game.Slug, Title: game.Title},
+		Version:     bundle.Version{Revision: policyRevision},
 		TileGrid: bundle.TileGrid{
 			SourceZoom: grid.SourceZoom,
 			FirstTile:  grid.FirstTile,
@@ -108,13 +111,16 @@ func writeVolumeBundle(
 		stamp.Add("worlds/"+m.Slug+".bin", bundle.HashBytes(packed))
 		stamp.Add("worlds/"+m.Slug+".text", bundle.HashBytes(textJSON))
 
+		counts := m.featureTally()
 		manifest.Worlds = append(manifest.Worlds, bundle.WorldEntry{
 			Slug:       m.Slug,
 			Title:      m.Title,
 			Parent:     m.Parent,
 			IconOutset: m.IconOutset,
 			Center:     bundle.Coordinate{Lat: m.Center.Latitude, Lng: m.Center.Longitude},
-			PinCount:   m.PinCount,
+			Points:     counts.Point,
+			Paths:      counts.Path,
+			Areas:      counts.Area,
 			UpdatedAt:  m.UpdatedAt,
 		})
 	}

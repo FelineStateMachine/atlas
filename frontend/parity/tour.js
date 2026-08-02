@@ -89,7 +89,7 @@ async function tour() {
   // begins in the same place regardless of what was explored beforehand.
   await waitForBoot();
   localStorage.clear();
-  const gameSelect = tourQuery("#game-select");
+  const gameSelect = tourQuery("#volume-select");
   const firstGame = gameSelect.options[0].value;
   change(gameSelect, firstGame);
   await record("initial");
@@ -152,6 +152,77 @@ async function tour() {
     await record("zone-unhighlighted");
   }
 
+  // The unified legend's own states: a shape collection folds and unfolds
+  // its feature index, hides and returns, isolates, and flips its label
+  // policy -- everything the one-tree rebuild added.
+  const shapeExpand = tourQuery("[data-expand-collection]");
+  if (shapeExpand) {
+    shapeExpand.click();
+    await record("collection-folded");
+    shapeExpand.click();
+    await record("collection-unfolded");
+  }
+  const shapeRows = [...document.querySelectorAll(".category-row")]
+    .filter((row) => row.querySelector("[data-expand-collection]"));
+  const shapeRow = shapeRows[1] || shapeRows[0];
+  if (shapeRow) {
+    const checkbox = shapeRow.querySelector("input[data-collection]");
+    checkbox.click();
+    await record("collection-hidden");
+    checkbox.click();
+    await record("collection-restored");
+    const only = shapeRow.querySelector("[data-only-collection]");
+    if (only) {
+      only.click();
+      await record("collection-solo");
+      const soloChip = tourQuery("#solo-chip");
+      if (soloChip && !soloChip.hidden) soloChip.click();
+      await record("collection-solo-cleared");
+    }
+  }
+  const labelToggle = tourQuery("[data-label-toggle]");
+  if (labelToggle) {
+    labelToggle.click();
+    await record("labels-flipped");
+    labelToggle.click();
+    await record("labels-curated");
+  }
+  // A point collection's labels answer the same toggle: static names on,
+  // and back to the curation.
+  const pointLabelToggle = [...document.querySelectorAll(".category-row")]
+    .filter((row) => !row.querySelector("[data-expand-collection]"))
+    .map((row) => row.querySelector("[data-label-toggle]"))
+    .find(Boolean);
+  if (pointLabelToggle) {
+    pointLabelToggle.click();
+    await record("point-labels-flipped");
+    pointLabelToggle.click();
+    await record("point-labels-curated");
+  }
+
+  // Highlights across two collections read AND: the ground both name is
+  // the only ground that keeps its pins, and holding Z while they stand
+  // reveals the quiet names among them.
+  const indexRows = [...document.querySelectorAll(".feature-index")]
+    .map((index) => index.querySelector(".zone-index-item"))
+    .filter(Boolean);
+  if (indexRows.length > 1) {
+    const rightClick = (row) => row.dispatchEvent(new MouseEvent("contextmenu", {
+      bubbles: true, cancelable: true,
+    }));
+    const near = indexRows[0];
+    const far = indexRows[indexRows.length - 1];
+    rightClick(near);
+    rightClick(far);
+    await record("and-highlighted");
+    keydown("z");
+    await record("labels-held-highlighted");
+    keyup("z");
+    rightClick(near);
+    rightClick(far);
+    await record("and-cleared");
+  }
+
   // The geohash grid: open, descend one character, hide the subgrid,
   // ascend, close.
   keydown("g");
@@ -194,14 +265,14 @@ async function tour() {
   await record("viewport-escape");
 
   // Variant, map, and game switching, then return to the start.
-  const variant = tourQuery("#variant-select");
+  const variant = tourQuery("#lens-select");
   if (variant.options.length > 1) {
     change(variant, variant.options[1].value);
     await record("variant-second");
     change(variant, variant.options[0].value);
     await record("variant-first");
   }
-  const mapSelect = tourQuery("#map-select");
+  const mapSelect = tourQuery("#world-select");
   if (mapSelect.options.length > 1) {
     change(mapSelect, mapSelect.options[1].value);
     await record("map-second");

@@ -1,3 +1,13 @@
+/* The feature index unfolds beneath a shape collection's row, inset so its
+   rows read as the row's children rather than its peers. */
+.feature-index {
+  padding: 0 0 4px 14px;
+}
+
+.feature-index[hidden] {
+  display: none;
+}
+
 .zone-index-item {
   --zone-depth: 0;
   display: grid;
@@ -33,7 +43,7 @@
   color: #fff;
 }
 
-#zone-index.has-highlights .zone-index-item:not(.is-highlighted):not(.is-current) {
+.feature-index.has-highlights .zone-index-item:not(.is-highlighted):not(.is-current) {
   opacity: 0.5;
 }
 

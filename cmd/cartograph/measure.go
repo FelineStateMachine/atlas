@@ -12,6 +12,7 @@ import "github.com/FelineStateMachine/atlas/internal/measure"
 
 type build = measure.Build
 type mergeAccount = measure.MergeAccount
+type featureCounts = measure.FeatureCounts
 
 func measureBundle(path string) (*build, error) { return measure.MeasureBundle(path) }
 
