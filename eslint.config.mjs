@@ -66,9 +66,10 @@ const consoleRule = {
 
 export default tseslint.config(
   {
-    // The pre-rewrite frontend keeps its own build and its own rules; these
-    // boundaries are for the clean-room lanes.
-    ignores: ["frontend/**", "golden/fixtures/**", "**/node_modules/**", "**/dist/**", "**/build/**"],
+    // Fixtures are data, not source: they are compared byte for byte and a
+    // linter has nothing to say about them. The pre-rewrite frontend was
+    // ignored here too, until it left for the golden-reference tag.
+    ignores: ["golden/fixtures/**", "**/node_modules/**", "**/dist/**", "**/build/**"],
   },
 
   {

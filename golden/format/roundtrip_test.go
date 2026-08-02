@@ -10,7 +10,7 @@ import (
 	"testing"
 
 	"github.com/FelineStateMachine/atlas/format/bundle"
-	"github.com/FelineStateMachine/atlas/golden/capture/canon"
+	"github.com/FelineStateMachine/atlas/golden/canon"
 )
 
 // The format-roundtrip gate of issue #5 §6.

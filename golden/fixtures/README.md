@@ -15,6 +15,16 @@ using the programs in `golden/capture/` — which are part of that same tree
 and read `.atlas` bundles through `internal/bundle`, so a fixture is what the
 application itself would see, not what a separate reader made of the file.
 
+> **Every path in this document names that tree, not this branch.** At
+> close-out the reference implementation left the branch for the tag it was
+> already named after (issue #5 §7, M7): `tools/`, `internal/bundle`,
+> `internal/arcgismap`, `internal/basemap`, `frontend/` and the capture
+> programs are all there and all still work. Every command below is written to
+> be run from a checkout of the tag —
+> `git worktree add ../atlas-golden-reference golden-reference` — and
+> `golden/capture/README.md` says the same in one page. The inputs the commands
+> read live outside the repository and are unaffected.
+
 The inputs are two directories outside the repository:
 
 - the installed `.atlas` library, `~/Library/Application
@@ -31,6 +41,8 @@ One volume comes from neither input: **`bend-or`**, the city, was built for
 this fixture rather than found installed. See *The city fixture* below.
 
 ## Re-running the capture
+
+From a `golden-reference` checkout, always:
 
     golden/capture/capture.sh                 # writes golden/fixtures
     golden/capture/capture.sh /tmp/compare    # writes somewhere else, to diff

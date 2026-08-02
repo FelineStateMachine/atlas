@@ -68,6 +68,11 @@ func TestLaneImportEdge(t *testing.T) {
 	}
 }
 
+// The old tree left for the golden-reference tag at close-out, so no import of
+// it can be written today by accident. The rule stays, and so does its table:
+// what it forbids is any module-local package the lane matrix has never heard
+// of, and the archived names below are the clearest examples anyone will
+// recognise. A path that is merely misspelled is caught by the same line.
 func TestCleanRoomEdge(t *testing.T) {
 	tests := []struct {
 		name    string
@@ -77,12 +82,12 @@ func TestCleanRoomEdge(t *testing.T) {
 	}{
 		{"a lane may not reach the old tree", "internal/generate/doc", mod + "internal/mgdoc", "golden-reference tree"},
 		{"nor the desktop shell's helpers", "internal/app/handler", mod + "internal/icons", "golden-reference tree"},
-		{"the harness captures from the old tree", "golden/capture", mod + "internal/bundle", ""},
+		{"the harness may read whatever it measures", "golden/pipeline", mod + "internal/bundle", ""},
 		{"format has a stricter rule of its own", "format/bundle", mod + "internal/bundle", ""},
 		{"a lane package is fine", "internal/generate/doc", mod + "format/bundle", ""},
 		{"the shared event stream is clean room, not old tree", "internal/app/hostenv/oshost", mod + "internal/logging", ""},
 		{"the stdlib is fine", "internal/generate/doc", "archive/zip", ""},
-		{"the old tree is not judged", "internal/measure", mod + "internal/bundle", ""},
+		{"a package outside the clean room is not judged", "internal/measure", mod + "internal/bundle", ""},
 	}
 
 	for _, tt := range tests {
@@ -197,9 +202,12 @@ func TestLaneOf(t *testing.T) {
 		{"internal/app/hostenv", LaneApp},
 		{"internal/workbench", LaneWorkbench},
 		{"cmd/atlas", LaneCLI},
-		{"cmd/cartograph", LaneOutside},
 		{"golden/depcheck", LaneGolden},
 		{"internal/logging", LaneLogging},
+		// Archived names, kept as the recognisable examples of a path the
+		// matrix does not own: they are on the golden-reference tag, and the
+		// answer for any path like them has to be the same.
+		{"cmd/cartograph", LaneOutside},
 		{"internal/bundle", LaneOutside},
 		{"tools/tiles", LaneOutside},
 	}

@@ -90,9 +90,10 @@ no checkout can rewrite a byte between the capture and the comparison. The CI
 job proves the tree came through unmodified (`git diff --exit-code`) before it
 runs a single gate.
 
-The old `npm --prefix frontend ci` is no longer on the gate's path. It is still
-what `ATLAS_ANALYSIS_ENGINE=current` needs, because that drives the pre-rewrite
-module and its OpenLayers imports; see `analysis/README.md`.
+The old `npm --prefix frontend ci` is no longer on the gate's path, and no
+longer resolves here at all: the frontend it installed is on the
+`golden-reference` tag, along with the `ATLAS_ANALYSIS_ENGINE=current`
+side-by-side that was its last caller. See `analysis/README.md`.
 
 ## The gates
 
@@ -301,9 +302,9 @@ as a cost.
 The TypeScript half of the same boundaries lives in `/eslint.config.mjs`
 (analysis touches no DOM and nothing app-shaped; render imports only analysis
 and itself; fetch in the data layer; no bare `console.*` outside the log
-module). It is not wired into the existing frontend build. `make lint-lanes`
-runs it over `analysis/` today and picks up `render/` the moment that directory
-exists; the `analysis-lane` gate runs the same rules on every `make golden`.
+module). `make lint-lanes` runs it over `analysis/` and `render/`; the
+`analysis-lane` and `render-lane` gates run the same rules on every
+`make golden`.
 
 ## Waivers
 
@@ -343,8 +344,10 @@ The harness prints every waiver on every run and fails outright on one with no
 reason. Non-emptiness is the point: the file is a standing bill.
 
 Fixture *provenance* — what each fixture is, when it was captured, from which
-build — belongs to `golden/capture/` and, at the end, to `docs/golden.md`
-(§8). This file is about the gates.
+build — belongs to `golden/fixtures/README.md` and, at the end, to
+`docs/golden.md` (§8). The programs that did the capturing are archived on the
+`golden-reference` tag, where they still run; `golden/capture/README.md` says
+how. This file is about the gates.
 
 ## Scope in time
 

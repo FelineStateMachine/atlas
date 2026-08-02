@@ -9,21 +9,19 @@
 // for cell, because the plan's emission order is the contract (§5.4).
 //
 // ────────────────────────────────────────────────────────────────────────────
-// WHICH IMPLEMENTATION IS ON TRIAL (M6: the switch has been thrown)
+// WHICH IMPLEMENTATION IS ON TRIAL (M7: there is only one left)
 //
-// The line below is the switch, and it now names the clean lane. The gate
-// judges `analysis/cellsystems` — the eight functions come out of
+// The gate judges `analysis/cellsystems` — the eight functions come out of
 // `engine/cleanroom.mjs`, which adapts the lane's contract to them.
 //
-// `engine/current.mjs` stays where it is: it documents the oracle these
-// fixtures were recorded from and it still runs, so `ATLAS_ANALYSIS_ENGINE=current`
-// re-points the gate at the old tree for a side-by-side. The fixtures know
-// about neither.
+// There used to be a second adapter, `engine/current.mjs`, and an
+// `ATLAS_ANALYSIS_ENGINE=current` switch that re-pointed this gate at the
+// reference tree for a side-by-side. Both are retired: the tree it adapted is
+// archived on the `golden-reference` tag, where the side-by-side still runs
+// (golden/analysis/README.md). The fixtures never knew about either adapter,
+// which is exactly why retiring one costs them nothing.
 // ────────────────────────────────────────────────────────────────────────────
-const engineModule = process.env.ATLAS_ANALYSIS_ENGINE === "current"
-  ? "./engine/current.mjs"
-  : "./engine/cleanroom.mjs";
-const engine = await import(engineModule);
+import * as engine from "./engine/cleanroom.mjs";
 
 import fs from "node:fs";
 import path from "node:path";

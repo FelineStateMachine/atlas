@@ -1,37 +1,37 @@
 .DS_Store
+
+# Built binaries, left where `go build` drops them.
 /atlas
-# A privately curated ArcGIS city, registered from an init function; the
-# public table in arcgismap.go carries only the proof city.
-/internal/arcgismap/cities_local.go
-/frontend/node_modules/
-# The clean-room TypeScript lanes install at the repository root (npm
-# workspaces); a workspace gets a link farm of its own beside its package.
+/Atlas
+/Atlas.exe
+/Atlas.app/
+
+# The npm workspaces: the two TypeScript lanes install at the repository root,
+# and each workspace gets a link farm of its own beside its package.
 /node_modules/
 /analysis/node_modules/
 /render/node_modules/
-/.playwright-cli/
-/output/
-/crawl
-/generate
-/tiles
-/cartograph
-go.work
-go.work.sum
-/build/
-/dist/
 
 # The seam's built output. The bundle is an artifact of `make seam`; what is
 # committed is the source it is built from (issue #5 §3.2: the app embeds
 # render's built output, never its source).
 render/dist/
-.playwright-cli/
 
-# The tree the hosts mount at /static: `make static` copies the seam's bundle
-# in, the desktop shell embeds the directory, and only static/README.md is
-# committed.
+# The tree the desktop shell embeds and mounts at /static: `make static` copies
+# the seam's bundle in, and only static/README.md is committed.
 /static/*.js
 
-# The desktop shell's own build products (`make desktop`).
-/Atlas
-/Atlas.exe
-/Atlas.app/
+# Build outputs and scratch.
+/build/
+/dist/
+/output/
+/.playwright-cli/
+go.work
+go.work.sum
+
+# The inputs the pipeline gates read and git deliberately does not hold: the
+# capture archives and the derived tile set. golden/pipeline defaults to these
+# paths; ATLAS_ARCHIVE_DIR, ATLAS_CITY_ARCHIVE_DIR and ATLAS_TILES_INDEX move
+# them, and a checkout without any of it skips those gates and says so.
+/crawl
+/tiles

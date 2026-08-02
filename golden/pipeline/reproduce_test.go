@@ -48,7 +48,7 @@ import (
 	"testing"
 
 	"github.com/FelineStateMachine/atlas/format/bundle"
-	"github.com/FelineStateMachine/atlas/golden/capture/canon"
+	"github.com/FelineStateMachine/atlas/golden/canon"
 	"github.com/FelineStateMachine/atlas/internal/generate/archive"
 	"github.com/FelineStateMachine/atlas/internal/generate/compose"
 	"github.com/FelineStateMachine/atlas/internal/generate/curation"

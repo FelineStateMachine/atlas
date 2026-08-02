@@ -1,11 +1,10 @@
-# The clean-room rewrite's enforcement job (issue #5 §6, §9).
+# The enforcement job (issue #5 §6, §9).
 #
-# Deliberately separate from CI: that workflow builds and ships the current
-# desktop app, which needs GTK and WebKitGTK headers and the whole frontend
-# toolchain. This one judges the rewrite and stays green from the day the
-# harness lands — the gates whose lane does not exist yet skip, and the ones
-# that run (depcheck, format-roundtrip, the semconv codegen, the analysis and
-# render lanes, the state island, http-replay) run for real.
+# Deliberately separate from release.yml, which links a native webview and so
+# needs GTK and WebKitGTK headers on Linux, a macOS runner for the .app, and
+# the seam built first. This one judges correctness and needs none of that; it
+# has stayed green from the day the harness landed, because a gate whose lane
+# did not exist yet skipped and said which milestone it was waiting on.
 #
 # It needs Go, and node with the TypeScript lanes' own dependencies: the
 # analysis gates re-execute the cell systems against every recorded vector and

@@ -11,22 +11,35 @@ same files, runs the same eight calls, and compares the same way.
 ```sh
 node golden/analysis/run.mjs              # the gate (also `make golden`)
 node golden/analysis/run.mjs --verbose     # name every case as it passes
-node golden/analysis/capture.mjs --check   # re-record in memory, write nothing
 ```
 
-**The gate now judges the clean lane.** M6 landed `analysis/cellsystems` and
-threw the switch in `run.mjs`: the eight functions come out of
-`engine/cleanroom.mjs`, and every fixture in this directory passed on the first
-run against an implementation written from the contract rather than from the
-old files. The gate needs `npm ci` at the repository root (the lane's one
-dependency, s2js) and a node that strips types — 22.18+, or 24+.
+**The gate judges the clean lane, and now judges nothing else.** M6 landed
+`analysis/cellsystems` and threw the switch in `run.mjs`: the eight functions
+come out of `engine/cleanroom.mjs`, and every fixture in this directory passed
+on the first run against an implementation written from the contract rather
+than from the old files. The gate needs `npm ci` at the repository root (the
+lane's one dependency, s2js) and a node that strips types — 22.18+, or 24+. No
+browser, no bundler, no test framework.
 
-`engine/current.mjs` stays where it is: it documents the oracle these fixtures
-were recorded from, it still runs, and `ATLAS_ANALYSIS_ENGINE=current` re-points
-the gate at the old tree for a side-by-side. That path needs the old module's
-dependencies — `npm --prefix frontend ci` — because it drives s2js *and*
-OpenLayers through the current tree. No browser, no bundler, no test framework,
-either way.
+**The oracle is archived (M7).** `engine/current.mjs`, its two neighbours
+`hooks.mjs` and `stubs.mjs`, the `ATLAS_ANALYSIS_ENGINE=current` side-by-side
+and `capture.mjs` are all retired from this branch. They loaded cell math out
+of `frontend/src/cellsystems/` and `frontend/src/grid.js`, and that tree lives
+on the `golden-reference` tag now rather than here (issue #5 §7, M7).
+Everything they did still runs, from there:
+
+```sh
+git worktree add ../atlas-golden-reference golden-reference
+cd ../atlas-golden-reference
+npm --prefix frontend ci                                    # s2js, OpenLayers
+ATLAS_ANALYSIS_ENGINE=current node golden/analysis/run.mjs  # the side-by-side
+node golden/analysis/capture.mjs                            # the recorder
+```
+
+This is the same rule the fixtures were captured under, and it has not moved: a
+golden is never edited to match a candidate, and a corrected golden comes from
+a re-capture against the reference tree. What changed at close-out is only
+where that tree is — a tag rather than a directory.
 
 ## What is here
 
@@ -162,38 +175,48 @@ disagreement aborts the capture. Those cases are marked `handDerived: true`
 in the fixtures. The rest are recordings of an implementation that works,
 which is what a golden is.
 
-## The two engines
+*Every `frontend/…` path in this document names the reference tree, which is
+the `golden-reference` tag rather than a directory on this branch. The paths
+are provenance — where a number came from — and they resolve in a checkout of
+that tag.*
 
-`run.mjs` imports one module and calls the eight functions above. Two modules
-provide them, and the fixtures know about neither.
+## The engine, and the one that was retired
 
-`engine/cleanroom.mjs` — **what the gate judges today** — adapts
+`run.mjs` imports one module and calls the eight functions above. The fixtures
+know about none of this.
+
+`engine/cleanroom.mjs` — **what the gate judges** — adapts
 `analysis/cellsystems`. It is short, and every line it does not have is the
 de-globalization: a ground is an argument, the held cell is an argument, and
 three of the eighteen contract methods live on the system while the other
 fifteen are reached through `system.on(ground)`.
 
-`engine/current.mjs` is the adapter for the current tree, and it does one thing
-the clean lane does not need: `applyGround` writes the recorded ground
+`engine/current.mjs` was the second adapter, for the reference tree. It did one
+thing the clean lane does not need: `applyGround` wrote the recorded ground
 descriptor *back into the globals* the old systems read it from. Its two
-neighbours — `engine/hooks.mjs` and `engine/stubs.mjs` — exist for the same
-reason: `frontend/src/grid.js` holds the plan and its style tokens in the same
-file as a DOM controller, so the hook swaps four application-shaped imports
-(`dom`, `detail`, `navigation`, `features`) for stubs that throw if anything
-ever calls them. The cell math itself is loaded from its real source files,
-unbundled and unedited. All three stay because the oracle is worth being able
-to re-run; none of them is on the gate's default path.
+neighbours, `engine/hooks.mjs` and `engine/stubs.mjs`, existed for the same
+reason — `frontend/src/grid.js` held the plan and its style tokens in the same
+file as a DOM controller, so the hook swapped four application-shaped imports
+(`dom`, `detail`, `navigation`, `features`) for stubs that threw if anything
+ever called them. The cell math itself was loaded from its real source files,
+unbundled and unedited.
+
+All three are archived with the tree they read (M7, above). None of them was
+ever on the gate's default path, which is why removing them changed no result.
 
 ## Re-capturing
 
+Re-capture happens on the `golden-reference` tag, because that is where the
+implementation being recorded is:
+
 ```sh
-node golden/analysis/capture.mjs
+node golden/analysis/capture.mjs   # from a golden-reference checkout
 ```
 
-Rewrites every file here from the current implementation, re-checking the
+It rewrites every file here from that implementation, re-checking the
 hand-derived literals and the parity tie as it goes. It is the recording
 instrument, and running it is not a way to make a red gate green: a golden is
-never edited to match a candidate (`golden/HARNESS.md`). Re-capture belongs
-to a change in the *fixtures* — a new fixture volume, a new tour step that
-touches the grid — and lands as its own reviewed commit against the current
-tree, never against the rewrite.
+never edited to match a candidate (`golden/HARNESS.md`). Re-capture belongs to
+a change in the *fixtures* — a new fixture volume, a new tour step that touches
+the grid — and lands as its own reviewed commit, never as a way of moving the
+target.

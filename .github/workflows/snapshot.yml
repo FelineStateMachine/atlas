@@ -1,11 +1,26 @@
 # Snapshot builds one city's .atlas on a schedule and publishes it only when
 # the city changed. It is reusable: a caller names the city and provides the
-# state -- an fmg-archive committed to a branch of the calling repository --
-# and this workflow crawls, composes, gates on the bundle's own content
-# stamp, and publishes to the caller's releases. A city IT team runs their
-# own copy in a private repository with their curation and their key; this
-# repository's scheduler runs it over the public proof cities as the living
-# test of the same path.
+# state -- a capture archive committed to a branch of the calling repository --
+# and this workflow crawls, composes, enriches, gates on the bundle's own
+# content stamp, and publishes to the caller's releases. A city IT team runs
+# their own copy in a private repository with their curation and their key;
+# this repository's scheduler runs it over the public proof cities as the
+# living test of the same path.
+#
+# PARKED (issue #5 §7, M7). The pipeline steps below are the clean room's --
+# `atlas crawl|tiles|compose|enrich` in place of the archived tools/ programs
+# -- but the ArcGIS/USGS crawler is the one crawler the rewrite has not built:
+# `atlas crawl -source list` offers `ign` and nothing else, and docs/generate.md
+# §3.2 says why (the city's archive was an input to the rewrite rather than
+# something the lane could take). A run therefore fails at the crawl step, and
+# the scheduler in snapshots.yml is dispatch-only until it does not.
+#
+# What unblocks it is one crawler under internal/generate/crawl, registered as
+# `arcgis-hub`, fetching a curated city's hub layers and the two USGS national
+# services by bounding box. Everything after it here is already the shipped
+# path; the composition and enrichment of that archive are proven by the
+# `bend-or` bundle fixture, which reproduces byte-identically (docs/generate.md
+# §8).
 name: Snapshot
 
 on:
@@ -52,12 +67,12 @@ jobs:
           ref: ${{ inputs.atlas-ref }}
           path: atlas
 
-      - name: Adopt private curation
-        run: |
-          if [ -f state/cities_local.go ]; then
-            cp state/cities_local.go atlas/internal/arcgismap/cities_local.go
-            echo "private curation adopted"
-          fi
+      # A city that should stay out of a public repository is carried by the
+      # `atlas-ref` input: point it at a branch or fork whose curation table
+      # names the city. The reference tree's habit of dropping a gitignored
+      # companion file into the source package is not carried over -- the
+      # clean room's table is a gate, and a gate that can be extended by a file
+      # nobody reviews is not one (internal/generate/sources/arcgishub).
 
       - uses: actions/setup-go@v5
         with:
@@ -66,13 +81,18 @@ jobs:
 
       - name: Crawl
         working-directory: atlas
-        run: go run ./tools/crawl -archive ../state/fmg-archive -arcgis "${{ inputs.city }}"
+        run: |
+          go run ./cmd/atlas crawl -archive ../state/fmg-archive \
+            -source arcgis-hub "${{ inputs.city }}"
 
-      - name: Compose
+      - name: Compose and enrich
         working-directory: atlas
         run: |
-          go run ./tools/tiles -source ../state/fmg-archive -output build/tiles
-          go run ./tools/generate -source ../state -tiles build/tiles/index.json -bundles ../out
+          go run ./cmd/atlas tiles -archive ../state/fmg-archive -output build/tiles
+          go run ./cmd/atlas compose -archive ../state/fmg-archive \
+            -tiles build/tiles/index.json -bundles ../out
+          go run ./cmd/atlas enrich -archive ../state/fmg-archive \
+            -tiles build/tiles/index.json -bundles ../out
 
       - name: Gate on the stamp
         id: gate
