@@ -1,0 +1,164 @@
+// The diagnostics duty (issue #5 §5.5).
+//
+// The seam publishes what it knows about itself under the names
+// `golden/parity/SCHEMA.md` records, because a parity baseline is compared
+// key for key and a rewritten seam that renamed its own diagnostics would be
+// unreadable against six recorded tours. This is the fourth contract the lane
+// stands on, and the only one that points outward.
+//
+// THE SPLIT, and why it is where it is. A snapshot is two halves. The
+// application's half — what is hidden, what the footer says, what the library
+// offers, the saved arrangement — is server state, and it arrives as the JSON
+// island `#atlas-session-island` (docs/app.md §6). The seam's half is
+// everything only a renderer can answer: where the camera is, how many tiles
+// it took, what is standing, what the grid drew, what the sphere built. Two
+// halves, one object, and neither half guesses at the other's keys.
+//
+// THREE GLOBALS, all of them read-only observations:
+//
+//   `__atlasSeam`      this lane's half, and the canonical entry point.
+//   `__atlasGlobe`     the sphere's own counts, and only once it exists —
+//                      `globeBuilt` in the baselines is exactly the question
+//                      "is this global here yet".
+//   `render_game_to_text()` / `__atlasDebug` / `advanceTime()`
+//                      the names the recorded tours already call. They are
+//                      kept because renaming them would cost six baselines to
+//                      say nothing.
+
+import { logger } from "./log.ts";
+import { COORDINATE_SYSTEM, RASTER_CACHE_SIZE, viewMaxZoom } from "./chart/projection.ts";
+import type { DrawnCell } from "./chart/grid.ts";
+import type { AtlasViewport } from "./viewport.ts";
+import { cellSystems } from "@atlas/analysis";
+
+const log = logger("diagnostics");
+
+/** The seam's half of a parity snapshot. */
+export interface SeamSnapshot {
+  coordinateSystem: string;
+  world: string;
+  lens: string;
+  zoom: number | null;
+  center: [number, number] | null;
+  resolution: number | null;
+  nativeMaxZoom: number | null;
+  maxZoom: number | null;
+  interpolate: boolean | null;
+  tileStats: { requested: number; loaded: number; errors: number; peakPending: number };
+  pins: number;
+  eligibleLocations: number;
+  domNodes: number;
+  canvases: number;
+  rasterCacheSize: number;
+  labelsHeld: boolean;
+  hoveredPin: string | null;
+  selectedPin: string | null;
+  fitZoom: number | null;
+  zones: {
+    visible: boolean;
+    count: number;
+    focused: string | null;
+    highlighted: string[];
+    focusedPins: number;
+  };
+  sync: { drawn: number; listable: number };
+  grid: {
+    enabled: boolean;
+    system: string;
+    prefix: string;
+    maximumDepth: number;
+    extent: readonly number[] | null;
+    cells: DrawnCell[];
+    priorityPins: number;
+  };
+}
+
+/** Take one reading of the seam. */
+export function snapshot(viewport: AtlasViewport): SeamSnapshot {
+  const context = viewport.current;
+  const chart = viewport.chart;
+  const readings = chart?.diagnostics();
+  const model = context?.model;
+  const visibility = context?.visibility;
+  const shapes = visibility?.shapesShown ?? [];
+  const selected = context ? model?.feature(context.scene.selected) ?? null : null;
+  const hovered = context?.hovered ? model?.pointByID.get(context.hovered) ?? null : null;
+  const defaultSystem = cellSystems.systems[0];
+  const system = context?.system ?? (context ? defaultSystem ?? null : null);
+
+  return {
+    coordinateSystem: COORDINATE_SYSTEM,
+    world: model?.slug ?? "",
+    lens: context?.lens?.name ?? "",
+    zoom: readings?.zoom ?? null,
+    center: readings?.center ?? null,
+    resolution: readings?.resolution ?? null,
+    nativeMaxZoom: context?.lens?.maxZoom ?? null,
+    maxZoom: context?.lens ? viewMaxZoom(context.lens) : null,
+    interpolate: context?.lens?.interpolate ?? null,
+    tileStats: { ...(chart?.tileStats ?? { requested: 0, loaded: 0, errors: 0, peakPending: 0 }) },
+    // The registry's own size, and the part of it the filters left standing.
+    pins: model?.points.length ?? 0,
+    eligibleLocations: visibility?.eligible ?? 0,
+    domNodes: document.querySelectorAll("*").length,
+    canvases: document.querySelectorAll("canvas").length,
+    rasterCacheSize: RASTER_CACHE_SIZE,
+    labelsHeld: context?.labelsHeld ?? false,
+    hoveredPin: hovered?.title ?? null,
+    selectedPin: selected && "title" in selected ? selected.title || null : null,
+    fitZoom: readings?.fitZoom ?? null,
+    zones: {
+      visible: shapes.length > 0,
+      count: model?.shapes.length ?? 0,
+      focused: null,
+      highlighted: (visibility?.highlightedShapes ?? []).map((shape) => shape.title),
+      focusedPins: visibility?.focusedPins ?? 0,
+    },
+    // The model's own count of what the map is drawing. What the footer and
+    // the dock *say* is the application's half of this key, rendered in Go.
+    sync: { drawn: visibility?.drawn ?? 0, listable: visibility?.listable ?? 0 },
+    grid: {
+      enabled: Boolean(context?.scene.gridSystem),
+      system: context?.scene.gridSystem || defaultSystem?.slug || "",
+      prefix: context?.cell ?? "",
+      maximumDepth: context && system ? system.maxLevel(context.ground) : 0,
+      extent: readings?.grid.extent ?? null,
+      cells: readings?.grid.cells ?? [],
+      priorityPins: visibility?.priorityPins ?? 0,
+    },
+  };
+}
+
+/** The window the harness reads. Typed here rather than cast at every use. */
+interface DiagnosticsWindow {
+  __atlasSeam?: { snapshot(): SeamSnapshot; level: string };
+  __atlasGlobe?: unknown;
+  __atlasDebug?: { snapshot(): SeamSnapshot };
+  __atlasAppDiagnostics?: () => Record<string, unknown>;
+  render_game_to_text?: () => string;
+  advanceTime?: () => void;
+}
+
+/**
+ * Open the seams the harness reads.
+ *
+ * `__atlasGlobe` is a getter rather than an assignment: the baselines read
+ * its mere presence as "the sphere has been entered at least once this
+ * session", so it must not exist before the sphere is built.
+ */
+export function expose(viewport: AtlasViewport): void {
+  const host = window as unknown as DiagnosticsWindow;
+  const take = () => snapshot(viewport);
+  host.__atlasSeam = { snapshot: take, level: "1" };
+  host.__atlasDebug = { snapshot: take };
+  host.advanceTime = () => viewport.chart?.renderSync();
+  host.render_game_to_text = () => JSON.stringify({
+    ...(host.__atlasAppDiagnostics?.() ?? {}),
+    ...take(),
+  });
+  Object.defineProperty(window, "__atlasGlobe", {
+    configurable: true,
+    get: () => viewport.globe?.built ? viewport.globe.diagnostics() : undefined,
+  });
+  log.debug("the diagnostics seams are open", { op: "render" });
+}

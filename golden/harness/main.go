@@ -96,6 +96,20 @@ func suites() []suite {
 			ready:      true,
 		},
 		{
+			// The seam's own gate, beside the analysis lane's: the same
+			// TypeScript boundary rules, the type checker at its strictest,
+			// the seam's unit tests against the golden fixtures -- the
+			// packed layout, the tile inventories, the scene node, the
+			// standing set, the grid the tour recorded -- and the authored
+			// line budget of §5.5 as a warning.
+			name:       "render-lane",
+			milestone:  "M6",
+			awaiting:   "",
+			entrypoint: "render/package.json",
+			argv:       []string{"npm", "run", "--silent", "seam-lane"},
+			ready:      true,
+		},
+		{
 			name:       "parity-compare",
 			milestone:  "M5+M6",
 			awaiting:   "the app and the seam: the tour re-pointed at the new build, diagnostics emitted jointly as a server JSON island plus seam state",
