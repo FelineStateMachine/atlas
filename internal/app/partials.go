@@ -24,7 +24,16 @@ import (
 //     open <details> survive a re-render (issue #5 §4.3);
 //   - the viewport's state node is swapped whole and the viewport's own
 //     internals are never touched -- the seam owns what is inside it, and a
-//     swap that reached in would tear down a WebGL context mid-gesture.
+//     swap that reached in would tear down a WebGL context mid-gesture. The
+//     custom elements carry hx-morph-skip-children, which is htmx 4's own
+//     spelling of that rule, so the guarantee is the runtime's rather than a
+//     convention every template has to remember.
+//
+// The envelope spells its target and swap as hx-target and hx-swap rather
+// than as bare target and swap attributes: htmx 4 reads an <hx-partial>
+// through the same attribute vocabulary it reads everything else through, and
+// an unprefixed target is silently no target at all. The region names and the
+// element ids either side of it are unchanged.
 
 // A partialTarget is where one region's HTML goes and how it lands.
 type partialTarget struct {
@@ -56,7 +65,7 @@ func renderPartials(regions []string, data any) ([]byte, error) {
 		if !known {
 			return nil, fmt.Errorf("region %q has no partial target", region)
 		}
-		fmt.Fprintf(&out, "<hx-partial target=%q swap=%q>", where.target, where.swap)
+		fmt.Fprintf(&out, "<hx-partial hx-target=%q hx-swap=%q>", where.target, where.swap)
 		if err := templates.Render(&out, region, data); err != nil {
 			return nil, err
 		}

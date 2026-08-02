@@ -1,3 +1,36 @@
-{{/* detail — one feature's card, fetched by /fragments/detail/{id}. */}}
-{{define "detail"}}<article class="detail" data-open="{{.Session.Detail.Open}}" data-feature="{{if .Feature}}{{.Feature}}{{else}}{{.Session.Selected}}{{end}}"></article>
+{{/*
+  detail — one feature's card.
+
+  The card is an innerMorph region, so its element stands whether or not
+  anything is open and its content says which. An empty card is a closed card,
+  which is the rule assets/css/chrome.css keys the results list off: a swap
+  cannot set an attribute on a container it renders the inside of, and stating
+  the fact in the shape a morph can actually produce is better than inventing
+  a second way to say it.
+*/}}
+{{define "detail"}}<article id="atlas-detail" class="pin-detail">{{with .Detail}}{{if .Open}}
+  <button type="button" class="detail-back" id="close-detail" aria-label="Back to results"
+          hx-post="/session/select" hx-vals='{"feature":""}'>
+    <svg viewBox="0 0 16 16" aria-hidden="true"><path d="M10 3 5 8l5 5"/></svg>
+    Back to results
+  </button>
+  <div class="detail-category">
+    <span id="detail-dot" style="background: {{.Color}}">{{.Glyph}}</span>
+    <span id="detail-category">{{.Category}}</span>
+  </div>
+  <h2 id="detail-title">{{.Title}}</h2>
+  <p id="detail-description">{{.Description}}</p>
+  <nav class="detail-links" id="detail-links"{{if not .Links}} hidden{{end}}>
+    {{range .Links}}<button type="button" class="detail-link" data-location="{{.ID}}"
+            hx-post="/session/select" hx-vals='{"feature":"{{.ID}}"}'>{{.Title}}</button>
+    {{end}}
+  </nav>
+  <dl>
+    <div><dt>ID</dt><dd id="detail-id">{{.ID}}</dd></div>
+    <div id="detail-coordinates-field"{{if not .Coordinates}} hidden{{end}}><dt>Coordinates</dt><dd id="detail-coordinates">{{.Coordinates}}</dd></div>
+    <div id="detail-source-field"{{if not .Source}} hidden{{end}}><dt>Source</dt><dd id="detail-source">{{.Source}}</dd></div>
+    {{range .Rows}}<div data-feature-row="{{.Key}}"><dt>{{.Label}}</dt><dd>{{.Value}}</dd></div>
+    {{end}}
+  </dl>
+{{end}}{{end}}</article>
 {{end}}

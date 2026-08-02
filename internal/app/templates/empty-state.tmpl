@@ -1,16 +1,37 @@
-{{/* empty-state — the library card: what a bundle is and where it goes. */}}
+{{/*
+  empty-state — the library card: what a bundle is, where it goes, and the one
+  button that puts a picker in front of the reader.
+
+  It is a whole page rather than a region because a library with nothing in it
+  has no explorer to be a region of. It renders inside #atlas-shell all the
+  same, so an import that fills the library can swap the explorer straight
+  into its place.
+*/}}
 {{define "empty-state"}}<!doctype html>
 <html lang="en">
-<head><meta charset="utf-8"><title>Atlas</title><link rel="stylesheet" href="/static/app.css"></head>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="dark">
+<link rel="icon" href="data:,">
+<title>Atlas</title>
+<link rel="stylesheet" href="/assets/app.css">
+<script src="/assets/htmx.js" defer></script>
+</head>
 <body class="atlas">
-<div id="atlas-shell">
-  <section id="atlas-library" class="empty-state">
-    <h1>No volumes installed</h1>
-    <p>Drop an <code>.atlas</code> bundle into <code>{{.LibraryDir}}</code>, or import one.</p>
-    <form method="post" action="/bundles/import"><button type="submit">Import a bundle</button></form>
-    <section id="atlas-import"></section>
-  </section>
+<div id="atlas-shell" class="empty-state">
+  <strong>No volumes installed yet</strong>
+  <p>Each volume is a single <code>.atlas</code> file. Drop one into</p>
+  <p><code id="empty-path">{{.LibraryDir}}</code></p>
+  <p>and it appears here at the next launch — or pick files to copy in:</p>
+  <button type="button" id="empty-open"
+          hx-post="/bundles/import" hx-target="#atlas-import" hx-swap="beforeend">Open .atlas files…</button>
 </div>
+{{template "import" .}}
+<script type="application/json" id="atlas-session-island">{{.Island}}</script>
+<div hidden hx-sse:connect="/events" hx-trigger="load" id="atlas-events"></div>
+<div hidden hx-get="/" hx-trigger="catalog from:#atlas-events"
+     hx-target="#atlas-shell" hx-select="#atlas-shell" hx-swap="outerMorph"></div>
 </body>
 </html>
 {{end}}

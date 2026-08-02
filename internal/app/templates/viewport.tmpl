@@ -1,21 +1,47 @@
 {{/*
-  viewport — the seam's two custom elements and the inert state node they
-  read. The elements themselves are morph-skipped: a swap may touch their
-  attributes and must never touch their internals (issue #5 §4.3).
+  viewport — the seam's surface, and the inert state node it reads.
+
+  Two templates, one region, and the split is the swap. `viewport` is the
+  partial: it renders the state node alone, because that node is what an
+  interaction moves and outerMorph replaces it whole. `viewport-surface` is
+  the shell's alone and is never swapped: the custom elements carry
+  hx-morph-skip-children, so a swap may touch their attributes and can never
+  reach their internals, which is the difference between a re-render and
+  tearing down a WebGL context mid-gesture (issue #5 §4.3).
+
+  Data flows one way through the node below. Two things come back and no
+  more: a pick, which arrives as an ordinary POST /session/select, and a
+  settled camera, which arrives debounced at POST /session/view.
 */}}
-{{define "viewport"}}<atlas-viewport state-src="#atlas-viewport-state" data-morph-skip="true">
+{{define "viewport-surface"}}<atlas-viewport state-src="#atlas-viewport-state" hx-morph-skip-children>
   <atlas-chart></atlas-chart>
   <atlas-globe hidden></atlas-globe>
 </atlas-viewport>
-<div id="atlas-viewport-state" hidden
-     data-volume="{{with .Volume}}{{.Slug}}{{end}}"
-     data-base="{{with .Volume}}{{.Base}}{{end}}"
-     data-world="{{with .Volume}}{{.World.Slug}}{{end}}"
-     data-lens="{{.Session.Lens}}"
-     data-selected="{{.Session.Selected}}"
-     data-grid-system="{{.Session.Grid.System}}"
-     data-grid-cell="{{.Session.Grid.Cell}}">
-  {{range .Session.Hidden}}<data value="{{.}}" class="hidden-collection"></data>
+<div class="map" id="map" tabindex="0" aria-label="Interactive world map" hx-morph-skip-children>
+  <div class="map-loading" id="map-loading" hidden>
+    <span class="spinner"></span>
+    <strong>Unfolding map</strong>
+    <small>Loading visible embedded tiles…</small>
+  </div>
+</div>
+{{end}}
+
+{{define "viewport"}}<div id="atlas-viewport-state" hidden
+     data-volume="{{.Viewport.Volume}}"
+     data-base="{{.Viewport.Base}}"
+     data-world="{{.Viewport.World}}"
+     data-lens="{{.Viewport.Lens}}"
+     data-lens-index="{{.Viewport.LensIndex}}"
+     data-surface="{{.Viewport.Surface}}"
+     data-selected="{{.Viewport.Selected}}"
+     data-search="{{.Viewport.Search}}"
+     data-grid-system="{{.Viewport.GridSystem}}"
+     data-grid-cell="{{.Viewport.GridCell}}"
+     data-subgrid="{{.Viewport.Subgrid}}"
+     {{with .Viewport.Camera}}data-camera="{{.X}},{{.Y}},{{.Zoom}},{{.Rotation}}"{{end}}>
+  {{range .Viewport.Hidden}}<data class="hidden-collection" value="{{.}}"></data>
+  {{end}}{{range .Viewport.Highlighted}}<data class="highlighted-feature" value="{{.}}"></data>
+  {{end}}{{range .Viewport.Overrides}}<data class="label-override" value="{{.Collection}}={{.Policy}}"></data>
   {{end}}
 </div>
 {{end}}

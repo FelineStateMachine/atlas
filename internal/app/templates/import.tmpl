@@ -1,3 +1,13 @@
-{{/* import — one row per step of an import, streamed as it happens. */}}
-{{define "import"}}{{range .Rows}}<p class="import-row" data-state="{{.State}}">{{.Detail}}</p>
+{{/*
+  import — one row per step of an import, streamed as it happens.
+
+  A hundred-megabyte bundle takes long enough that silence reads as failure,
+  so the answer is a stream of rows rather than one answer at the end, each
+  flushed as it happens and appended to the region (the `import` partial
+  target swaps beforeend). The region itself is empty on a first paint and is
+  rendered by the shell; the same template renders one row when the handler
+  writes one.
+*/}}
+{{define "import"}}{{if .Rows}}{{range .Rows}}<p class="import-row" data-state="{{.State}}">{{.Detail}}</p>
+{{end}}{{else}}<section id="atlas-import" class="import-rows" aria-live="polite"></section>
 {{end}}{{end}}
