@@ -81,18 +81,18 @@ export async function selectWorld(slug) {
   state.hiddenCollections.clear();
   state.labelOverrides.clear();
   // Zones are a navigation aid, not the primary filter surface: keep boundaries
-  // drawn but fold the section away so pin groups stay above the fold. The
-  // pseudo-collection's own row starts unfolded, so the feature index is
-  // there the moment the section is opened -- and in the DOM for anything
-  // that reaches for a zone row without unfolding first.
+  // drawn but fold their section away so pin groups stay above the fold. The
+  // ungrouped shape collections that section holds start unfolded, so their
+  // feature indexes are there the moment the section is opened -- and in the
+  // DOM for anything that reaches for a zone row without unfolding first.
   state.collapsedSections.clear();
   state.collapsedSections.add("zones");
   state.expandedCollections.clear();
-  state.expandedCollections.add("zones");
-  for (const group of state.world.groups) {
-    for (const category of group.categories) {
-      if (!category.visible) state.hiddenCollections.add(category.id);
+  for (const collection of state.world.collections) {
+    if (collection.kind !== "point" && !collection.group) {
+      state.expandedCollections.add(collection.id);
     }
+    if (!collection.visible) state.hiddenCollections.add(collection.id);
   }
   const restore = state.restore?.world === state.world.slug ? state.restore : null;
   if (restore) {
@@ -364,11 +364,10 @@ export function updateVisibleCount() {
     const [x, y] = pin.coordinate;
     if (x >= extent[0] && x <= extent[2] && y >= extent[1] && y <= extent[3]) inView++;
   }
-  if (!isCollectionHidden("zones")) {
-    enabled += state.zoneRecords.size;
-    for (const record of state.zoneRecords.values()) {
-      if (intersects(record.extent, extent)) inView++;
-    }
+  for (const record of state.zoneRecords.values()) {
+    if (isCollectionHidden(record.zone.collectionId)) continue;
+    enabled++;
+    if (intersects(record.extent, extent)) inView++;
   }
   elements.visibleCount.textContent =
     `${formatNumber(enabled)} features enabled · ${formatNumber(inView)} in view`;

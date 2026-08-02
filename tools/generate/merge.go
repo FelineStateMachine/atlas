@@ -94,14 +94,12 @@ type mergedSource struct {
 	Slug string `json:"slug,omitempty"`
 	// Origin marks the account of the source the map itself came from, so a
 	// single-source map still says where it is from and a composed map's
-	// unledgered pins have somewhere to answer to. DonorPins on an origin
-	// account is simply the map's own count at composition.
-	Origin    bool           `json:"origin,omitempty"`
-	DonorPins int            `json:"donorPins"`
-	// DonorFeatures is the donor's whole offering counted per kind, points
-	// included: DonorPins repeats its point count, the older spelling kept
-	// for readers that predate shapes in the ledger.
-	DonorFeatures featureCounts `json:"donorFeatures,omitempty"`
+	// unledgered pins have somewhere to answer to. DonorFeatures on an
+	// origin account is simply the map's own tally at composition.
+	Origin bool `json:"origin,omitempty"`
+	// DonorFeatures is the donor's whole offering counted per kind. The
+	// donorPins spelling it stood beside died with the v2 wire.
+	DonorFeatures featureCounts `json:"donorFeatures"`
 	Matched       []mergedPair  `json:"matched,omitempty"`
 	Added         int           `json:"added"`
 	// AddedShapes is reserved: no shape feature merges yet, so it is always
@@ -437,7 +435,6 @@ func mergeWorld(
 			})
 		}
 		for _, pin := range donorCollection.Features {
-			merge.DonorPins++
 			merge.DonorFeatures.Point++
 			x, y := affine.Apply(
 				projectX(pin.Lng, donorGrid),
@@ -518,13 +515,11 @@ func mergeWorld(
 	}
 
 	if len(keptCollections) > 0 {
-		// The source-named group exists only on the wire; here it is a group
-		// title and number the kept collections share, and the emission
-		// regroups them under it exactly as the old group append did.
-		groupID := mergedGroupID(winner)
+		// The kept collections file under a group named for their source, so
+		// the legend says where they came from without a section of its own
+		// machinery.
 		for index := range keptCollections {
 			keptCollections[index].Group = sourceLabel
-			keptCollections[index].GroupID = groupID
 		}
 		winner.Collections = append(winner.Collections, keptCollections...)
 	}
@@ -757,22 +752,6 @@ func carryIcon(winnerGame, donorGame *catalogVolume, collection *worldCollection
 	return nil
 }
 
-// mergedGroupID numbers the source's group away from every id the map
-// already uses.
-func mergedGroupID(winner *catalogWorld) int64 {
-	used := make(map[int64]bool)
-	for _, collection := range winner.Collections {
-		if collection.Kind == kindPoint {
-			used[collection.GroupID] = true
-		}
-	}
-	id := int64(1)
-	for used[id] {
-		id++
-	}
-	return id
-}
-
 func sourceLabelOf(donor *catalogWorld, donorGame *catalogVolume) string {
 	for _, account := range donor.Merged {
 		if account.Origin {
@@ -863,12 +842,6 @@ func enrichedCount(merge *mergedSource) int {
 // serving map held made worse. It fails the build rather than writing a
 // bundle that quietly lost something -- or quietly agreed too much.
 func mergeGate(merge *mergedSource, winner *catalogWorld) error {
-	// The two spellings of the donor's point count are one number, or the
-	// ledger is already lying to one of its readers.
-	if merge.DonorPins != merge.DonorFeatures.Point {
-		return fmt.Errorf("ledger speaks two point counts: donorPins %d, donorFeatures %d",
-			merge.DonorPins, merge.DonorFeatures.Point)
-	}
 	heldPoints, heldShapes := 0, 0
 	for _, held := range merge.Held {
 		if held.Reason == heldShapeReason {

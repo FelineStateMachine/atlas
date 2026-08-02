@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"hash/fnv"
 
 	"github.com/FelineStateMachine/atlas/internal/semconv"
 )
@@ -9,15 +10,12 @@ import (
 // A map's contents used to mirror the MapGenie shape all the way through the
 // generator: pins under groups and categories, regions standing apart as
 // zones, and every pass over a map written twice because of it. The catalog
-// now holds one model instead -- collections of features, each feature a
-// geometry with attributes -- and the v2 wire keeps its exact bytes by being
-// reconstructed from that model at emission time. The wire can only move once
-// everything it says provably fits the model, and the byte-identical rebuild
-// is that proof.
+// holds one model instead -- collections of features, each feature a
+// geometry with attributes -- and since format v3 the wire says the same
+// thing the model does, so what this file normalizes is what a payload
+// carries.
 
-// A collection's kind is the dimensionality of its features. Nothing
-// classifies geometry yet -- paths still travel as pretend areas -- so the
-// vocabulary is declared in full but only points and areas are spoken.
+// A collection's kind is the dimensionality of its features.
 const (
 	kindPoint = "point"
 	kindPath  = "path"
@@ -30,26 +28,25 @@ const (
 const regionsCollectionKey = "regions"
 
 // worldCollection is one legend entry's worth of features: a category of
-// pins, or the world's regions gathered under the implicit key.
+// pins, or a curated set of shapes, or the world's undeclared regions
+// gathered under the implicit key.
 type worldCollection struct {
 	ID int64
 	// Key is the collection's curation and merge identity; legacy categories
 	// carry none and are still met by their icon key instead.
 	Key   string
 	Title string
-	// Group is the legend section this collection files under -- today's
-	// group title -- and GroupID is the number that lets the v2 groups be
-	// re-emitted byte-identically. The implicit region collection has neither.
-	Group   string
-	GroupID int64
-	// Kind is "point", "path" or "area". The implicit region collection says
-	// "area" nominally; its features keep whatever geometry the source drew.
+	// Group is the legend section this collection files under. Shape
+	// collections usually carry none and gather in the viewer's own section.
+	Group string
+	// Kind is "point", "path" or "area".
 	Kind             string
 	Icon, IconAsset  string
 	IconPicture      bool
 	Color, IconColor string
-	// DisplayType is the legacy render field, kept only because the v2 wire
-	// still spells it.
+	// DisplayType is MapGenie's legacy render field, never emitted: it exists
+	// only so speakConventions can derive atlas.render.as for captures from
+	// before the conventions.
 	DisplayType string
 	Visible     bool
 	Attrs       map[string]string
@@ -72,8 +69,8 @@ type feature struct {
 	Parent *int64
 	Center *coordinate
 	Shard  int64
-	// HasText stays unset until the wire carries features directly: the v2
-	// emission derives its marker from Description at packing time.
+	// HasText is set at packing time, when the Description defers into the
+	// text payload and this marker is what the wire keeps of it.
 	HasText bool
 	Links   []catalogLink
 	Attrs   map[string]string
@@ -96,7 +93,6 @@ func normalizeWorld(raw rawMap) ([]worldCollection, error) {
 				ID:          rawCategory.ID,
 				Title:       rawCategory.Title,
 				Group:       rawGroup.Title,
-				GroupID:     rawGroup.ID,
 				Kind:        kindPoint,
 				Icon:        rawCategory.Icon,
 				Color:       resolvedCategoryColor(rawGroup, rawCategory),
@@ -148,16 +144,18 @@ func normalizeWorld(raw rawMap) ([]worldCollection, error) {
 		}
 		declaredAt[decl.Key] = len(declared)
 		declared = append(declared, worldCollection{
-			Key:   decl.Key,
-			Title: decl.Title,
-			Kind:  kind,
-			Attrs: decl.Attrs,
+			Key:     decl.Key,
+			Title:   decl.Title,
+			Kind:    kind,
+			Visible: true,
+			Attrs:   decl.Attrs,
 		})
 	}
 	implicit := worldCollection{
-		Key:   regionsCollectionKey,
-		Title: "Regions",
-		Kind:  kindArea,
+		Key:     regionsCollectionKey,
+		Title:   "Regions",
+		Kind:    kindArea,
+		Visible: true,
 	}
 	for _, rawRegion := range raw.Regions {
 		shape := feature{
@@ -206,96 +204,52 @@ func normalizeWorld(raw rawMap) ([]worldCollection, error) {
 			home.Features = append(home.Features, shape)
 		}
 	}
-	for _, collection := range declared {
-		if len(collection.Features) > 0 {
-			collections = append(collections, collection)
+	// Shape collections need numeric identities of their own on the wire --
+	// the viewer's hide and unfold sets are keyed by them -- and a source
+	// declares keys, not numbers, so the numbers are derived from the same
+	// stable names the way every other id in the pipeline is.
+	used := make(map[int64]string, len(collections))
+	for _, collection := range collections {
+		used[collection.ID] = collection.Title
+	}
+	claim := func(key string) (int64, error) {
+		hash := fnv.New32a()
+		fmt.Fprintf(hash, "%d:collection:%s", raw.ID, key)
+		id := int64(hash.Sum32() & 0x7fffffff)
+		if id == 0 {
+			id = 1
 		}
+		if holder, taken := used[id]; taken {
+			return 0, fmt.Errorf("collection %q collides with %q on id %d", key, holder, id)
+		}
+		used[id] = key
+		return id, nil
+	}
+	for _, collection := range declared {
+		if len(collection.Features) == 0 {
+			continue
+		}
+		id, err := claim(collection.Key)
+		if err != nil {
+			return nil, err
+		}
+		collection.ID = id
+		collections = append(collections, collection)
 	}
 	if len(implicit.Features) > 0 {
+		id, err := claim(implicit.Key)
+		if err != nil {
+			return nil, err
+		}
+		implicit.ID = id
 		collections = append(collections, implicit)
 	}
 	return collections, nil
 }
 
-// v2Groups rebuilds the wire's group tree from the collections. Categories
-// within a group were contiguous in every capture and every pass keeps them
-// so, which is why regrouping by first-seen GroupID reproduces the original
-// structure byte for byte.
-func (m catalogWorld) v2Groups() []catalogGroup {
-	var groups []catalogGroup
-	at := make(map[int64]int)
-	for _, collection := range m.Collections {
-		if collection.Kind != kindPoint {
-			continue
-		}
-		index, seen := at[collection.GroupID]
-		if !seen {
-			index = len(groups)
-			at[collection.GroupID] = index
-			groups = append(groups, catalogGroup{ID: collection.GroupID, Title: collection.Group})
-		}
-		category := catalogCategory{
-			ID:          collection.ID,
-			Title:       collection.Title,
-			Icon:        collection.Icon,
-			IconAsset:   collection.IconAsset,
-			IconPicture: collection.IconPicture,
-			Color:       collection.Color,
-			IconColor:   collection.IconColor,
-			DisplayType: collection.DisplayType,
-			Visible:     collection.Visible,
-			Attrs:       collection.Attrs,
-		}
-		for _, f := range collection.Features {
-			category.Locations = append(category.Locations, catalogLocation{
-				ID:          f.ID,
-				Title:       f.Title,
-				Description: f.Description,
-				Latitude:    f.Lat,
-				Longitude:   f.Lng,
-				RegionID:    f.Member,
-				Shard:       f.Shard,
-				Links:       f.Links,
-				Attrs:       f.Attrs,
-			})
-		}
-		groups[index].Categories = append(groups[index].Categories, category)
-	}
-	return groups
-}
-
-// v2Zones rebuilds the wire's zone list from the shape collections, each
-// collection's features in the order the capture told them and the
-// collections in declaration order. That concatenation is exactly the raw
-// region order: the one producer that declares collections emits its regions
-// grouped by dataset in the same curated order it declares them, and the
-// implicit collection -- last here -- is the whole list everywhere else.
-func (m catalogWorld) v2Zones() []zone {
-	var zones []zone
-	for _, collection := range m.Collections {
-		if collection.Kind == kindPoint {
-			continue
-		}
-		for _, f := range collection.Features {
-			zones = append(zones, zone{
-				ID:             f.ID,
-				Title:          f.Title,
-				Subtitle:       f.Subtitle,
-				Description:    f.Description,
-				ParentRegionID: f.Parent,
-				Center:         f.Center,
-				Shard:          f.Shard,
-				Features:       f.Geometry,
-				Attrs:          f.Attrs,
-			})
-		}
-	}
-	return zones
-}
-
 // featureTally counts the map's features by kind: the origin account's view
-// of what the map holds, and the yardstick every merge audit measures the
-// composed map against.
+// of what the map holds, the manifest's per-kind counts, and the yardstick
+// every merge audit measures the composed map against.
 func (m catalogWorld) featureTally() featureCounts {
 	var counts featureCounts
 	for _, collection := range m.Collections {
@@ -309,10 +263,4 @@ func (m catalogWorld) featureTally() featureCounts {
 		}
 	}
 	return counts
-}
-
-// pinCount is how many point features the map holds, which is what the
-// manifest has always reported for it.
-func (m catalogWorld) pinCount() int {
-	return m.featureTally().Point
 }

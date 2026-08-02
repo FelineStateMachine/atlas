@@ -1,7 +1,6 @@
 // The highlight filter, run against real OpenLayers polygons but no map: the
-// rule is AND across collections and OR within one, and the one-collection
-// case must stay the union it has always been -- that equivalence is what
-// lets the machinery land ahead of the wire that needs it.
+// rule is AND across collections and OR within one, with every zone
+// answering to the collection id the wire stamped it with.
 import assert from "node:assert/strict";
 import test from "node:test";
 
@@ -20,13 +19,24 @@ function square(x, y, size) {
   ]]);
 }
 
-function record(id, geometry) {
-  return { zone: { id }, geometries: [geometry] };
+function record(id, geometry, collectionId = 41) {
+  return { zone: { id, collectionId }, geometries: [geometry] };
 }
 
-test("every v2 zone answers to the one implicit collection", () => {
-  assert.equal(collectionOf({ id: 1 }), "zones");
-  assert.equal(collectionOf({ id: 2 }), collectionOf({ id: 99 }));
+test("a zone answers with the collection id the wire stamped", () => {
+  assert.equal(collectionOf({ id: 1, collectionId: 41 }), 41);
+  assert.equal(collectionOf({ id: 2 }), undefined, "an unstamped zone claims nothing");
+});
+
+test("groupByCollection buckets records by their real collections", () => {
+  const groups = groupByCollection([
+    record(1, square(0, 0, 10), 41),
+    record(2, square(100, 100, 10), 41),
+    record(3, square(0, 0, 40), 42),
+  ]);
+  assert.equal(groups.size, 2);
+  assert.equal(groups.get(41).length, 2);
+  assert.equal(groups.get(42).length, 1);
 });
 
 test("one collection, two zones: inside either is enough", () => {
@@ -34,18 +44,18 @@ test("one collection, two zones: inside either is enough", () => {
     record(1, square(0, 0, 10)),
     record(2, square(100, 100, 10)),
   ]);
-  assert.equal(groups.size, 1, "v2 zones share a single bucket");
+  assert.equal(groups.size, 1, "one collection, one bucket");
   assert.equal(passesZoneFilters(groups, [5, 5]), true);
   assert.equal(passesZoneFilters(groups, [105, 105]), true);
   assert.equal(passesZoneFilters(groups, [50, 50]), false);
 });
 
 test("two collections: only the overlap survives", () => {
-  // Grouped by hand, the way the v3 reader will: overlapping squares in
-  // different collections, so only their shared corner answers both.
-  const groups = new Map([
-    ["districts", [record(1, square(0, 0, 10))]],
-    ["watersheds", [record(2, square(5, 5, 10))]],
+  // Overlapping squares in different collections, so only their shared
+  // corner answers both.
+  const groups = groupByCollection([
+    record(1, square(0, 0, 10), 41),
+    record(2, square(5, 5, 10), 42),
   ]);
   assert.equal(passesZoneFilters(groups, [7, 7]), true, "inside both");
   assert.equal(passesZoneFilters(groups, [2, 2]), false, "district only");
@@ -54,9 +64,10 @@ test("two collections: only the overlap survives", () => {
 });
 
 test("two collections, alternatives within one", () => {
-  const groups = new Map([
-    ["districts", [record(1, square(0, 0, 10)), record(2, square(20, 0, 10))]],
-    ["watersheds", [record(3, square(0, 0, 40))]],
+  const groups = groupByCollection([
+    record(1, square(0, 0, 10), 41),
+    record(2, square(20, 0, 10), 41),
+    record(3, square(0, 0, 40), 42),
   ]);
   assert.equal(passesZoneFilters(groups, [5, 5]), true, "first district");
   assert.equal(passesZoneFilters(groups, [25, 5]), true, "second district");

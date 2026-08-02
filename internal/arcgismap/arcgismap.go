@@ -775,7 +775,9 @@ func declaredCollections(pairs []pairing) []mgdoc.CollectionDecl {
 		if curated.Geometry == "line" {
 			attrs[semconv.KeyStrokeWidthPx] = strconv.FormatFloat(curated.StrokeWidth, 'f', -1, 64)
 		}
-		if curated.Label != "" {
+		// Label policy is an area's word alone: a path is quiet by the
+		// registry's own default, so a line dataset's curation says nothing.
+		if curated.Label != "" && kind == semconv.GeometryArea {
 			attrs[semconv.KeyLabelPolicy] = curated.Label
 		}
 		out = append(out, mgdoc.CollectionDecl{
@@ -835,15 +837,10 @@ func buildRegions(capture *Capture, pairs []pairing, ids *mgdoc.IDSpace, hydro *
 					Title:    scrub(key.Title),
 					Subtitle: scrub(title(key.Subtitle, curated.Title)),
 					// The zone says which declared collection it belongs
-					// to, which is the whole reason declarations exist.
+					// to, which is the whole reason declarations exist:
+					// the collection speaks for its kind and its stroke,
+					// so the zone carries neither.
 					Collection: curated.Slug,
-				}
-				// A zone made of lines declares its ground width, so a
-				// reader can draw the path as the one stroke it is.
-				if curated.Geometry == "line" && curated.StrokeWidth > 0 {
-					zone.Attrs = map[string]string{
-						semconv.KeyStrokeWidthPx: strconv.FormatFloat(curated.StrokeWidth, 'f', -1, 64),
-					}
 				}
 				buckets[key.Key] = zone
 				order = append(order, key.Key)

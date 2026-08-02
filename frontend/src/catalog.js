@@ -1,8 +1,8 @@
 import { state } from "./state.js";
 import { legendSections } from "./legend.js";
 
-// A map arrives in two pieces: its layers, categories and regions as JSON, and
-// its locations packed as parallel arrays. Nothing here is fetched until the
+// A map arrives in two pieces: its layers and collections as JSON, and its
+// point features packed as parallel arrays. Nothing here is fetched until the
 // map is opened, so the catalog can grow without the wait growing with it.
 export async function loadWorld(entry) {
   const [detailResponse, packedResponse] = await Promise.all([
@@ -19,15 +19,17 @@ export async function loadWorld(entry) {
     detailResponse.json(),
     packedResponse.arrayBuffer(),
   ]);
-  const categories = detail.groups.flatMap((group) => group.categories);
-  unpackLocations(packed, categories);
-  const sections = legendSections(detail.groups, detail.zones || []);
+  const collections = detail.collections || [];
+  unpackLocations(packed, collections);
+  const sections = legendSections(collections);
   return {
     ...entry,
     grid: detail.grid,
     lenses: detail.lenses,
-    groups: detail.groups,
-    zones: detail.zones || [],
+    collections,
+    // One index by id, because everything downstream -- the hide set, the
+    // label ladder, a zone asking after its own collection -- speaks in ids.
+    collectionsById: new Map(collections.map((collection) => [collection.id, collection])),
     attrs: detail.attrs || {},
     merged: detail.merged || [],
     sections,
@@ -35,44 +37,53 @@ export async function loadWorld(entry) {
 }
 
 // The reader of packLocations. Each field is a view straight onto the buffer,
-// laid out so no copying or realignment is needed to get at it.
-export function unpackLocations(buffer, categories) {
+// laid out so no copying or realignment is needed to get at it. The owner
+// column indexes the collections array; only a point collection may own a
+// packed location, and a payload saying otherwise is refused rather than
+// guessed at.
+export function unpackLocations(buffer, collections) {
   const view = new DataView(buffer);
   const magic = String.fromCharCode(...new Uint8Array(buffer, 0, 8));
   if (magic !== "ATLASLOC") throw new Error("location payload is not in the expected form");
   const version = view.getUint16(8, true);
-  if (version !== 2) throw new Error(`location payload is version ${version}, and this reads 2`);
+  if (version !== 3) throw new Error(`location payload is version ${version}, and this reads 3`);
   const count = view.getUint32(10, true);
 
   let at = 16;
   const ids = new Int32Array(buffer, at, count);
   const latitudes = new Float32Array(buffer, (at += count * 4), count);
   const longitudes = new Float32Array(buffer, (at += count * 4), count);
-  const regions = new Int32Array(buffer, (at += count * 4), count);
+  const members = new Int32Array(buffer, (at += count * 4), count);
   const shards = new Int32Array(buffer, (at += count * 4), count);
   const offsets = new Uint32Array(buffer, (at += count * 4), count + 1);
   const owners = new Uint16Array(buffer, (at += (count + 1) * 4), count);
   const titles = new Uint8Array(buffer, at + count * 2);
 
   const decoder = new TextDecoder();
-  for (const category of categories) category.locations = [];
+  for (const collection of collections) {
+    if (collection.kind === "point") collection.locations = [];
+  }
   for (let index = 0; index < count; index++) {
-    categories[owners[index]].locations.push({
+    const owner = collections[owners[index]];
+    if (!owner || owner.kind !== "point") {
+      throw new Error(`location ${ids[index]} names collection ${owners[index]}, which is no point collection`);
+    }
+    owner.locations.push({
       id: ids[index],
       title: decoder.decode(titles.subarray(offsets[index], offsets[index + 1])),
       lat: latitudes[index],
       lng: longitudes[index],
-      regionId: regions[index] || undefined,
+      memberId: members[index] || undefined,
       shard: shards[index] || undefined,
     });
   }
 }
 
 // Descriptions and cross-references are half the catalog by weight and are read
-// one pin at a time, so a map's are fetched the first time one of its pins is
-// opened, and not at all if none ever is. The cache is keyed by the volume's
-// stamped base as well as the map, so an updated bundle is never answered
-// with the words of the build it replaced.
+// one feature at a time, so a map's are fetched the first time one of its
+// features is opened, and not at all if none ever is. The cache is keyed by the
+// volume's stamped base as well as the map, so an updated bundle is never
+// answered with the words of the build it replaced.
 export async function worldText() {
   const key = `${state.volume.base}/${state.world.slug}`;
   if (!state.textByWorld.has(key)) {

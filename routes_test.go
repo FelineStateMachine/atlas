@@ -57,8 +57,10 @@ func TestRoutesServeEmbeddedExplorer(t *testing.T) {
 	if body := rec.Body.String(); !strings.Contains(body, `id="layers"`) {
 		t.Fatal("root response does not contain the layers list")
 	}
-	if body := rec.Body.String(); !strings.Contains(body, `id="zone-toggle"`) {
-		t.Fatal("root response does not contain the zone boundaries switch")
+	// Zones stopped being a hard-coded switch when the legend became one
+	// tree: every collection, shape or point, renders into the same list.
+	if body := rec.Body.String(); !strings.Contains(body, `id="legend"`) {
+		t.Fatal("root response does not contain the legend tree")
 	}
 }
 
@@ -321,15 +323,14 @@ type mapPayload struct {
 			X, Y, Width, Height int
 		} `json:"surface"`
 	} `json:"lenses"`
-	Groups []struct {
-		Categories []struct {
-			Title       string `json:"title"`
-			DisplayType string `json:"displayType"`
-			Color       string `json:"color"`
-			IconAsset   string `json:"iconAsset"`
-		} `json:"categories"`
-	} `json:"groups"`
-	Zones []any `json:"zones"`
+	Collections []struct {
+		Title     string            `json:"title"`
+		Kind      string            `json:"kind"`
+		Color     string            `json:"color"`
+		IconAsset string            `json:"iconAsset"`
+		Attrs     map[string]string `json:"attrs"`
+		Features  []any             `json:"features"`
+	} `json:"collections"`
 }
 
 func readBuiltPayload(t *testing.T, held *bundle.Bundle, slug string) mapPayload {
@@ -500,18 +501,14 @@ func TestBuiltBundlesCarryTextLabelsAndZones(t *testing.T) {
 	marathon := builtGame(t, games, "marathon")
 	cryo := builtMapSlug(t, marathon, "Cryo Archive")
 	payload := readBuiltPayload(t, marathon, cryo)
-	var areaOrdinal = -1
-	var ordinal int
-	for _, group := range payload.Groups {
-		for _, category := range group.Categories {
-			if category.Title == "Area" && category.DisplayType == "text" {
-				areaOrdinal = ordinal
-			}
-			ordinal++
+	areaOrdinal := -1
+	for index, collection := range payload.Collections {
+		if collection.Title == "Area" && collection.Attrs["atlas.render.as"] == "text" {
+			areaOrdinal = index
 		}
 	}
 	if areaOrdinal < 0 {
-		t.Fatal("Cryo Archive has no text-display Area category")
+		t.Fatal("Cryo Archive has no text-rendered Area collection")
 	}
 	var foundPanopticon bool
 	for _, location := range readBuiltLocations(t, marathon, cryo) {
@@ -520,13 +517,19 @@ func TestBuiltBundlesCarryTextLabelsAndZones(t *testing.T) {
 		}
 	}
 	if !foundPanopticon {
-		t.Error("PANOPTICON is not preserved as a text-display location")
+		t.Error("PANOPTICON is not preserved as a text-rendered location")
 	}
 
 	forza := builtGame(t, games, "forza-horizon-6")
 	japan := readBuiltPayload(t, forza, builtMapSlug(t, forza, "Japan"))
-	if len(japan.Zones) != 10 {
-		t.Errorf("Forza Japan zones = %d, want 10", len(japan.Zones))
+	var zones int
+	for _, collection := range japan.Collections {
+		if collection.Kind != "point" {
+			zones += len(collection.Features)
+		}
+	}
+	if zones != 10 {
+		t.Errorf("Forza Japan zones = %d, want 10", zones)
 	}
 	var bounded int
 	for _, variant := range japan.Lenses {
@@ -592,29 +595,27 @@ func TestBuiltBundlesCarryCategoryIconsAndColors(t *testing.T) {
 	var foundPokemonCenter bool
 	for _, held := range games {
 		for _, entry := range held.Manifest.Worlds {
-			for _, group := range readBuiltPayload(t, held, entry.Slug).Groups {
-				for _, category := range group.Categories {
-					if category.IconAsset != "" {
-						iconAssets++
-						if strings.Contains(category.IconAsset, "/") {
-							t.Errorf("%s names icon %q, which is not bundle-relative",
-								held.Manifest.Volume.Slug, category.IconAsset)
-						}
-						if !held.Has("icons/" + category.IconAsset) {
-							t.Errorf("%s icon %q is missing", held.Manifest.Volume.Slug, category.IconAsset)
-						}
+			for _, collection := range readBuiltPayload(t, held, entry.Slug).Collections {
+				if collection.IconAsset != "" {
+					iconAssets++
+					if strings.Contains(collection.IconAsset, "/") {
+						t.Errorf("%s names icon %q, which is not bundle-relative",
+							held.Manifest.Volume.Slug, collection.IconAsset)
 					}
-					if held.Manifest.Volume.Slug != "pokemon-red-blue-yellow" ||
-						entry.Title != "Yellow" || category.Title != "Pokémon Center" {
-						continue
+					if !held.Has("icons/" + collection.IconAsset) {
+						t.Errorf("%s icon %q is missing", held.Manifest.Volume.Slug, collection.IconAsset)
 					}
-					foundPokemonCenter = true
-					if category.Color != "#38344C" {
-						t.Errorf("Pokémon Center color = %q, want #38344C", category.Color)
-					}
-					if category.IconAsset == "" {
-						t.Error("Pokémon Center has no icon asset")
-					}
+				}
+				if held.Manifest.Volume.Slug != "pokemon-red-blue-yellow" ||
+					entry.Title != "Yellow" || collection.Title != "Pokémon Center" {
+					continue
+				}
+				foundPokemonCenter = true
+				if collection.Color != "#38344C" {
+					t.Errorf("Pokémon Center color = %q, want #38344C", collection.Color)
+				}
+				if collection.IconAsset == "" {
+					t.Error("Pokémon Center has no icon asset")
 				}
 			}
 		}

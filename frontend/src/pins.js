@@ -19,29 +19,27 @@ export function buildPins() {
   state.sources.priority.clear();
   state.pins = [];
   state.pinByID.clear();
-  for (const group of state.world.groups) {
-    for (const category of group.categories) {
-      if (renderAs(category) !== "text") prepareMarkerIcon(category);
-      for (const location of category.locations) {
-        const pin = {
-          location,
-          category,
-          group,
-          coordinate: project(location.lat, location.lng),
-          filteredHidden: false,
-          priority: pinPriority(category, location),
-          feature: null,
-        };
-        pin.feature = new Feature({
-          geometry: new Point(pin.coordinate),
-          pin,
-          priority: pin.priority,
-        });
-        state.pins.push(pin);
-        state.pinByID.set(location.id, pin);
-        if (renderAs(category) === "text") state.sources.text.addFeature(pin.feature);
-        else state.sources.pins.addFeature(pin.feature);
-      }
+  for (const category of state.world.collections) {
+    if (category.kind !== "point") continue;
+    if (renderAs(category) !== "text") prepareMarkerIcon(category);
+    for (const location of category.locations) {
+      const pin = {
+        location,
+        category,
+        coordinate: project(location.lat, location.lng),
+        filteredHidden: false,
+        priority: pinPriority(category, location),
+        feature: null,
+      };
+      pin.feature = new Feature({
+        geometry: new Point(pin.coordinate),
+        pin,
+        priority: pin.priority,
+      });
+      state.pins.push(pin);
+      state.pinByID.set(location.id, pin);
+      if (renderAs(category) === "text") state.sources.text.addFeature(pin.feature);
+      else state.sources.pins.addFeature(pin.feature);
     }
   }
   applyPinFilters();

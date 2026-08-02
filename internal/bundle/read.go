@@ -123,8 +123,9 @@ func (b *Bundle) Close() error {
 }
 
 // payloadPeek is the sliver of a world payload that validation reads: which
-// pyramids its layers draw from, which icons its categories name, and what
-// the payload says of itself in the shared conventions.
+// pyramids its layers draw from, which icons its collections name, what kind
+// of features each collection declares and inlines, and what the payload
+// says of itself in the shared conventions.
 type payloadPeek struct {
 	Lenses []struct {
 		Tiles   string   `json:"tiles"`
@@ -132,16 +133,19 @@ type payloadPeek struct {
 		MaxZoom int      `json:"maxZoom"`
 		Formats []string `json:"formats"`
 	} `json:"lenses"`
-	Groups []struct {
-		Categories []struct {
-			IconAsset   string            `json:"iconAsset"`
-			DisplayType string            `json:"displayType"`
-			Attrs       map[string]string `json:"attrs"`
-		} `json:"categories"`
-	} `json:"groups"`
-	Zones []struct {
-		Attrs map[string]string `json:"attrs"`
-	} `json:"zones"`
+	Collections []struct {
+		ID        int64             `json:"id"`
+		Title     string            `json:"title"`
+		Kind      string            `json:"kind"`
+		IconAsset string            `json:"iconAsset"`
+		Attrs     map[string]string `json:"attrs"`
+		Features  []struct {
+			Geometry []struct {
+				Type string `json:"type"`
+			} `json:"geometry"`
+			Attrs map[string]string `json:"attrs"`
+		} `json:"features"`
+	} `json:"collections"`
 	Attrs map[string]string `json:"attrs"`
 }
 
@@ -151,11 +155,13 @@ type textPeek struct {
 	Attrs map[string]string `json:"a"`
 }
 
-// Validate checks the manifest's promises against the archive: // world has its three payloads, the packed locations agree with the advertised
-// pin count, every lens's tile levels hold tiles, every named icon exists,
-// and nothing carries a live URL -- Atlas runs with no network, so a URL in a
-// bundle is dead weight at best. Producers and importers run this; opening a
-// bundle at launch does not.
+// Validate checks the manifest's promises against the archive: every world
+// has its three payloads, the packed locations and inline shape features
+// agree with the advertised per-kind counts, every collection's features are
+// the kind it declares, every lens's tile levels hold tiles, every named
+// icon exists, and nothing carries a live URL -- Atlas runs with no network,
+// so a URL in a bundle is dead weight at best. Producers and importers run
+// this; opening a bundle at launch does not.
 func (b *Bundle) Validate() error {
 	levels := make(map[string]int)
 	for name := range b.entries {
@@ -190,9 +196,9 @@ func (b *Bundle) Validate() error {
 		if err != nil {
 			return fmt.Errorf("world %s: %w", entry.Slug, err)
 		}
-		if len(locations) != entry.PinCount {
-			return fmt.Errorf("world %s packs %d locations, and the manifest says %d",
-				entry.Slug, len(locations), entry.PinCount)
+		if len(locations) != entry.Points {
+			return fmt.Errorf("world %s packs %d locations, and the manifest says %d points",
+				entry.Slug, len(locations), entry.Points)
 		}
 
 		var peek payloadPeek
@@ -221,12 +227,8 @@ func (b *Bundle) Validate() error {
 				}
 			}
 		}
-		for _, group := range peek.Groups {
-			for _, category := range group.Categories {
-				if category.IconAsset != "" && !b.Has("icons/"+category.IconAsset) {
-					return fmt.Errorf("world %s names a missing icon %s", entry.Slug, category.IconAsset)
-				}
-			}
+		if err := b.validateCollections(entry, peek, locations); err != nil {
+			return err
 		}
 		if b.Manifest.Conventions >= 1 {
 			if err := validateConventions(entry.Slug, peek, text); err != nil {
@@ -237,12 +239,91 @@ func (b *Bundle) Validate() error {
 	return nil
 }
 
+// validateCollections holds a world's collections array to the shape the
+// format declares, whatever vocabulary the bundle speaks: every collection a
+// known kind with a distinct id, point features packed rather than inlined,
+// inline geometry agreeing with its collection's kind, every path collection
+// carrying the stroke width a path is drawn at, label policy only where
+// labels draw on ground, the per-kind counts matching the manifest, and every
+// packed location owned by a point collection that exists.
+func (b *Bundle) validateCollections(entry WorldEntry, peek payloadPeek, locations []Location) error {
+	ids := make(map[int64]string, len(peek.Collections))
+	var paths, areas int
+	for _, collection := range peek.Collections {
+		if holder, taken := ids[collection.ID]; taken {
+			return fmt.Errorf("world %s collections %q and %q share id %d",
+				entry.Slug, holder, collection.Title, collection.ID)
+		}
+		ids[collection.ID] = collection.Title
+		if collection.IconAsset != "" && !b.Has("icons/"+collection.IconAsset) {
+			return fmt.Errorf("world %s names a missing icon %s", entry.Slug, collection.IconAsset)
+		}
+		switch collection.Kind {
+		case semconv.GeometryPoint:
+			if len(collection.Features) > 0 {
+				return fmt.Errorf("world %s point collection %q carries %d inline features; points ride the packed payload",
+					entry.Slug, collection.Title, len(collection.Features))
+			}
+		case semconv.GeometryPath, semconv.GeometryArea:
+			for _, feature := range collection.Features {
+				for _, geometry := range feature.Geometry {
+					if !geometryFitsKind(collection.Kind, geometry.Type) {
+						return fmt.Errorf("world %s %s collection %q inlines a %s",
+							entry.Slug, collection.Kind, collection.Title, geometry.Type)
+					}
+				}
+			}
+			if collection.Kind == semconv.GeometryPath {
+				paths += len(collection.Features)
+				if collection.Attrs[semconv.KeyStrokeWidthPx] == "" {
+					return fmt.Errorf("world %s path collection %q declares no %s",
+						entry.Slug, collection.Title, semconv.KeyStrokeWidthPx)
+				}
+			} else {
+				areas += len(collection.Features)
+			}
+		default:
+			return fmt.Errorf("world %s collection %q declares kind %q, which is none of point, path, area",
+				entry.Slug, collection.Title, collection.Kind)
+		}
+		if _, spoken := collection.Attrs[semconv.KeyLabelPolicy]; spoken && collection.Kind != semconv.GeometryArea {
+			return fmt.Errorf("world %s %s collection %q declares a label policy; only areas curate their labels",
+				entry.Slug, collection.Kind, collection.Title)
+		}
+	}
+	if paths != entry.Paths || areas != entry.Areas {
+		return fmt.Errorf("world %s inlines %d paths and %d areas, and the manifest says %d and %d",
+			entry.Slug, paths, areas, entry.Paths, entry.Areas)
+	}
+	for _, location := range locations {
+		if int(location.Owner) >= len(peek.Collections) ||
+			peek.Collections[location.Owner].Kind != semconv.GeometryPoint {
+			return fmt.Errorf("world %s location %d names collection index %d, which is no point collection",
+				entry.Slug, location.ID, location.Owner)
+		}
+	}
+	return nil
+}
+
+// geometryFitsKind says which GeoJSON geometry types a collection kind may
+// inline: ground for areas, lines for paths.
+func geometryFitsKind(kind, geometryType string) bool {
+	switch kind {
+	case semconv.GeometryArea:
+		return geometryType == "MultiPolygon" || geometryType == "Polygon"
+	case semconv.GeometryPath:
+		return geometryType == "MultiLineString" || geometryType == "LineString"
+	}
+	return false
+}
+
 // validateConventions holds a declaring bundle to the vocabulary it claims:
-// every attribute registered and well-formed, the render attribute agreeing
-// with the legacy field it will one day retire, a declared standard icon
-// actually resolved, and a declared sphere carrying a mapping that parses.
-// A bundle that declares no conventions is not held to any -- the strictness
-// belongs to the claim.
+// every attribute registered, well-formed, and attached where the registry
+// says it lives -- collections speak for their kind, stroke, and labels;
+// features speak only for themselves -- a declared standard icon actually
+// resolved, a declared kind agreeing with the wire's own field, and a
+// declared sphere carrying a mapping that parses. A bundle that declares no
+// conventions is not held to any -- the strictness belongs to the claim.
 func validateConventions(slug string, peek payloadPeek, text []byte) error {
 	if err := semconv.Validate(semconv.EntityWorld, peek.Attrs); err != nil {
 		return fmt.Errorf("world %s: %w", slug, err)
@@ -257,42 +338,20 @@ func validateConventions(slug string, peek payloadPeek, text []byte) error {
 			return fmt.Errorf("world %s: %w", slug, err)
 		}
 	}
-	for _, zone := range peek.Zones {
-		// A zone's attributes attach to the feature it is -- except its
-		// stroke width, which the v2 wire spells on each zone though the
-		// registry attaches it to the collection. The zone answers for its
-		// collection until the unified wire moves the write.
-		attrs := zone.Attrs
-		if width, carried := attrs[semconv.KeyStrokeWidthPx]; carried {
-			if err := semconv.Validate(semconv.EntityCollection,
-				map[string]string{semconv.KeyStrokeWidthPx: width}); err != nil {
-				return fmt.Errorf("world %s: %w", slug, err)
-			}
-			rest := make(map[string]string, len(attrs)-1)
-			for key, value := range attrs {
-				if key != semconv.KeyStrokeWidthPx {
-					rest[key] = value
-				}
-			}
-			attrs = rest
+	for _, collection := range peek.Collections {
+		if err := semconv.Validate(semconv.EntityCollection, collection.Attrs); err != nil {
+			return fmt.Errorf("world %s collection %q: %w", slug, collection.Title, err)
 		}
-		if err := semconv.Validate(semconv.EntityFeature, attrs); err != nil {
-			return fmt.Errorf("world %s: %w", slug, err)
+		if declared, spoken := collection.Attrs[semconv.KeyGeometryKind]; spoken && declared != collection.Kind {
+			return fmt.Errorf("world %s collection %q says kind %s while its attributes say %s",
+				slug, collection.Title, collection.Kind, declared)
 		}
-	}
-	for _, group := range peek.Groups {
-		for _, category := range group.Categories {
-			if err := semconv.Validate(semconv.EntityCollection, category.Attrs); err != nil {
+		if collection.Attrs[semconv.KeyIconStd] != "" && collection.IconAsset == "" {
+			return fmt.Errorf("world %s declares a standard icon that was never resolved", slug)
+		}
+		for _, feature := range collection.Features {
+			if err := semconv.Validate(semconv.EntityFeature, feature.Attrs); err != nil {
 				return fmt.Errorf("world %s: %w", slug, err)
-			}
-			if declared, ok := category.Attrs[semconv.KeyRenderAs]; ok {
-				if legacy := semconv.RenderAs(nil, category.DisplayType); declared != legacy {
-					return fmt.Errorf("world %s renders a category as %s while its legacy field says %s",
-						slug, declared, legacy)
-				}
-			}
-			if category.Attrs[semconv.KeyIconStd] != "" && category.IconAsset == "" {
-				return fmt.Errorf("world %s declares a standard icon that was never resolved", slug)
 			}
 		}
 	}

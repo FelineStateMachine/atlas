@@ -159,8 +159,12 @@ export function bindUIEvents() {
     foldDockByHand(!state.dockFolded);
   });
   elements.searchResults.addEventListener("click", (event) => {
-    const result = event.target.closest("[data-location]");
+    const result = event.target.closest("[data-location], [data-zone]");
     if (!result) return;
+    if (result.dataset.zone) {
+      jumpToZone(Number(result.dataset.zone));
+      return;
+    }
     const pin = state.pinByID.get(Number(result.dataset.location));
     if (pin) revealPin(pin);
   });

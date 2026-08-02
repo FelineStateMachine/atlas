@@ -10,19 +10,24 @@ const (
 	locationMagic = "ATLASLOC"
 	// 2 added the shard column. A map split into layers offers one at a time,
 	// and without it every layer's locations were drawn over every other.
-	locationVersion = 2
+	// 3 moved the meaning without moving a byte: owner now indexes the world
+	// payload's collections array rather than a flattened category order, and
+	// the region column reads as Member -- the id of the area feature that
+	// contains the point, zero for none.
+	locationVersion = 3
 )
 
-// Location is one pin as the packed payload carries it. Owner is the position
-// of the pin's category in the map's flattened category order, which is the
-// only category identity the viewer needs once the payload JSON has listed
-// the categories in that same order.
+// Location is one point feature as the packed payload carries it. Owner is
+// the position of the feature's collection in the world payload's
+// collections array, which is the only collection identity the viewer needs
+// once the payload JSON has listed the collections in that same order.
+// Member is the id of the area feature containing this point, zero for none.
 type Location struct {
 	ID     int64
 	Title  string
 	Lat    float64
 	Lng    float64
-	Region int64
+	Member int64
 	Shard  int64
 	Owner  uint16
 }
@@ -64,7 +69,7 @@ func PackLocations(locations []Location) []byte {
 		put32(math.Float32bits(float32(location.Lng)))
 	}
 	for _, location := range locations {
-		put32(uint32(int32(location.Region)))
+		put32(uint32(int32(location.Member)))
 	}
 	for _, location := range locations {
 		put32(uint32(int32(location.Shard)))
@@ -114,7 +119,7 @@ func UnpackLocations(data []byte) ([]Location, error) {
 	}
 	next(count * 4)
 	for index := range out {
-		out[index].Region = int64(int32(u32(index)))
+		out[index].Member = int64(int32(u32(index)))
 	}
 	next(count * 4)
 	for index := range out {

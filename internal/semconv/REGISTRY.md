@@ -21,7 +21,7 @@ renamed `atlas.category.key` to `atlas.collection.key` to match.
 |---|---|---|---|---|
 | `atlas.geometry.kind` | collection | `point` \| `path` \| `area` | stable | What shape of thing the collection holds. Declared once per collection; every feature in it is that kind, and readers pick rendering and UX by this key instead of sniffing geometry types. |
 | `atlas.label.policy` | collection | `always` \| `quiet` | experimental | Whether an area collection's features wear their names on the map always, or quietly — only on highlight, selection, or an explicit reveal. Area collections only; absent means `always` for areas (today's look), and paths are always quiet. |
-| `atlas.render.as` | collection | `pin` \| `text` | stable | How a point collection's features draw: markers, or floating text labels. Absent, legacy `displayType` decides; absent both, `pin`. |
+| `atlas.render.as` | collection | `pin` \| `text` | stable | How a point collection's features draw: markers, or floating text labels. Absent means `pin`; the legacy `displayType` field no longer rides the wire, and only ingestion still reads it to speak this key for old captures. |
 | `atlas.icon.std` | collection | `set/name`, e.g. `maki/mountain` | stable | Standard-library icon for a collection without artwork. Resolved to embedded bytes at build time; the app only sees the resolved asset. |
 | `atlas.icon.kind` | collection | `glyph` \| `picture` | stable | Whether the icon asset is a monochrome glyph the viewer tints, or a picture drawn as-is. Names what the `.png` suffix used to imply. |
 | `atlas.icon.outset` | world | `light` \| `dark` | stable | The rim a map's markers wear to stay legible against its art. |

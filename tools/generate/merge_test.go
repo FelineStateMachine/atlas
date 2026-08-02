@@ -19,7 +19,7 @@ func fixtureMergeGrid() tileGrid {
 // and every donor pin resolves as matched.
 func fixtureLandmarks(base int64) worldCollection {
 	collection := worldCollection{
-		ID: 1, Title: "Landmarks", Group: "Markers", GroupID: 1,
+		ID: 1, Title: "Landmarks", Group: "Markers",
 		Kind: kindPoint, Icon: "landmark", Visible: true,
 	}
 	lats := []float64{40, 10, -20}
@@ -54,7 +54,6 @@ func TestMergeWorldHoldsDonorShapeFeatures(t *testing.T) {
 			},
 			Merged: []mergedSource{{
 				Source: "MapGenie", Slug: "mapgenie", Origin: true,
-				DonorPins:     12,
 				DonorFeatures: featureCounts{Point: 12, Area: 1},
 			}},
 		}},
@@ -75,7 +74,6 @@ func TestMergeWorldHoldsDonorShapeFeatures(t *testing.T) {
 			},
 			Merged: []mergedSource{{
 				Source: "IGN Wiki", Slug: "ign-wiki", Origin: true,
-				DonorPins:     12,
 				DonorFeatures: featureCounts{Point: 12, Path: 1, Area: 2},
 			}},
 		}},
@@ -92,10 +90,6 @@ func TestMergeWorldHoldsDonorShapeFeatures(t *testing.T) {
 	account := winner.Merged[1]
 	if account.DonorFeatures != (featureCounts{Point: 12, Path: 1, Area: 2}) {
 		t.Errorf("donor features counted as %+v", account.DonorFeatures)
-	}
-	if account.DonorPins != account.DonorFeatures.Point {
-		t.Errorf("donorPins %d disagrees with donorFeatures.point %d",
-			account.DonorPins, account.DonorFeatures.Point)
 	}
 	if len(account.Matched) != 12 || account.Added != 0 || account.AddedShapes != 0 {
 		t.Errorf("points resolved as %d matched, %d added, %d added shapes; want 12, 0, 0",
@@ -129,8 +123,7 @@ func gateWorld(counts featureCounts, collections ...worldCollection) *catalogWor
 		Slug:        "overworld",
 		Collections: collections,
 		Merged: []mergedSource{{
-			Source: "MapGenie", Origin: true,
-			DonorPins: counts.Point, DonorFeatures: counts,
+			Source: "MapGenie", Origin: true, DonorFeatures: counts,
 		}},
 	}
 }
@@ -143,12 +136,6 @@ func TestMergeGateAccountsPerKind(t *testing.T) {
 		want   string
 	}{
 		{
-			name:   "the two point spellings must agree",
-			merge:  &mergedSource{DonorPins: 3, DonorFeatures: featureCounts{Point: 2}},
-			winner: gateWorld(featureCounts{}),
-			want:   "two point counts",
-		},
-		{
 			name:   "every donor shape must be held",
 			merge:  &mergedSource{DonorFeatures: featureCounts{Area: 1}},
 			winner: gateWorld(featureCounts{}),
@@ -156,7 +143,7 @@ func TestMergeGateAccountsPerKind(t *testing.T) {
 		},
 		{
 			name: "a held point never settles the shape account",
-			merge: &mergedSource{DonorPins: 1, DonorFeatures: featureCounts{Point: 1, Area: 1},
+			merge: &mergedSource{DonorFeatures: featureCounts{Point: 1, Area: 1},
 				Held: []heldPin{{Donor: 5, Title: "Well", Reason: "named like another"}}},
 			winner: gateWorld(featureCounts{}),
 			want:   "holds 0 shape features of the 1",
@@ -194,7 +181,7 @@ func TestMergeGateAccountsPerKind(t *testing.T) {
 		},
 		{
 			name: "a consistent account of every kind passes",
-			merge: &mergedSource{DonorPins: 1, DonorFeatures: featureCounts{Point: 1, Path: 1, Area: 1},
+			merge: &mergedSource{DonorFeatures: featureCounts{Point: 1, Path: 1, Area: 1},
 				Held: []heldPin{
 					{Donor: 5, Title: "Well", Reason: "named like another"},
 					{Donor: 6, Title: "Race", Reason: heldShapeReason},

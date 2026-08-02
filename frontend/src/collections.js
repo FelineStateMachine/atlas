@@ -1,23 +1,33 @@
-// The filtering side of the coming collections model, spoken early against
-// the v2 wire. When the unified format lands, every feature will belong to a
-// named collection and highlighting will read AND across collections, OR
-// within one: two districts highlighted widens the question, a district and a
-// subwatershed narrows it to the ground they share. That logic lives here
-// now, while every zone still belongs to one implicit collection -- over a
-// single collection the AND is exactly the union the map has always drawn,
-// so nothing looks different until a second collection exists to conjoin.
+// The filtering side of the collections model. Every feature belongs to a
+// named collection, and highlighting reads AND across collections, OR within
+// one: two districts highlighted widens the question, a district and a
+// subwatershed narrows it to the ground they share.
 
 import { state } from "./state.js";
 
-// collectionOf names the collection a zone belongs to. The v2 wire never
-// says, so there is exactly one answer; at flag day this reads what the wire
-// declares, and nothing else has to learn the new vocabulary.
+// collectionOf names the collection a shape feature belongs to: the id it
+// was stamped with when its collection was rendered.
 export function collectionOf(zone) {
-  return "zones";
+  return zone?.collectionId;
+}
+
+// collectionFor answers with the collection itself, for anything that needs
+// its attributes -- the label ladder, the stroke width -- rather than its id.
+export function collectionFor(zone) {
+  return state.world?.collectionsById?.get(zone?.collectionId);
+}
+
+// anyShapeCollectionVisible says whether any ground is drawn at all: the
+// zone layers stay up while one shape collection is shown, and each feature's
+// own style answers for its collection from there.
+export function anyShapeCollectionVisible() {
+  return (state.world?.collections || []).some(
+    (collection) => collection.kind !== "point" && !isCollectionHidden(collection.id),
+  );
 }
 
 // isCollectionHidden is the one question every renderer asks about a
-// collection: pins ask by their category's id, shape features ask through
+// collection: pins ask by their collection's id, shape features ask through
 // collectionOf. Nothing outside the legend touches the set directly.
 export function isCollectionHidden(collectionID) {
   return state.hiddenCollections.has(collectionID);

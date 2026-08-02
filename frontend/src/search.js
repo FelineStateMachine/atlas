@@ -1,3 +1,4 @@
+import { isCollectionHidden } from "./collections.js";
 import { elements } from "./dom.js";
 import { saveSession } from "./session.js";
 import { state } from "./state.js";
@@ -8,43 +9,35 @@ import { formatNumber } from "./util.js";
 // the canvas; the list is a shortlist, and it says when it is one.
 const dockListLimit = 100;
 
-// The dock's results pane: every location that survives the current search
-// and category filters, alphabetically, capped. With a search underway the
-// list is exactly the matches; with none it is a browsable index of what the
-// legend has left visible.
+// The dock's results pane: every feature that survives the current search and
+// collection filters, alphabetically, capped -- named shape features listed
+// beside the locations, since ground is as findable as anything standing on
+// it. With a search underway the list is exactly the matches; with none it is
+// a browsable index of what the legend has left visible.
 export function renderSearchResults() {
   if (!elements.searchResults) return;
-  const eligible = state.pins
-    .filter((pin) => !pin.filteredHidden)
-    .sort((a, b) => a.location.title.localeCompare(b.location.title));
+  const eligible = [
+    ...state.pins
+      .filter((pin) => !pin.filteredHidden)
+      .map((pin) => ({ title: pin.location.title, pin })),
+    ...[...state.zoneRecords.values()]
+      .filter((record) => record.zone.title &&
+        !isCollectionHidden(record.zone.collectionId) &&
+        (!state.search || record.zone.title.toLocaleLowerCase().includes(state.search)))
+      .map((record) => ({ title: record.zone.title, record })),
+  ].sort((a, b) => a.title.localeCompare(b.title));
   const shown = eligible.slice(0, dockListLimit);
   const fragment = document.createDocumentFragment();
   if (!shown.length) {
     const empty = document.createElement("p");
     empty.className = "search-empty";
     empty.textContent = state.search
-      ? "No visible locations match."
-      : "Nothing is enabled. Show a category to list its locations.";
+      ? "No visible features match."
+      : "Nothing is enabled. Show a collection to list its features.";
     fragment.append(empty);
   }
-  for (const pin of shown) {
-    const button = document.createElement("button");
-    button.type = "button";
-    button.className = "search-result";
-    if (state.selectedPin === pin) button.classList.add("is-selected");
-    button.dataset.location = String(pin.location.id);
-    applyCategoryVisual(button, pin.category);
-    const dot = document.createElement("span");
-    dot.className = "result-dot";
-    applyCategoryGlyph(dot, pin.category, initials(pin.category.title));
-    const copy = document.createElement("span");
-    const title = document.createElement("strong");
-    title.textContent = pin.location.title;
-    const category = document.createElement("small");
-    category.textContent = `${pin.category.title} · ${pin.group.title}`;
-    copy.append(title, category);
-    button.append(dot, copy);
-    fragment.append(button);
+  for (const entry of shown) {
+    fragment.append(entry.pin ? pinResult(entry.pin) : zoneResult(entry.record));
   }
   if (eligible.length > shown.length) {
     const note = document.createElement("p");
@@ -56,6 +49,47 @@ export function renderSearchResults() {
   elements.searchResults.replaceChildren(fragment);
   updateDockReadout(eligible.length);
   updateDockRail();
+}
+
+function pinResult(pin) {
+  const button = document.createElement("button");
+  button.type = "button";
+  button.className = "search-result";
+  if (state.selectedPin === pin) button.classList.add("is-selected");
+  button.dataset.location = String(pin.location.id);
+  applyCategoryVisual(button, pin.category);
+  const dot = document.createElement("span");
+  dot.className = "result-dot";
+  applyCategoryGlyph(dot, pin.category, initials(pin.category.title));
+  const copy = document.createElement("span");
+  const title = document.createElement("strong");
+  title.textContent = pin.location.title;
+  const category = document.createElement("small");
+  category.textContent = [pin.category.title, pin.category.group].filter(Boolean).join(" · ");
+  copy.append(title, category);
+  button.append(dot, copy);
+  return button;
+}
+
+// A shape feature's row wears a swatch of the zone's own colour where a pin
+// wears its category glyph, and jumps the way its legend row does.
+function zoneResult(record) {
+  const button = document.createElement("button");
+  button.type = "button";
+  button.className = "search-result";
+  if (state.selectedZone === record.zone) button.classList.add("is-selected");
+  button.dataset.zone = String(record.zone.id);
+  const dot = document.createElement("span");
+  dot.className = "result-dot";
+  dot.style.setProperty("background", record.color);
+  const copy = document.createElement("span");
+  const title = document.createElement("strong");
+  title.textContent = record.zone.title;
+  const collection = document.createElement("small");
+  collection.textContent = record.collection?.title || "Zone";
+  copy.append(title, collection);
+  button.append(dot, copy);
+  return button;
 }
 
 // Folded, the dock is a rail with one word on it, and that word read the same
@@ -78,7 +112,7 @@ export function updateDockRail() {
 
 function updateDockReadout(count) {
   elements.dockCount.textContent =
-    `${formatNumber(count)} ${count === 1 ? "location" : "locations"}`;
+    `${formatNumber(count)} ${count === 1 ? "feature" : "features"}`;
   if (state.search) {
     elements.dockFlag.textContent = `“${state.search}”`;
     elements.dockFlag.hidden = false;

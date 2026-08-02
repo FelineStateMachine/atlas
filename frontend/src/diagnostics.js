@@ -1,3 +1,4 @@
+import { anyShapeCollectionVisible } from "./collections.js";
 import { elements } from "./dom.js";
 import { state } from "./state.js";
 import { viewMaxZoom } from "./navigation.js";
@@ -49,7 +50,7 @@ export function exposeDiagnostics() {
       subgridVisible: state.subgridVisible,
     },
     zones: {
-      visible: !state.hiddenCollections.has("zones"),
+      visible: anyShapeCollectionVisible(),
       count: state.zoneRecords.size,
       focused: state.zoneRecords.get(state.focusedZoneID)?.zone.title || null,
       highlighted: [...state.highlightedZones]

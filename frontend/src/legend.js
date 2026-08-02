@@ -8,22 +8,27 @@ import { recountZoneTitles, syncZoneLayers } from "./zones.js";
 import { applyCategoryVisual, applyCategoryGlyph, initials } from "./theme.js";
 import { formatNumber } from "./util.js";
 
-// The sidebar is one legend tree now: shape collections, text labels, and pin
+// The sidebar is one legend tree: shape collections, text labels, and pin
 // groups are all sections of the same list, each holding rows of the same
-// shape. On the v2 wire the zones have no collection of their own, so they
-// stand as one synthetic "Zones" pseudo-collection -- the same section key
-// navigation pre-collapses -- until the v3 wire names the real ones.
-export function legendSections(groups, zones = []) {
+// shape. Sections come from the wire's group strings, in order of first
+// appearance; an ungrouped shape collection files under the viewer's own
+// Zones section, which keeps the pre-collapse behaviour a place to land.
+export function legendSections(collections) {
   const sections = [];
+  const at = new Map();
+  const place = (key, title, collection) => {
+    if (!at.has(key)) {
+      at.set(key, sections.length);
+      sections.push({ key, title, collections: [] });
+    }
+    sections[at.get(key)].collections.push(collection);
+  };
   const text = [];
-  for (const group of groups) {
-    const drawn = [];
-    for (const category of group.categories) {
-      (renderAs(category) === "text" ? text : drawn).push(category);
-    }
-    if (drawn.length) {
-      sections.push({ key: `group-${group.id}`, title: group.title, collections: drawn });
-    }
+  const zones = [];
+  for (const collection of collections) {
+    if (collection.kind === "point" && renderAs(collection) === "text") text.push(collection);
+    else if (collection.kind !== "point" && !collection.group) zones.push(collection);
+    else place(`group-${collection.group}`, collection.group, collection);
   }
   // Categories drawn as text are labels for the ground itself -- Area, Region,
   // Province -- and are read and edited as one set. Gathered here rather than
@@ -31,13 +36,7 @@ export function legendSections(groups, zones = []) {
   // another kind of marker. Above the pin groups, under the zones: labels and
   // boundaries both say where you are, rather than what is worth going to.
   if (text.length) sections.unshift({ key: "text", title: "Text", collections: text });
-  if (zones.length) {
-    sections.unshift({
-      key: "zones",
-      title: "Zones",
-      collections: [{ id: "zones", title: "Zones", kind: "area", features: zones }],
-    });
-  }
+  if (zones.length) sections.unshift({ key: "zones", title: "Zones", collections: zones });
   return sections;
 }
 
@@ -48,7 +47,7 @@ export function collectionKind(collection) {
 }
 
 export function collectionCount(collection) {
-  return (collection.features || collection.locations).length;
+  return (collection.features || collection.locations || []).length;
 }
 
 // Collection ids ride the DOM as strings, but point categories are known

@@ -1,37 +1,55 @@
 // The label-policy ladder, pure and DOM-free: the reader's override
-// outranks the collection's declared word, which outranks the zone's own,
-// and silence all the way down means "always" -- the meaning every bundle
-// from before the key already carried.
+// outranks the collection's declared word, which outranks the kind's own
+// default -- areas speak unasked, paths wait -- and a zone answers through
+// the collection the wire stamped it with.
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { labelPolicy } from "../src/semconv.js";
+import { featureAttributeRows, labelPolicy, renderAs } from "../src/semconv.js";
 import { state } from "../src/state.js";
 
-test("labelPolicy climbs override, collection, zone, default", () => {
+test("labelPolicy climbs override, collection, kind default", () => {
   state.labelOverrides.clear();
-  const quietZone = { attrs: { "atlas.label.policy": "quiet" } };
+  const districts = { id: 41, kind: "area", attrs: {} };
+  const hydro = { id: 42, kind: "area", attrs: { "atlas.label.policy": "quiet" } };
+  const creeks = { id: 43, kind: "path", attrs: { "atlas.stroke.width_px": "10" } };
 
-  assert.equal(labelPolicy({}), "always", "silence means always");
-  assert.equal(labelPolicy({ attrs: {} }), "always");
-  assert.equal(labelPolicy(quietZone), "quiet", "the zone's own word");
+  assert.equal(labelPolicy(null, districts), "always", "silence means always for areas");
+  assert.equal(labelPolicy(null, hydro), "quiet", "the collection's curated word");
+  assert.equal(labelPolicy(null, creeks), "quiet", "paths wait by default");
 
-  const collection = { id: "watersheds", attrs: { "atlas.label.policy": "always" } };
-  assert.equal(labelPolicy(quietZone, collection), "always",
-    "the collection outranks the zone");
-
-  state.labelOverrides.set("watersheds", "quiet");
-  assert.equal(labelPolicy(quietZone, collection), "quiet",
-    "the reader outranks the producer");
+  state.labelOverrides.set(42, "always");
+  assert.equal(labelPolicy(null, hydro), "always", "the reader outranks the producer");
   state.labelOverrides.clear();
 });
 
-test("a v2 zone answers overrides through its implicit collection", () => {
+test("a zone answers through the collection the wire stamped it with", () => {
   state.labelOverrides.clear();
-  const zone = { attrs: {} };
-  assert.equal(labelPolicy(zone), "always");
-  state.labelOverrides.set("zones", "quiet");
-  assert.equal(labelPolicy(zone), "quiet",
-    "no collection on the wire, yet the override still lands");
+  const hydro = { id: 42, kind: "area", attrs: { "atlas.label.policy": "quiet" } };
+  state.world = { collectionsById: new Map([[42, hydro]]) };
+  const zone = { id: 7, collectionId: 42 };
+  assert.equal(labelPolicy(zone), "quiet", "the collection speaks for its zone");
+  state.labelOverrides.set(42, "always");
+  assert.equal(labelPolicy(zone), "always", "the override lands by collection id");
   state.labelOverrides.clear();
+  state.world = null;
+});
+
+test("renderAs reads the declared attribute alone", () => {
+  assert.equal(renderAs({ attrs: { "atlas.render.as": "text" } }), "text");
+  assert.equal(renderAs({ attrs: {} }), "pin", "silence means markers");
+  assert.equal(renderAs({}), "pin", "no attrs at all still means markers");
+});
+
+test("featureAttributeRows curates, labels, and skips machinery", () => {
+  const rows = featureAttributeRows({
+    "atlas.hydro.huc12": "170703010101",
+    "atlas.geo.lat": "44.05",
+    "atlas.geo.lon": "-121.3",
+    "atlas.stroke.width_px": "12",
+    "atlas.label.policy": "quiet",
+  });
+  assert.deepEqual(rows, [{ label: "HUC-12", value: "170703010101" }],
+    "only material survives: geo has rows of its own, rendering is machinery");
+  assert.deepEqual(featureAttributeRows(undefined), [], "no attrs, no rows");
 });

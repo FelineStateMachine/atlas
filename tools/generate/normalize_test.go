@@ -9,15 +9,15 @@ import (
 	"github.com/FelineStateMachine/atlas/internal/semconv"
 )
 
-// The collections model only earns its place if the v2 wire can be rebuilt
-// from it without a byte moving: a capture normalized into collections and
-// re-emitted must say exactly what the old direct build said. This walks one
-// fixture through normalizeWorld and the emission-time reconstruction and
-// holds the result to the shapes the old code produced.
-func TestNormalizeWorldRoundTripsTheV2Shapes(t *testing.T) {
+// A capture normalizes into the same collections the wire now says: each
+// category a point collection carrying its group title and resolved colours,
+// the regions folded into the implicit area collection with a claimed id of
+// its own, and what never drew never surviving.
+func TestNormalizeWorldBuildsTheCollections(t *testing.T) {
 	oldTown := int64(9001)
 	ring := json.RawMessage(`[[[[0,0],[1,0],[1,1]]]]`)
 	raw := rawMap{
+		ID: 7,
 		Groups: []rawGroup{
 			{ID: 1, Title: "Districts", Color: "38344C", IconColor: "ffffff", Categories: []rawCategory{
 				{
@@ -51,7 +51,7 @@ func TestNormalizeWorldRoundTripsTheV2Shapes(t *testing.T) {
 				},
 			},
 			// A region whose geometry all came through empty has nothing to
-			// draw, and the old build dropped it whole.
+			// draw, and the build drops it whole.
 			{ID: 9002, Title: "Ghost", Features: []rawFeature{{Geometry: geometry{Type: "Polygon"}}}},
 		},
 	}
@@ -60,50 +60,49 @@ func TestNormalizeWorldRoundTripsTheV2Shapes(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	m := catalogWorld{Collections: collections}
-
-	wantGroups := []catalogGroup{
-		{ID: 1, Title: "Districts", Categories: []catalogCategory{
-			{
-				ID: 10, Title: "Shops", Icon: "shop", Color: "#AABBCC", IconColor: "#FFFFFF",
-				DisplayType: "pin", Visible: true,
-				Locations: []catalogLocation{{
-					ID: 100, Title: "Bakery", Description: "Fresh bread.",
-					Latitude: 1.5, Longitude: -2.25, RegionID: &oldTown,
-					Attrs: map[string]string{"atlas.geo.lat": "39.8"},
-				}},
-			},
-			{
-				ID: 11, Title: "Signs", Icon: "sign", Color: "#38344C", IconColor: "#FFFFFF",
-				DisplayType: "text",
-			},
-		}},
-		{ID: 2, Title: "Nature", Categories: []catalogCategory{
-			{ID: 12, Title: "Trees", Icon: "tree", Visible: true},
-		}},
+	if len(collections) != 4 {
+		t.Fatalf("normalized into %d collections, want 4: %+v", len(collections), collections)
 	}
-	if got := m.v2Groups(); !reflect.DeepEqual(got, wantGroups) {
-		t.Fatalf("v2 groups = %+v\nwant %+v", got, wantGroups)
+	shops := collections[0]
+	if shops.ID != 10 || shops.Group != "Districts" || shops.Kind != kindPoint ||
+		shops.Color != "#AABBCC" || shops.IconColor != "#FFFFFF" || !shops.Visible {
+		t.Fatalf("shops normalized as %+v", shops)
+	}
+	wantBakery := feature{
+		ID: 100, Title: "Bakery", Description: "Fresh bread.",
+		Lat: 1.5, Lng: -2.25, Member: &oldTown,
+		Attrs: map[string]string{"atlas.geo.lat": "39.8"},
+	}
+	if len(shops.Features) != 1 || !reflect.DeepEqual(shops.Features[0], wantBakery) {
+		t.Fatalf("bakery normalized as %+v\nwant %+v", shops.Features, wantBakery)
+	}
+	if collections[1].ID != 11 || collections[1].DisplayType != "text" ||
+		collections[1].Color != "#38344C" || collections[2].Group != "Nature" {
+		t.Fatalf("point collections normalized as %+v", collections[1:3])
 	}
 
-	wantZones := []zone{{
+	implicit := collections[3]
+	if implicit.Key != regionsCollectionKey || implicit.Kind != kindArea || !implicit.Visible {
+		t.Fatalf("implicit collection = %+v", implicit)
+	}
+	if implicit.ID == 0 || implicit.ID != int64(int32(implicit.ID)) {
+		t.Fatalf("implicit collection id %d is no positive int31", implicit.ID)
+	}
+	wantOldTown := feature{
 		ID: 9001, Title: "Old Town", Subtitle: "OT", Description: "The old quarter.",
 		Center:   &coordinate{Latitude: 3.25, Longitude: 12.5},
-		Features: []geometry{{Type: "MultiPolygon", Coordinates: ring}},
-	}}
-	if got := m.v2Zones(); !reflect.DeepEqual(got, wantZones) {
-		t.Fatalf("v2 zones = %+v\nwant %+v", got, wantZones)
+		Geometry: []geometry{{Type: "MultiPolygon", Coordinates: ring}},
+	}
+	if len(implicit.Features) != 1 || !reflect.DeepEqual(implicit.Features[0], wantOldTown) {
+		t.Fatalf("implicit features = %+v\nwant one Old Town", implicit.Features)
 	}
 
-	if got := m.pinCount(); got != 1 {
-		t.Fatalf("pin count = %d, want 1", got)
-	}
-	last := collections[len(collections)-1]
-	if last.Key != regionsCollectionKey || last.Kind != kindArea {
-		t.Fatalf("implicit collection = {key %q, kind %q}, want {%q, %q}",
-			last.Key, last.Kind, regionsCollectionKey, kindArea)
+	counts := catalogWorld{Collections: collections}.featureTally()
+	if counts != (featureCounts{Point: 1, Area: 1}) {
+		t.Fatalf("tally = %+v, want one point and one area", counts)
 	}
 }
+
 
 // declaredFixture is a capture that declares its collections: an area
 // collection and a path collection, a region claiming each, and one region
@@ -134,9 +133,7 @@ func declaredFixture() rawMap {
 }
 
 // Declared collections bucket the regions that claim them, in declaration
-// order after the point collections, the implicit collection last -- and the
-// v2 zone emission walks that order, which for a producer that declares in
-// its own region order is exactly the raw order the wire always said.
+// order after the point collections, the implicit collection last.
 func TestNormalizeWorldBucketsDeclaredCollections(t *testing.T) {
 	collections, err := normalizeWorld(declaredFixture())
 	if err != nil {
@@ -163,14 +160,6 @@ func TestNormalizeWorldBucketsDeclaredCollections(t *testing.T) {
 			t.Fatalf("collection %d holds %+v, want one feature %q",
 				at, collections[at].Features, want)
 		}
-	}
-	m := catalogWorld{Collections: collections}
-	ids := []int64{}
-	for _, z := range m.v2Zones() {
-		ids = append(ids, z.ID)
-	}
-	if !reflect.DeepEqual(ids, []int64{1, 2, 3}) {
-		t.Fatalf("v2 zones emit as %v, want the raw region order 1,2,3", ids)
 	}
 }
 

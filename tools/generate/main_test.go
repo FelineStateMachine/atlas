@@ -141,8 +141,8 @@ func TestBuildPayloadPacksEveryColumn(t *testing.T) {
 	if magic := string(packed[:8]); magic != "ATLASLOC" {
 		t.Fatalf("magic = %q, want %q", magic, "ATLASLOC")
 	}
-	if version := binary.LittleEndian.Uint16(packed[8:]); version != 2 {
-		t.Fatalf("version = %d, want 2", version)
+	if version := binary.LittleEndian.Uint16(packed[8:]); version != 3 {
+		t.Fatalf("version = %d, want 3", version)
 	}
 	count := int(binary.LittleEndian.Uint32(packed[10:]))
 	if count != 2 {
@@ -161,8 +161,8 @@ func TestBuildPayloadPacksEveryColumn(t *testing.T) {
 	if ids := column(0); ids[0] != 11 || ids[1] != 12 {
 		t.Fatalf("ids = %v, want [11 12]", ids)
 	}
-	if regions := column(3); regions[0] != 0 || regions[1] != 77 {
-		t.Fatalf("regions = %v, want [0 77]", regions)
+	if members := column(3); members[0] != 0 || members[1] != 77 {
+		t.Fatalf("members = %v, want [0 77]", members)
 	}
 	if shards := column(4); shards[0] != 1783 || shards[1] != 1785 {
 		t.Fatalf("shards = %v, want [1783 1785]", shards)

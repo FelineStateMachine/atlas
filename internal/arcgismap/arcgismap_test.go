@@ -245,9 +245,10 @@ func TestTranslateShapesTheDocument(t *testing.T) {
 
 	// The document declares its zone-making datasets as collections, in the
 	// same curated order, each saying its kind -- and its stroke, when its
-	// features are lines -- in the registered vocabulary. The hydro layers
+	// features are lines -- in the registered vocabulary. The hydro areas
 	// declare quiet labels: the nation's water is the city's context, not
-	// its headline.
+	// its headline. The stream lines say nothing, because a path is quiet
+	// by the registry's own default and label policy is an area's word.
 	wantDecls := []struct{ key, title, kind, label string }{
 		{"mpo-boundary", "MPO Boundary", "area", ""},
 		{"zoning", "Zoning", "area", ""},
@@ -256,7 +257,7 @@ func TestTranslateShapesTheDocument(t *testing.T) {
 		{"trails", "Paths & Trails", "path", ""},
 		{"watersheds", "Watersheds", "area", "quiet"},
 		{"subwatersheds", "Subwatersheds", "area", "quiet"},
-		{"streams", "Streams", "path", "quiet"},
+		{"streams", "Streams", "path", ""},
 		{"waterbodies", "Waterbodies", "area", "quiet"},
 	}
 	if len(out.Collections) != len(wantDecls) {
@@ -335,10 +336,10 @@ func TestTranslateShapesTheDocument(t *testing.T) {
 			t.Fatalf("zone %q claims membership: %q %v", zone.Title, zone.Description, zone.Attrs)
 		}
 	}
-	// A line zone in one subwatershed claims it alongside its stroke.
+	// A line zone in one subwatershed claims it; its stroke is its
+	// collection's to declare, never its own.
 	riley := out.Regions[5]
-	if riley.Attrs[semconv.KeyHydroHUC12] != "170703010102" ||
-		riley.Attrs[semconv.KeyStrokeWidthPx] != "12" {
+	if riley.Attrs[semconv.KeyHydroHUC12] != "170703010102" {
 		t.Fatalf("trail attrs are %v", riley.Attrs)
 	}
 	if out.Regions[1].Subtitle != "Zoning" {
@@ -351,19 +352,14 @@ func TestTranslateShapesTheDocument(t *testing.T) {
 	if trail.Subtitle != "Riley Ranch Nature Reserve" || len(trail.Features) != 1 {
 		t.Fatalf("trail zone is %+v", trail)
 	}
-	// A line zone stays the line it is, and declares the width it is drawn
-	// at. The v2 wire spells the collection's stroke on the zone, so its two
-	// keys validate under the entities the registry attaches them to.
-	if err := semconv.Validate(semconv.EntityCollection,
-		map[string]string{semconv.KeyStrokeWidthPx: trail.Attrs[semconv.KeyStrokeWidthPx]}); err != nil {
-		t.Fatalf("trail stroke: %v", err)
-	}
-	if err := semconv.Validate(semconv.EntityFeature,
-		map[string]string{semconv.KeyHydroHUC12: trail.Attrs[semconv.KeyHydroHUC12]}); err != nil {
+	// A line zone stays the line it is. Its width lives on the collection
+	// declaration alone, so the zone's own attributes validate as the
+	// feature they attach to, with nothing borrowed.
+	if err := semconv.Validate(semconv.EntityFeature, trail.Attrs); err != nil {
 		t.Fatalf("trail attrs: %v", err)
 	}
-	if trail.Attrs[semconv.KeyStrokeWidthPx] != "12" {
-		t.Fatalf("trail declares width %q", trail.Attrs[semconv.KeyStrokeWidthPx])
+	if _, stroked := trail.Attrs[semconv.KeyStrokeWidthPx]; stroked {
+		t.Fatalf("the trail zone spells a stroke of its own: %v", trail.Attrs)
 	}
 	if trail.Features[0].Geometry.Type != "MultiLineString" {
 		t.Fatalf("trail geometry is %q", trail.Features[0].Geometry.Type)

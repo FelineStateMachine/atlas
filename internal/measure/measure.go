@@ -119,14 +119,18 @@ type HeldPin struct {
 
 // worldDetail is the sliver of a world payload measurement reads.
 type worldDetail struct {
-	Attrs  map[string]string `json:"attrs"`
-	Groups []struct {
-		Categories []struct {
-			IconAsset   string            `json:"iconAsset"`
-			DisplayType string            `json:"displayType"`
-			Attrs       map[string]string `json:"attrs"`
-		} `json:"categories"`
-	} `json:"groups"`
+	Attrs       map[string]string `json:"attrs"`
+	Collections []struct {
+		Kind      string            `json:"kind"`
+		Group     string            `json:"group"`
+		IconAsset string            `json:"iconAsset"`
+		Attrs     map[string]string `json:"attrs"`
+		Features  []struct {
+			Geometry []struct {
+				Coordinates json.RawMessage `json:"coordinates"`
+			} `json:"geometry"`
+		} `json:"features"`
+	} `json:"collections"`
 	Merged []struct {
 		Source        string         `json:"source"`
 		DonorPins     int            `json:"donorPins"`
@@ -139,11 +143,6 @@ type worldDetail struct {
 		Rejected      []HeldPin      `json:"rejected"`
 		Alignment     string         `json:"alignment"`
 	} `json:"merged"`
-	Zones []struct {
-		Features []struct {
-			Coordinates json.RawMessage `json:"coordinates"`
-		} `json:"features"`
-	} `json:"zones"`
 	Lenses []struct {
 		Name    string `json:"name"`
 		MaxZoom int    `json:"maxZoom"`
@@ -270,7 +269,7 @@ func MeasureBundle(path string) (*Build, error) {
 	var lengths []int
 	for _, entry := range manifest.Worlds {
 		b.MapSlugs = append(b.MapSlugs, entry.Slug)
-		b.Pins += entry.PinCount
+		b.Pins += entry.Points
 		var text map[string]struct {
 			Description string            `json:"d"`
 			Attrs       map[string]string `json:"a"`
@@ -308,33 +307,38 @@ func MeasureBundle(path string) (*Build, error) {
 		for _, lens := range detail.Lenses {
 			b.Depth = max(b.Depth, lens.MaxZoom)
 		}
-		b.Zones += len(detail.Zones)
-		for _, zone := range detail.Zones {
-			for _, feature := range zone.Features {
-				b.Vertices += countVertices(feature.Coordinates)
+		groups := make(map[string]bool)
+		for _, collection := range detail.Collections {
+			b.UnknownAttrs += unknownAttrs(collection.Attrs)
+			if collection.Kind != semconv.GeometryPoint {
+				b.Zones += len(collection.Features)
+				for _, feature := range collection.Features {
+					for _, geometry := range feature.Geometry {
+						b.Vertices += countVertices(geometry.Coordinates)
+					}
+				}
+				continue
 			}
-		}
-		for _, group := range detail.Groups {
-			b.Groups++
-			for _, category := range group.Categories {
-				b.Categories++
-				b.UnknownAttrs += unknownAttrs(category.Attrs)
-				if _, declared := category.Attrs[semconv.KeyRenderAs]; declared {
-					b.RenderDeclared++
-				}
-				if category.Attrs[semconv.KeyIconStd] != "" {
-					b.StdIcons++
-				}
-				// The conventions decide what a category is, so the metric
-				// judging it reads the same attribute the viewer does.
-				if semconv.RenderAs(category.Attrs, category.DisplayType) == semconv.RenderAsText {
-					b.TextSets++
-					continue
-				}
-				b.IconsWanted++
-				if category.IconAsset != "" {
-					b.IconsCarried++
-				}
+			b.Categories++
+			if !groups[collection.Group] {
+				groups[collection.Group] = true
+				b.Groups++
+			}
+			if _, declared := collection.Attrs[semconv.KeyRenderAs]; declared {
+				b.RenderDeclared++
+			}
+			if collection.Attrs[semconv.KeyIconStd] != "" {
+				b.StdIcons++
+			}
+			// The conventions decide what a collection is, so the metric
+			// judging it reads the same attribute the viewer does.
+			if semconv.RenderAs(collection.Attrs, "") == semconv.RenderAsText {
+				b.TextSets++
+				continue
+			}
+			b.IconsWanted++
+			if collection.IconAsset != "" {
+				b.IconsCarried++
 			}
 		}
 		for _, merged := range detail.Merged {

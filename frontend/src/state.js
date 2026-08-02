@@ -7,10 +7,9 @@ export const state = {
   projection: null,
   layers: null,
   sources: null,
-  // One hide-set across every kind of collection: point categories by their
-  // numeric ids, and -- until the v3 wire names real shape collections -- the
-  // implicit "zones" pseudo-collection by that string. Nothing downstream
-  // cares which kind an id names; it only asks isCollectionHidden.
+  // One hide-set across every kind of collection, keyed by the numeric ids
+  // the wire declares. Nothing downstream cares which kind an id names; it
+  // only asks isCollectionHidden.
   hiddenCollections: new Set(),
   collapsedSections: new Set(),
   // Which area and path rows have their feature index unfolded in the legend.

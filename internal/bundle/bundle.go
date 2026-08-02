@@ -26,8 +26,11 @@ const (
 	// FormatVersion is bumped when the layout changes shape. A reader refuses
 	// versions it does not know rather than guessing at them. Version 2
 	// renamed the format's concepts -- game to volume, map to world, variant
-	// to lens -- through the manifest and payload keys alike.
-	FormatVersion = 2
+	// to lens -- through the manifest and payload keys alike. Version 3
+	// unified what a world holds: the payload's groups, zones, and pins
+	// became one collections array of point, path, and area features, and
+	// the manifest counts each kind instead of counting only pins.
+	FormatVersion = 3
 
 	// ManifestName is the entry the whole bundle is read through. The writer
 	// places it first in the archive so a listing shows it first, though the
@@ -96,14 +99,19 @@ type Coordinate struct {
 // WorldEntry lists one world: enough to offer it and to open it, and nothing
 // that only matters once it is open. The slug names the world's payload
 // entries -- worlds/<slug>.json, .bin, and .text -- and is the world's
-// identity everywhere.
+// identity everywhere. Points, Paths, and Areas count the world's features
+// by kind -- every feature is exactly one of the three -- so a listing can
+// say how much a world holds without opening its payload, and validation
+// can hold the payload to the promise.
 type WorldEntry struct {
 	Slug       string     `json:"slug"`
 	Title      string     `json:"title"`
 	Parent     string     `json:"parent,omitempty"`
 	IconOutset string     `json:"iconOutset,omitempty"`
 	Center     Coordinate `json:"center"`
-	PinCount   int        `json:"pinCount"`
+	Points     int        `json:"points"`
+	Paths      int        `json:"paths"`
+	Areas      int        `json:"areas"`
 	UpdatedAt  string     `json:"updatedAt"`
 }
 

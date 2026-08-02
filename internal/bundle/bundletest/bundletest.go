@@ -27,7 +27,7 @@ type Spec struct {
 }
 
 // WorldSpec describes one world of a fixture volume: a single layer two zoom
-// levels deep, one category, and the given pins. Merged, when set, rides
+// levels deep, one point collection, and the given pins. Merged, when set, rides
 // into the payload's merged block verbatim, so a test can hand a world the
 // provenance ledger a real composition would have written.
 type WorldSpec struct {
@@ -78,7 +78,7 @@ func Build(t testing.TB, dir string, spec Spec) string {
 		manifest.Worlds = append(manifest.Worlds, bundle.WorldEntry{
 			Slug:      m.Slug,
 			Title:     m.Title,
-			PinCount:  len(m.Pins),
+			Points:    len(m.Pins),
 			UpdatedAt: spec.CreatedAt,
 		})
 	}
@@ -105,13 +105,9 @@ func Build(t testing.TB, dir string, spec Spec) string {
 				"sourceZoom": 1,
 				"formats":    []string{"jpg", "jpg"},
 			}},
-			"groups": []map[string]any{{
-				"id":    1,
-				"title": "Markers",
-				"categories": []map[string]any{{
-					"id": 1, "title": "Marker", "iconAsset": "marker.svg",
-					"displayType": "", "visible": true,
-				}},
+			"collections": []map[string]any{{
+				"id": 1, "title": "Marker", "group": "Markers", "kind": "point",
+				"iconAsset": "marker.svg", "visible": true,
 			}},
 		}
 		if m.Merged != nil {

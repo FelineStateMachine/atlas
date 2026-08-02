@@ -4,28 +4,53 @@
 // used to carry the meaning; a key this build has never heard of is simply
 // ignored, because a bundle is never refused over vocabulary.
 
-import { collectionOf } from "./collections.js";
+import { collectionFor } from "./collections.js";
 import { state } from "./state.js";
+
+// The registry's vocabularies, mirrored: what shape of thing a collection
+// holds, and whether names draw unasked.
+export const geometryKinds = Object.freeze({ point: "point", path: "path", area: "area" });
+export const labelPolicies = Object.freeze({ always: "always", quiet: "quiet" });
 
 // labelPolicy answers whether a zone's name draws on its own or waits to be
 // asked: "always" or "quiet". The reader's per-collection override wins,
-// then the collection's declared word, then the zone's own. The v2 wire has
-// no collections to speak, so today the zone answers for its collection --
-// and silence means "always", which is what every bundle from before the
-// key already meant.
+// then the collection's declared word, then the kind's own default -- areas
+// speak unasked, which is what every map before the key already did, and
+// paths wait.
 export function labelPolicy(zone, collection) {
-  return state.labelOverrides.get(collection?.id ?? collectionOf(zone)) ??
-    collection?.attrs?.["atlas.label.policy"] ??
-    zone?.attrs?.["atlas.label.policy"] ??
-    "always";
+  const declared = collection ?? collectionFor(zone);
+  const override = state.labelOverrides.get(declared?.id);
+  if (override) return override;
+  const curated = declared?.attrs?.["atlas.label.policy"];
+  if (curated) return curated;
+  return declared?.kind === geometryKinds.path ? labelPolicies.quiet : labelPolicies.always;
 }
 
-// renderAs answers how a category draws: "pin" or "text". This is the one
-// display rule the viewer holds, spelled once.
-export function renderAs(category) {
-  const declared = category.attrs?.["atlas.render.as"];
-  if (declared) return declared;
-  return category.displayType === "text" ? "text" : "pin";
+// renderAs answers how a point collection draws: "pin" or "text". This is
+// the one display rule the viewer holds, spelled once; a collection saying
+// nothing is markers, and since the v3 wire every producer says.
+export function renderAs(collection) {
+  return collection.attrs?.["atlas.render.as"] || "pin";
+}
+
+// The labels the detail card gives a feature's own attributes. Anything in
+// the reserved rendering namespaces is machinery rather than material, and
+// the geographic pair already has rows of its own.
+const attributeLabels = { "atlas.hydro.huc12": "HUC-12" };
+const attributeHidden = new Set(["atlas.geo.lat", "atlas.geo.lon"]);
+const reservedPrefixes = ["atlas.render.", "atlas.label.", "atlas.stroke.", "atlas.geometry."];
+
+// featureAttributeRows turns a feature's attributes into the rows its card
+// shows: curated label where one exists, the raw key where none does, and
+// nothing at all for machinery.
+export function featureAttributeRows(attrs) {
+  const rows = [];
+  for (const [key, value] of Object.entries(attrs || {})) {
+    if (attributeHidden.has(key)) continue;
+    if (reservedPrefixes.some((prefix) => key.startsWith(prefix))) continue;
+    rows.push({ label: attributeLabels[key] || key, value });
+  }
+  return rows.sort((left, right) => left.label.localeCompare(right.label));
 }
 
 // worldSurface answers what the map's raster pictures. A map that says

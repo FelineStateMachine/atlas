@@ -5,18 +5,17 @@ import MultiLineString from "ol/geom/MultiLineString.js";
 import MultiPolygon from "ol/geom/MultiPolygon.js";
 import Polygon from "ol/geom/Polygon.js";
 
-import { collectionOf, isCollectionHidden } from "./collections.js";
+import { anyShapeCollectionVisible, collectionOf, isCollectionHidden } from "./collections.js";
 import { elements } from "./dom.js";
 import { state } from "./state.js";
-import { showZone } from "./detail.js";
-import { syncLegendCheckboxes, syncSectionSwitches } from "./legend.js";
+import { showFeature } from "./detail.js";
+import { collectionID, syncLegendCheckboxes, syncSectionSwitches } from "./legend.js";
 import { viewMaxZoom } from "./navigation.js";
 import { onActiveShard, refreshPinRendering, updateZonePinFocus } from "./pins.js";
 import { labelPolicy } from "./semconv.js";
 import { colorFor } from "./theme.js";
 
 export function renderZones() {
-  const zones = (state.world.zones || []).filter(onActiveShard);
   state.renderedShard = state.lens?.shard || 0;
   state.sources.zones.clear();
   state.sources.zoneTitles.clear();
@@ -26,41 +25,50 @@ export function renderZones() {
   state.zoneTitleCount = 0;
   syncZoneLayers();
 
-  for (const zone of zones) {
-    const zoneExtent = createEmpty();
-    const geometries = [];
-    let hasGeometry = false;
-    for (const rawGeometry of zone.features || []) {
-      const geometry = projectZoneGeometry(rawGeometry);
-      if (!geometry) continue;
-      hasGeometry = true;
-      geometries.push(geometry);
-      extend(zoneExtent, geometry.getExtent());
-      state.sources.zones.addFeature(new Feature({
-        geometry,
+  for (const collection of state.world.collections) {
+    if (collection.kind === "point") continue;
+    for (const zone of collection.features || []) {
+      if (!onActiveShard(zone)) continue;
+      // Each shape feature learns its collection's id here, once, so
+      // everything downstream -- styles, filters, the label ladder -- can
+      // ask the feature alone.
+      zone.collectionId = collection.id;
+      const zoneExtent = createEmpty();
+      const geometries = [];
+      let hasGeometry = false;
+      for (const rawGeometry of zone.geometry || []) {
+        const geometry = projectZoneGeometry(rawGeometry);
+        if (!geometry) continue;
+        hasGeometry = true;
+        geometries.push(geometry);
+        extend(zoneExtent, geometry.getExtent());
+        state.sources.zones.addFeature(new Feature({
+          geometry,
+          zone,
+          color: colorFor(zone.id),
+          child: zone.parent != null,
+        }));
+      }
+      if (!hasGeometry) continue;
+      const color = colorFor(zone.id);
+      const center = zone.center ? project(zone.center.lat, zone.center.lng) : getCenter(zoneExtent);
+      const span = Math.max(zoneExtent[2] - zoneExtent[0], zoneExtent[3] - zoneExtent[1]);
+      state.sources.zoneTitles.addFeature(new Feature({
+        geometry: new Point(center),
         zone,
-        color: colorFor(zone.id),
-        child: zone.parentRegionId != null,
+        color,
+        child: zone.parent != null,
+        span,
+        priority: (zone.parent == null ? 2_000_000 : 1_000_000) + Math.round(span),
       }));
+      state.zoneRecords.set(zone.id, {
+        zone,
+        collection,
+        extent: zoneExtent.slice(),
+        geometries,
+        color,
+      });
     }
-    if (!hasGeometry) continue;
-    const color = colorFor(zone.id);
-    const center = zone.center ? project(zone.center.lat, zone.center.lng) : getCenter(zoneExtent);
-    const span = Math.max(zoneExtent[2] - zoneExtent[0], zoneExtent[3] - zoneExtent[1]);
-    state.sources.zoneTitles.addFeature(new Feature({
-      geometry: new Point(center),
-      zone,
-      color,
-      child: zone.parentRegionId != null,
-      span,
-      priority: (zone.parentRegionId == null ? 2_000_000 : 1_000_000) + Math.round(span),
-    }));
-    state.zoneRecords.set(zone.id, {
-      zone,
-      extent: zoneExtent.slice(),
-      geometries,
-      color,
-    });
   }
   recountZoneTitles();
   renderZoneScrim();
@@ -118,14 +126,12 @@ export function orientRing(ring, clockwise) {
 }
 
 // The feature index under an unfolded shape row: one button per zone, in the
-// parent-first order of the ground itself. On the v2 wire every zone belongs
-// to the one pseudo-collection, so every container in the legend gets the
-// same list; at flag day each container asks for its own collection's
-// features.
+// parent-first order of the ground itself, each container listing its own
+// collection's features.
 export function renderZoneIndex() {
   for (const container of elements.legend.querySelectorAll(".feature-index")) {
     const fragment = document.createDocumentFragment();
-    for (const { zone, depth } of orderedZones()) {
+    for (const { zone, depth } of orderedZones(collectionID(container.dataset.featureIndex))) {
       const record = state.zoneRecords.get(zone.id);
       if (!record) continue;
       const button = document.createElement("button");
@@ -149,12 +155,14 @@ export function renderZoneIndex() {
   }
 }
 
-export function orderedZones() {
-  const zones = [...state.zoneRecords.values()].map((record) => record.zone);
+export function orderedZones(collectionId) {
+  const zones = [...state.zoneRecords.values()]
+    .filter((record) => record.zone.collectionId === collectionId)
+    .map((record) => record.zone);
   const zoneIDs = new Set(zones.map((zone) => zone.id));
   const children = new Map();
   for (const zone of zones) {
-    const parentID = zoneIDs.has(zone.parentRegionId) ? zone.parentRegionId : null;
+    const parentID = zoneIDs.has(zone.parent) ? zone.parent : null;
     if (!children.has(parentID)) children.set(parentID, []);
     children.get(parentID).push(zone);
   }
@@ -183,7 +191,7 @@ export function orderedZones() {
 // withdraws the hidden collection's highlights -- a filter must not keep
 // conditioning the map from under a layer the reader has put away.
 export function syncZoneLayers() {
-  const visible = !isCollectionHidden("zones");
+  const visible = anyShapeCollectionVisible();
   state.layers.zoneScrim.setVisible(visible);
   state.layers.zones.setVisible(visible);
   state.layers.zoneTitles.setVisible(visible);
@@ -208,7 +216,7 @@ export function jumpToZone(zoneID) {
   if (!record) return;
   state.focusedZoneID = zoneID;
   updateZoneIndexState();
-  showZone(record.zone);
+  showFeature(record.zone);
   state.engine.getView().fit(record.extent, {
     size: state.engine.getSize(),
     padding: [54, 54, 54, 54],

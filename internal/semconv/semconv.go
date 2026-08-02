@@ -339,8 +339,9 @@ func Validate(entity Entity, attrs map[string]string) error {
 // and the legacy display_type field when no attribute speaks. This is the
 // one rule the viewer used to hold as a string compare, spelled once for
 // every consumer: text is text, and everything else is a pin. The legacy
-// parameter stays until flag day -- the generator still speaks for
-// MapGenie's displayType on the v2 wire.
+// parameter survives only at ingestion, where the generator speaks this key
+// for MapGenie captures that predate the conventions; the wire itself
+// carries no displayType any more.
 func RenderAs(attrs map[string]string, legacyDisplayType string) string {
 	if value, declared := attrs[KeyRenderAs]; declared {
 		return value

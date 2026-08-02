@@ -266,76 +266,12 @@ type tileLensManifest struct {
 	AlignedWith string `json:"alignedWith"`
 }
 
-// The v2 wire shapes. The catalog itself holds collections of features
-// (normalize.go); these structs exist only to be reconstructed at emission
-// time, so every byte a bundle says stays exactly what today's readers
-// expect until the wire itself is ready to move.
-type catalogGroup struct {
-	ID         int64             `json:"id"`
-	Title      string            `json:"title"`
-	Categories []catalogCategory `json:"categories"`
-}
-
-type catalogCategory struct {
-	ID        int64  `json:"id"`
-	Title     string `json:"title"`
-	Icon      string `json:"icon,omitempty"`
-	IconAsset string `json:"iconAsset,omitempty"`
-	// IconPicture marks an icon that already carries its own colours, as
-	// against a monochrome glyph whose silhouette is tinted with the category
-	// colour. Sliced marker sprites are pictures; icon-font glyphs are not.
-	IconPicture bool              `json:"iconPicture,omitempty"`
-	Color       string            `json:"color,omitempty"`
-	IconColor   string            `json:"iconColor,omitempty"`
-	DisplayType string            `json:"displayType"`
-	Visible     bool              `json:"visible"`
-	Locations   []catalogLocation `json:"locations"`
-	// Attrs speaks the conventions for this category -- how it renders, what
-	// its icon is -- beside the legacy fields it will one day retire.
-	Attrs map[string]string `json:"attrs,omitempty"`
-}
-
-type catalogLocation struct {
-	ID          int64   `json:"id"`
-	Title       string  `json:"title"`
-	Description string  `json:"description,omitempty"`
-	Latitude    float64 `json:"lat"`
-	Longitude   float64 `json:"lng"`
-	RegionID    *int64  `json:"regionId,omitempty"`
-	// Shard names the layer this location belongs to on a map split into
-	// layers, and is absent on maps that are not.
-	Shard int64         `json:"shard,omitempty"`
-	Links []catalogLink `json:"links,omitempty"`
-	// Attrs never rides the detail payload -- locations there are stripped
-	// -- and ships instead in the text file beside the description, read
-	// when a pin is opened.
-	Attrs map[string]string `json:"-"`
-}
-
 // catalogLink is a cross-reference the source wrote as a mapgenie URL, resolved
 // to a location in this same map. Atlas is offline, so the URL itself is
 // dropped and only the in-catalog target survives.
 type catalogLink struct {
 	Title      string `json:"title"`
 	LocationID int64  `json:"locationId"`
-}
-
-// zone is emission-only, like the group tree above it: rebuilt from the
-// implicit region collection's features when a payload is written.
-type zone struct {
-	ID       int64  `json:"id"`
-	Title    string `json:"title"`
-	Subtitle string `json:"subtitle,omitempty"`
-	// Description never rides the detail payload: buildPayload defers it
-	// into the text file and leaves HasText as the marker, so a reader
-	// fetches a zone's prose only when its card opens.
-	Description    string            `json:"-"`
-	HasText        bool              `json:"hasText,omitempty"`
-	ParentRegionID *int64            `json:"parentRegionId,omitempty"`
-	Center         *coordinate       `json:"center,omitempty"`
-	Shard          int64             `json:"shard,omitempty"`
-	Features       []geometry        `json:"features"`
-	Attrs          map[string]string `json:"attrs,omitempty"`
 }
 
 var errWorldNotReady = errors.New("world is not ready for embedding")
@@ -497,13 +433,11 @@ func buildVolume(
 		// registry names it by, so a ledger line and a plugin card point at
 		// each other without a translation table.
 		for index := range pieces {
-			counts := pieces[index].featureTally()
 			pieces[index].Merged = []mergedSource{{
 				Source:        sourceDisplayLabel(ref.Source),
 				Slug:          canonicalSourceSlug(ref.Source),
 				Origin:        true,
-				DonorPins:     counts.Point,
-				DonorFeatures: counts,
+				DonorFeatures: pieces[index].featureTally(),
 			}}
 		}
 		game.Worlds = append(game.Worlds, pieces...)
@@ -537,15 +471,18 @@ func speakConventions(game *catalogVolume) error {
 		}
 		for collectionIndex := range m.Collections {
 			collection := &m.Collections[collectionIndex]
+			// Every collection's attributes mirror its kind, so the payload
+			// says in the registered vocabulary what the wire's own field
+			// says beside it, and a reader may trust either.
+			if _, declared := collection.Attrs[semconv.KeyGeometryKind]; !declared {
+				collection.Attrs = withAttr(collection.Attrs, semconv.KeyGeometryKind, collection.Kind)
+			}
 			if collection.Kind != kindPoint {
-				// A declared collection's attributes are collection
-				// attributes in the registry's own terms; the implicit
-				// collection carries none and passes trivially.
 				if err := semconv.Validate(semconv.EntityCollection, collection.Attrs); err != nil {
 					return fmt.Errorf("world %s collection %q: %w", m.Slug, collection.Title, err)
 				}
 				for _, shape := range collection.Features {
-					if err := validateShapeAttrs(shape.Attrs); err != nil {
+					if err := semconv.Validate(semconv.EntityFeature, shape.Attrs); err != nil {
 						return fmt.Errorf("world %s zone %q: %w", m.Slug, shape.Title, err)
 					}
 				}
@@ -582,29 +519,6 @@ func speakConventions(game *catalogVolume) error {
 		}
 	}
 	return nil
-}
-
-// validateShapeAttrs holds a shape feature's attributes to the registry as
-// the feature they attach to -- with one allowance that lasts until the
-// unified wire: the v2 wire spells a path collection's stroke width on each
-// zone, so the zone answers for its collection's one attribute here. Flag
-// day moves the write where the registry says the key lives and this
-// allowance goes with it.
-func validateShapeAttrs(attrs map[string]string) error {
-	if width, carried := attrs[semconv.KeyStrokeWidthPx]; carried {
-		if err := semconv.Validate(semconv.EntityCollection,
-			map[string]string{semconv.KeyStrokeWidthPx: width}); err != nil {
-			return err
-		}
-		rest := make(map[string]string, len(attrs)-1)
-		for key, value := range attrs {
-			if key != semconv.KeyStrokeWidthPx {
-				rest[key] = value
-			}
-		}
-		attrs = rest
-	}
-	return semconv.Validate(semconv.EntityFeature, attrs)
 }
 
 // withAttr sets one attribute on a copy of the map, never the map itself: a

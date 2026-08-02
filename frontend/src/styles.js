@@ -7,7 +7,7 @@ import {
   Text,
 } from "ol/style.js";
 
-import { collectionOf, isCollectionHidden } from "./collections.js";
+import { anyShapeCollectionVisible, collectionFor, collectionOf, isCollectionHidden } from "./collections.js";
 import { gridTheme } from "./constants.js";
 import { gridCellVisual } from "./grid.js";
 import { labelPolicy, renderAs } from "./semconv.js";
@@ -358,7 +358,7 @@ export const zoneScrimFill = new Style({ fill: new Fill({ color: "rgba(5, 8, 16,
 // collection withdraws its highlights, so an all-hidden map has no scrim
 // feature left to draw; the check covers the moment in between.
 export function zoneScrimStyle() {
-  return isCollectionHidden("zones") ? null : zoneScrimFill;
+  return anyShapeCollectionVisible() ? zoneScrimFill : null;
 }
 
 export function zoneStyle(feature, resolution) {
@@ -367,9 +367,11 @@ export function zoneStyle(feature, resolution) {
   const child = feature.get("child");
   const highlighted = state.highlightedZones.has(zone.id);
   const dimmed = zoneContextDimmed(zone.id);
-  // A path zone carries its ground width: the stroke is the zone, drawn at
-  // the width the world gives it rather than a width the screen does.
-  const groundWidth = Number(zone.attrs?.["atlas.stroke.width_px"]) || 0;
+  // A path is a line and a weight, and the weight is its collection's to
+  // declare -- drawn at the width the world gives it rather than a width the
+  // screen does. A feature spelling a width of its own is still honoured.
+  const groundWidth = Number(zone.attrs?.["atlas.stroke.width_px"]) ||
+    Number(collectionFor(zone)?.attrs?.["atlas.stroke.width_px"]) || 0;
   if (groundWidth > 0 && feature.getGeometry()?.getType() === "MultiLineString") {
     return pathZoneStyle(zone, feature.get("color"), groundWidth / resolution, highlighted, dimmed);
   }
@@ -555,11 +557,11 @@ export function zoneContextDimmed(zoneID) {
 
 export function zoneIsAncestorOf(candidateID, zoneID) {
   const visited = new Set();
-  let parentID = state.zoneRecords.get(zoneID)?.zone.parentRegionId;
+  let parentID = state.zoneRecords.get(zoneID)?.zone.parent;
   while (parentID != null && !visited.has(parentID)) {
     if (parentID === candidateID) return true;
     visited.add(parentID);
-    parentID = state.zoneRecords.get(parentID)?.zone.parentRegionId;
+    parentID = state.zoneRecords.get(parentID)?.zone.parent;
   }
   return false;
 }
