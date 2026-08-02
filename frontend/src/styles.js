@@ -17,7 +17,7 @@ import {
   isPriorityPin,
   pinIsHidden,
   textDetailRatio,
-} from "./pins.js";
+} from "./features.js";
 import {
   categoryColor,
   hexToRGBA,

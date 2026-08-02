@@ -42,7 +42,7 @@ import { state } from "./state.js";
 import { markerIconKey, measureLabel } from "./styles.js";
 import { categoryColor, iconOutsetColor, initials } from "./theme.js";
 import { clamp } from "./util.js";
-import { project } from "./zones.js";
+import { project } from "./areas.js";
 
 // textureZoom picks the pyramid level the sphere wears everywhere: deep
 // enough to read from orbit, shallow enough that one canvas holds the whole
@@ -303,8 +303,8 @@ async function enterGlobe() {
       globe.globeImageUrl(texture);
     }
   }
-  if (pinsBuilt !== state.pins) {
-    pinsBuilt = state.pins;
+  if (pinsBuilt !== state.features) {
+    pinsBuilt = state.features;
     sprites.clear();
     placed.clear();
     globe.objectsData(spherePins(mapping));
@@ -998,7 +998,7 @@ function regridWhenFitChanges() {
 // backward through the declared mapping to true latitude and longitude.
 function spherePins(mapping) {
   const points = [];
-  for (const pin of state.pins) {
+  for (const pin of state.features) {
     const [x, negY] = project(pin.location.lat, pin.location.lng);
     const [lat, lng] = mapping.toLatLng(x, -negY);
     points.push({ lat, lng, pin });

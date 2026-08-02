@@ -17,7 +17,7 @@ const dockListLimit = 100;
 export function renderSearchResults() {
   if (!elements.searchResults) return;
   const eligible = [
-    ...state.pins
+    ...state.features
       .filter((pin) => !pin.filteredHidden)
       .map((pin) => ({ title: pin.location.title, pin })),
     ...[...state.zoneRecords.values()]

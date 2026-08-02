@@ -5,7 +5,7 @@ import { collectionFor, geometryContainsCoordinate } from "./collections.js";
 import { elements } from "./dom.js";
 import { syncLegendCheckboxes, syncSectionSwitches } from "./legend.js";
 import { viewMaxZoom } from "./navigation.js";
-import { applyPinFilters, onActiveShard, refreshPrioritySource } from "./pins.js";
+import { applyPinFilters, onActiveShard, refreshPrioritySource } from "./features.js";
 import { renderSearchResults, revealDock } from "./search.js";
 import { featureAttributeRows, geoMapping } from "./semconv.js";
 import { state } from "./state.js";
@@ -150,7 +150,7 @@ function featureMeasureRows(zone, collection) {
       const km2 = record.geometries.reduce((sum, geometry) => sum + geometryAreaKm2(geometry, mapping), 0);
       if (km2 > 0) rows.push({ label: "Area", value: formatKm2(km2) });
     }
-    const inside = state.pins.filter((pin) =>
+    const inside = state.features.filter((pin) =>
       !pin.filteredHidden && onActiveShard(pin.location) &&
       record.geometries.some((geometry) => geometryContainsCoordinate(geometry, pin.coordinate))).length;
     rows.push({ label: "Locations inside", value: formatNumber(inside) });
@@ -314,7 +314,7 @@ export async function fillPinText(pin) {
 // they still work with no network, and dropped when the target is not on this
 // map.
 export function renderDetailLinks(pin) {
-  const links = (pin.location.links || []).filter((link) => state.pinByID.has(link.locationId));
+  const links = (pin.location.links || []).filter((link) => state.featureByID.has(link.locationId));
   elements.detailLinks.hidden = links.length === 0;
   if (!links.length) {
     elements.detailLinks.replaceChildren();

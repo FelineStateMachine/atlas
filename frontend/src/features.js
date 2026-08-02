@@ -11,14 +11,18 @@ import { updateVisibleCount } from "./navigation.js";
 import { state } from "./state.js";
 import { prepareMarkerIcon } from "./styles.js";
 import { stableRank } from "./util.js";
-import { project } from "./zones.js";
+import { project } from "./areas.js";
 
-export function buildPins() {
+// buildFeatures stands the world's point features up: every point collection's
+// locations become pin records in the features registry, each already wearing
+// its OpenLayers feature. Shape features are areas.js's to render -- they
+// arrive inline with their collections and never pass through here.
+export function buildFeatures() {
   state.sources.pins.clear();
   state.sources.text.clear();
   state.sources.priority.clear();
-  state.pins = [];
-  state.pinByID.clear();
+  state.features = [];
+  state.featureByID.clear();
   for (const category of state.world.collections) {
     if (category.kind !== "point") continue;
     if (renderAs(category) !== "text") prepareMarkerIcon(category);
@@ -36,8 +40,8 @@ export function buildPins() {
         pin,
         priority: pin.priority,
       });
-      state.pins.push(pin);
-      state.pinByID.set(location.id, pin);
+      state.features.push(pin);
+      state.featureByID.set(location.id, pin);
       if (renderAs(category) === "text") state.sources.text.addFeature(pin.feature);
       else state.sources.pins.addFeature(pin.feature);
     }
@@ -46,7 +50,7 @@ export function buildPins() {
 }
 
 export function applyPinFilters() {
-  for (const pin of state.pins) {
+  for (const pin of state.features) {
     const collectionHidden = isCollectionHidden(pin.category.id);
     const searchHidden = state.search &&
       !pin.location.title.toLocaleLowerCase().includes(state.search);
@@ -67,19 +71,19 @@ export function applyPinFilters() {
 // as they always have; the second collection arrives with the v3 wire.
 export function updateZonePinFocus() {
   if (!state.highlightedZones.size) {
-    for (const pin of state.pins) pin.passesZoneFilters = false;
+    for (const pin of state.features) pin.passesZoneFilters = false;
     return;
   }
   const groups = groupByCollection([...state.highlightedZones]
     .map((zoneID) => state.zoneRecords.get(zoneID))
     .filter(Boolean));
-  for (const pin of state.pins) {
+  for (const pin of state.features) {
     pin.passesZoneFilters = passesZoneFilters(groups, pin.coordinate);
   }
 }
 
 export function refreshPinRendering() {
-  state.eligibleLocations = state.pins.filter((pin) => !pinIsHidden(pin)).length;
+  state.eligibleLocations = state.features.filter((pin) => !pinIsHidden(pin)).length;
   refreshPrioritySource();
   state.layers.pins.changed();
   state.layers.zonePins.changed();
@@ -93,7 +97,7 @@ export function refreshPinRendering() {
 
 export function refreshPrioritySource() {
   state.sources.priority.clear();
-  for (const pin of state.pins) {
+  for (const pin of state.features) {
     if (pinIsHidden(pin)) continue;
     const searched = Boolean(state.search) &&
       pin.location.title.toLocaleLowerCase().includes(state.search);

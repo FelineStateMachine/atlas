@@ -20,9 +20,9 @@ import {
   toggleLabelPolicy,
   toggleSection,
 } from "./legend.js";
-import { applyPinFilters, setLabelsHeld } from "./pins.js";
+import { applyPinFilters, setLabelsHeld } from "./features.js";
 import { changeGlobeZoom, refreshGlobe, resizeGlobe, toggleGlobe } from "./globe.js";
-import { jumpToZone, syncZoneLayers, toggleZoneHighlight } from "./zones.js";
+import { jumpToZone, syncZoneLayers, toggleZoneHighlight } from "./areas.js";
 import { foldDockByHand, revealDock } from "./search.js";
 import { importBundles } from "./library.js";
 import { closeDetail, revealPin } from "./detail.js";
@@ -165,14 +165,14 @@ export function bindUIEvents() {
       jumpToZone(Number(result.dataset.zone));
       return;
     }
-    const pin = state.pinByID.get(Number(result.dataset.location));
+    const pin = state.featureByID.get(Number(result.dataset.location));
     if (pin) revealPin(pin);
   });
 
   elements.detailLinks.addEventListener("click", (event) => {
     const button = event.target.closest("[data-location]");
     if (!button) return;
-    const pin = state.pinByID.get(Number(button.dataset.location));
+    const pin = state.featureByID.get(Number(button.dataset.location));
     if (pin) revealPin(pin);
   });
 

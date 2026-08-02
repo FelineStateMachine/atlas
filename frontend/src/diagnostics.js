@@ -17,7 +17,10 @@ export function exposeDiagnostics() {
     maxZoom: state.lens ? viewMaxZoom(state.lens) : null,
     interpolate: state.lens?.interpolate,
     tileStats: { ...state.tileStats },
-    pins: state.pins.length,
+    // The registry is state.features now, but the snapshot keeps the key the
+    // parity diffs already know, so cross-build comparisons stay line-for-line
+    // readable.
+    pins: state.features.length,
     eligibleLocations: state.eligibleLocations,
     domNodes: document.querySelectorAll("*").length,
     canvases: document.querySelectorAll("canvas").length,
@@ -56,7 +59,7 @@ export function exposeDiagnostics() {
       highlighted: [...state.highlightedZones]
         .map((zoneID) => state.zoneRecords.get(zoneID)?.zone.title)
         .filter(Boolean),
-      focusedPins: state.pins.filter((pin) => !pin.filteredHidden &&
+      focusedPins: state.features.filter((pin) => !pin.filteredHidden &&
         pin.passesZoneFilters).length,
     },
     grid: {
@@ -70,7 +73,7 @@ export function exposeDiagnostics() {
         ...state.sources.gridContext.getFeatures(),
       ].map((feature) => feature.get("gridCell")),
       priorityPins: state.gridCell
-        ? state.pins.filter((pin) => !pin.filteredHidden && pinInGridCell(pin)).length
+        ? state.features.filter((pin) => !pin.filteredHidden && pinInGridCell(pin)).length
         : 0,
     },
   });

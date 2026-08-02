@@ -14,8 +14,14 @@ export const state = {
   collapsedSections: new Set(),
   // Which area and path rows have their feature index unfolded in the legend.
   expandedCollections: new Set(),
-  pins: [],
-  pinByID: new Map(),
+  // The point-feature registry: one pin record per packed location, built by
+  // buildFeatures. Shape features keep their own registry in zoneRecords
+  // below -- that name (and highlightedZones, focusedZoneID with it) stays as
+  // it is because the diagnostics snapshot and the parity baselines grew up
+  // around the zone spelling, and the records it holds really are the zone
+  // layers' to draw.
+  features: [],
+  featureByID: new Map(),
   selectedPin: null,
   selectedZone: null,
   hoveredPin: null,

@@ -11,11 +11,14 @@ import { state } from "./state.js";
 import { showFeature } from "./detail.js";
 import { collectionID, syncLegendCheckboxes, syncSectionSwitches } from "./legend.js";
 import { viewMaxZoom } from "./navigation.js";
-import { onActiveShard, refreshPinRendering, updateZonePinFocus } from "./pins.js";
+import { onActiveShard, refreshPinRendering, updateZonePinFocus } from "./features.js";
 import { labelPolicy } from "./semconv.js";
 import { colorFor } from "./theme.js";
 
-export function renderZones() {
+// renderShapes lays the world's shape features -- areas and paths both --
+// onto the chart: their geometries, their title anchors, and the records
+// everything downstream reads them by.
+export function renderShapes() {
   state.renderedShard = state.lens?.shard || 0;
   state.sources.zones.clear();
   state.sources.zoneTitles.clear();

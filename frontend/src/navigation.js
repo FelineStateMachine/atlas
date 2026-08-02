@@ -14,15 +14,15 @@ import { renderOverview, setOverviewDocked } from "./overview.js";
 import { setDockFolded } from "./search.js";
 import { renderGrid } from "./grid.js";
 import { syncGlobe } from "./globe.js";
-import { renderZones } from "./zones.js";
+import { renderShapes } from "./areas.js";
 import { renderLegend } from "./legend.js";
 import {
   applyPinFilters,
-  buildPins,
+  buildFeatures,
   pinIsHidden,
   refreshPrioritySource,
   setHoveredPin,
-} from "./pins.js";
+} from "./features.js";
 import { closeDetail } from "./detail.js";
 import { iconOutsetColor } from "./theme.js";
 import { clamp, formatNumber } from "./util.js";
@@ -114,8 +114,8 @@ export async function selectWorld(slug) {
   elements.dock.hidden = false;
   closeDetail();
   renderLegend();
-  renderZones();
-  buildPins();
+  renderShapes();
+  buildFeatures();
   selectLens(restore ? clamp(restore.lens, 0, state.world.lenses.length - 1) : 0, true);
   // A map that declares itself a sphere offers the globe; every map opens
   // on the chart either way.
@@ -231,11 +231,11 @@ export function selectLens(index, resetView = false) {
   // summer, one layer of a split map for another -- so the swap is made
   // underneath them and everything else, the view included, stays as it is.
   const resume = resetView && state.restore?.world === state.world.slug ? state.restore : null;
-  // Zones and pins are built before a lens is chosen, so on a split world the
+  // Shapes and pins are built before a lens is chosen, so on a split world the
   // first render shows every layer at once. Comparing against what was actually
   // rendered catches that as well as a later switch between layers.
   if (state.renderedShard !== (lens.shard || 0)) {
-    renderZones();
+    renderShapes();
     applyPinFilters();
   }
   if (resume?.center && Number.isFinite(resume.zoom)) {
@@ -359,7 +359,7 @@ export function updateVisibleCount() {
   const extent = state.engine.getView().calculateExtent(state.engine.getSize());
   let enabled = state.eligibleLocations;
   let inView = 0;
-  for (const pin of state.pins) {
+  for (const pin of state.features) {
     if (pinIsHidden(pin)) continue;
     const [x, y] = pin.coordinate;
     if (x >= extent[0] && x <= extent[2] && y >= extent[1] && y <= extent[3]) inView++;

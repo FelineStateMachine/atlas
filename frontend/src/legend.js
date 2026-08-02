@@ -1,10 +1,10 @@
 import { elements } from "./dom.js";
 import { state } from "./state.js";
 import { saveSession } from "./session.js";
-import { applyPinFilters } from "./pins.js";
+import { applyPinFilters } from "./features.js";
 import { renderSearchResults } from "./search.js";
 import { labelPolicy, renderAs } from "./semconv.js";
-import { recountZoneTitles, syncZoneLayers } from "./zones.js";
+import { recountZoneTitles, syncZoneLayers } from "./areas.js";
 import { applyCategoryVisual, applyCategoryGlyph, initials } from "./theme.js";
 import { formatNumber } from "./util.js";
 
