@@ -118,10 +118,44 @@ host.document = {
 
 // Imported after the page exists: `globe.gl` reads the document as it loads.
 const {
-  angularDistance, facesCamera, initialsOf, labelCandidates, markerMaterial,
-  nameCard, release, wearSkin,
+  angularDistance, boundsOf, cellBoundary, densifyRing, detailBlock, detailLevel,
+  facesCamera, fillRows, initialsOf, labelCandidates, markerMaterial, nameCard,
+  release, ringFill, ringLatLng, tileGeometry, wearSkin, zoomForAltitude,
 } = await import("../globe/element.ts");
 type Placed = import("../globe/element.ts").Placed;
+
+/**
+ * The sphere the seam draws on, without a WebGL context under it.
+ *
+ * `getCoords` is globe.gl's own spelling of a latitude and a longitude at an
+ * altitude given as a fraction of the radius, and it is the only thing any of
+ * the geometry below asks of a globe — so the stub is that one function, and
+ * every assertion about where a vertex landed is an assertion about the seam's
+ * arithmetic rather than about three's.
+ */
+const sphere = {
+  getCoords(lat: number, lng: number, altitude = 0): { x: number; y: number; z: number } {
+    const radius = 100 * (1 + altitude);
+    const phi = (lat * Math.PI) / 180;
+    const theta = (lng * Math.PI) / 180;
+    return {
+      x: radius * Math.cos(phi) * Math.cos(theta),
+      y: radius * Math.sin(phi),
+      z: radius * Math.cos(phi) * Math.sin(theta),
+    };
+  },
+} as unknown as import("globe.gl").GlobeInstance;
+
+/** How far a vertex sits from the middle of the planet. */
+function radiiOf(mesh: THREE.Object3D): number[] {
+  const drawn = mesh as THREE.Mesh;
+  const position = drawn.geometry.getAttribute("position");
+  const radii: number[] = [];
+  for (let at = 0; at < position.count; at++) {
+    radii.push(Math.hypot(position.getX(at), position.getY(at), position.getZ(at)));
+  }
+  return radii;
+}
 
 /** The canvas a sprite's texture was drawn on, with what was drawn on it. */
 function drawnOn(sprite: THREE.Sprite): StubCanvas {
@@ -400,4 +434,221 @@ test("the shared marker materials survive a release, because no group owns them"
   release(group);
   assert.deepEqual(seen, [], "a name coming down is not a collection losing its mark");
   assert.equal(markerMaterial({ ...mark, title: "Dunes" }, false), material);
+});
+
+// ---- the grid follows the curve ---------------------------------------
+//
+// THE DEFECT, stated as arithmetic. A cell's ring is four corners, and at the
+// root of a plan two of them are forty-five degrees apart. Joined by a
+// straight line in three dimensions that is a chord, and a chord across 45° of
+// a hundred-unit sphere passes seven units *inside* it — so a fill built from
+// the corners alone was a sheet drawn through the crust, and the boundary over
+// it went the same way. The bigger the cell the deeper it sank, which is why
+// the dimmed neighbourhood was the part that "did not render": it was drawn,
+// underground. Densifying by span is the whole fix, and the tests below are
+// the two clamps and the lift that make it one.
+
+test("a ring is subdivided by the span of its own segments", () => {
+  // Forty-five degrees at two degrees a step, and the last vertex of a
+  // segment belongs to the next one: an open loop, never a repeated point.
+  const quarter = densifyRing([[0, 0], [0, 45]], 1);
+  assert.equal(quarter.length, 23, "ceil(45 / 2) steps across the segment");
+  assert.deepEqual(quarter[0], [0, 0], "starting where the segment starts");
+  assert.ok(Math.abs((quarter.at(-1)?.[1] ?? 0) - (45 * 22) / 23) < 1e-9,
+    "and stopping short of its end");
+});
+
+test("the subdivision has a floor and a ceiling, and the caller sets the floor", () => {
+  const hair: [number, number][] = [[0, 0], [0, 0.5]];
+  assert.equal(densifyRing(hair, 1).length, 1, "a fill wants at least one step");
+  assert.equal(densifyRing(hair, 4).length, 4,
+    "a boundary wants four: it is what a reader sees the curve of");
+  // A pole cell's ring walks the whole planet, and 180 steps of a single
+  // segment is a boundary nobody can see the difference in.
+  assert.equal(densifyRing([[0, -180], [0, 180]], 1).length, 48, "capped at 48 a segment");
+});
+
+test("a fill's rings of triangles are counted by span, between two and twenty-four", () => {
+  assert.equal(fillRows(0), 2, "even the smallest cell gets two");
+  assert.equal(fillRows(45), 8, "ceil(45 / 6)");
+  assert.equal(fillRows(360), 24, "and no cell gets more than twenty-four");
+});
+
+test("every vertex of a fill is lifted back onto the sphere it is drawn on", () => {
+  // The root plan's own cells: 45 degrees of longitude, 45 of latitude.
+  const ring: [number, number][] = [[0, 0], [45, 0], [45, 45], [0, 45], [0, 0]];
+  const corners = boundsOf(ring);
+  assert.ok(corners);
+  const mesh = ringFill(sphere, ring, corners, [22.5, 22.5], { color: "#050810", opacity: 0.3 });
+  assert.ok(mesh, "the cell has a sheet");
+  const radii = radiiOf(mesh);
+  const wanted = 100.32;
+  // The vertices are stored as 32-bit floats, so "on the surface" is to a
+  // ten-thousandth of a unit; the defect this pins down was seven whole units.
+  for (const radius of radii) {
+    assert.ok(Math.abs(radius - wanted) < 1e-4,
+      `a vertex at ${radius} is not on the surface — the sheet sags into the planet`);
+  }
+  // Which is the defect measured: the chord between two corners 45 apart, and
+  // the straight walk from the middle out to them, both cut deep inside.
+  assert.ok(radii.length > 5 * 4, "and there are far more vertices than the ring had corners");
+});
+
+test("a fill is drawn under the boundary and over the tiles, writing no depth", () => {
+  const ring: [number, number][] = [[0, 0], [10, 0], [10, 10], [0, 10], [0, 0]];
+  const corners = boundsOf(ring);
+  assert.ok(corners);
+  const mesh = ringFill(sphere, ring, corners, [5, 5], { color: "#4fb3d5", opacity: 0.14 });
+  assert.ok(mesh);
+  const material = mesh.material as THREE.MeshBasicMaterial;
+  assert.equal(mesh.renderOrder, 1, "over the tiles (0), under the boundary (2) and the chip (3)");
+  assert.equal(material.transparent, true);
+  assert.equal(material.opacity, 0.14);
+  assert.equal(material.depthWrite, false, "a sheet that wrote depth would erase its own boundary");
+  assert.equal(material.side, THREE.DoubleSide);
+  assert.equal(material.color.getHexString(), "4fb3d5");
+});
+
+// ---- the boundary carries its weight ----------------------------------
+
+const square: [number, number][] = [[0, 0], [20, 0], [20, 20], [0, 20], [0, 0]];
+
+test("a boundary is drawn at the width its role is weighed at", () => {
+  // The role table of `gridTheme.widths`, which WebGL's native line ignores
+  // outright: every one of these came out a hairline, and the hierarchy the
+  // weights encode was invisible on the sphere while the chart drew it.
+  for (const width of [2.5, 1.8, 1.4, 1]) {
+    const loop = cellBoundary(sphere, square, { color: "#ffffff", opacity: 1, widthPx: width },
+      { width: 1280, height: 800 });
+    assert.ok(loop);
+    const material = loop.material;
+    assert.equal(material.linewidth, width, "the width is the token's, honestly drawn");
+    assert.deepEqual([material.resolution.x, material.resolution.y], [1280, 800],
+      "a width in pixels is measured against the window it is drawn in");
+    assert.equal(loop.renderOrder, 2);
+    assert.equal(material.depthWrite, false);
+  }
+});
+
+test("a boundary follows the curve and closes on itself", () => {
+  const loop = cellBoundary(sphere, square, { color: "#c9924b", opacity: 0.44, widthPx: 1 },
+    { width: 900, height: 600 });
+  assert.ok(loop);
+  // Ten steps a side at twenty degrees, and the first point repeated to close.
+  const positions = loop.geometry.getAttribute("instanceStart");
+  assert.equal(positions.count, 40, "four sides of ten segments, closed");
+  for (let at = 0; at < positions.count; at++) {
+    const radius = Math.hypot(
+      positions.getX(at), positions.getY(at), positions.getZ(at));
+    assert.ok(Math.abs(radius - 100.45) < 1e-4, "and every vertex of it is on the surface");
+  }
+  assert.equal(loop.material.opacity, 0.44);
+});
+
+test("a boundary's geometry and material are given back on release", () => {
+  const group = new THREE.Group();
+  const loop = cellBoundary(sphere, square, { color: "#ffffff", opacity: 1, widthPx: 2.5 },
+    { width: 1280, height: 800 });
+  assert.ok(loop);
+  const seen: string[] = [];
+  watch(loop.geometry, seen, "line geometry");
+  watch(loop.material, seen, "line material");
+  group.add(loop);
+  release(group);
+  assert.equal(group.children.length, 0);
+  assert.deepEqual(seen.sort(), ["line geometry", "line material"],
+    "a boundary is rebuilt every time the camera changes what fits: leaking one leaks dozens");
+});
+
+// ---- the ring is the sphere's, not the sheet's -------------------------
+
+test("a ring that carried its longitudes past the antimeridian is left alone", () => {
+  // The mapping a world declares: the whole equirect window, 8192 by 4096.
+  const mapping = {
+    toLatLng: (x: number, y: number): [number, number] => [(y / 4096) * 180, (x / 8192) * 360 - 180],
+    toWorld: (): [number, number] => [0, 0],
+  };
+  const ring = ringLatLng([[7680, 0], [8704, 0], [8704, -1024], [7680, -1024], [7680, 0]], mapping);
+  const corners = boundsOf(ring);
+  assert.ok(corners);
+  assert.ok(corners.east > 180,
+    "the loop stays continuous: the sphere is periodic and a cut would tear the cell in two");
+  assert.equal(ring.length, 5, "and it is still one ring");
+});
+
+// ---- the pyramid under the camera --------------------------------------
+//
+// `globe-zoomed-deep` in golden/parity/mars/tour.json is the recorded reading
+// of this: the camera at 0.68 over 0,0 draws 81 tiles of level 5. Both numbers
+// fall out of the two functions below and nothing else.
+
+test("the level is one deeper than the distance reads as, capped by the capture", () => {
+  const ceiling = 8;
+  const table: [number, number][] = [
+    [2.5, 3], // the whole disc reads as zoom 2
+    [0.68, 5], // the recorded step: 3.878 rounds to 4, and one deeper is 5
+    [0.08, 8], // pressed against the nearest altitude
+  ];
+  for (const [altitude, wanted] of table) {
+    assert.equal(detailLevel(zoomForAltitude(altitude, ceiling), 6),
+      Math.min(wanted, 6), `at altitude ${altitude}`);
+  }
+  assert.equal(detailLevel(5.4, 6), 6, "5.4 rounds to 5 and one deeper is 6");
+  assert.equal(detailLevel(5.6, 6), 6, "and the capture's own floor is the ceiling");
+  assert.equal(detailLevel(2, 4), 3);
+});
+
+test("the neighbourhood is the block the horizon asks for, pulled into its budget", () => {
+  const wanted = detailBlock({ lat: 0, lng: 0, altitude: 0.68 }, 5, 96);
+  assert.equal(wanted.length, 81,
+    "which is exactly what globe-zoomed-deep recorded: reach 6 is 169 tiles, 5 is 121, 4 is 81");
+  const columns = new Set(wanted.map(([x]) => x));
+  const rows = new Set(wanted.map(([, y]) => y));
+  assert.equal(columns.size, 9, "nine columns");
+  assert.equal(rows.size, 9, "by nine rows");
+  assert.ok([...columns].every((x) => x >= 0 && x < 32), "wrapped in longitude: the sphere closes");
+});
+
+test("the block is clipped at the poles and wrapped at the seam", () => {
+  const pole = detailBlock({ lat: 88, lng: 0, altitude: 0.68 }, 5, 96);
+  assert.ok(pole.length < 81, "there is no row above the pole to ask for");
+  assert.ok(pole.every(([, y]) => y >= 0 && y < 16));
+  const seam = detailBlock({ lat: 0, lng: 179, altitude: 0.68 }, 5, 96);
+  assert.equal(seam.length, 81);
+  assert.ok(seam.some(([x]) => x === 0) && seam.some(([x]) => x === 31),
+    "a camera on the antimeridian reads tiles from both ends of the pyramid");
+});
+
+test("a shallower level has room for a wider reach", () => {
+  // The budget is a count of tiles, not of degrees: at level 3 the whole
+  // horizon is three tiles across, the block is seven columns wide and nothing
+  // has to be given up — and the four rows are every row the pyramid has.
+  const wanted = detailBlock({ lat: 0, lng: 0, altitude: 2.5 }, 3, 96);
+  assert.equal(wanted.length, 28);
+  assert.equal(new Set(wanted.map(([x]) => x)).size, 7);
+  assert.equal(new Set(wanted.map(([, y]) => y)).size, 4, "clipped to the pyramid's own rows");
+});
+
+// ---- a tile is draped, not composited ----------------------------------
+//
+// The base skin is one 4096-pixel canvas of the whole equirect window, which
+// is level four exactly. A level-six tile composited into it is a 256-pixel
+// square drawn 64 wide — three quarters of the capture thrown away before
+// anything is drawn, which is what made the sphere read two levels shallower
+// than the chart at the same camera. Draped as its own mesh, a tile covers its
+// own ground at its own pitch.
+
+test("a tile is draped on a grid that follows the curve, at the pyramid's own radius", () => {
+  const geometry = tileGeometry(sphere, -180, 90, 11.25);
+  const position = geometry.getAttribute("position");
+  assert.equal(position.count, 81, "nine by nine points: an eight-segment grid");
+  assert.equal(geometry.getIndex()?.count, 8 * 8 * 6, "two triangles a square");
+  for (let at = 0; at < position.count; at++) {
+    const radius = Math.hypot(position.getX(at), position.getY(at), position.getZ(at));
+    assert.ok(Math.abs(radius - 100.2) < 1e-4,
+      "just off the skin, under everything the grid draws");
+  }
+  const uv = geometry.getAttribute("uv");
+  assert.deepEqual([uv.getX(0), uv.getY(0)], [0, 1], "the tile's top-left is the texture's");
+  assert.deepEqual([uv.getX(80), uv.getY(80)], [1, 0], "and its bottom-right likewise");
 });

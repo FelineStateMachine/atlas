@@ -32,6 +32,9 @@
 // handed is handed back unchanged unless the reader actually moved it.
 
 import * as THREE from "three";
+import { Line2 } from "three/examples/jsm/lines/Line2.js";
+import { LineGeometry } from "three/examples/jsm/lines/LineGeometry.js";
+import { LineMaterial } from "three/examples/jsm/lines/LineMaterial.js";
 import Globe from "globe.gl";
 import type { GlobeInstance } from "globe.gl";
 import {
@@ -40,14 +43,16 @@ import {
   KEY_GEOMETRY_SURFACE,
 } from "@atlas/analysis/semconv/keys";
 import {
-  cellPlan, cellRings, cellSystems, equirectMapping, gridCellVisual, gridTheme,
+  cellPlan, cellSystems, equirectMapping, gridCellVisual, gridTheme,
 } from "@atlas/analysis";
-import type { GeoMapping, PlanCell } from "@atlas/analysis";
+import type { GeoMapping, PlanCell, Ring } from "@atlas/analysis";
 import { logger } from "../log.ts";
 import type { WorldContext } from "../context.ts";
-import type { Attrs, Collection } from "../data/payload.ts";
+import type { Attrs, Collection, Lens } from "../data/payload.ts";
 import { iconURL } from "../data/plane.ts";
+import { LensCoverage } from "../data/pyramid.ts";
 import { reportGridPick, reportPick } from "../data/report.ts";
+import { cellMoved } from "../chart/grid.ts";
 import { viewMaxZoom } from "../chart/projection.ts";
 import { collectionColor } from "../chart/styles.ts";
 import {
@@ -99,6 +104,29 @@ const GLOBE_RADIUS = 100;
 
 /** Tiles the neighbourhood under the camera may hold at once. */
 const DETAIL_TILE_BUDGET = 96;
+
+/**
+ * Where the pyramid's own tiles are draped, and on how fine a grid.
+ *
+ * Just off the skin — under everything the grid draws and well under the pins
+ * — and on an eight-by-eight grid per tile, because a flat quad laid over a
+ * curve stands off the ground at its middle and cuts into it at its corners.
+ */
+const DETAIL_RADIUS = GLOBE_RADIUS + 0.2;
+const DETAIL_SEGMENTS = 8;
+
+/**
+ * The three radii the grid is drawn at, in the order it is painted.
+ *
+ * They are a hair apart on purpose: the sheet, the boundary over it, and the
+ * chip over that, each far enough off the one below to be free of it and all
+ * of them just off the tiles. Render order settles what the depth buffer
+ * cannot — the fill writes no depth, so without it a dim cell drawn after its
+ * neighbour's boundary would paint over the boundary.
+ */
+const FILL_RADIUS = DETAIL_RADIUS + 0.12;
+const LINE_RADIUS = DETAIL_RADIUS + 0.25;
+const CHIP_RADIUS = DETAIL_RADIUS + 0.35;
 
 /** Names raised over the sphere at once. */
 const LABEL_BUDGET = 180;
@@ -199,7 +227,12 @@ export class AtlasGlobe extends HTMLElement {
   private readonly pins = new THREE.Group();
   private readonly labels = new THREE.Group();
   private readonly cells = new THREE.Group();
+  private readonly tiles = new THREE.Group();
   private readonly sprites = new Map<string, THREE.Object3D>();
+  /** The tiles draped under the camera, by `z/x/y`, and what each one is. */
+  private readonly draped = new Map<string, THREE.Mesh>();
+  /** The neighbourhood currently draped, so a camera that moved a hair redraws nothing. */
+  private detailKey = "";
   private worldKey = "";
   private lensKey = "";
   private given: { lat: number; lng: number; altitude: number } | null = null;
@@ -208,6 +241,17 @@ export class AtlasGlobe extends HTMLElement {
   private fitKey = "";
   /** The cell the grid was last drawn over: null while no grid is open. */
   private heldCell: string | null = null;
+  /**
+   * The system that cell was held in.
+   *
+   * Held beside the cell because the two only mean anything together. Cycling
+   * the system carries the held cell to its equivalent in the next one — the
+   * same ground, spelled another way — and the *string* changes, so a memo on
+   * the cell alone reads that as a descent and flies the camera somewhere the
+   * reader never asked to go. A cell moved is a cell moved **within one
+   * system**; anything else is the same place under a new name.
+   */
+  private heldSystem: string | null = null;
   /** The feature a card was last open about, so a change in it can turn the planet. */
   private selected = "";
   /**
@@ -267,7 +311,7 @@ export class AtlasGlobe extends HTMLElement {
     // A different pyramid: the neighbourhood under the camera belonged to the
     // one being left and is dropped rather than re-drawn. It comes back when
     // the camera next moves, which is exactly what the recorded tour saw.
-    this.skin?.clearDetail();
+    this.clearDetail();
     void this.skin?.base(
       context.base, context.lens,
       (z, x, y) => this.tileURL(z, x, y),
@@ -342,7 +386,7 @@ export class AtlasGlobe extends HTMLElement {
     // A globe nobody is looking at holds no pyramid tiles: the skin under it
     // stays, because it is one texture and recompositing it is the expensive
     // half of coming back.
-    this.skin?.clearDetail();
+    this.clearDetail();
     // The name of the pyramid stays. It is the record of what the sphere read
     // while it was up, not a live handle on anything, and the baselines carry
     // it through the pane being put away.
@@ -387,10 +431,13 @@ export class AtlasGlobe extends HTMLElement {
     this.onCamera = null;
     release(this.labels);
     release(this.cells);
+    release(this.tiles);
+    this.draped.clear();
+    this.detailKey = "";
     this.pins.clear();
     this.sprites.clear();
     if (globe) {
-      globe.scene().remove(this.pins, this.labels, this.cells);
+      globe.scene().remove(this.pins, this.labels, this.cells, this.tiles);
       globe._destructor?.();
     }
     this.texture?.dispose();
@@ -402,6 +449,7 @@ export class AtlasGlobe extends HTMLElement {
     this.labelKey = "";
     this.fitKey = "";
     this.heldCell = null;
+    this.heldSystem = null;
     this.selected = "";
     this.given = null;
     this.handed = null;
@@ -481,12 +529,12 @@ export class AtlasGlobe extends HTMLElement {
     wearSkin(this.globe.globeMaterial() as THREE.MeshPhongMaterial, this.texture);
 
     const scene = this.globe.scene();
+    scene.add(this.tiles);
     scene.add(this.pins);
     scene.add(this.labels);
     scene.add(this.cells);
     this.seam.labels.group = this.labels;
     this.seam.grid.group = this.cells;
-    this.seam.detail.tiles = this.skin.tiles;
 
     this.buildSprites(context);
     this.watchCamera(this.globe);
@@ -674,8 +722,15 @@ export class AtlasGlobe extends HTMLElement {
     // asks, handed the one thing only a renderer knows, which is whether the
     // address would fit inside the cell as the camera currently sees it.
     for (const cell of planOf(context)) {
-      const rings = cellRings(context.ground, cell);
-      const corners = cornersOf(rings, equirect.mapping);
+      // THE RING AS THE SYSTEM WALKED IT, not as the chart draws it.
+      // `cellRings` answers two questions about a flat sheet — where the
+      // antimeridian cuts a loop in two, and how a pole cell closes along the
+      // top edge of the picture — and neither is a question a sphere has. The
+      // trigonometry below is periodic, so a loop carrying its longitudes past
+      // 180 drapes exactly where it belongs, and a cut ring would be drawn as
+      // two pieces with a seam down the middle of a cell that has none.
+      const ring = ringLatLng(cell.ring, equirect.mapping);
+      const corners = boundsOf(ring);
       if (!corners) continue;
       const visual = gridCellVisual(context.ground, context.system, cell, {
         subgridVisible: context.subgridVisible,
@@ -684,24 +739,13 @@ export class AtlasGlobe extends HTMLElement {
       if (!visual) continue;
       if (visual.fill) {
         const [cx, cy] = context.system.on(context.ground).center(cell.hash);
-        const [lat, lng] = equirect.mapping.toLatLng(cx, -cy);
-        const fill = this.ringFill(rings, [lat, lng], visual.fill);
+        const centre = equirect.mapping.toLatLng(cx, -cy);
+        const fill = ringFill(globe, ring, corners, centre, visual.fill);
         if (fill) this.cells.add(fill);
       }
-      for (const ring of rings) {
-        const points = ring.map(([x, y]) => {
-          const [lat, lng] = equirect.mapping.toLatLng(x, -y);
-          const at = globe.getCoords(lat, lng, 0.01);
-          return new THREE.Vector3(at.x, at.y, at.z);
-        });
-        if (points.length < 2) continue;
-        this.cells.add(new THREE.Line(
-          new THREE.BufferGeometry().setFromPoints(points),
-          new THREE.LineBasicMaterial({
-            color: visual.line.color, transparent: true, opacity: visual.line.opacity,
-          }),
-        ));
-      }
+      const boundary = cellBoundary(globe, ring, visual.line,
+        { width: this.clientWidth || 1, height: this.clientHeight || 1 });
+      if (boundary) this.cells.add(boundary);
       if (visual.label) this.cells.add(this.cellChip(visual.label, corners));
     }
     // The frame the camera was flown to hold the cell, which is what makes a
@@ -715,8 +759,22 @@ export class AtlasGlobe extends HTMLElement {
     // on the far side of the world is a cell nobody can see. Only a *change*
     // of held cell turns the camera — opening the grid over the ground the
     // reader is already looking at moves nothing.
-    if (this.heldCell !== null && this.heldCell !== context.cell) this.frameCell();
+    //
+    // AND ONLY WITHIN ONE SYSTEM. Cycling the system carries the held cell
+    // across to the cell of the next system that covers the same ground
+    // (`equivalentCell`), so the string changes while the place does not:
+    // "m" becomes "24" and the reader has not moved. Turning the planet for
+    // that is the camera answering a question about spelling. Both memos are
+    // written whatever happened, so the descent *after* a cycle is still read
+    // against the system it was made in.
+    const system = context.scene.gridSystem;
+    const held = this.heldCell;
+    if (held !== null &&
+      cellMoved({ system: this.heldSystem ?? "", cell: held }, { system, cell: context.cell })) {
+      this.frameCell();
+    }
     this.heldCell = context.cell;
+    this.heldSystem = system;
     // Chips are born visible, like the name cards, and are held to the same
     // horizon for the same reason.
     this.cull();
@@ -768,63 +826,6 @@ export class AtlasGlobe extends HTMLElement {
     const height = Math.abs(corners.north - corners.south) * degreePixels;
     return measure(cell.hash, `900 ${size}px ${gridTheme.labelFont}`) + 9 <= width &&
       size + 6 <= height;
-  }
-
-  /**
-   * A cell's tint or dim, laid on the ground.
-   *
-   * A fan of triangles from the cell's own middle out to its ring, each spoke
-   * subdivided so the sheet follows the curve instead of sagging under it. The
-   * spokes are walked on the sphere itself rather than in degrees, where an
-   * unwrapped ring and a wrapped centre sit hundreds of degrees apart and a
-   * pole cell's middle has no honest longitude at all.
-   */
-  private ringFill(
-    rings: readonly (readonly (readonly [number, number])[])[],
-    centre: readonly [number, number],
-    fill: { color: string; opacity: number },
-  ): THREE.Mesh | null {
-    const globe = this.globe;
-    const equirect = this.equirect;
-    const ring = rings[0];
-    if (!globe || !equirect || !ring || ring.length < 3) return null;
-    const edge = ring.map(([x, y]) => {
-      const [lat, lng] = equirect.mapping.toLatLng(x, -y);
-      const at = globe.getCoords(lat, lng, 0.008);
-      return [at.x, at.y, at.z] as [number, number, number];
-    });
-    const middle = globe.getCoords(centre[0], centre[1], 0.008);
-    const radius = Math.hypot(middle.x, middle.y, middle.z) || 1;
-    const positions: number[] = [middle.x, middle.y, middle.z];
-    const rows = 4;
-    for (let row = 1; row <= rows; row++) {
-      const t = row / rows;
-      for (const [x, y, z] of edge) {
-        const px = middle.x + (x - middle.x) * t;
-        const py = middle.y + (y - middle.y) * t;
-        const pz = middle.z + (z - middle.z) * t;
-        const lift = radius / (Math.hypot(px, py, pz) || 1);
-        positions.push(px * lift, py * lift, pz * lift);
-      }
-    }
-    const count = edge.length;
-    const indices: number[] = [];
-    for (let at = 0; at < count - 1; at++) indices.push(0, 1 + at, 2 + at);
-    for (let row = 1; row < rows; row++) {
-      const inner = 1 + (row - 1) * count;
-      const outer = 1 + row * count;
-      for (let at = 0; at < count - 1; at++) {
-        indices.push(inner + at, outer + at, outer + at + 1);
-        indices.push(inner + at, outer + at + 1, inner + at + 1);
-      }
-    }
-    const geometry = new THREE.BufferGeometry();
-    geometry.setAttribute("position", new THREE.Float32BufferAttribute(positions, 3));
-    geometry.setIndex(indices);
-    return new THREE.Mesh(geometry, new THREE.MeshBasicMaterial({
-      color: fill.color, transparent: true, opacity: fill.opacity,
-      side: THREE.DoubleSide, depthWrite: false,
-    }));
   }
 
   /**
@@ -882,12 +883,17 @@ export class AtlasGlobe extends HTMLElement {
     }));
     const insetLat = Math.abs(corners.north - corners.south) * 0.02;
     const insetLng = Math.abs(corners.east - corners.west) * 0.02;
-    const at = globe?.getCoords(corners.south + insetLat, corners.east - insetLng, 0.02);
+    const at = globe
+      ? surfacePoint(globe, corners.south + insetLat, corners.east - insetLng, CHIP_RADIUS)
+      : null;
     if (at) sprite.position.set(at.x, at.y, at.z);
     const viewport = Math.max(1, this.clientHeight || 1);
     const height = canvas.height / scale / viewport;
     sprite.scale.set((height * canvas.width) / canvas.height, height, 1);
     sprite.center.set(1, 0);
+    // The grid's own order: the sheet, the boundary, the chip. A name card is
+    // above all three (4), and the tiles below all of them (0).
+    sprite.renderOrder = 3;
     return sprite;
   }
 
@@ -910,20 +916,9 @@ export class AtlasGlobe extends HTMLElement {
     if (!chosen) return;
     const [x, y] = context.system.on(context.ground).center(chosen.hash);
     const [lat, lng] = equirect.mapping.toLatLng(x, -y);
-    let north = -90;
-    let south = 90;
-    let east = -180;
-    let west = 180;
-    for (const ring of cellRings(context.ground, chosen)) {
-      for (const [ringX, ringY] of ring) {
-        const [ringLat, ringLng] = equirect.mapping.toLatLng(ringX, -ringY);
-        north = Math.max(north, ringLat);
-        south = Math.min(south, ringLat);
-        east = Math.max(east, ringLng);
-        west = Math.min(west, ringLng);
-      }
-    }
-    const span = Math.max(east - west, north - south);
+    const corners = boundsOf(ringLatLng(chosen.ring, equirect.mapping));
+    if (!corners) return;
+    const span = Math.max(corners.east - corners.west, corners.north - corners.south);
     const altitude = clamp(span / 45, NEAREST_ALTITUDE, FARTHEST_ALTITUDE);
     globe.pointOfView({ lat, lng, altitude }, 400);
   }
@@ -960,11 +955,21 @@ export class AtlasGlobe extends HTMLElement {
   }
 
   /**
-   * Ask for the neighbourhood the camera is over.
+   * Drape the neighbourhood the camera is over.
    *
    * The level is the one whose tiles are about a quarter of what is on
    * screen: shallower and the deep capture is wasted, deeper and the sphere
    * asks for a hundred tiles to picture a continent.
+   *
+   * EACH TILE IS ITS OWN MESH, wearing its own texture at the size it was
+   * captured. That is the whole difference between the sphere reading as
+   * deeply as the chart and reading two levels shallower than it: the base
+   * skin is one four-thousand-pixel canvas of the entire equirect window,
+   * which is level four exactly, so a level-six tile composited into it is a
+   * 256-pixel square drawn 64 pixels wide and three quarters of the capture is
+   * thrown away before anything is drawn. Draped, the same tile covers the
+   * same ground at its own pitch, and the closer the camera comes the more of
+   * it there is to see.
    */
   private refreshDetail(): void {
     const context = this.context;
@@ -978,42 +983,76 @@ export class AtlasGlobe extends HTMLElement {
     // base skin and nothing else, which is what makes "past the base skin's
     // depth, tiles actually arrive" a statement the tour can check rather
     // than a description of every frame.
-    const z = Math.min(
-      Math.round(zoomForAltitude(pov.altitude, this.ceiling())) + 1,
-      context.lens.maxZoom);
+    const z = detailLevel(
+      zoomForAltitude(pov.altitude, this.ceiling()), context.lens.maxZoom);
     if (z <= Math.max(TEXTURE_ZOOM, this.skin.baseLevel(context.lens))) {
-      this.skin.clearDetail();
+      this.clearDetail();
       return;
     }
-    // How much ground the camera can possibly see: the horizon angle at this
-    // altitude, padded by one tile so tiles arrive before their ground does,
-    // then pulled in until the neighbourhood fits its budget.
-    //
-    // The block is named in tiles rather than measured in pixels. A tile is a
-    // whole square of latitude and longitude at this level, so the camera
-    // faces exactly one of them and the neighbourhood is the (2·reach+1)²
-    // square around it: wrapped in longitude, because the sphere closes, and
-    // clipped in latitude, because it does not.
-    const columns = 2 ** z;
-    const rows = columns / 2;
-    const span = 360 / columns;
-    const horizon = (Math.acos(1 / (1 + pov.altitude)) * 180) / Math.PI + span;
-    let reach = Math.ceil(horizon / span);
-    while ((2 * reach + 1) ** 2 > DETAIL_TILE_BUDGET && reach > 1) reach -= 1;
-    const centreColumn = Math.floor(((((pov.lng + 180) % 360) + 360) % 360) / span);
-    const centreRow = Math.floor((90 - pov.lat) / span);
-    const wanted: [number, number][] = [];
-    for (let down = -reach; down <= reach; down++) {
-      const row = centreRow + down;
-      if (row < 0 || row >= rows) continue;
-      for (let across = -reach; across <= reach; across++) {
-        wanted.push([(((centreColumn + across) % columns) + columns) % columns, row]);
-      }
+    const wanted = detailBlock(pov, z, DETAIL_TILE_BUDGET);
+    const key = `${context.lens.tiles}/${z}/` +
+      wanted.map(([x, y]) => `${x},${y}`).sort().join(" ");
+    if (key === this.detailKey) return;
+    this.detailKey = key;
+    this.seam.detail.lens = context.lens.tiles;
+    const coverage = new LensCoverage(context.lens);
+    const keep = new Set<string>();
+    for (const [x, y] of wanted) {
+      const name = `${z}/${x}/${y}`;
+      // Only where the capture says a tile was written: a lens is a picture of
+      // the ground it covered, and asking for the rest is a wall of 404s.
+      if (!coverage.has(context.grid, z, x, y)) continue;
+      keep.add(name);
+      if (this.draped.has(name)) continue;
+      const mesh = this.drapeTile(globe, context.lens, z, x, y);
+      if (!mesh) continue;
+      this.draped.set(name, mesh);
+      this.seam.detail.tiles.set(name, true);
+      this.tiles.add(mesh);
     }
-    void this.skin.detail(
-      context.lens, z, wanted,
-      (level, x, y) => this.tileURL(level, x, y),
-      () => this.refresh());
+    // What the camera has left behind. Dropped and disposed rather than kept
+    // against a return: a neighbourhood is a hundred textures, and the reader
+    // who flies back gets them from the browser's own cache.
+    for (const [name, mesh] of [...this.draped]) {
+      if (keep.has(name)) continue;
+      this.tiles.remove(mesh);
+      dispose(mesh);
+      this.draped.delete(name);
+      this.seam.detail.tiles.delete(name);
+    }
+  }
+
+  /** One pyramid tile, draped at its place, invisible until its picture lands. */
+  private drapeTile(
+    globe: GlobeInstance, lens: Lens, z: number, x: number, y: number,
+  ): THREE.Mesh | null {
+    const url = this.tileURL(z, x, y);
+    if (!url) return null;
+    const span = 360 / 2 ** z;
+    const mesh = new THREE.Mesh(
+      tileGeometry(globe, -180 + x * span, 90 - y * span, span),
+      new THREE.MeshBasicMaterial());
+    // A black square teaches nothing: the tile appears when it has something
+    // to say, and the base skin carries the ground until then.
+    mesh.visible = false;
+    mesh.renderOrder = 0;
+    new THREE.TextureLoader().load(url, (texture) => {
+      texture.colorSpace = THREE.SRGBColorSpace;
+      const material = mesh.material as THREE.MeshBasicMaterial;
+      material.map = texture;
+      material.needsUpdate = true;
+      mesh.visible = true;
+    });
+    return mesh;
+  }
+
+  /** Put the neighbourhood away. A globe nobody is looking at holds none. */
+  private clearDetail(): void {
+    this.skin?.clearDetail();
+    release(this.tiles);
+    this.draped.clear();
+    this.seam.detail.tiles.clear();
+    this.detailKey = "";
   }
 
   private refresh(): void {
@@ -1091,24 +1130,271 @@ interface Corners {
   readonly west: number;
 }
 
-function cornersOf(
-  rings: readonly (readonly (readonly [number, number])[])[],
-  mapping: GeoMapping,
-): Corners | null {
+/**
+ * A system's ring, landed on the sphere.
+ *
+ * The ring is continuous by contract, so a loop that crossed the antimeridian
+ * simply carries its longitudes past 180 — the trigonometry underneath is
+ * periodic and drapes it where it belongs, which is why the globe never needs
+ * the splitting the chart does.
+ */
+export function ringLatLng(ring: Ring, mapping: GeoMapping): [number, number][] {
+  return ring.map(([x, y]) => {
+    const [lat, lng] = mapping.toLatLng(x, -y);
+    return [lat, lng];
+  });
+}
+
+/** A ring's frame in degrees: the fit gate, the chip's anchor, the camera. */
+export function boundsOf(ring: readonly (readonly [number, number])[]): Corners | null {
   let north = -Infinity;
   let south = Infinity;
   let east = -Infinity;
   let west = Infinity;
-  for (const ring of rings) {
-    for (const [x, y] of ring) {
-      const [lat, lng] = mapping.toLatLng(x, -y);
-      north = Math.max(north, lat);
-      south = Math.min(south, lat);
-      east = Math.max(east, lng);
-      west = Math.min(west, lng);
-    }
+  for (const [lat, lng] of ring) {
+    north = Math.max(north, lat);
+    south = Math.min(south, lat);
+    east = Math.max(east, lng);
+    west = Math.min(west, lng);
   }
   return Number.isFinite(north) ? { north, south, east, west } : null;
+}
+
+/**
+ * A ring, subdivided by the span of each of its own segments.
+ *
+ * THE ONE THING A SPHERE ASKS OF A RING. Two corners 45° apart joined by a
+ * straight line are joined by a chord *through the planet*: at a hundred units
+ * of radius the middle of that line sits seven units under the ground it is
+ * supposed to lie on, so the sheet a fill is made of is drawn inside the world
+ * and the boundary over it disappears into the crust. The large cells are
+ * exactly the ones this ruins — a dim neighbour at the root of a plan spans
+ * tens of degrees — which is why "the dim does not render" was a fair
+ * description of a mesh that was rendering perfectly, buried.
+ *
+ * Every two degrees of span, to a ceiling of 48 steps a segment. The floor is
+ * the caller's: a fill wants one step per segment at minimum, a boundary four,
+ * because a boundary is what a reader sees the curve *of*.
+ *
+ * The loop it answers is OPEN — the closing repeat of the first point is
+ * dropped — so a fan or a strip can close it by index arithmetic.
+ */
+export function densifyRing(
+  ring: readonly (readonly [number, number])[], floor: number,
+): [number, number][] {
+  const dense: [number, number][] = [];
+  for (let at = 0; at < ring.length - 1; at++) {
+    const from = ring[at];
+    const to = ring[at + 1];
+    if (!from || !to) continue;
+    const span = Math.max(Math.abs(to[0] - from[0]), Math.abs(to[1] - from[1]));
+    const steps = clamp(Math.ceil(span / 2), floor, 48);
+    for (let step = 0; step < steps; step++) {
+      const t = step / steps;
+      dense.push([from[0] + (to[0] - from[0]) * t, from[1] + (to[1] - from[1]) * t]);
+    }
+  }
+  return dense;
+}
+
+/** How many rings of triangles a fill of this span is built from. */
+export function fillRows(span: number): number {
+  return clamp(Math.ceil(span / 6), 2, 24);
+}
+
+/** A place on the sphere at an absolute radius, in globe.gl's own spelling. */
+function surfacePoint(
+  globe: GlobeInstance, lat: number, lng: number, radius: number,
+): { x: number; y: number; z: number } {
+  return globe.getCoords(lat, lng, radius / GLOBE_RADIUS - 1);
+}
+
+/**
+ * A cell's tint or dim, laid on the ground.
+ *
+ * A fan of triangles from the cell's own middle out to its densified ring,
+ * ring by ring, each vertex pushed back out to the sphere it belongs on. The
+ * spokes are walked on the sphere itself rather than in degrees, where an
+ * unwrapped ring and a wrapped centre sit hundreds of degrees apart and a pole
+ * cell's middle has no honest longitude at all — but a straight walk from the
+ * middle to the rim is still a chord, so every vertex is lifted back to the
+ * radius before it is kept. Rows by span, for the same reason the ring is
+ * densified by span: one row of triangles across forty degrees sags as badly
+ * as one segment does.
+ */
+export function ringFill(
+  globe: GlobeInstance,
+  ring: readonly (readonly [number, number])[],
+  corners: Corners,
+  centre: readonly [number, number],
+  fill: { color: string; opacity: number },
+): THREE.Mesh | null {
+  const open = densifyRing(ring, 1);
+  if (open.length < 3) return null;
+  const middle = surfacePoint(globe, centre[0], centre[1], FILL_RADIUS);
+  const radius = Math.hypot(middle.x, middle.y, middle.z) || 1;
+  const edges = open.map(([lat, lng]) => surfacePoint(globe, lat, lng, FILL_RADIUS));
+  const rows = fillRows(Math.max(corners.east - corners.west, corners.north - corners.south));
+  const positions: number[] = [middle.x, middle.y, middle.z];
+  for (let row = 1; row <= rows; row++) {
+    const t = row / rows;
+    for (const edge of edges) {
+      const x = middle.x + (edge.x - middle.x) * t;
+      const y = middle.y + (edge.y - middle.y) * t;
+      const z = middle.z + (edge.z - middle.z) * t;
+      const lift = radius / (Math.hypot(x, y, z) || 1);
+      positions.push(x * lift, y * lift, z * lift);
+    }
+  }
+  const count = open.length;
+  const at = (row: number, index: number): number => 1 + (row - 1) * count + (index % count);
+  const indices: number[] = [];
+  for (let index = 0; index < count; index++) {
+    indices.push(0, at(1, index), at(1, index + 1));
+  }
+  for (let row = 1; row < rows; row++) {
+    for (let index = 0; index < count; index++) {
+      indices.push(at(row, index), at(row + 1, index), at(row, index + 1));
+      indices.push(at(row, index + 1), at(row + 1, index), at(row + 1, index + 1));
+    }
+  }
+  const geometry = new THREE.BufferGeometry();
+  geometry.setAttribute("position", new THREE.Float32BufferAttribute(positions, 3));
+  geometry.setIndex(indices);
+  const mesh = new THREE.Mesh(geometry, new THREE.MeshBasicMaterial({
+    color: fill.color, transparent: true, opacity: fill.opacity,
+    side: THREE.DoubleSide, depthWrite: false,
+  }));
+  mesh.renderOrder = 1;
+  return mesh;
+}
+
+/**
+ * A cell's boundary, at the weight its role is drawn in.
+ *
+ * `Line2` rather than `THREE.Line`, and the whole role table is why: WebGL
+ * draws a native line one pixel wide and silently ignores the width it was
+ * asked for, so a leaf's 2.5, a bare scope's 1.8, a child's 1.4 and a
+ * neighbour's 1.0 all came out the same hairline and the hierarchy those
+ * weights encode was erased on the sphere while the chart drew it correctly.
+ * A line built out of quads carries its width honestly — in pixels, which is
+ * why the material has to be told the size of the window it is measured
+ * against.
+ *
+ * The segments are subdivided by their span for the same reason the fill is: a
+ * straight line between two corners 45° apart is a chord through the planet,
+ * and most of it is under the ground it is supposed to be drawn on.
+ */
+export function cellBoundary(
+  globe: GlobeInstance,
+  ring: readonly (readonly [number, number])[],
+  line: { color: string; opacity: number; widthPx: number },
+  viewport: { width: number; height: number },
+): Line2 | null {
+  const positions: number[] = [];
+  for (const [lat, lng] of densifyRing(ring, 4)) {
+    const at = surfacePoint(globe, lat, lng, LINE_RADIUS);
+    positions.push(at.x, at.y, at.z);
+  }
+  if (positions.length < 6) return null;
+  // Closed by hand: the walk above is the open loop, and a boundary with a gap
+  // in it is a cell that does not enclose anything.
+  positions.push(...positions.slice(0, 3));
+  const geometry = new LineGeometry();
+  geometry.setPositions(positions);
+  const material = new LineMaterial({
+    color: line.color, transparent: true, opacity: line.opacity,
+    linewidth: line.widthPx, depthWrite: false,
+  });
+  material.resolution.set(viewport.width || 1, viewport.height || 1);
+  const loop = new Line2(geometry, material);
+  loop.computeLineDistances();
+  loop.renderOrder = 2;
+  return loop;
+}
+
+/**
+ * The level the camera's distance asks the pyramid for.
+ *
+ * One step deeper than the chart zoom the distance reads as, because a tile
+ * draped on a sphere is seen at a glancing angle over most of its own ground,
+ * and never deeper than the capture actually goes.
+ */
+export function detailLevel(zoom: number, maxZoom: number): number {
+  return Math.min(Math.round(zoom) + 1, maxZoom);
+}
+
+/**
+ * The block of tiles under the camera, in the pyramid's own columns and rows.
+ *
+ * How much ground the camera can possibly see is the horizon angle at this
+ * altitude, padded by one tile so tiles arrive before their ground does, then
+ * pulled in until the neighbourhood fits its budget.
+ *
+ * The block is named in tiles rather than measured in pixels. A tile is a
+ * whole square of latitude and longitude at this level, so the camera faces
+ * exactly one of them and the neighbourhood is the (2·reach+1)² square around
+ * it: wrapped in longitude, because the sphere closes, and clipped in
+ * latitude, because it does not.
+ */
+export function detailBlock(
+  pov: { lat: number; lng: number; altitude: number }, z: number, budget: number,
+): [number, number][] {
+  const columns = 2 ** z;
+  const rows = columns / 2;
+  const span = 360 / columns;
+  const horizon = (Math.acos(1 / (1 + pov.altitude)) * 180) / Math.PI + span;
+  let reach = Math.ceil(horizon / span);
+  while ((2 * reach + 1) ** 2 > budget && reach > 1) reach -= 1;
+  const centreColumn = Math.floor(((((pov.lng + 180) % 360) + 360) % 360) / span);
+  const centreRow = Math.floor((90 - pov.lat) / span);
+  const wanted: [number, number][] = [];
+  for (let down = -reach; down <= reach; down++) {
+    const row = centreRow + down;
+    if (row < 0 || row >= rows) continue;
+    for (let across = -reach; across <= reach; across++) {
+      wanted.push([(((centreColumn + across) % columns) + columns) % columns, row]);
+    }
+  }
+  return wanted;
+}
+
+/**
+ * The grid one tile is draped on.
+ *
+ * Through the same latitude-and-longitude spelling the pins stand by, so a
+ * tile lands on the pixel the base skin and the markers already agree on — and
+ * on a grid rather than a quad, because a flat square laid over a curve stands
+ * off the ground in the middle and cuts into it at the corners.
+ */
+export function tileGeometry(
+  globe: GlobeInstance, west: number, north: number, span: number,
+): THREE.BufferGeometry {
+  const positions: number[] = [];
+  const uvs: number[] = [];
+  const indices: number[] = [];
+  for (let down = 0; down <= DETAIL_SEGMENTS; down++) {
+    const lat = north - (down / DETAIL_SEGMENTS) * span;
+    for (let across = 0; across <= DETAIL_SEGMENTS; across++) {
+      const lng = west + (across / DETAIL_SEGMENTS) * span;
+      const at = surfacePoint(globe, lat, lng, DETAIL_RADIUS);
+      positions.push(at.x, at.y, at.z);
+      uvs.push(across / DETAIL_SEGMENTS, 1 - down / DETAIL_SEGMENTS);
+    }
+  }
+  const stride = DETAIL_SEGMENTS + 1;
+  for (let down = 0; down < DETAIL_SEGMENTS; down++) {
+    for (let across = 0; across < DETAIL_SEGMENTS; across++) {
+      const corner = down * stride + across;
+      indices.push(corner, corner + stride, corner + 1);
+      indices.push(corner + 1, corner + stride, corner + stride + 1);
+    }
+  }
+  const geometry = new THREE.BufferGeometry();
+  geometry.setAttribute("position", new THREE.Float32BufferAttribute(positions, 3));
+  geometry.setAttribute("uv", new THREE.Float32BufferAttribute(uvs, 2));
+  geometry.setIndex(indices);
+  return geometry;
 }
 
 /** One shared canvas for measuring text: measuring is not drawing. */
@@ -1411,12 +1697,31 @@ function markerTexture(
 export function release(group: THREE.Group): void {
   for (const child of [...group.children]) {
     group.remove(child);
-    const drawn = child as THREE.Mesh & {
-      isSprite?: boolean;
-      material?: THREE.Material & { map?: THREE.Texture | null };
-    };
-    if (!drawn.isSprite) drawn.geometry?.dispose?.();
-    drawn.material?.map?.dispose?.();
-    drawn.material?.dispose?.();
+    dispose(child);
+  }
+}
+
+/**
+ * Give back what one drawn object holds.
+ *
+ * Three kinds pass through here and each owns something different. A sprite's
+ * geometry is three's own quad, shared by every sprite in the scene, so it is
+ * the one thing not to free; its texture is a canvas this element minted, so
+ * it is. A fill mesh owns its geometry. A `Line2` owns both — the geometry it
+ * expanded its positions into and the `LineMaterial` carrying its width — and
+ * a boundary is rebuilt every time the camera changes what fits, so leaking
+ * one is leaking dozens over a single flight to a cell.
+ */
+export function dispose(child: THREE.Object3D): void {
+  const drawn = child as THREE.Mesh & {
+    isSprite?: boolean;
+    material?: THREE.Material | THREE.Material[];
+  };
+  if (!drawn.isSprite) drawn.geometry?.dispose?.();
+  const worn = drawn.material;
+  for (const material of Array.isArray(worn) ? worn : [worn]) {
+    const held = material as (THREE.Material & { map?: THREE.Texture | null }) | undefined;
+    held?.map?.dispose?.();
+    held?.dispose?.();
   }
 }
