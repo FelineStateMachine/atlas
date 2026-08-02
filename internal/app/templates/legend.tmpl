@@ -87,7 +87,16 @@
               {{if eq .Kind "path"}}<svg class="collection-kind" viewBox="0 0 16 16" aria-hidden="true"><path d="M2.5 12.5c3-6 8-2 11-9"/></svg>
               {{else}}<svg class="collection-kind collection-kind-area" viewBox="0 0 16 16" aria-hidden="true"><path d="M8 4.2 12.6 11.6H3.4z"/></svg>{{end}}
             </button>
-            {{else}}<span class="category-icon"{{if .Icon}} title="{{.Icon}}"{{else}} title="{{.Title}}"{{end}}>{{.Glyph}}</span>
+            {{else}}{{/*
+              THE MARK A ROW WEARS is the collection's own artwork wherever
+              there is any, and its initials only where there is not -- never
+              both. The reference set `--pin-icon` and the `has-source-icon`
+              class on this cell and emptied its text, or wrote the initials
+              into it (frontend/src/theme.js, applyCategoryGlyph); the rule
+              that draws one from the other came over with the stylesheet
+              (category-rows.css). Which of the two arrived is Go's answer
+              (legend.go, IconURL) -- this only spells it.
+            */}}<span class="category-icon{{if .IconURL}} has-source-icon{{end}}"{{with .IconURL}} style="--pin-icon: url('{{.}}')"{{end}}{{if .Icon}} title="{{.Icon}}"{{else}} title="{{.Title}}"{{end}}>{{if not .IconURL}}{{.Glyph}}{{end}}</span>
             {{end}}
             <span class="category-name">{{.Title}}</span>
             {{with .Labels}}<button type="button" class="label-toggle" data-label-toggle="{{.Collection}}"

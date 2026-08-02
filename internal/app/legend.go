@@ -1,6 +1,7 @@
 package app
 
 import (
+	"fmt"
 	"sort"
 	"strconv"
 	"strings"
@@ -40,6 +41,61 @@ func colorFor(id string) string {
 	}
 	mixed := uint32(uint32(value) * 2654435761)
 	return palette[mixed%uint32(len(palette))]
+}
+
+// collectionColor is the one colour a *collection* wears, and it is the seam's
+// own ladder (render/chart/styles.ts, collectionColor) spelled in Go: the
+// declared colour, then the older spelling of it, then the palette by the
+// collection's place in the payload.
+//
+// It has to be the seam's ladder rather than the feature hash above, because
+// the seam is what draws the map. A curated volume declares a colour and the
+// two agreed anyway; an enriched one -- a city, whose collections arrive with
+// no colour of their own -- fell through to two different fallbacks, and the
+// reader saw a green swatch beside a blue pin.
+func collectionColor(collection *collectionModel) string {
+	if collection.Color != "" {
+		return collection.Color
+	}
+	if collection.IconColor != "" {
+		return collection.IconColor
+	}
+	return palette[((collection.Index%len(palette))+len(palette))%len(palette)]
+}
+
+// iconAssetURL is where a collection's artwork lives, named exactly the way
+// the seam names it (render/data/plane.ts, iconURL): every segment encoded,
+// the separators left alone. Both surfaces have to spell one asset one way or
+// the browser fetches it twice and the row and the pin disagree about which
+// picture arrived.
+func iconAssetURL(base, asset string) string {
+	if base == "" || asset == "" {
+		return ""
+	}
+	segments := strings.Split(asset, "/")
+	for at, segment := range segments {
+		segments[at] = encodeURIComponent(segment)
+	}
+	return base + "/icons/" + strings.Join(segments, "/")
+}
+
+// encodeURIComponent is the browser function of that name. Go's own
+// url.PathEscape is a different set -- it escapes `(` and leaves `&` alone --
+// and a URL that differs from the seam's by one byte is a second cache entry
+// for the same picture.
+func encodeURIComponent(value string) string {
+	var out strings.Builder
+	for _, b := range []byte(value) {
+		switch {
+		case b >= 'A' && b <= 'Z', b >= 'a' && b <= 'z', b >= '0' && b <= '9':
+			out.WriteByte(b)
+		case strings.IndexByte("-_.!~*'()", b) >= 0:
+			out.WriteByte(b)
+		default:
+			out.WriteString(fmt.Sprintf("%%%02X", b))
+		}
+	}
+	return out.String()
 }
 
 // initials is the two-letter stand-in a collection with no icon wears.
@@ -97,6 +153,14 @@ type LegendRow struct {
 	// collection carries no icon asset.
 	Glyph string
 	Icon  string
+
+	// IconURL is the artwork itself, where a collection carries any, and
+	// empty where it does not. The row draws one or the other and never
+	// both: the reference set `--pin-icon` and the `has-source-icon` class
+	// on the icon cell and cleared its text, or wrote the initials into it
+	// (frontend/src/theme.js, applyCategoryGlyph). The choice is made here
+	// so the template only spells it.
+	IconURL string
 
 	Visible bool
 
@@ -156,7 +220,7 @@ type IndexEntry struct {
 // legend builds the tree for one world under one session, seen through one
 // lens: a split world offers one layer at a time, and the feature index lists
 // the layer the reader is standing on.
-func legend(model *worldModel, session Session, shown visibility, lens *payloadLens) LegendView {
+func legend(model *worldModel, session Session, shown visibility, lens *payloadLens, base string) LegendView {
 	out := LegendView{Search: session.Search, Count: shown.FooterText}
 	if model == nil {
 		return out
@@ -185,9 +249,10 @@ func legend(model *worldModel, session Session, shown visibility, lens *payloadL
 				Title:    collection.Title,
 				Kind:     collection.Kind,
 				Count:    collection.Count,
-				Color:    colorFor(collection.ID),
+				Color:    collectionColor(collection),
 				Glyph:    initials(collection.Title),
 				Icon:     collection.Icon,
+				IconURL:  iconAssetURL(base, collection.IconAsset),
 				Visible:  visible,
 				Shapes:   collection.Kind != semconv.GeometryPoint,
 				Expanded: expanded[collection.ID],

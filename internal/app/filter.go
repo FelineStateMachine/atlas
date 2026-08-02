@@ -140,7 +140,7 @@ func visible(model *worldModel, session Session, lens *payloadLens) visibility {
 			Kind:       semconv.GeometryPoint,
 			Collection: pin.Collection.Title,
 			Group:      pin.Collection.Group,
-			Color:      colorFor(pin.Collection.ID),
+			Color:      collectionColor(pin.Collection),
 			Glyph:      initials(pin.Collection.Title),
 			Icon:       pin.Collection.Icon,
 			Selected:   pin.ID == session.Selected,

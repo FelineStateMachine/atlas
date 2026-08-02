@@ -299,7 +299,7 @@ func (a *App) view(held library, volume hostenv.Volume, session Session) View {
 	out.Title = manifest.Volume.Title
 
 	standing := visible(model, session, lens)
-	out.Legend = legend(model, session, standing, lens)
+	out.Legend = legend(model, session, standing, lens, shown.Base)
 	out.Dock = dockView(session, standing, model)
 	out.Detail = a.detail(volume, model, session, session.Selected)
 	out.Grid = gridView(session, model)
@@ -458,7 +458,7 @@ func (a *App) detail(volume hostenv.Volume, model *worldModel, session Session, 
 	case isPoint:
 		out.Title = pin.Title
 		out.Category = strings.Join(nonEmpty(pin.Collection.Group, pin.Collection.Title), " / ")
-		out.Color = colorFor(pin.Collection.ID)
+		out.Color = collectionColor(pin.Collection)
 		out.Glyph = initials(pin.Collection.Title)
 		out.Icon = pin.Collection.Icon
 		out.Coordinates = strconv.FormatFloat(pin.Lat, 'f', 6, 64) + ", " +

@@ -70,12 +70,18 @@ type payloadLens struct {
 
 // payloadCollection is one ordered group of features.
 type payloadCollection struct {
-	ID        int64             `json:"id"`
-	Title     string            `json:"title"`
-	Kind      string            `json:"kind"`
-	Group     string            `json:"group"`
-	Icon      string            `json:"icon"`
-	IconAsset string            `json:"iconAsset"`
+	ID        int64  `json:"id"`
+	Title     string `json:"title"`
+	Kind      string `json:"kind"`
+	Group     string `json:"group"`
+	Icon      string `json:"icon"`
+	IconAsset string `json:"iconAsset"`
+	// Color is the collection's own accent and IconColor the older spelling
+	// of the same fact. Both are read because the seam reads both, and a
+	// legend that fell back to the palette where the seam honoured a
+	// declared colour would draw a different world than the map.
+	Color     string            `json:"color"`
+	IconColor string            `json:"iconColor"`
 	Visible   *bool             `json:"visible"`
 	Attrs     map[string]string `json:"attrs"`
 	Features  []payloadFeature  `json:"features"`
@@ -133,11 +139,24 @@ type worldModel struct {
 // collectionModel is one collection with everything a row needs already
 // decided: its kind, its curated label policy, whether it starts hidden.
 type collectionModel struct {
-	ID       string
-	Title    string
-	Kind     string
-	Group    string
-	Icon     string
+	ID    string
+	Title string
+	Kind  string
+	Group string
+	Icon  string
+
+	// IconAsset is the artwork the collection wears, as a path under the
+	// build's `icons/`. The map composes a marker from it and the legend
+	// draws it as the row's mark; both name it the same way, which is what
+	// keeps a row and the pins it stands for looking like each other.
+	IconAsset string
+
+	// Color and IconColor are the collection's declared accent, in the
+	// order the seam consults them. Neither is a decision -- the one colour
+	// a collection wears is `collectionColor`.
+	Color     string
+	IconColor string
+
 	Attrs    map[string]string
 	Curated  string // the producer's label policy, through semconv
 	RenderAs string
@@ -319,11 +338,15 @@ func buildWorld(volume hostenv.Volume, manifest bundle.Manifest, slug string) (*
 			kind = semconv.GeometryPoint
 		}
 		collection := &collectionModel{
-			ID:       strconv.FormatInt(held.ID, 10),
-			Title:    held.Title,
-			Kind:     kind,
-			Group:    held.Group,
-			Icon:     held.Icon,
+			ID:        strconv.FormatInt(held.ID, 10),
+			Title:     held.Title,
+			Kind:      kind,
+			Group:     held.Group,
+			Icon:      held.Icon,
+			IconAsset: held.IconAsset,
+			Color:     held.Color,
+			IconColor: held.IconColor,
+
 			Attrs:    held.Attrs,
 			Curated:  semconv.LabelPolicy(kind, held.Attrs),
 			RenderAs: semconv.RenderAs(held.Attrs, ""),
