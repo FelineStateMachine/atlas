@@ -69,6 +69,13 @@ func runTiles(args []string) error {
 	carried := 0
 	wanted := volumeFilter(fs.Args())
 
+	// Deciding what every pyramid is comes before deriving any of them. Two
+	// sources capturing one volume name the same ground the same thing, so the
+	// names have to be settled against the whole set; and a warped variant is
+	// named after the picture it aligns onto, so it can only be planned once
+	// that name has stopped moving.
+	var planned []reading
+	var plans []tiles.Plan
 	for _, ref := range store.Volumes() {
 		source, err := sources.For(ref.Source)
 		if err != nil {
@@ -120,24 +127,38 @@ func runTiles(args []string) error {
 					}
 					return err
 				}
-				stamp := tiles.PlanStamp(plan)
-				if kept, ok := previous.Carry(plan, stamp); ok && !*force {
-					register.Pyramids = append(register.Pyramids, kept)
-					carried++
-					continue
-				}
-				pyramid, err := tiles.Derive(temp, plan)
-				if err != nil {
-					return fmt.Errorf("%s / %s: %w", document.Volume.Slug, lens.TileSet, err)
-				}
-				pyramid.Stamp = stamp
-				register.Pyramids = append(register.Pyramids, pyramid)
-				derived[plan.Name] = true
-				log.Info("pyramid derived", logging.Volume(document.Volume.Slug),
-					logging.World(world.Slug), logging.Lens(lens.Name),
-					logging.Stamp(stamp[:12]), "zooms", pyramid.MaxZoom+1)
+				plans = append(plans, plan)
+				planned = append(planned, reading{
+					volume: document.Volume.Slug,
+					source: ref.Source,
+					world:  world,
+					frame:  plan.Frame,
+				})
 			}
 		}
+	}
+	tiles.Settle(plans)
+	for index := range planned {
+		planned[index].plan = &plans[index]
+	}
+	plans = append(plans, planWarps(planned, log)...)
+
+	for _, plan := range plans {
+		stamp := tiles.PlanStamp(plan)
+		if kept, ok := previous.Carry(plan, stamp); ok && !*force {
+			register.Pyramids = append(register.Pyramids, kept)
+			carried++
+			continue
+		}
+		pyramid, err := tiles.Derive(temp, plan)
+		if err != nil {
+			return fmt.Errorf("%s: %w", plan.Name, err)
+		}
+		pyramid.Stamp = stamp
+		register.Pyramids = append(register.Pyramids, pyramid)
+		derived[plan.Name] = true
+		log.Info("pyramid derived", logging.Lens(plan.Name),
+			logging.Stamp(stamp[:12]), "zooms", pyramid.MaxZoom+1)
 	}
 
 	if err := tiles.Install(temp, *output, register, derived); err != nil {

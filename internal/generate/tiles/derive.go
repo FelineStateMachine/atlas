@@ -43,10 +43,11 @@ import (
 // entry carries no stamp: stamping is the caller's, because a caller that
 // carried a pyramid over rather than deriving it stamps the same way.
 func Derive(root string, plan Plan) (Pyramid, error) {
+	// A warped variant is derived from another picture rather than from its own
+	// capture: it has no complete level of its own to fold down, so it renders
+	// its deepest level first and then folds down like anything else.
 	if plan.Warp != nil {
-		return Pyramid{}, fmt.Errorf(
-			"pyramid %s is a warped variant, which this deriver does not build yet "+
-				"(see docs/generate.md, the tile deriver)", plan.Name)
+		return deriveWarp(root, plan)
 	}
 	maxZoom := plan.MaxSourceZoom - plan.Frame.BaseZoom
 	fullZoom := plan.MaxFullZoom - plan.Frame.BaseZoom
