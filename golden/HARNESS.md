@@ -191,9 +191,11 @@ what keeps an accepted divergence a visible cost rather than a green tick.
 The two advisory `tileStats` fields are *not* waivers — they are recorded and
 not compared, for the reason SCHEMA.md §5 gives, and they need no reviewer.
 
-**It is not ready yet, and the flag says so.** The tour walks, every volume's
-step list matches its baseline, the tour's own invariants hold, and the diff is
-down to a residue rather than a long tail. What is still open is written in
+**It is not ready yet, and the flag says so.** Two of the six volumes are
+green — `tunic` and `cyberpunk-2077` agree with their baselines field for
+field. All six step lists match, which is the harder half: the tour reaches
+the same places on every shape the format can take. What is left is five named
+defects rather than a long tail. What is still open is written in
 `golden/parity/SCHEMA.md` §7 under "What the rewrite has not reproduced yet",
 one entry per behaviour, so that turning the flag on is a matter of emptying
 that list rather than of deciding the gate is close enough.

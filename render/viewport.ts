@@ -247,10 +247,20 @@ export class AtlasViewport extends HTMLElement {
     toggle.setAttribute("aria-pressed", String(this.globeUp));
     if (toggle.dataset["atlasWired"] === "yes") return;
     toggle.dataset["atlasWired"] = "yes";
-    toggle.addEventListener("click", () => this.flip());
+    // The handler resolves the live viewport rather than closing over this
+    // one. A morph swap can carry a control across with its attributes
+    // intact -- including the mark that says it is already wired -- while the
+    // element it was wired to is no longer the element on the page, and a
+    // toggle bound to a viewport nobody is looking at flips nothing and
+    // reports nothing.
+    toggle.addEventListener("click", () => {
+      (document.querySelector<AtlasViewport>("atlas-viewport") ?? this).flipPane();
+    });
   }
 
-  private flip(): void {
+  /** Swap the panes. Public because the toggle's handler may outlive an
+   * instance and has to be able to reach whichever one is live. */
+  flipPane(): void {
     const globe = this.globe;
     const chart = this.chart;
     const toggle = document.querySelector<HTMLButtonElement>("#globe-toggle");
@@ -307,8 +317,9 @@ export class AtlasViewport extends HTMLElement {
       if (!button || button.dataset["atlasWired"] === "yes") continue;
       button.dataset["atlasWired"] = "yes";
       button.addEventListener("click", () => {
-        if (this.globeUp) this.globe?.changeZoom(delta);
-        else this.chart?.nudgeZoom(delta);
+        const live = document.querySelector<AtlasViewport>("atlas-viewport") ?? this;
+        if (live.sphereUp) live.globe?.changeZoom(delta);
+        else live.chart?.nudgeZoom(delta);
       });
     }
   }

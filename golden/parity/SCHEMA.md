@@ -419,39 +419,62 @@ remain the first thing to capture, and they are now a small thing to reach.
 
 ## What the rewrite has not reproduced yet
 
-The gate is wired and walking. Every volume's step list matches its baseline
-and the tour's own invariants hold; what remains is a residue of fields, and
-`parity-compare` is declared unready until it is empty. These are behaviours
-to build, never baselines to edit.
+Two of the six volumes are green — `tunic` and `cyberpunk-2077` agree with
+their baselines field for field, modulo the three declared waivers and the two
+advisory `tileStats` counters. **All six step lists match**, which is the
+harder half: the tour reaches the same places on every shape the format can
+take. `parity-compare` stays unready until the other four are green.
 
-**Closed in this milestone**, recorded so the shape of the work is legible:
-the camera reaching the island; the label ladder offered only where a producer
-curated one; the reconcile leaving the reader and their filters where they
-were; the panel coming out on a search; the camera flying to a feature reached
-for by name and giving the view back when the card closes; a shard narrowing
-the ground as well as the points; the held cell narrowing what is counted and
-listed; the bulk unfold. Each of those was one defect, and most of them were
-one defect standing in front of several others.
+| volume | steps | tour's own checks | fields differing |
+|---|---|---|---|
+| tunic | 37 / 37 | clean | **0** |
+| cyberpunk-2077 | 49 / 49 | clean | **0** |
+| fallout-new-vegas | 39 / 39 | clean | 36 |
+| zelda-tears-of-the-kingdom | 67 / 67 | 7 | 797 |
+| mars | 59 / 59 | 2 | 314 |
+| bend-or | 66 / 66 | 4 | 377 |
 
-**Still open**, as the diff reads them:
+The residue is five defects, not five hundred fields. Each is named here with
+the step that shows it first, because a field count is a symptom and a cause
+is what somebody can fix.
 
-- **The last bit of a float.** After a fit with easing the chart's `zoom` and
-  `resolution` differ from the recording in their final unit of least
-  precision — `1.687722075146357` against `1.6877220751463569`. It is the same
-  arithmetic in a different order, not a different answer, and it moves the
-  in-view half of the footer by one feature where a pin sits exactly on the
-  window's edge. It wants either an arithmetic that lands identically or an
-  argument, written down, for comparing a camera at the precision a camera is
-  worth.
-- **The sidebar's own refit.** Collapsing the sidebar widens the map, and the
-  reference re-fitted; this build keeps the camera and only updates the size,
-  so the centre stays where it was.
-- **`fitZoom` after a volume is reopened.** The reference kept the zoom its
-  last fit produced; this build recomputes the fit for the lens.
-- **The globe's entry, and its detail neighbourhood.** `globe-entered` reports
-  the toggle pressed while the panes read as though they had not swapped, and
-  `globe-zoomed-deep` finds no pyramid tiles under a camera past the base
-  skin's depth. The pairing and the locator's mark are calibrated and
-  reproduce the recording exactly at every step where the sphere is up (§7 of
-  `docs/render-seam.md`); what is left is the entry itself and the level rule
-  that decides when a neighbourhood is worth fetching.
+- **A feature index row highlights where it should jump.** `zone-jumped` is a
+  left-click on a row of a shape collection's index, and the reference *went*
+  there: it selected the feature, opened the card and flew the camera.
+  `legend.tmpl` posts `/session/highlight` instead, so the row filters the map
+  rather than travelling to it — and every count downstream of it on `zelda`
+  and `bend-or` follows. Highlighting is the *contextmenu*, which the tour
+  sends separately and which already works. This is the largest single cause
+  in the set.
+- **Titles sort by bytes, not by collation.** The reference ordered the panel
+  with `String.localeCompare`, which puts punctuation before digits before
+  letters; `foldTitle` lowercases and compares bytes, which puts `188 Trading
+  Post` where `¡La Fantoma!` belongs. It shows first at
+  `fallout-new-vegas/search-select-first`, where the two builds open a card on
+  different features. Closing it means a collation key rather than a
+  lowercase, and the question of whether that is worth a dependency.
+- **The panel does not fold on a world change.** `map-second` leaves
+  `dockFolded` false where the reference folded it; eleven fields on
+  `fallout-new-vegas` are that one flag and its echo in the island.
+- **The held cell divides different ground in the two halves.** The server
+  halves the lens's declared surface (`internal/app/cells`); the seam halves
+  the analysis lane's `Ground`. They agree on `tunic` and disagree on `mars`
+  and `bend-or`, where `grid-descended` has the panel counting three features
+  against a hundred and forty-eight standing. Both are reading the same
+  intention out of two different structures, and one of them is wrong about
+  which rectangle a lens declares.
+- **The globe does not swap its panes under the tour.** `globe-entered`
+  records the toggle pressed and the panes unmoved, and `globe-zoomed-deep`
+  finds no pyramid tiles. The same press works by hand, through the same
+  sequence of navigations, which makes this the one entry on the list with no
+  diagnosis attached to it yet. The pairing and the locator's mark are
+  calibrated and reproduce the recording exactly wherever the sphere is
+  genuinely up.
+
+**No tolerance was declared and no waiver was added for any of it.** The
+last-bit float drift that stood here in the previous round turned out not to
+be floating-point noise at all: the chart's view was built without the
+resolution ladder the reference handed its own, and a view given the ladder
+converts between a zoom and a resolution by walking it. Tunic went from
+eighty-one differing fields to one on that change alone. A camera compared at
+1e-9 was never over-compared; it was under-built.

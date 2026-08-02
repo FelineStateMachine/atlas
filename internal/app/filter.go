@@ -210,7 +210,26 @@ func countText(n int) string {
 	if n == 1 {
 		word = " feature"
 	}
-	return strconv.Itoa(n) + word
+	return grouped(n) + word
+}
+
+// grouped writes a count the way the chrome has always written one: thousands
+// separated by commas, so a reader takes in "2,048" at a glance rather than
+// counting digits. Every count on the page goes through here.
+func grouped(n int) string {
+	digits := strconv.Itoa(n)
+	sign := ""
+	if strings.HasPrefix(digits, "-") {
+		sign, digits = "-", digits[1:]
+	}
+	var out []byte
+	for i, digit := range []byte(digits) {
+		if i > 0 && (len(digits)-i)%3 == 0 {
+			out = append(out, ',')
+		}
+		out = append(out, digit)
+	}
+	return sign + string(out)
 }
 
 // onShard answers whether a feature belongs to the shard the lens is showing.
