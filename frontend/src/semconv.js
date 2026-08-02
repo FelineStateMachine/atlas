@@ -28,9 +28,12 @@ export function labelPolicy(zone, collection) {
 
 // renderAs answers how a point collection draws: "pin" or "text". This is
 // the one display rule the viewer holds, spelled once; a collection saying
-// nothing is markers, and since the v3 wire every producer says.
+// nothing is markers, and since the v3 wire every producer says. Text is a
+// capability of an ordinary point collection, not a kind of its own, so the
+// reader's override outranks the curation the same way label policy does.
 export function renderAs(collection) {
-  return collection.attrs?.["atlas.render.as"] || "pin";
+  return state.renderOverrides.get(collection?.id) ??
+    (collection.attrs?.["atlas.render.as"] || "pin");
 }
 
 // The labels the detail card gives a feature's own attributes. Anything in

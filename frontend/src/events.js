@@ -18,6 +18,7 @@ import {
   syncSectionSwitches,
   toggleCollectionExpanded,
   toggleLabelPolicy,
+  toggleRenderAs,
   toggleSection,
 } from "./legend.js";
 import { applyPinFilters, setLabelsHeld } from "./features.js";
@@ -119,6 +120,13 @@ export function bindUIEvents() {
       event.preventDefault();
       event.stopPropagation();
       toggleLabelPolicy(collectionID(labels.dataset.labelToggle));
+      return;
+    }
+    const render = event.target.closest("[data-render-toggle]");
+    if (render) {
+      event.preventDefault();
+      event.stopPropagation();
+      toggleRenderAs(collectionID(render.dataset.renderToggle));
       return;
     }
     const zone = event.target.closest("[data-zone]");

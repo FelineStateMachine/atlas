@@ -187,6 +187,13 @@ async function tour() {
     labelToggle.click();
     await record("labels-curated");
   }
+  const renderToggle = tourQuery("[data-render-toggle]");
+  if (renderToggle) {
+    renderToggle.click();
+    await record("render-flipped");
+    renderToggle.click();
+    await record("render-curated");
+  }
 
   // Highlights across two collections read AND: the ground both name is
   // the only ground that keeps its pins, and holding Z while they stand

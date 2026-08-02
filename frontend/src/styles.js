@@ -499,11 +499,15 @@ export function zoneTitleDetailStyle(feature) {
 
 // A quiet zone's name is context, not headline: the chip waits until the
 // reader asks after that zone in particular -- highlighting it, selecting it
-// -- or asks after every name at once by holding Z.
+// -- or asks after every name at once by holding Z. Z reveals what is merely
+// optional, never what was silenced: a collection the reader quieted by hand
+// stays quiet under the key, because the choice was theirs and the key is
+// not an override.
 function quietChipHidden(zone) {
   if (labelPolicy(zone) !== "quiet") return false;
-  return !state.highlightedZones.has(zone.id) && state.selectedZone !== zone &&
-    !state.labelsHeld;
+  if (state.highlightedZones.has(zone.id) || state.selectedZone === zone) return false;
+  const silenced = state.labelOverrides.get(collectionOf(zone)) === "quiet";
+  return silenced || !state.labelsHeld;
 }
 
 export function renderedZoneTitleStyle(feature) {

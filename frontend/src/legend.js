@@ -1,7 +1,7 @@
 import { elements } from "./dom.js";
 import { state } from "./state.js";
 import { saveSession } from "./session.js";
-import { applyPinFilters } from "./features.js";
+import { applyPinFilters, buildFeatures } from "./features.js";
 import { renderSearchResults } from "./search.js";
 import { labelPolicy, renderAs } from "./semconv.js";
 import { recountZoneTitles, syncZoneLayers } from "./areas.js";
@@ -23,19 +23,14 @@ export function legendSections(collections) {
     }
     sections[at.get(key)].collections.push(collection);
   };
-  const text = [];
   const zones = [];
   for (const collection of collections) {
-    if (collection.kind === "point" && renderAs(collection) === "text") text.push(collection);
-    else if (collection.kind !== "point" && !collection.group) zones.push(collection);
+    if (collection.kind !== "point" && !collection.group) zones.push(collection);
     else place(`group-${collection.group}`, collection.group, collection);
   }
-  // Categories drawn as text are labels for the ground itself -- Area, Region,
-  // Province -- and are read and edited as one set. Gathered here rather than
-  // left in place, where "Area" sits between Altar and Bank and reads like
-  // another kind of marker. Above the pin groups, under the zones: labels and
-  // boundaries both say where you are, rather than what is worth going to.
-  if (text.length) sections.unshift({ key: "text", title: "Text", collections: text });
+  // Text is how a point collection draws, not what it is: a collection of
+  // cities rendered as floating names sits in its own group beside the
+  // markers, wearing the toggle that flips it either way.
   if (zones.length) sections.unshift({ key: "zones", title: "Zones", collections: zones });
   return sections;
 }
@@ -176,12 +171,6 @@ export function collectionRow(collection) {
       (kind === "path"
         ? '<svg class="collection-kind" viewBox="0 0 16 16" aria-hidden="true"><path d="M2.5 12.5c3-6 8-2 11-9"/></svg>'
         : '<svg class="collection-kind collection-kind-area" viewBox="0 0 16 16" aria-hidden="true"><path d="M8 4.2 12.6 11.6H3.4z"/></svg>');
-  } else if (renderAs(collection) === "text") {
-    icon = document.createElement("span");
-    icon.className = "text-symbol";
-    icon.textContent = "Tt";
-    icon.title = "Drawn as a text label";
-    applyCategoryVisual(row, collection);
   } else {
     icon = document.createElement("span");
     icon.className = "category-icon";
@@ -197,8 +186,10 @@ export function collectionRow(collection) {
   const only = onlyButton(`Show only ${collection.title}`);
   only.dataset.onlyCollection = String(collection.id);
   // Areas draw their names on the ground, and whether they speak unasked is
-  // the reader's to override. The other kinds keep the column as space, so
-  // the count stays a column no row disagrees about.
+  // the reader's to override. A point collection's override is which shape
+  // it takes at all -- markers, or the floating names text categories used
+  // to be set apart for. Paths keep the column as space, so the count stays
+  // a column no row disagrees about.
   let labels;
   if (kind === "area") {
     labels = document.createElement("button");
@@ -210,6 +201,15 @@ export function collectionRow(collection) {
     labels.setAttribute("aria-pressed", String(labelPolicy(null, collection) === "always"));
     labels.innerHTML =
       '<svg viewBox="0 0 16 16" aria-hidden="true"><path d="M3.5 3.5h9M8 3.5v9"/></svg>';
+  } else if (kind === "point") {
+    labels = document.createElement("button");
+    labels.type = "button";
+    labels.className = "label-toggle render-toggle";
+    labels.dataset.renderToggle = String(collection.id);
+    labels.dataset.label = `Draw ${collection.title} as text`;
+    labels.setAttribute("aria-label", `Draw ${collection.title} as text`);
+    labels.setAttribute("aria-pressed", String(renderAs(collection) === "text"));
+    labels.textContent = "Tt";
   } else {
     labels = document.createElement("span");
     labels.className = "label-toggle-spacer";
@@ -288,6 +288,28 @@ export function syncLabelToggles() {
     if (!collection) continue;
     button.setAttribute("aria-pressed", String(labelPolicy(null, collection) === "always"));
   }
+  for (const button of elements.legend.querySelectorAll("[data-render-toggle]")) {
+    const collection = findCollection(collectionID(button.dataset.renderToggle));
+    if (!collection) continue;
+    button.setAttribute("aria-pressed", String(renderAs(collection) === "text"));
+  }
+}
+
+// The render toggle is the same two-state affair the label toggle is, around
+// how a point collection draws: press it and the markers become floating
+// names, or the names markers; an override that only restates the curation
+// is dropped rather than stored. Routing changed, so the features rebuild.
+export function toggleRenderAs(id) {
+  const collection = findCollection(id);
+  if (!collection) return;
+  const flipped = renderAs(collection) === "text" ? "pin" : "text";
+  const curated = collection.attrs?.["atlas.render.as"] || "pin";
+  if (flipped === curated) state.renderOverrides.delete(collection.id);
+  else state.renderOverrides.set(collection.id, flipped);
+  buildFeatures();
+  applyPinFilters();
+  syncLabelToggles();
+  saveSession();
 }
 
 export function setAllCollections(visible) {
