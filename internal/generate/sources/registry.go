@@ -1,6 +1,7 @@
 package sources
 
 import (
+	"github.com/FelineStateMachine/atlas/internal/generate/sources/arcgishub"
 	"github.com/FelineStateMachine/atlas/internal/generate/sources/ign"
 	"github.com/FelineStateMachine/atlas/internal/generate/sources/mapgenie"
 	"github.com/FelineStateMachine/atlas/internal/generate/sources/nasatrek"
@@ -23,5 +24,6 @@ func All() []Source {
 		ign.New(),
 		piggyback.New(),
 		nasatrek.New(),
+		arcgishub.New(),
 	}
 }
