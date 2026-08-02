@@ -32,8 +32,10 @@ the prose twin; a literal elsewhere silently opts out of all three.`,
 const semconvRegistry = "format/semconv"
 
 // atlasKey matches a dotted convention key: atlas.render.as, atlas.hydro.huc12.
-// A bare "atlas" or a sentence containing one is not a key.
-var atlasKey = regexp.MustCompile(`^atlas(\.[a-z0-9][a-z0-9_]*)+$`)
+// A bare "atlas" or a sentence containing one is not a key, and neither is the
+// manifest filename "atlas.json" — every registered key has at least two
+// segments after the prefix.
+var atlasKey = regexp.MustCompile(`^atlas(\.[a-z0-9][a-z0-9_]*){2,}$`)
 
 func runSemconvLiterals(pass *analysis.Pass) (any, error) {
 	fromRel, ok := rel(packagePath(pass))

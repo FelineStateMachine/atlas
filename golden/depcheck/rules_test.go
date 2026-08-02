@@ -114,6 +114,7 @@ func TestAtlasKeyLiteral(t *testing.T) {
 		{"atlas.hydro.huc12", true},
 		{"atlas", false},
 		{"atlas.", false},
+		{"atlas.json", false},
 		{"atlasing.away", false},
 		{"the atlas.world.slug key", false},
 		{"Atlas.World", false},
