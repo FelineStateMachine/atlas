@@ -36,6 +36,7 @@ import type { GeoMapping, PlanCell } from "@atlas/analysis";
 import { logger } from "../log.ts";
 import type { WorldContext } from "../context.ts";
 import type { Attrs } from "../data/payload.ts";
+import { reportPick } from "../data/report.ts";
 import { viewMaxZoom } from "../chart/projection.ts";
 import { Skin } from "./texture.ts";
 
@@ -854,10 +855,12 @@ export class AtlasGlobe extends HTMLElement {
       const distance = (plat - lat) ** 2 + (plng - lng) ** 2;
       if (!best || distance < best.distance) best = { id: point.id, distance };
     }
+    // Nothing near enough is a miss, and a miss says nothing at all.
     if (!best || best.distance > 4) return;
-    this.dispatchEvent(new CustomEvent("atlas:pick", {
-      bubbles: true, composed: true, detail: { feature: best.id, kind: "point" },
-    }));
+    // The same road the chart's picks take: the page renders the form, this
+    // fills it and says so (data/report.ts). The sphere draws pins and only
+    // pins, so the kind is settled here.
+    reportPick({ feature: best.id, kind: "point" });
   }
 }
 

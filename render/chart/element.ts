@@ -38,6 +38,7 @@ import type { CellVisual } from "@atlas/analysis";
 
 import { logger } from "../log.ts";
 import type { DataPlane } from "../data/plane.ts";
+import { reportPick } from "../data/report.ts";
 import type { WorldContext } from "../context.ts";
 import type { Lens } from "../data/payload.ts";
 import type { PointRecord, ShapeRecord } from "../world/model.ts";
@@ -855,13 +856,14 @@ export class AtlasChart extends HTMLElement {
     });
     map.on("singleclick", (event) => {
       const found = this.hit(event.pixel);
+      // A click on nothing is not a pick. The hover above is untouched by it:
+      // leaving a feature still clears the cursor, because that is continuous
+      // state this pane owns, and a selection is not.
+      if (!found) return;
       // The seam resolves the hit; the identity is the application's to act
-      // on. Composed and bubbling, so the page's one glue listener can hear
-      // it from outside the element (issue #5 §4.4).
-      this.dispatchEvent(new CustomEvent("atlas:pick", {
-        bubbles: true, composed: true,
-        detail: { feature: found?.id ?? "", kind: found?.kind ?? "" },
-      }));
+      // on, and it acts on it through the form the page renders for exactly
+      // this (data/report.ts, issue #5 §4.4).
+      reportPick({ feature: found.id, kind: found.kind });
     });
     map.on("moveend", () => {
       this.report();
