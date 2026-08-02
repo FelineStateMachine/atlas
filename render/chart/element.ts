@@ -40,7 +40,7 @@ import { logger } from "../log.ts";
 import type { DataPlane } from "../data/plane.ts";
 import type { WorldContext } from "../context.ts";
 import type { PointRecord, ShapeRecord } from "../world/model.ts";
-import { COORDINATE_SYSTEM, atlasProjection, fitResolution, lensExtent, viewMaxZoom } from "./projection.ts";
+import { COORDINATE_SYSTEM, atlasProjection, lensExtent, viewMaxZoom } from "./projection.ts";
 import { TileCounter, buildRaster } from "./raster.ts";
 import type { Raster } from "./raster.ts";
 import { Styles } from "./styles.ts";
