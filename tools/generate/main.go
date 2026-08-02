@@ -170,14 +170,16 @@ type catalogWorld struct {
 	Attrs map[string]string `json:"attrs,omitempty"`
 	// Grid is carried only by a map whose window is not the shared one, so the
 	// catalog reads the same as it did for every map that is.
-	Grid   *worldGrid     `json:"grid,omitempty"`
-	Lenses []lens         `json:"lenses"`
-	Groups []catalogGroup `json:"groups"`
-	Zones  []zone         `json:"zones,omitempty"`
+	Grid   *worldGrid `json:"grid,omitempty"`
+	Lenses []lens     `json:"lenses"`
+	// Collections is everything the map holds, in one model: each category of
+	// pins as a point collection, and the regions folded into the implicit
+	// collection (normalize.go). The v2 wire's groups and zones are
+	// reconstructed from it only when a payload is written.
+	Collections []worldCollection `json:"-"`
 	// Parent names the map this one was split out of, so an inset sorts with
 	// the sheet it came from rather than alphabetically among unrelated maps.
 	Parent    string `json:"parent,omitempty"`
-	PinCount  int    `json:"pinCount"`
 	UpdatedAt string `json:"updatedAt"`
 	// Merged is the account of every other source folded into this map:
 	// what matched, what was added, what was held back and why. It rides in
@@ -252,6 +254,10 @@ type tileLensManifest struct {
 	AlignedWith string `json:"alignedWith"`
 }
 
+// The v2 wire shapes. The catalog itself holds collections of features
+// (normalize.go); these structs exist only to be reconstructed at emission
+// time, so every byte a bundle says stays exactly what today's readers
+// expect until the wire itself is ready to move.
 type catalogGroup struct {
 	ID         int64             `json:"id"`
 	Title      string            `json:"title"`
@@ -302,6 +308,8 @@ type catalogLink struct {
 	LocationID int64  `json:"locationId"`
 }
 
+// zone is emission-only, like the group tree above it: rebuilt from the
+// implicit region collection's features when a payload is written.
 type zone struct {
 	ID       int64  `json:"id"`
 	Title    string `json:"title"`
@@ -481,7 +489,7 @@ func buildVolume(
 				Source:    sourceDisplayLabel(ref.Source),
 				Slug:      canonicalSourceSlug(ref.Source),
 				Origin:    true,
-				DonorPins: pieces[index].PinCount,
+				DonorPins: pieces[index].pinCount(),
 			}}
 		}
 		game.Worlds = append(game.Worlds, pieces...)
@@ -513,42 +521,42 @@ func speakConventions(game *catalogVolume) error {
 		if err := semconv.Validate(semconv.EntityWorld, m.Attrs); err != nil {
 			return fmt.Errorf("world %s: %w", m.Slug, err)
 		}
-		for zoneIndex := range m.Zones {
-			if err := semconv.Validate(semconv.EntityZone, m.Zones[zoneIndex].Attrs); err != nil {
-				return fmt.Errorf("world %s zone %q: %w", m.Slug, m.Zones[zoneIndex].Title, err)
+		for collectionIndex := range m.Collections {
+			collection := &m.Collections[collectionIndex]
+			if collection.Kind != kindPoint {
+				for _, shape := range collection.Features {
+					if err := semconv.Validate(semconv.EntityZone, shape.Attrs); err != nil {
+						return fmt.Errorf("world %s zone %q: %w", m.Slug, shape.Title, err)
+					}
+				}
+				continue
 			}
-		}
-		for groupIndex := range m.Groups {
-			categories := m.Groups[groupIndex].Categories
-			for categoryIndex := range categories {
-				category := &categories[categoryIndex]
-				if _, declared := category.Attrs[semconv.KeyRenderAs]; !declared {
-					category.Attrs = withAttr(category.Attrs, semconv.KeyRenderAs,
-						semconv.RenderAs(nil, category.DisplayType))
+			if _, declared := collection.Attrs[semconv.KeyRenderAs]; !declared {
+				collection.Attrs = withAttr(collection.Attrs, semconv.KeyRenderAs,
+					semconv.RenderAs(nil, collection.DisplayType))
+			}
+			// Where two sources are known to spell one concept two ways,
+			// the shared name rides the collection itself, so the merge
+			// reads identity off the payload rather than a table of its
+			// own.
+			if shared := categoryEquivalents[game.Slug][collection.Icon]; shared != "" {
+				if _, declared := collection.Attrs[semconv.KeyCategoryKey]; !declared {
+					collection.Attrs = withAttr(collection.Attrs, semconv.KeyCategoryKey, shared)
 				}
-				// Where two sources are known to spell one concept two ways,
-				// the shared name rides the category itself, so the merge
-				// reads identity off the payload rather than a table of its
-				// own.
-				if shared := categoryEquivalents[game.Slug][category.Icon]; shared != "" {
-					if _, declared := category.Attrs[semconv.KeyCategoryKey]; !declared {
-						category.Attrs = withAttr(category.Attrs, semconv.KeyCategoryKey, shared)
-					}
+			}
+			if collection.IconAsset != "" {
+				kind := semconv.IconKindGlyph
+				if collection.IconPicture {
+					kind = semconv.IconKindPicture
 				}
-				if category.IconAsset != "" {
-					kind := semconv.IconKindGlyph
-					if category.IconPicture {
-						kind = semconv.IconKindPicture
-					}
-					category.Attrs = withAttr(category.Attrs, semconv.KeyIconKind, kind)
-				}
-				if err := semconv.Validate(semconv.EntityCategory, category.Attrs); err != nil {
-					return fmt.Errorf("world %s category %q: %w", m.Slug, category.Title, err)
-				}
-				for _, location := range category.Locations {
-					if err := semconv.Validate(semconv.EntityLocation, location.Attrs); err != nil {
-						return fmt.Errorf("world %s pin %q: %w", m.Slug, location.Title, err)
-					}
+				collection.Attrs = withAttr(collection.Attrs, semconv.KeyIconKind, kind)
+			}
+			if err := semconv.Validate(semconv.EntityCategory, collection.Attrs); err != nil {
+				return fmt.Errorf("world %s category %q: %w", m.Slug, collection.Title, err)
+			}
+			for _, pin := range collection.Features {
+				if err := semconv.Validate(semconv.EntityLocation, pin.Attrs); err != nil {
+					return fmt.Errorf("world %s pin %q: %w", m.Slug, pin.Title, err)
 				}
 			}
 		}
@@ -576,26 +584,26 @@ func withAttr(attrs map[string]string, key, value string) map[string]string {
 func resolveStandardIcons(game *catalogVolume) error {
 	for mapIndex := range game.Worlds {
 		m := &game.Worlds[mapIndex]
-		for groupIndex := range m.Groups {
-			categories := m.Groups[groupIndex].Categories
-			for categoryIndex := range categories {
-				category := &categories[categoryIndex]
-				ref := category.Attrs[semconv.KeyIconStd]
-				if ref == "" || category.IconAsset != "" {
-					continue
-				}
-				data, asset, err := icons.Standard(ref)
-				if err != nil {
-					return fmt.Errorf("world %s category %q: %w", m.Slug, category.Title, err)
-				}
-				if game.Icons == nil {
-					game.Icons = make(map[string][]byte)
-				}
-				game.Icons[asset] = data
-				category.IconAsset = asset
-				category.IconPicture = false
-				category.Attrs = withAttr(category.Attrs, semconv.KeyIconKind, semconv.IconKindGlyph)
+		for collectionIndex := range m.Collections {
+			collection := &m.Collections[collectionIndex]
+			if collection.Kind != kindPoint {
+				continue
 			}
+			ref := collection.Attrs[semconv.KeyIconStd]
+			if ref == "" || collection.IconAsset != "" {
+				continue
+			}
+			data, asset, err := icons.Standard(ref)
+			if err != nil {
+				return fmt.Errorf("world %s category %q: %w", m.Slug, collection.Title, err)
+			}
+			if game.Icons == nil {
+				game.Icons = make(map[string][]byte)
+			}
+			game.Icons[asset] = data
+			collection.IconAsset = asset
+			collection.IconPicture = false
+			collection.Attrs = withAttr(collection.Attrs, semconv.KeyIconKind, semconv.IconKindGlyph)
 		}
 	}
 	return nil
@@ -766,72 +774,11 @@ func buildWorld(
 			})
 		}
 	}
-	for _, rawGroup := range raw.Groups {
-		group := catalogGroup{ID: rawGroup.ID, Title: rawGroup.Title}
-		for _, rawCategory := range rawGroup.Categories {
-			category := catalogCategory{
-				ID:          rawCategory.ID,
-				Title:       rawCategory.Title,
-				Icon:        rawCategory.Icon,
-				Color:       resolvedCategoryColor(rawGroup, rawCategory),
-				IconColor:   resolvedIconColor(rawGroup, rawCategory),
-				DisplayType: rawCategory.DisplayType,
-				Visible:     rawCategory.Visible,
-				Attrs:       rawCategory.Attrs,
-			}
-			for _, rawLocation := range rawCategory.Locations {
-				lat, err := number(rawLocation.Latitude)
-				if err != nil {
-					return nil, "", fmt.Errorf("location %d latitude: %w", rawLocation.ID, err)
-				}
-				lng, err := number(rawLocation.Longitude)
-				if err != nil {
-					return nil, "", fmt.Errorf("location %d longitude: %w", rawLocation.ID, err)
-				}
-				category.Locations = append(category.Locations, catalogLocation{
-					ID:          rawLocation.ID,
-					Title:       rawLocation.Title,
-					Description: rawLocation.Description,
-					Latitude:    lat,
-					Longitude:   lng,
-					RegionID:    rawLocation.RegionID,
-					Attrs:       rawLocation.Attrs,
-				})
-				m.PinCount++
-			}
-			group.Categories = append(group.Categories, category)
-		}
-		m.Groups = append(m.Groups, group)
+	collections, err := normalizeWorld(raw)
+	if err != nil {
+		return nil, "", err
 	}
-	for _, rawRegion := range raw.Regions {
-		z := zone{
-			ID:             rawRegion.ID,
-			Title:          rawRegion.Title,
-			Subtitle:       rawRegion.Subtitle,
-			Description:    rawRegion.Description,
-			ParentRegionID: rawRegion.ParentRegionID,
-			Attrs:          rawRegion.Attrs,
-		}
-		centerX, hasX, err := optionalNumber(rawRegion.CenterX)
-		if err != nil {
-			return nil, "", fmt.Errorf("region %d center_x: %w", rawRegion.ID, err)
-		}
-		centerY, hasY, err := optionalNumber(rawRegion.CenterY)
-		if err != nil {
-			return nil, "", fmt.Errorf("region %d center_y: %w", rawRegion.ID, err)
-		}
-		if hasX && hasY {
-			z.Center = &coordinate{Latitude: centerY, Longitude: centerX}
-		}
-		for _, feature := range rawRegion.Features {
-			if feature.Geometry.Type != "" && len(feature.Geometry.Coordinates) > 0 {
-				z.Features = append(z.Features, feature.Geometry)
-			}
-		}
-		if len(z.Features) > 0 {
-			m.Zones = append(m.Zones, z)
-		}
-	}
+	m.Collections = collections
 	resolveDescriptionLinks(&m)
 	pieces, err := splitWorld(m, raw, grid)
 	if err != nil {
@@ -860,42 +807,43 @@ var bareURL = regexp.MustCompile(`\s*\(?\s*https?://[^\s)]+\)?`)
 // navigate to instead.
 func resolveDescriptionLinks(m *catalogWorld) {
 	known := make(map[int64]bool)
-	for _, group := range m.Groups {
-		for _, category := range group.Categories {
-			for _, location := range category.Locations {
-				known[location.ID] = true
-			}
+	for _, collection := range m.Collections {
+		if collection.Kind != kindPoint {
+			continue
+		}
+		for _, pin := range collection.Features {
+			known[pin.ID] = true
 		}
 	}
-	for groupIndex := range m.Groups {
-		categories := m.Groups[groupIndex].Categories
-		for categoryIndex := range categories {
-			locations := categories[categoryIndex].Locations
-			for locationIndex := range locations {
-				location := &locations[locationIndex]
-				if !strings.Contains(location.Description, "http") {
-					continue
-				}
-				location.Description = markdownLink.ReplaceAllStringFunc(
-					location.Description,
-					func(match string) string {
-						parts := markdownLink.FindStringSubmatch(match)
-						label, target := parts[1], parts[2]
-						id := mapgenieLocation.FindStringSubmatch(target)
-						if id != nil && !strings.HasPrefix(label, "!") {
-							if value, err := strconv.ParseInt(id[1], 10, 64); err == nil &&
-								known[value] && value != location.ID {
-								location.Links = append(location.Links, catalogLink{
-									Title:      label,
-									LocationID: value,
-								})
-							}
-						}
-						return label
-					},
-				)
-				location.Description = strings.TrimSpace(bareURL.ReplaceAllString(location.Description, ""))
+	for collectionIndex := range m.Collections {
+		collection := &m.Collections[collectionIndex]
+		if collection.Kind != kindPoint {
+			continue
+		}
+		for pinIndex := range collection.Features {
+			pin := &collection.Features[pinIndex]
+			if !strings.Contains(pin.Description, "http") {
+				continue
 			}
+			pin.Description = markdownLink.ReplaceAllStringFunc(
+				pin.Description,
+				func(match string) string {
+					parts := markdownLink.FindStringSubmatch(match)
+					label, target := parts[1], parts[2]
+					id := mapgenieLocation.FindStringSubmatch(target)
+					if id != nil && !strings.HasPrefix(label, "!") {
+						if value, err := strconv.ParseInt(id[1], 10, 64); err == nil &&
+							known[value] && value != pin.ID {
+							pin.Links = append(pin.Links, catalogLink{
+								Title:      label,
+								LocationID: value,
+							})
+						}
+					}
+					return label
+				},
+			)
+			pin.Description = strings.TrimSpace(bareURL.ReplaceAllString(pin.Description, ""))
 		}
 	}
 }
@@ -907,25 +855,23 @@ func attachVolumeIcons(gamePath string, game *catalogVolume) error {
 	game.Icons = make(map[string][]byte)
 	copied := make(map[string]string)
 	for mapIndex := range game.Worlds {
-		for groupIndex := range game.Worlds[mapIndex].Groups {
-			categories := game.Worlds[mapIndex].Groups[groupIndex].Categories
-			for categoryIndex := range categories {
-				category := &categories[categoryIndex]
-				if !validIconKey(category.Icon) {
-					continue
-				}
-				asset, found := copied[category.Icon]
-				if !found {
-					var err error
-					asset, err = readVolumeIcon(gamePath, game, category.Icon)
-					if err != nil {
-						return err
-					}
-					copied[category.Icon] = asset
-				}
-				category.IconAsset = asset
-				category.IconPicture = strings.HasSuffix(asset, ".png")
+		collections := game.Worlds[mapIndex].Collections
+		for collectionIndex := range collections {
+			collection := &collections[collectionIndex]
+			if collection.Kind != kindPoint || !validIconKey(collection.Icon) {
+				continue
 			}
+			asset, found := copied[collection.Icon]
+			if !found {
+				var err error
+				asset, err = readVolumeIcon(gamePath, game, collection.Icon)
+				if err != nil {
+					return err
+				}
+				copied[collection.Icon] = asset
+			}
+			collection.IconAsset = asset
+			collection.IconPicture = strings.HasSuffix(asset, ".png")
 		}
 	}
 	return nil

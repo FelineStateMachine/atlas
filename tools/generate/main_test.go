@@ -56,24 +56,22 @@ func TestAttachGameIcons(t *testing.T) {
 	game := catalogVolume{
 		Slug: "pokemon-red-blue-yellow",
 		Worlds: []catalogWorld{{
-			Groups: []catalogGroup{{
-				Categories: []catalogCategory{
-					{Icon: "pokemon_center"},
-					{Icon: "missing"},
-				},
-			}},
+			Collections: []worldCollection{
+				{Kind: kindPoint, Icon: "pokemon_center"},
+				{Kind: kindPoint, Icon: "missing"},
+			},
 		}},
 	}
 	if err := attachVolumeIcons(source, &game); err != nil {
 		t.Fatal(err)
 	}
 
-	categories := game.Worlds[0].Groups[0].Categories
-	if got, want := categories[0].IconAsset, "pokemon_center.svg"; got != want {
+	collections := game.Worlds[0].Collections
+	if got, want := collections[0].IconAsset, "pokemon_center.svg"; got != want {
 		t.Fatalf("icon asset = %q, want %q", got, want)
 	}
-	if categories[1].IconAsset != "" {
-		t.Fatalf("missing icon asset = %q, want empty", categories[1].IconAsset)
+	if collections[1].IconAsset != "" {
+		t.Fatalf("missing icon asset = %q, want empty", collections[1].IconAsset)
 	}
 	if got := string(game.Icons["pokemon_center.svg"]); got != svg {
 		t.Fatalf("carried SVG = %q, want %q", got, svg)
@@ -129,14 +127,14 @@ func TestSortGameMapsPrefersPrimaryMap(t *testing.T) {
 // this way once, and every layer's pins drew over every other.
 func TestBuildPayloadPacksEveryColumn(t *testing.T) {
 	region := int64(77)
-	m := catalogWorld{Groups: []catalogGroup{{Categories: []catalogCategory{
-		{Locations: []catalogLocation{
-			{ID: 11, Title: "Sky Mine", Latitude: 1.5, Longitude: -2.5, Shard: 1783},
+	m := catalogWorld{Collections: []worldCollection{
+		{Kind: kindPoint, Features: []feature{
+			{ID: 11, Title: "Sky Mine", Lat: 1.5, Lng: -2.5, Shard: 1783},
 		}},
-		{Locations: []catalogLocation{
-			{ID: 12, Title: "Deep Well", Latitude: -3, Longitude: 4, RegionID: &region, Shard: 1785},
+		{Kind: kindPoint, Features: []feature{
+			{ID: 12, Title: "Deep Well", Lat: -3, Lng: 4, Member: &region, Shard: 1785},
 		}},
-	}}}}
+	}}
 
 	_, packed, _ := buildPayload(m)
 
@@ -206,24 +204,23 @@ func TestGrowIntoGapsKeepsEveryPieceAroundItsGround(t *testing.T) {
 // stretch that measurement back over everything it left out.
 func TestMarkSurfacesMeasuresContentsNotTheWindow(t *testing.T) {
 	grid := tileGrid{SourceZoom: 13, FirstTile: 4064, TileSize: 256, Size: 8192}
-	at := func(x, y float64) catalogLocation {
-		return catalogLocation{
-			Latitude:  unprojectLatitude(y, grid),
-			Longitude: unprojectLongitude(x, grid),
+	at := func(x, y float64) feature {
+		return feature{
+			Lat: unprojectLatitude(y, grid),
+			Lng: unprojectLongitude(x, grid),
 		}
 	}
 	window := contentBounds{X: 2000, Y: 2000, Width: 3000, Height: 3000}
 	m := catalogWorld{
 		Lenses: []lens{{Bounds: &window}},
-		Groups: []catalogGroup{{
-			Categories: []catalogCategory{{
-				Locations: []catalogLocation{
-					at(3000, 3000),
-					at(4000, 4000),
-					// Off the sheet, and so no part of what the map covers.
-					at(6000, 6000),
-				},
-			}},
+		Collections: []worldCollection{{
+			Kind: kindPoint,
+			Features: []feature{
+				at(3000, 3000),
+				at(4000, 4000),
+				// Off the sheet, and so no part of what the map covers.
+				at(6000, 6000),
+			},
 		}},
 	}
 
@@ -255,12 +252,11 @@ func TestMarkSurfacesKeepsGroundAlreadyMeasured(t *testing.T) {
 	ground := contentBounds{X: 2500, Y: 2500, Width: 2000, Height: 2000}
 	m := catalogWorld{
 		Lenses: []lens{{Bounds: &window, Surface: &ground}},
-		Groups: []catalogGroup{{
-			Categories: []catalogCategory{{
-				Locations: []catalogLocation{{
-					Latitude:  unprojectLatitude(3000, grid),
-					Longitude: unprojectLongitude(3000, grid),
-				}},
+		Collections: []worldCollection{{
+			Kind: kindPoint,
+			Features: []feature{{
+				Lat: unprojectLatitude(3000, grid),
+				Lng: unprojectLongitude(3000, grid),
 			}},
 		}},
 	}

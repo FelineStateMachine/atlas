@@ -114,7 +114,7 @@ func writeVolumeBundle(
 			Parent:     m.Parent,
 			IconOutset: m.IconOutset,
 			Center:     bundle.Coordinate{Lat: m.Center.Latitude, Lng: m.Center.Longitude},
-			PinCount:   m.PinCount,
+			PinCount:   m.pinCount(),
 			UpdatedAt:  m.UpdatedAt,
 		})
 	}

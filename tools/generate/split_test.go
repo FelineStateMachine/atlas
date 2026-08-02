@@ -10,10 +10,15 @@ import (
 // detail carries only the marker, and the words wait to be asked for.
 func TestBuildPayloadDefersZoneProse(t *testing.T) {
 	world := catalogWorld{
-		Zones: []zone{
-			{ID: 71, Title: "PF", Description: "Public facilities district."},
-			{ID: 72, Title: "RS"},
-		},
+		Collections: []worldCollection{{
+			Key:   regionsCollectionKey,
+			Title: "Regions",
+			Kind:  kindArea,
+			Features: []feature{
+				{ID: 71, Title: "PF", Description: "Public facilities district."},
+				{ID: 72, Title: "RS"},
+			},
+		}},
 	}
 	detail, _, text := buildPayload(world)
 
