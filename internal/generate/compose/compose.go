@@ -23,6 +23,7 @@
 package compose
 
 import (
+	"encoding/json"
 	"fmt"
 	"log/slog"
 	"sort"
@@ -58,6 +59,17 @@ type Options struct {
 	Tiles *tiles.Set
 	// Curation is the editorial data the composition consults.
 	Curation curation.Tables
+	// Ledger is a world's whole provenance, by world slug, where the caller has
+	// one to hand. It is how the enrich lane's accounts reach a payload without
+	// either lane importing the other: the accounts arrive already serialized
+	// and composition writes them as they are. A world the caller says nothing
+	// about gets the single origin account composition opens itself.
+	Ledger map[string][]json.RawMessage
+	// Revision is the build revision the manifest carries. Zero is this lane's
+	// own PolicyRevision, which is what a plain single-source build writes; the
+	// enrich lane hands its own, which is how an enriched build of one capture
+	// deterministically outranks the plain build beside it.
+	Revision int
 	// BundleDir is the registry the finished bundle is installed into. Empty
 	// composes and validates without writing anything, which is what a check
 	// run wants.
@@ -100,7 +112,7 @@ type composedWorld struct {
 	Pyramids    []tiles.Pyramid
 	Collections []composedCollection
 	Attrs       map[string]string
-	Merged      []origin
+	Merged      []json.RawMessage
 }
 
 // composedCollection is a document collection with what composition knows added
@@ -252,12 +264,20 @@ func resolveWorld(source doc.World, o Options, shared worldGrid, log *slog.Logge
 		TileSize:   o.Tiles.TileSize,
 		Size:       o.Tiles.Size,
 	})
-	out.Merged = []origin{{
-		Source:        o.Document.Source.Label,
-		Slug:          o.Document.Source.Name,
-		Origin:        true,
-		DonorFeatures: tally(out.Collections),
-	}}
+	if ledger, held := o.Ledger[source.Slug]; held && len(ledger) > 0 {
+		out.Merged = ledger
+	} else {
+		account, err := json.Marshal(origin{
+			Source:        o.Document.Source.Label,
+			Slug:          o.Document.Source.Name,
+			Origin:        true,
+			DonorFeatures: tally(out.Collections),
+		})
+		if err != nil {
+			return composedWorld{}, fmt.Errorf("marshal origin account: %w", err)
+		}
+		out.Merged = []json.RawMessage{account}
+	}
 	log.Debug("world composed", logging.World(out.Slug),
 		"lenses", len(out.Lenses), "collections", len(out.Collections))
 	return out, nil

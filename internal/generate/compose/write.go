@@ -15,6 +15,15 @@ import (
 	"github.com/FelineStateMachine/atlas/internal/logging"
 )
 
+// revisionOf is the revision this build carries: the caller's, where it has one
+// to state, and this lane's own policy revision otherwise.
+func revisionOf(o Options) int {
+	if o.Revision != 0 {
+		return o.Revision
+	}
+	return PolicyRevision
+}
+
 // payloadParts is one world's three payloads, built and hashed before anything
 // is written: the stamp has to be known before the file can be named, and the
 // file cannot be named before it is opened.
@@ -43,7 +52,7 @@ func write(o Options, worlds []composedWorld, icons map[string][]byte, log *slog
 			Slug:  o.Document.Volume.Slug,
 			Title: o.Document.Volume.Title,
 		},
-		Version: bundle.Version{Revision: PolicyRevision},
+		Version: bundle.Version{Revision: revisionOf(o)},
 		TileGrid: bundle.TileGrid{
 			SourceZoom: o.Curation.Window.SourceZoom,
 			FirstTile:  o.Curation.Window.FirstTile,

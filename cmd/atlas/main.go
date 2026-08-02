@@ -2,10 +2,12 @@
 // one name, each as a subcommand.
 //
 //	atlas compose     build a volume from archived captures and derived tiles
+//	atlas enrich      fold every reading of a volume together and build it
+//	atlas measure     score every build in a registry
 //	atlas translate   read archived captures and print the interchange document
 //
-// More subcommands arrive with the lanes that own them -- crawl, tiles, enrich,
-// measure, workbench, serve, dev. Each lives in its own file and appears here as
+// More subcommands arrive with the lanes that own them -- crawl, tiles,
+// workbench, dev. Each lives in its own file and appears here as
 // one line of the table below, so two people adding two subcommands do not
 // collide over this file.
 //
@@ -40,6 +42,8 @@ type command struct {
 func commands() []command {
 	return []command{
 		composeCommand(),
+		enrichCommand(),
+		measureCommand(),
 		serveCommand(),
 		translateCommand(),
 	}
