@@ -18,10 +18,19 @@
 // the lane.
 //
 //	ATLAS_ARCHIVE_DIR   the capture archive root, holding archive.json
+//	ATLAS_CITY_ARCHIVE_DIR  the city's archive, staged beside it
 //	ATLAS_TILES_INDEX   the derived tile set's index.json
 //
-// Both default to the repository's own gitignored copies -- crawl/fmg-archive
-// and tiles/index.json -- so the usual case needs no environment at all.
+// All three default to the repository's own gitignored copies -- crawl/fmg-archive,
+// crawl/bend-or/fmg-archive and tiles/index.json -- so the usual case needs no
+// environment at all.
+//
+// The city has an archive of its own because the corpus's holds whatever its
+// operator has crawled, and for a city that is allowed to be a city the public
+// curation table may not name (issue #5's privacy rule: the proof city is
+// committed, an operator's own city is not). Staging the proof city apart keeps
+// a checkout able to rebuild it without a library-sized capture, and keeps the
+// gate from depending on what else is in somebody's archive.
 package pipeline
 
 import (
@@ -403,7 +412,7 @@ func translateFixture(t *testing.T, want string) doc.Document {
 // "whoever answers" names none.
 func translateFrom(t *testing.T, from, want string) doc.Document {
 	t.Helper()
-	store, err := archive.Open(archiveDir(t))
+	store, err := archive.Open(archiveOf(t, want))
 	if err != nil {
 		t.Fatalf("archive: %v", err)
 	}
@@ -426,12 +435,25 @@ func translateFrom(t *testing.T, from, want string) doc.Document {
 			return document
 		}
 	}
-	t.Fatalf("the archive at %s holds no readable %s", archiveDir(t), want)
+	t.Fatalf("the archive at %s holds no readable %s", archiveOf(t, want), want)
 	return doc.Document{}
 }
 
-// archiveDir and tileIndex resolve the two inputs, and skip the test rather
-// than failing it when neither the environment nor the repository has them.
+// archiveOf, archiveDir and tileIndex resolve this gate's inputs, and skip the
+// test rather than failing it when neither the environment nor the repository
+// has them.
+
+// archiveOf is where one volume was captured. Everything but the city comes out
+// of the corpus's archive; the city is staged beside it, for the reason the
+// package comment gives.
+func archiveOf(t *testing.T, volume string) string {
+	t.Helper()
+	if volume == "bend-or" {
+		return required(t, "ATLAS_CITY_ARCHIVE_DIR", "../../crawl/bend-or/fmg-archive", "archive.json")
+	}
+	return archiveDir(t)
+}
+
 func archiveDir(t *testing.T) string {
 	t.Helper()
 	return required(t, "ATLAS_ARCHIVE_DIR", "../../crawl/fmg-archive", "archive.json")
