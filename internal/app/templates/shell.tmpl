@@ -87,6 +87,23 @@
           hx-vals:append='{"open":"{{if .Session.Sidebar.Collapsed}}1{{else}}0{{end}}"}'
           hx-trigger="keydown[(metaKey||ctrlKey)&&key=='b'] from:body"></span>
   </div>
+  {{/*
+    Live updates. The stream carries ready-to-swap partials and two event
+    names (docs/app.md §5); the page takes the plainer road of re-fetching
+    itself on either, because both events mean the library moved under it and
+    a page that re-reads its own URL cannot end up half-patched. The bodies
+    stay in the contract for a client that wants the cheaper path.
+
+    These stand inside #atlas-shell for the same reason the island does: the
+    address they re-fetch is the address of the volume they were rendered
+    for, and a pair left outside the shell goes on naming the volume the page
+    first opened on. A reconcile would then take the reader somewhere else,
+    which is exactly what an unchanged catalog must never do.
+  */}}
+  {{with .Volume}}<div hidden id="atlas-events" hx-sse:connect="/events?volume={{.Slug}}" hx-trigger="load"></div>
+  <div hidden hx-get="/v/{{.Slug}}/{{.World.Slug}}"
+       hx-trigger="catalog from:#atlas-events, refresh from:#atlas-events"
+       hx-target="#atlas-shell" hx-select="#atlas-shell" hx-swap="outerMorph"></div>{{end}}
 </div>
 {{template "import" .}}
 {{/*
@@ -96,17 +113,6 @@
   page one script tag (issue #5 §5.5).
 */}}
 <script type="module" src="/static/app.js"></script>
-{{/*
-  Live updates. The stream carries ready-to-swap partials and two event names
-  (docs/app.md §5); the page takes the plainer road of re-fetching itself on
-  either, because both events mean the library moved under it and a page that
-  re-reads its own URL cannot end up half-patched. The bodies stay in the
-  contract for a client that wants the cheaper path.
-*/}}
-{{with .Volume}}<div hidden id="atlas-events" hx-sse:connect="/events?volume={{.Slug}}" hx-trigger="load"></div>
-<div hidden hx-get="/v/{{.Slug}}/{{.World.Slug}}"
-     hx-trigger="catalog from:#atlas-events, refresh from:#atlas-events"
-     hx-target="#atlas-shell" hx-select="#atlas-shell" hx-swap="outerMorph"></div>{{end}}
 </body>
 </html>
 {{end}}

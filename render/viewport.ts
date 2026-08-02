@@ -71,6 +71,13 @@ export class AtlasViewport extends HTMLElement {
     this.watcher?.rescan();
     this.wireGlobeToggle();
     this.wireZoom();
+    // The footer's sentence is half the application's and half this lane's,
+    // and a swap that re-rendered the legend has just put the application's
+    // half back on screen. A concern that touches the legend and not the
+    // scene node -- folding a section, unfolding every one of them -- moves
+    // nothing this seam watches, so nothing would otherwise tell it to
+    // finish the sentence again.
+    this.chart?.writeCount();
   }
 
   /** The panes, looked up rather than held: a morph may not touch them, but
@@ -228,7 +235,16 @@ export class AtlasViewport extends HTMLElement {
    */
   private wireGlobeToggle(): void {
     const toggle = document.querySelector<HTMLButtonElement>("#globe-toggle");
-    if (!toggle || toggle.dataset["atlasWired"] === "yes") return;
+    if (!toggle) return;
+    // Which pane is up is this lane's state, and the application renders the
+    // button that says so -- with `aria-pressed="false"`, because the server
+    // has no way of knowing. So a swap that re-renders the topbar puts the
+    // button back to "chart" while the sphere is still on screen, and the
+    // next press reads as a first press. The state is re-asserted onto the
+    // control after every swap, which is the price of the control belonging
+    // to one side and the state to the other.
+    toggle.setAttribute("aria-pressed", String(this.globeUp));
+    if (toggle.dataset["atlasWired"] === "yes") return;
     toggle.dataset["atlasWired"] = "yes";
     toggle.addEventListener("click", () => this.flip());
   }

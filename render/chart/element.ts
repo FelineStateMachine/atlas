@@ -148,7 +148,7 @@ export class AtlasChart extends HTMLElement {
    * It is one set counted twice, said as one sentence, and the number after
    * "of" is the same number the dock puts at the top of its list.
    */
-  private writeCount(): void {
+  writeCount(): void {
     const footer = document.querySelector("#visible-count");
     const context = this.context;
     if (!footer || !context) return;
@@ -244,6 +244,7 @@ export class AtlasChart extends HTMLElement {
    * looking at.
    */
   locate(extent: readonly number[] | null): void {
+    if (!extent) this.overview?.release();
     this.overview?.draw(extent ?? undefined);
   }
 

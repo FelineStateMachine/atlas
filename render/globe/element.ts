@@ -387,7 +387,7 @@ export class AtlasGlobe extends HTMLElement {
     // the baseline says it stands still.
     const key = [
       String(Math.round(pov.lat)), String(Math.round(pov.lng)), pov.altitude.toFixed(2),
-      context.scene.gridSystem, context.cell,
+      context.system?.slug ?? "", context.cell,
     ].join(":");
     if (key === this.labelKey) return;
     this.labelKey = key;
@@ -494,7 +494,10 @@ export class AtlasGlobe extends HTMLElement {
     while ((2 * reach + 1) ** 2 > DETAIL_TILE_BUDGET && reach > 1) reach -= 1;
     const [, , w, h] = equirect.px;
     const tile = (h / 2 ** z) * 2;
-    const side = (2 * reach + 1) * tile;
+    // A hair under the tile count, so a rectangle that lands exactly on a
+    // tile boundary does not take the row beyond it as well: the budget is
+    // (2·reach+1)² tiles and an inclusive edge would make it one more square.
+    const side = (2 * reach + 1) * tile * 0.999;
     const [cx, cy] = equirect.mapping.toWorld(pov.lat, pov.lng);
     void this.skin.detail(
       context.lens, z,

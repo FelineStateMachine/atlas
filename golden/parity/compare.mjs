@@ -156,6 +156,7 @@ async function gate() {
     const { paths, entries } = waiversFor(volume.slug);
     console.log(`\n${volume.slug} (${volume.classification}) @ ${volume.shortStamp}`);
     let candidate;
+    let red = false;
     try {
       candidate = await runTour({
         volume: volume.slug, bundles: farm,
@@ -168,8 +169,8 @@ async function gate() {
       // disagree" and "the footer disagrees with the baseline" are usually
       // the same defect seen from two sides.
       console.log(`  ${String(error.message ?? error).split("\n").join("\n  ")}`);
-      failed += 1;
-      if (!error.log) continue;
+      red = true;
+      if (!error.log) { failed += 1; continue; }
       candidate = error.log;
     }
     if (flag("--save")) {
@@ -180,11 +181,14 @@ async function gate() {
     for (const waiver of entries) {
       console.log(`  waived: ${waiver.id} — ${(waiver.paths ?? []).join(", ")}`);
     }
-    if (differences === 0) {
+    if (differences === 0 && !red) {
       console.log(`  identical across ${baseline.steps.length} steps` +
         ` (ignoring ${ADVISORY.join(", ")}${paths.length ? `; waived ${paths.length} paths` : ""})`);
     } else {
-      console.log(`  ${differences} differences`);
+      // One volume, one verdict: a walk that found the surfaces out of step
+      // and then differed from its baseline is one failure seen twice, not
+      // two failures.
+      if (differences > 0) console.log(`  ${differences} differences`);
       failed += 1;
     }
   }

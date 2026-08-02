@@ -36,6 +36,12 @@ function clamp(value: number, low: number, high: number): number {
 
 export class Overview {
   private drawnKey = "";
+  /**
+   * The mark the sphere last left, kept so a redraw the chart asked for does
+   * not overwrite it. While the globe is up the chart has not moved, so its
+   * extent is a stale answer to a question only the sphere can answer.
+   */
+  private marked: readonly number[] | null = null;
 
   private readonly map: OLMap;
   private readonly context: () => WorldContext | null;
@@ -68,7 +74,13 @@ export class Overview {
       this.drawnKey = key;
       void this.compose(canvas, context, extent);
     }
-    this.locate(box, canvas, extent, over);
+    if (over && over.length === 2) this.marked = over;
+    this.locate(box, canvas, extent, over ?? this.marked ?? undefined);
+  }
+
+  /** Give the locator back to the chart: the sphere has been put away. */
+  release(): void {
+    this.marked = null;
   }
 
   /**

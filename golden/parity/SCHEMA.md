@@ -438,6 +438,32 @@ listed here so that turning the flag on is a matter of emptying a list.
   and nothing tells the seam to write the count again.
 - **`ui.dockFolded`.** A search reveals the panel in the reference; the
   rewrite's `revealDock` does not fire on the same move.
+- **A shard does not narrow the ground.** Zelda records `zones.count` 3 where
+  the rewrite says 23: a shape on another lens's shard is *elsewhere in the
+  world* and the standing-set rule says so for points and not for shapes,
+  which is also why that volume's dock lists twenty rows it should not.
+- **Selecting a search result does not fly to it.** `search-select-first`
+  records a camera at the feature; the rewrite selects and stays put.
+- **`filters.collapsedSections` after a bulk unfold.** Unfolding every group
+  leaves a section folded that the reference had opened.
+
+Per volume, as the gate reads them today — step counts are the candidate's
+against the baseline's, and every step of every volume is compared:
+
+| volume | steps | tour's own checks | fields differing |
+|---|---|---|---|
+| tunic | 43 / 37 | 8 | 2,311 |
+| cyberpunk-2077 | 49 / 49 | 8 | 2,795 |
+| fallout-new-vegas | 43 / 39 | 8 | 2,363 |
+| zelda-tears-of-the-kingdom | 67 / 67 | 107 | 9,442 |
+| mars | 65 / 59 | 9 | 3,423 |
+| bend-or | 66 / 66 | 11 | 2,447 |
+
+The three volumes whose step counts already agree are the three with a label
+ladder of their own; the extra steps on the other three are the ladder being
+offered where the producer curated none. The field counts are dominated by a
+handful of repeating causes rather than by a long tail: the camera missing
+from the island alone accounts for two fields on every step of every volume.
 
 **Closed by the city.** `and-highlighted`, `labels-held-highlighted` and
 `and-cleared` — highlighting across two collections to read as AND — need a
