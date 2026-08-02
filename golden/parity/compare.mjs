@@ -4,6 +4,10 @@
 //   node golden/parity/compare.mjs                      # the whole gate
 //   node golden/parity/compare.mjs --only mars          # one volume
 //   node golden/parity/compare.mjs base.json cand.json  # two logs, by hand
+//   node golden/parity/compare.mjs --only mars --extended  # walk the picks,
+//                                                          # keys and pictures
+//                                                          # before the
+//                                                          # baselines hold them
 //
 // This is the M5+M6 exit and the definition of done: `golden/harness` runs it
 // as the `parity-compare` suite, and a green run means the rewritten
@@ -30,6 +34,7 @@ import { existsSync, readFileSync, writeFileSync } from "node:fs";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { fixtures, linkFarm } from "./library.mjs";
+import { comparePixels, decodePNG } from "./pixels.mjs";
 import { runTour } from "./run.mjs";
 
 const here = dirname(fileURLToPath(import.meta.url));
@@ -130,6 +135,69 @@ export function compare(baseline, candidate, waived = []) {
   return total;
 }
 
+// ---- the pictures -----------------------------------------------------
+
+/**
+ * Whether this baseline was captured with the extended half walked.
+ *
+ * It is asked of the baseline rather than set by a flag, and that is what
+ * makes the switch a one-way door with no lever beside it. The six committed
+ * baselines hold no `pick-*` step, so the gate walks exactly the tour they
+ * were taken from and stays green; the moment the final capture wave commits
+ * baselines that do hold them, every run of this gate walks the picks, the
+ * keys and the pictures too, on every volume, forever. Nothing has to
+ * remember to turn it on.
+ */
+function extendedBaseline(baseline) {
+  return baseline.steps.some((step) => step.name.startsWith("pick-"));
+}
+
+/**
+ * Diff the walk's pictures against the committed ones.
+ *
+ * A picture with no committed twin is reported as not captured rather than as
+ * a pass: the screenshot steps are written before the build they will be
+ * captured from is finished (SCHEMA.md §2.1.3), and a gate that said "0
+ * differences" over an empty directory would be lying in the most expensive
+ * direction. Answers how many pictures differed.
+ */
+export function compareScreens(slug, candidate) {
+  const shots = candidate.shots ?? [];
+  if (shots.length === 0) return 0;
+  const committed = join(here, "screens", slug);
+  let differing = 0;
+  let uncaptured = 0;
+  for (const shot of shots) {
+    const golden = join(committed, shot.file);
+    const taken = join(candidate.shotsDir ?? "", shot.file);
+    if (!existsSync(golden)) {
+      uncaptured += 1;
+      continue;
+    }
+    if (!existsSync(taken)) {
+      console.log(`  picture ${shot.name}: the walk took none`);
+      differing += 1;
+      continue;
+    }
+    const verdict = comparePixels(
+      decodePNG(readFileSync(golden)), decodePNG(readFileSync(taken)));
+    if (!verdict.ok) {
+      console.log(`  picture ${shot.name}: ${verdict.reason}`);
+      differing += 1;
+    }
+  }
+  const measured = shots.length - uncaptured;
+  if (measured > 0) {
+    console.log(`  ${measured - differing} of ${measured} pictures within` +
+      " the threshold (golden/parity/pixels.mjs)");
+  }
+  if (uncaptured > 0) {
+    console.log(`  ${uncaptured} picture${uncaptured === 1 ? "" : "s"} not captured:` +
+      ` no committed twin under golden/parity/screens/${slug}`);
+  }
+  return differing;
+}
+
 // ---- the waivers ------------------------------------------------------
 
 /**
@@ -141,7 +209,7 @@ export function compare(baseline, candidate, waived = []) {
  * difference is allowed to exist, and the harness prints the file on every
  * run whether or not this gate is the one that read it.
  */
-function waiversFor(slug) {
+export function waiversFor(slug) {
   const all = JSON.parse(readFileSync(join(repoRoot, "golden/waivers.json"), "utf8"));
   const mine = all.filter((waiver) => waiver.suite === "parity-compare" &&
     (waiver.fixture === "*" || waiver.fixture.split(/,\s*/).includes(slug)));
@@ -201,10 +269,12 @@ async function gate() {
     console.log(`\n${volume.slug} (${volume.classification}) @ ${volume.shortStamp}`);
     let candidate;
     let red = false;
+    const extended = extendedBaseline(baseline) || has("--extended");
     try {
       candidate = await runTour({
         volume: volume.slug, bundles: farm,
         onLog: (line) => console.log(`  ${line}`),
+        extended,
       });
     } catch (error) {
       // A tour that finished red has still recorded a walk, and the walk is
@@ -221,7 +291,8 @@ async function gate() {
       writeFileSync(join(flag("--save"), `${volume.slug}.json`),
         `${JSON.stringify(candidate, null, 2)}\n`);
     }
-    const differences = compare(baseline, candidate, entries);
+    const differences = compare(baseline, candidate, entries) +
+      compareScreens(volume.slug, candidate);
     for (const waiver of entries) {
       console.log(`  waived: ${waiver.id} — ${billOf(waiver)}`);
     }
@@ -245,18 +316,24 @@ async function gate() {
 
 // Two paths given by hand is the reference comparer's own usage, kept so a
 // saved candidate can be re-diffed without re-walking anything.
-const positional = args.filter((arg) => !arg.startsWith("--") &&
-  args[args.indexOf(arg) - 1]?.startsWith("--") !== true);
-if (positional.length === 2) {
-  const [baselinePath, candidatePath] = positional;
-  const slug = JSON.parse(readFileSync(candidatePath, "utf8")).volume;
-  const total = compare(
-    JSON.parse(readFileSync(baselinePath, "utf8")),
-    JSON.parse(readFileSync(candidatePath, "utf8")),
-    waiversFor(slug).entries,
-  );
-  if (total === 0) console.log("identical");
-  else { console.log(`${total} differences`); process.exit(1); }
-} else {
-  await gate();
+//
+// Guarded, because `capture.mjs` imports `compare` from here to hold a
+// re-capture to the baseline it is extending: a module that ran the whole
+// half-hour gate on being imported would be a strange thing to import.
+if (import.meta.url === `file://${process.argv[1]}`) {
+  const positional = args.filter((arg) => !arg.startsWith("--") &&
+    args[args.indexOf(arg) - 1]?.startsWith("--") !== true);
+  if (positional.length === 2) {
+    const [baselinePath, candidatePath] = positional;
+    const slug = JSON.parse(readFileSync(candidatePath, "utf8")).volume;
+    const total = compare(
+      JSON.parse(readFileSync(baselinePath, "utf8")),
+      JSON.parse(readFileSync(candidatePath, "utf8")),
+      waiversFor(slug).entries,
+    );
+    if (total === 0) console.log("identical");
+    else { console.log(`${total} differences`); process.exit(1); }
+  } else {
+    await gate();
+  }
 }

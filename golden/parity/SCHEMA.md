@@ -116,6 +116,206 @@ joined the library — `library.volumes` and `domNodes` on every step, and the
 
 ---
 
+## 2.1 The extended half: three step kinds
+
+Everything above was written against a tour that could not, in principle, see
+three classes of defect. Not "did not" — *could not*: there was no pointer
+event anywhere in it, so a click on the canvas going nowhere was invisible; it
+synthesized four keys and never asked where the focus ended up, so a shortcut
+that fired while the reader was typing was invisible; and every observation
+was a count, a flag or a string, so a sphere rendered black with the right
+number of sprites on it was invisible. Three kinds of step close those, and
+they are appended after `label-ladder-restored`, in this order: picks, keys,
+pictures.
+
+They obey the same rule as every other step: a step is emitted only where the
+volume can reach it, so a volume with no shape collections has no
+`pick-a-shape` and a plane has no `screen-globe`. Walked against the current
+tree that is around three dozen steps a volume: 33 on tunic (37 → 70), 36 on
+mars (59 → 95), 37 on the city (66 → 103). Every one of them was walked
+against this tree before it was written down.
+
+**How they are switched on, and why not with a flag.** `run.mjs --extended`
+walks them; the gate asks the *baseline* whether to. `compare.mjs` looks for a
+step whose name begins `pick-` in the committed baseline: while the six
+baselines hold none, the gate walks exactly the tour they were captured from
+and nothing about this milestone can turn it red. The moment the capture wave
+of §6.1 commits baselines that hold them, every run of the gate walks all
+three kinds on every volume, and there is no lever beside it to turn them off
+again. `--extended` on the command line forces the walk without the baselines,
+which is how a fix is checked before the wave.
+
+### 2.1.1 Picks — a pointer, at a pixel, on the canvas
+
+The aim is worked out through the pane's own OpenLayers map, and *only* the
+aim: the click goes in as `pointerdown`/`pointerup` on the map's viewport and
+travels through OpenLayers' hit detection, the seam's `singleclick` handler,
+the pick form the page renders for it, `POST /session/select`, and the swap
+that comes back. A target is chosen as the first feature, by id, that the pane
+resolves *as itself* at its own pixel — pins overlap, and a pin clicked where
+another is drawn on top is a correct pick of the wrong feature, which would
+make the recorded value a property of the camera rather than of the build.
+
+Pick steps carry one extra snapshot section, `pick`:
+
+| key | meaning |
+|---|---|
+| `pick.at` | the id aimed at — a feature id, a cell hash, or `null` for a deliberate miss |
+| `pick.title`, `pick.kind` | the aimed feature's title and kind (`point`, `path`, `area`, `cell`) |
+| `pick.under` | what the pane says is at that pixel *before* the click — the aim's own witness. The pin, by construction; nothing, for a miss; and for a cell, whatever feature the cell happens to hold, which is the question that step asks |
+
+What each step drives and what it records:
+
+| step | drives | records | today |
+|---|---|---|---|
+| `pick-ready` | two zoom-outs, so the aim has features on screen | the camera it aims from | passes |
+| `pick-a-pin` | a real click at a pin's pixel | `pick`, `ui.detailOpen`, `ui.detailTitle`, `selectedPin` | **passes** |
+| `pick-missed` | a click on empty ground with the card open | the card is *still* open | **passes** |
+| `pick-cleared` | the card closed | the selection put down | passes |
+| `pick-a-shape` | a click inside a district or on a line | `pick`, the card on the ground's title | **passes** (volumes with shapes) |
+| `pick-shape-cleared` | the card closed | — | passes |
+| `pick-grid-open` | `G` | `grid.enabled`, the cells drawn | passes |
+| `pick-in-grid` | a click inside a drawn cell | `grid.prefix` descends to that cell, no card opens | **awaiting fix** |
+| `pick-grid-closed` | two Escapes | the grid put away | passes |
+
+`pick-missed` is the one that pins a *decision* rather than a behaviour: a
+click on nothing is not a pick and therefore is not a deselection either. A
+build that closes the card on every stray click has changed what a click
+means, and no count in the log would have noticed.
+
+Aiming a miss is the only aim that has to be *found* rather than looked up,
+and on the city it cannot be found at the view a walk opens on: eight thousand
+features, a river system and a road network leave no gap on a lattice fine
+enough to be worth scanning. So the step goes in two zoom levels first, which
+spreads the same features over four times the pixels — what a reader does when
+they want to click between things — and only says it could not aim when even
+that fails. A step that quietly did not happen is the failure mode this whole
+exercise is about.
+
+### 2.1.2 Keys — including where the focus lands, and who else hears them
+
+Keyboard steps carry a `focus` section: `focus.active` is the id of
+`document.activeElement` (or its tag name where it has no id), and
+`focus.selected` says whether the field's whole value is selected — a reader
+reaching for search a second time means to replace what is in it.
+
+| step | drives | records | today |
+|---|---|---|---|
+| `key-search-primed` | a word typed into `#pin-search` | the search state ⌘K will be asked to reclaim | passes |
+| `key-search-focus` | ⌘K at the window | `focus.active` = `pin-search`, `focus.selected` | **awaiting fix** |
+| `key-search-cleared` | the field emptied | — | passes |
+| `key-grid-open` | `G` at the window | `grid.enabled` **and** `focus.active` = `grid-input` | grid **passes**, focus **awaiting fix** |
+| `key-grid-descended` | a character typed into `#grid-input` | `grid.prefix` | passes |
+| `key-escape-once` | Escape with the focus in the grid field | `focus.active` = `map`, and the cell **not** ascended | **awaiting fix** |
+| `key-escape-twice` | a second Escape | the grid ascends | passes |
+| `key-cell-system-before` / `-cycled` | ⌘G at the window | `grid.system` changes and `grid.prefix` carries across | **awaiting fix** |
+| `key-grid-closed` | two Escapes | the grid put away | passes |
+| `key-labels-held` / `-released` | Z down, Z up | `labelsHeld`, the ladder | **passes** |
+| `key-typing-before` | — | the grid before a reader types | passes |
+| `key-typing-not-a-shortcut` | `g` dispatched **at `#pin-search`** | the grid is **unchanged**, the focus stays in the field | **awaiting fix** |
+
+The last row is the one that needed a new kind of dispatch. Every other key in
+this file is raised on the window, which is where a keystroke with no focused
+control is heard and where the application's shortcuts listen
+(`internal/app/templates/shell.tmpl`). A reader's own typing starts at the
+field and *bubbles* to the window, so a shortcut that never asks where the key
+came from hears it. The window-dispatched steps must keep passing whatever
+guard the fix adds — an event raised at the window has the window as its
+target, which is by design and is what makes the tour's other shortcuts still
+work — and this step is the only one that asks the other question.
+
+### 2.1.3 Pictures — the driver's screenshot, compared perceptually
+
+A screenshot step publishes what it wants shot and waits; the runner, which is
+already watching the page to see where the walk has got to, takes it with the
+browser's own screenshot and says so. It is taken outside the page on purpose:
+a WebGL sphere has nothing to read back through a 2D context, which is exactly
+why `checkCanvas` falls silent on the one pane where a blank picture has
+already happened.
+
+Pictures land in `golden/parity/screens/<volume>/<step>.png`. The step records
+`screen.file` and `screen.element` in its snapshot — which picture belongs to
+it, and what was photographed — and the *measurements* of the picture go in
+`log.screens`, outside `steps`, recorded and not compared.
+
+| step | element | what it would catch |
+|---|---|---|
+| `screen-chart` | `atlas-chart` | the pane painted over, the world drawn nowhere |
+| `screen-dock-open` / `-folded` | `#atlas-dock` | the panel beside the map, out and away |
+| `screen-labels-held` | `atlas-chart` | a label ladder whose sprites count right and draw nothing |
+| `screen-raster-deep` | `atlas-chart` | a pixel-art lens smoothed past its native depth (`interpolate`) |
+| `screen-outside-bounds` | `atlas-chart` | the background outside the lens's own bounds |
+| `screen-ground` | `atlas-chart` | a multipart district with one part missing |
+| `screen-globe` | `atlas-globe` | the sphere's base skin — the black-planet case |
+| `screen-globe-labels` | `atlas-globe` | names raised over a sphere, facing the reader |
+
+**The threshold, and the argument for it** (`golden/parity/pixels.mjs`). Two
+numbers rather than one, because the two ways a picture moves are different in
+kind and one figure loose enough for the harmless one is blind to the other.
+`mean` is the average absolute difference per colour channel over every pixel;
+antialiasing, a tile decoded a version apart, an easing that finished a frame
+earlier all move very many pixels very little, and a sphere drawn black or a
+raster smoothed moves the average by whole numbers. `differing` is the
+fraction of pixels that moved more than 12/255 in any channel; a label drawn a
+pixel over moves a fraction of a percent of the picture and a district that
+changed colour does not. A picture passes at `mean ≤ 0.5` **and** `differing ≤
+0.2%`.
+
+Those two numbers are measured rather than guessed, in both directions. Two
+fresh-launch walks of tunic taken one after the other produced six pairs of
+**identical** pictures — the tour settles every step before recording it, and
+a settled page draws the same frame twice — so the noise to tolerate on the
+machine that takes the baselines is none, and the room left is for the machine
+that did not take them. Against deliberate damage: a 60×60 patch recoloured,
+which is what a district drawn in the wrong colour or a part not drawn looks
+like, moves 0.76% of the picture and fails; a whole picture three shades
+darker, which is what a lost texture looks like, moves the mean to 2.33 and
+fails; a thousandth of the pixels moved thirty apiece, which is what edges and
+a label a pixel over look like, passes. The numbers live in one exported
+constant so that a run failing on noise is answered by moving a number in the
+open rather than by not looking.
+
+**The cheap check, and what it cannot see.** Every picture is also described
+without any baseline at all: `distinct` counts the colours in its middle half,
+coarsened to four bits a channel, and a picture that answers 1 fails the walk
+outright. That is `checkCanvas`'s question asked of a photograph, it is
+available today, and it is a **floor and not a resemblance** — the black
+sphere this milestone found answers 64, because its pins are on it. Only the
+committed picture catches that one, which is why §6.1 exists.
+
+### 2.1.4 The awaiting-fix table
+
+These steps are written against behaviour that is not in the tree yet. They
+are listed so the capture wave can tell new coverage from a regression: a step
+below that is still red when the wave runs means its fix did not land, and the
+wave must stop rather than baseline the defect.
+
+| step | what it asserts | why it fails today | whose fix |
+|---|---|---|---|
+| `pick-in-grid` | a click inside a drawn cell telescopes into the cell | the pane resolves features and never cells, so the click selects whatever pin is under it | grid telescope |
+| `key-search-focus` | ⌘K focuses and selects `#pin-search` | there is no ⌘K shortcut; the field advertises one with a `<kbd>` | keyboard |
+| `key-grid-open` (focus half) | `G` leaves the focus in `#grid-input` | the route opens the grid and nothing moves the focus | keyboard |
+| `key-escape-once` | the first Escape leaves the field, not the level | Escape is bound straight to `ascend` on the window | keyboard |
+| `key-cell-system-cycled` | ⌘G cycles the system and carries the cell | `⌘G` is excluded by the `g` trigger's guard and bound to nothing | keyboard / S2 |
+| `key-typing-not-a-shortcut` | typing `g` in a text field does not toggle the grid | the shortcuts listen on the window and a reader's key bubbles to it | keyboard |
+| `screen-globe` | the sphere's base skin is the lens, not black | the base texture never reaches the sphere | globe sprites |
+| `screen-ground` | a multipart district draws every part | a second part is dropped | multipart |
+
+The two picture rows are a different kind of awaiting from the six above them,
+and the difference is the whole reason this table exists. A step that asserts
+fails *today*, out loud, and the walk is red until its fix lands. A picture
+with no committed twin is **not captured**, which is neither a pass nor a
+failure — so those two rows cannot go red on their own, and the wave is the
+only thing standing between a defect and a golden of it. They are here because
+the pictures were looked at while this was written: mars's `screen-globe`
+photographed a **black sphere with its pins on it** — 142 colours in the
+middle half, every count in the snapshot correct, the overview beside it
+showing the Mars texture the sphere was not wearing. That is the exact defect
+the picture step exists for, and committing it as a baseline would be the
+worst outcome available.
+
+---
+
 ## 3. The snapshot
 
 A snapshot is two things merged: the application's own diagnostics object,
@@ -335,6 +535,48 @@ The tour is also still reachable by hand: F9 in a running development build
 walks the same steps against whatever library is installed and posts the log
 to `/parity/result`.
 
+## 6.1 Capturing the extended half
+
+```sh
+make static                                                    # the seam the tour walks over
+node golden/parity/run.mjs --volume mars --bundles <farm> \
+  --extended --shots /tmp/shots --out /tmp/mars.json           # one walk, by hand
+node golden/parity/capture.mjs --capture-extended              # the wave: all six
+node golden/parity/capture.mjs --capture-extended --only mars  # one of them
+```
+
+This is the one capture in this directory that runs against the **rewrite**
+rather than against the golden reference, and it needs an argument for that.
+The reference never had a pick step, a focus reading or a screenshot; there is
+nothing of its behaviour to reproduce, so the finished rewrite is where the
+new steps' first recording has to come from. What keeps that from laundering
+everything else is the shape of the mode, and it is not a convention — it is
+what the code does:
+
+1. **Nothing already captured is re-taken.** The committed snapshots are
+   copied through byte for byte and the new steps are appended after them.
+2. **The walk is held to the baseline before a byte is written.** The shared
+   prefix is diffed against the committed steps under the same waivers the
+   gate reads, and a volume that differs is refused with its differences
+   printed. A build that does not reproduce the reference is not a build to
+   take new baselines from.
+3. **A red walk is not a baseline.** The new steps' own checks — §2.1.4's
+   table — are tour problems, and `runTour` throws on a red walk. So every
+   fix in that table must have landed before this mode can write anything. If
+   one has not, the wave stops on it by name, which is the difference between
+   "new coverage" and "we baselined the defect".
+4. **The pictures are written into `golden/parity/screens/<volume>/`** and are
+   ignored by git until that directory's `.gitignore` says otherwise. The wave
+   deletes the `*.png` line and commits them; from then on `compare.mjs`
+   compares every picture it has a twin for and reports the rest as *not
+   captured*, which is not a pass.
+
+What the wave must do, in order: build the seam; run
+`capture.mjs --capture-extended` over all six volumes; read the refusals if
+any and stop rather than force; drop the ignore line; commit baselines and
+pictures together in one commit, because a baseline that names a picture that
+is not there is a broken gate.
+
 ---
 
 ## 7. Gaps
@@ -370,10 +612,25 @@ with volumes in it; a tour against an empty directory cannot start, because
 there is no volume to open. A candidate's empty state needs a test of its
 own.
 
-**Almost nothing checks pixels.** Every observation is a count, a flag, or a
-string. A build that draws every pin in the wrong colour passes this tour. The
-raster-level goldens (per-lens tile inventories with decoded-pixel digests,
-issue §6.1) are a separate instrument and are not this one.
+**Almost nothing checks pixels.** *Answered, in §2.1.3, and the answer is
+narrower than the hole.* Every observation used to be a count, a flag or a
+string, and a build that drew every pin in the wrong colour passed. Up to
+eight screenshot steps a volume — six on a plane, eight where there is a
+sphere — now photograph the pane and compare it against a committed picture,
+which is the part of the hole that can be closed with a golden. Two things are still true: a picture is compared *perceptually*, so a
+change under the threshold is a change nobody sees here; and until the capture
+wave of §6.1 runs there are no committed pictures, so the steps take pictures
+and report them as not captured. The raster-level goldens (per-lens tile
+inventories with decoded-pixel digests, issue §6.1) remain a separate
+instrument and are still not this one.
+
+**Nothing drove a pointer, and nothing asked where the focus was.** *Answered,
+in §2.1.1 and §2.1.2.* Both were structural rather than accidental: a tour
+made entirely of `.click()` on controls cannot see a canvas that ignores
+clicks, and a tour that dispatches every key at the window cannot see a
+shortcut firing while the reader types. The steps that close them are written
+against fixes that were still landing when they were written, and §2.1.4 says
+which is which.
 
 One thing was added after this hole was walked through rather than around.
 The rewritten application painted its own backdrop over the pane, so the

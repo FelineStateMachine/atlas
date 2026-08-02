@@ -335,6 +335,21 @@ function keydown(key, options = {}) {
   }));
 }
 
+// A key pressed AT something, rather than at the window.
+//
+// The tour's own shortcuts are dispatched at the window because that is where
+// a keystroke with no focused control is heard, and the application's
+// shortcuts listen there (internal/app/templates/shell.tmpl). A reader typing
+// into a field is the other case entirely: their keystroke starts at the
+// field and travels up, so a shortcut that does not ask where the key came
+// from hears it. That is a real difference in the event and it can only be
+// exercised by dispatching where the reader's own key would land.
+function keydownAt(selector, key, options = {}) {
+  tourQuery(selector)?.dispatchEvent(new KeyboardEvent("keydown", {
+    key, bubbles: true, cancelable: true, ...options,
+  }));
+}
+
 function keyup(key, options = {}) {
   window.dispatchEvent(new KeyboardEvent("keyup", {
     key, bubbles: true, cancelable: true, ...options,
@@ -480,8 +495,9 @@ async function refreshCatalog() {
 async function tour(options = {}) {
   const steps = [];
   const problems = [];
+  const shots = [];
   const complain = (message) => problems.push(message);
-  const record = async (name) => {
+  const record = async (name, extra = null) => {
     // A walk that stalls should say where. The runner reads these back off
     // the page rather than off a console, so a step that never settles is
     // reported as the step it was rather than as a timeout with no name.
@@ -490,7 +506,13 @@ async function tour(options = {}) {
     // useful thing to know about a stall.
     window.__atlasTourAt = name;
     await settle();
-    const snapshot = { ...JSON.parse(window.render_game_to_text()), ...observe() };
+    // `extra` is how the three new step kinds say what they drove: the aim a
+    // pick took, the element a keystroke left the focus on, the picture a
+    // screenshot step wrote. It is merged into the snapshot rather than kept
+    // beside it so that it is compared like everything else -- and it is
+    // passed per step rather than added to `observe()` so that the steps the
+    // reference captured keep the exact shape they were captured in.
+    const snapshot = { ...JSON.parse(window.render_game_to_text()), ...observe(), ...(extra ?? {}) };
     steps.push({ name, snapshot });
     problems.push(...checkSync(name, snapshot));
     if (steps.length === 1) problems.push(...checkCanvas(name, snapshot));
@@ -733,11 +755,26 @@ async function tour(options = {}) {
   await libraryFlow(record, complain);
   await labelLadder(record, complain);
 
+  // The three kinds the reference tour could not see with (SCHEMA.md §2.1).
+  // They are appended, and they are asked for: a walk that did not ask keeps
+  // exactly the step list the six committed baselines hold, which is what
+  // lets this file change without every baseline having to.
+  if (options.extended) {
+    const shot = shotTaker(shots, complain);
+    await pickSteps(record, complain);
+    await keySteps(record, complain);
+    await screenSteps(record, complain, shot);
+  }
+
   return {
     volume: firstGame,
     viewport: [window.innerWidth, window.innerHeight],
     problems,
     steps,
+    // The screenshots this walk asked the driver for, in the order it asked.
+    // The pictures themselves are files; this is the list of them, and it is
+    // what `compare.mjs` looks for a committed twin of.
+    shots,
   };
 }
 
@@ -918,6 +955,560 @@ async function labelLadder(record, complain) {
   }
   if (back.session.entry?.labels.length) {
     complain("label-ladder-restored: overrides that agree with the curation were kept");
+  }
+}
+
+// ---- the extended half: picks, keys and pictures -----------------------
+//
+// Three step kinds, and one sentence for why each exists. The tour walked the
+// whole application through its controls and could not have seen a click on
+// the canvas go nowhere, a shortcut fire while the reader was typing, or a
+// sphere rendered black -- not because those were hard to reach, but because
+// nothing in the log was a pixel, a pointer or a focus (SCHEMA.md §7).
+//
+//   PICKS drive real pointer events at a real feature's pixel. What is aimed
+//   at is worked out through the pane's own OpenLayers map, and only the aim:
+//   the click itself goes in as `pointerdown`/`pointerup` on the map's
+//   viewport, travels through OpenLayers' own hit detection, the seam's
+//   `singleclick` handler, the pick form the page renders and the route
+//   behind it. Every part of that path is the application's.
+//
+//   KEYS extend the tour's synthesis past the four it had. Two things are new
+//   in kind: what the *focus* is afterwards, which is half of what a shortcut
+//   is for, and a key dispatched AT a text field rather than at the window,
+//   which is the only way to ask whether a shortcut can hear a reader typing.
+//
+//   PICTURES are taken by the driver, not by the page: a WebGL sphere cannot
+//   be read back through a 2D context, and the tour's own `checkCanvas` says
+//   so by falling silent exactly where the sphere is. The driver screenshots
+//   the pane and the comparison happens outside the browser.
+//
+// THE REACH-IN, declared. `document.querySelector("atlas-chart").map` is the
+// pane's own OpenLayers map, and a harness that asks it where a feature is
+// drawn is doing arithmetic the pane would otherwise make it repeat. Nothing
+// is *done* through it: no selection is made, no camera is moved, no event is
+// raised on it. A build that renamed it loses the aim, and the steps say so
+// rather than passing quietly.
+
+const CLICK_MARGIN = 64;
+const HIT_TOLERANCE = 4;
+
+function chartMap() {
+  const chart = tourQuery("atlas-chart");
+  const map = chart && !chart.hidden ? chart.map : null;
+  return map && typeof map.getPixelFromCoordinate === "function" ? map : null;
+}
+
+/** What the pane would resolve at a pixel: a feature id, or nothing. */
+function resolveAt(map, pixel) {
+  let found = null;
+  map.forEachFeatureAtPixel(pixel, (feature) => {
+    const record = feature.get("record");
+    if (!record) return false;
+    found = record.id;
+    return true;
+  }, { hitTolerance: HIT_TOLERANCE });
+  return found;
+}
+
+function insideWindow(map, pixel) {
+  const box = map.getViewport().getBoundingClientRect();
+  return Boolean(pixel) && pixel[0] > CLICK_MARGIN && pixel[1] > CLICK_MARGIN &&
+    pixel[0] < box.width - CLICK_MARGIN && pixel[1] < box.height - CLICK_MARGIN;
+}
+
+/**
+ * A feature to aim at: the first, by id, that the pane resolves as itself.
+ *
+ * "As itself" is the whole of the choosing. Pins overlap, and a pin clicked
+ * where another one is drawn on top of it is a correct pick of the wrong
+ * feature -- which would make this step's recorded value a property of the
+ * camera rather than of the build. Sorting by id makes the choice the same on
+ * every run over the same view.
+ */
+function aimAt(map, source, at) {
+  if (!source) return null;
+  const candidates = [];
+  for (const feature of source.getFeatures()) {
+    const record = feature.get("record");
+    const geometry = feature.getGeometry();
+    if (!record || !geometry) continue;
+    const place = at(geometry);
+    if (!place) continue;
+    const pixel = map.getPixelFromCoordinate(place);
+    if (!insideWindow(map, pixel)) continue;
+    candidates.push({
+      id: record.id, title: record.title ?? "", kind: record.kind ?? "point", pixel,
+    });
+  }
+  candidates.sort((a, b) => (a.id < b.id ? -1 : a.id > b.id ? 1 : 0));
+  for (const candidate of candidates) {
+    if (resolveAt(map, candidate.pixel) === candidate.id) return candidate;
+  }
+  return null;
+}
+
+const pointOf = (geometry) => geometry.getType() === "Point"
+  ? geometry.getCoordinates().slice(0, 2)
+  : null;
+
+const groundOf = (geometry) => {
+  const type = geometry.getType();
+  if (type === "Polygon") return geometry.getInteriorPoint().getCoordinates().slice(0, 2);
+  if (type === "MultiPolygon") {
+    const points = geometry.getInteriorPoints();
+    return points ? points.getCoordinates()[0]?.slice(0, 2) ?? null : null;
+  }
+  if (type === "LineString") return geometry.getCoordinateAt(0.5);
+  return null;
+};
+
+/**
+ * Ground with nothing on it: the first lattice point the pane resolves as
+ * empty, over a coarse lattice and then a fine one.
+ *
+ * The second pass is for the city. A volume with eight thousand features and
+ * a river system drawn across it can have no gap on a 37-pixel lattice at all,
+ * and a miss that cannot be aimed is a step that quietly does not happen --
+ * which is exactly the kind of silence this whole exercise is about. The
+ * caller says so out loud when both passes come back empty.
+ */
+function emptyPixel(map) {
+  const box = map.getViewport().getBoundingClientRect();
+  for (const step of [37, 13]) {
+    for (let y = CLICK_MARGIN; y < box.height - CLICK_MARGIN; y += step) {
+      for (let x = CLICK_MARGIN; x < box.width - CLICK_MARGIN; x += step) {
+        if (resolveAt(map, [x, y]) === null) return [x, y];
+      }
+    }
+  }
+  return null;
+}
+
+/**
+ * One real click, as a browser sends one.
+ *
+ * OpenLayers builds its `singleclick` out of `pointerdown`, `pointerup` and
+ * the quarter-second it waits to see whether a second click is coming, so a
+ * synthesized `click` alone reaches nothing. The wait is the reason this is
+ * slow and the reason it is honest.
+ */
+async function clickPixel(map, pixel) {
+  const surface = map.getViewport();
+  const box = surface.getBoundingClientRect();
+  const shared = {
+    bubbles: true, cancelable: true, pointerId: 1, pointerType: "mouse",
+    isPrimary: true, button: 0, clientX: box.left + pixel[0], clientY: box.top + pixel[1],
+  };
+  surface.dispatchEvent(new PointerEvent("pointermove", { ...shared, buttons: 0 }));
+  surface.dispatchEvent(new PointerEvent("pointerdown", { ...shared, buttons: 1 }));
+  await sleep(40);
+  surface.dispatchEvent(new PointerEvent("pointerup", { ...shared, buttons: 0 }));
+  surface.dispatchEvent(new MouseEvent("click", { ...shared, buttons: 0 }));
+  await sleep(400);
+}
+
+/**
+ * What a pick step records about its own aim.
+ *
+ * `under` is read *before* the click and is the aim's witness: what the pane
+ * itself says is at that pixel. For a pin it is the pin, by construction; for
+ * a miss it is nothing, by construction; for a cell it is whatever feature
+ * happens to stand inside the cell, which is the whole question that step
+ * asks. It is deliberately not read afterwards: a pick moves the camera, so
+ * an after-reading would record where the view went rather than what was
+ * clicked.
+ */
+const aimRecord = (aimed, under) => ({
+  pick: {
+    at: aimed ? aimed.id : null,
+    title: aimed ? aimed.title : null,
+    kind: aimed ? aimed.kind : null,
+    under,
+  },
+});
+
+async function pickSteps(record, complain) {
+  // A wide view: the aim wants features on screen, and where the walk left
+  // the camera is nobody's contract.
+  tourQuery("#zoom-out")?.click();
+  tourQuery("#zoom-out")?.click();
+  await record("pick-ready");
+  const map = chartMap();
+  if (!map) {
+    complain("pick-ready: the chart pane opened no map to aim through");
+    return;
+  }
+
+  const pin = aimAt(map, pinSource(), pointOf);
+  if (pin) {
+    const under = resolveAt(map, pin.pixel);
+    await clickPixel(map, pin.pixel);
+    const picked = await record("pick-a-pin", aimRecord(pin, under));
+    if (!picked.ui.detailOpen) {
+      complain("pick-a-pin: a click on a pin opened no card");
+    } else if (picked.ui.detailTitle !== pin.title) {
+      complain(`pick-a-pin: clicking ${pin.title} opened the card on ${picked.ui.detailTitle}`);
+    }
+  } else {
+    complain("pick-ready: no pin stood clear inside the window to aim at");
+  }
+
+  // A miss, with the card open, and the decision it pins down: a click on
+  // nothing is not a pick and therefore is not a *deselection* either. The
+  // reference kept the card; a build that closes it on every stray click has
+  // changed what a click means, and no count in this file would notice.
+  // The city has nowhere to miss into at any camera, and the reason is not
+  // density: its ground *covers the window*. A watershed is a feature and a
+  // click inside one resolves it, so on a volume whose areas tile the map
+  // there is no pixel that resolves nothing however far in the camera goes.
+  // Where the window is covered, the drawing is taken away instead -- every
+  // collection hidden, through the control the tour already presses -- and put
+  // back before the group ends. Hiding leaves the card open, which is what
+  // makes it usable here: the question is still whether a click that resolves
+  // nothing puts the reader's selection down.
+  let empty = emptyPixel(map);
+  let hidden = false;
+  if (!empty && pin) {
+    tourQuery("#hide-all")?.click();
+    await settle();
+    empty = emptyPixel(map);
+    hidden = Boolean(empty);
+  }
+  if (!empty && pin) {
+    complain("pick-missed: nowhere in the window was clear of features to miss with," +
+      " so the step the card's survival is pinned by did not happen");
+  }
+  if (empty && pin) {
+    const under = resolveAt(map, empty);
+    await clickPixel(map, empty);
+    const missed = await record("pick-missed", aimRecord(null, under));
+    if (!missed.ui.detailOpen) {
+      complain("pick-missed: a click on empty ground closed the card the reader had open");
+    }
+  }
+  if (hidden) tourQuery("#show-all")?.click();
+  tourQuery("#close-detail")?.click();
+  await record("pick-cleared");
+
+  const ground = aimAt(map, shapeSource(), groundOf);
+  if (ground) {
+    const under = resolveAt(map, ground.pixel);
+    await clickPixel(map, ground.pixel);
+    const picked = await record("pick-a-shape", aimRecord(ground, under));
+    if (!picked.ui.detailOpen) {
+      complain("pick-a-shape: a click on ground opened no card");
+    } else if (picked.ui.detailTitle !== ground.title) {
+      complain(`pick-a-shape: clicking ${ground.title} opened the card on ${picked.ui.detailTitle}`);
+    }
+    tourQuery("#close-detail")?.click();
+    await record("pick-shape-cleared");
+  }
+
+  // In grid mode a cell is the nearer thing. A reader who turned the grid on
+  // is navigating by cells, and a click inside one telescopes into it; the
+  // feature under the pointer is what they get when the grid is off.
+  keydown("g");
+  const opened = await record("pick-grid-open");
+  const cell = gridTarget(map, opened);
+  if (cell) {
+    const under = resolveAt(map, cell.pixel);
+    await clickPixel(map, cell.pixel);
+    const descended = await record("pick-in-grid", {
+      pick: { at: cell.hash, title: null, kind: "cell", under },
+    });
+    if (descended.grid.prefix !== cell.hash) {
+      complain(`pick-in-grid: a click inside cell ${cell.hash} left the grid holding` +
+        ` "${descended.grid.prefix}"`);
+    }
+    if (descended.ui.detailOpen) {
+      complain("pick-in-grid: a click meant for a cell opened a feature's card instead");
+    }
+  }
+  keydown("Escape");
+  keydown("Escape");
+  await record("pick-grid-closed");
+}
+
+// The two vector sources a pick can land in, by the names the pane keeps them
+// under. Read rather than reached through: see the reach-in note above.
+const pinSource = () => tourQuery("atlas-chart")?.sources?.pins ?? null;
+const shapeSource = () => tourQuery("atlas-chart")?.sources?.zones ?? null;
+
+/**
+ * A cell to click into: the held level's first cell by hash, centre on screen.
+ *
+ * The cells come from the published diagnostics rather than from the pane's
+ * features -- the grid is one of the things the seam already writes down
+ * (SCHEMA.md §3.1) -- and only the pixel is asked of the map.
+ */
+function gridTarget(map, snapshot) {
+  const cells = (snapshot.grid?.cells ?? [])
+    .filter((cell) => cell.role !== "neighbor" && cell.hash)
+    .sort((a, b) => (a.hash < b.hash ? -1 : 1));
+  for (const cell of cells) {
+    const [minX, minY, maxX, maxY] = cell.extent;
+    const pixel = map.getPixelFromCoordinate([(minX + maxX) / 2, (minY + maxY) / 2]);
+    if (insideWindow(map, pixel)) return { hash: cell.hash, pixel };
+  }
+  return null;
+}
+
+// ---- keys, and where they leave the reader -----------------------------
+
+/**
+ * Where the focus is, and whether what is in it is ready to be typed over.
+ *
+ * A shortcut that opens a field and does not put the cursor in it has done
+ * half its job, and the half it skipped is the half the reader notices. The
+ * ids are the page's own, so this reads as a sentence in the log:
+ * `focus.active: "pin-search"`.
+ */
+function focusRecord() {
+  const element = document.activeElement;
+  const id = element ? element.id || element.tagName.toLowerCase() : null;
+  const selected = element && "selectionStart" in element && typeof element.value === "string"
+    ? element.selectionStart === 0 && element.selectionEnd === element.value.length &&
+      element.value.length > 0
+    : false;
+  return { focus: { active: id, selected } };
+}
+
+async function keySteps(record, complain) {
+  // ⌘K — the shortcut the search field advertises with a <kbd> and does not
+  // answer. Focused *and* selected: a reader who reaches for search a second
+  // time means to replace what is in it, not to append to it.
+  type("#pin-search", "harbour");
+  await record("key-search-primed");
+  keydown("k", { metaKey: true });
+  const searching = await record("key-search-focus", focusRecord());
+  if (searching.focus.active !== "pin-search") {
+    complain(`key-search-focus: ⌘K left the focus on ${searching.focus.active}`);
+  } else if (!searching.focus.selected) {
+    complain("key-search-focus: ⌘K focused the search field without selecting what was in it");
+  }
+  type("#pin-search", "");
+  await record("key-search-cleared");
+
+  // G opens the grid; the field it opens is where the reader's next keystroke
+  // is meant to go.
+  keydown("g");
+  const grid = await record("key-grid-open", focusRecord());
+  if (!grid.grid.enabled) complain("key-grid-open: G did not turn the grid on");
+  if (grid.focus.active !== "grid-input") {
+    complain(`key-grid-open: G left the focus on ${grid.focus.active}`);
+  }
+
+  // The Escape dance. From inside the field, the first Escape is about the
+  // field -- it gives the map back the keyboard -- and only the second one is
+  // about the grid. A single Escape that ascends a level is the reader
+  // losing a cell for putting their hands down.
+  type("#grid-input", "m");
+  // The cell the field actually took, rather than the one that was typed: not
+  // every ground divides into a cell called "m", and the question this step
+  // asks is whether Escape *moved* it, whatever it was.
+  const held = (await record("key-grid-descended")).grid.prefix;
+  tourQuery("#grid-input")?.focus();
+  keydown("Escape");
+  const once = await record("key-escape-once", focusRecord());
+  if (once.focus.active !== "map") {
+    complain(`key-escape-once: the first Escape left the focus on ${once.focus.active}`);
+  }
+  if (once.grid.prefix !== held) {
+    complain(`key-escape-once: the first Escape ascended out of "${held}" to` +
+      ` "${once.grid.prefix}" while the reader was still in the field`);
+  }
+  keydown("Escape");
+  const twice = await record("key-escape-twice", focusRecord());
+  if (twice.grid.prefix === once.grid.prefix && once.grid.prefix !== "") {
+    complain("key-escape-twice: the second Escape ascended nothing");
+  }
+
+  // ⌘G cycles the cell system, and the cell the reader is holding is carried
+  // across to the same ground in the system it lands in.
+  type("#grid-input", "m");
+  const before = await record("key-cell-system-before");
+  keydown("g", { metaKey: true });
+  const cycled = await record("key-cell-system-cycled");
+  if (cycled.grid.system === before.grid.system) {
+    complain(`key-cell-system-cycled: ⌘G left the system at ${before.grid.system}`);
+  } else if (!cycled.grid.prefix) {
+    complain("key-cell-system-cycled: the cycle dropped the cell the reader was holding");
+  }
+  keydown("Escape");
+  keydown("Escape");
+  await record("key-grid-closed");
+
+  // Z, held and let go. This one the tour already had and it is repeated here
+  // beside the rest so that the keyboard's own group reads as one thing.
+  keydown("z");
+  const raised = await record("key-labels-held", focusRecord());
+  if (!raised.labelsHeld) complain("key-labels-held: Z down did not raise the names");
+  keyup("z");
+  const released = await record("key-labels-released", focusRecord());
+  if (released.labelsHeld) complain("key-labels-released: Z up did not put the names down");
+
+  // A reader typing is not pressing shortcuts. The key goes in AT the field,
+  // which is where a reader's own key starts, and the grid must not hear it.
+  const gridBefore = (await record("key-typing-before")).grid.enabled;
+  tourQuery("#pin-search")?.focus();
+  type("#pin-search", "g");
+  keydownAt("#pin-search", "g");
+  const typed = await record("key-typing-not-a-shortcut", focusRecord());
+  if (typed.grid.enabled !== gridBefore) {
+    complain("key-typing-not-a-shortcut: typing g into the search field turned the grid" +
+      ` ${typed.grid.enabled ? "on" : "off"}`);
+  }
+  if (typed.focus.active !== "pin-search") {
+    complain(`key-typing-not-a-shortcut: typing took the focus to ${typed.focus.active}`);
+  }
+  type("#pin-search", "");
+  await record("key-typing-cleared");
+}
+
+// ---- pictures ----------------------------------------------------------
+
+/**
+ * The handshake with the driver.
+ *
+ * The page cannot take its own picture: a WebGL canvas has nothing to read
+ * back and a composited pane is more than its canvas anyway. So the walk asks
+ * -- it publishes what it wants shot and waits -- and the runner, which is
+ * already watching this page once a second to see where the walk has got to,
+ * takes it with the browser's own screenshot and says so.
+ *
+ * A walk asked to take pictures with nobody serving them says which step it
+ * was waiting on rather than hanging: `run.mjs --extended` is the only thing
+ * that serves them.
+ */
+function shotTaker(shots, complain) {
+  return async (name, selector, { nonBlank = true } = {}) => {
+    const request = { name, selector, file: `${name}.png`, nonBlank };
+    window.__atlasShotTaken = "";
+    window.__atlasShotFailed = "";
+    window.__atlasShotWant = request;
+    for (let waited = 0; waited < 300; waited += 1) {
+      await sleep(100);
+      if (window.__atlasShotTaken === name) {
+        shots.push(request);
+        return true;
+      }
+      if (window.__atlasShotFailed === name) {
+        const why = window.__atlasShotError || "no reason given";
+        complain(`${name}: the screenshot failed — ${why}`);
+        return false;
+      }
+    }
+    window.__atlasShotWant = null;
+    complain(`${name}: nobody was serving screenshots (run.mjs --extended does)`);
+    return false;
+  };
+}
+
+async function screenSteps(record, complain, shot) {
+  const chart = "atlas-chart";
+
+  // Pictures are taken from a known state, not from wherever the keyboard
+  // group left the page. The walk is deterministic either way -- two runs of
+  // one build photograph the same frame -- but a chart picture with the grid
+  // navigator sitting across it is a picture of two things, and the one it
+  // was taken for is the one underneath.
+  for (let tries = 0; tries < 4; tries += 1) {
+    if (!JSON.parse(window.render_game_to_text()).grid.enabled) break;
+    keydown("Escape");
+    await settle();
+  }
+  tourQuery("#close-detail")?.click();
+  const ready = await record("screen-ready");
+  if (ready.grid.enabled) complain("screen-ready: the grid would not close before the pictures");
+
+  // The chart as the volume opens: the one picture that would have caught the
+  // backdrop painted over the pane, and the one every other chart picture is
+  // read against by eye.
+  await settle();
+  await shot("screen-chart", chart);
+  await record("screen-chart", { screen: { file: "screen-chart.png", element: chart } });
+
+  // The panel beside the map, out and folded away. Its own region, because
+  // the thing worth seeing is the rail's width and the rows in it.
+  const dockFold = tourQuery("#dock-fold");
+  if (dockFold) {
+    await settle();
+    await shot("screen-dock-open", "#atlas-dock");
+    await record("screen-dock-open",
+      { screen: { file: "screen-dock-open.png", element: "#atlas-dock" } });
+    tourQuery("#dock-fold").click();
+    await settle();
+    // The one picture that is *supposed* to be a flat colour: folded, the
+    // panel is a rail forty pixels across with its label written down the
+    // side, and the middle half of it is one shade. The colour count is a
+    // floor for panes that draw a world, not for chrome.
+    await shot("screen-dock-folded", "#atlas-dock", { nonBlank: false });
+    await record("screen-dock-folded",
+      { screen: { file: "screen-dock-folded.png", element: "#atlas-dock" } });
+    tourQuery("#dock-fold").click();
+    await record("screen-dock-unfolded");
+  }
+
+  // Names, held up. A label ladder that draws nothing is a count of sprites
+  // that says everything is fine.
+  keydown("z");
+  await settle();
+  await shot("screen-labels-held", chart);
+  await record("screen-labels-held",
+    { screen: { file: "screen-labels-held.png", element: chart } });
+  keyup("z");
+  await record("screen-labels-released");
+
+  // Past the lens's own depth, where the raster is either smoothed or kept
+  // square. A build that lost `interpolate` looks identical in every count in
+  // this file and different in exactly one picture.
+  const opening = await record("screen-zoom-ready");
+  if (opening.nativeMaxZoom !== null) {
+    for (let press = 0; press < 4; press += 1) tourQuery("#zoom-in")?.click();
+    await settle();
+    await shot("screen-raster-deep", chart);
+    await record("screen-raster-deep",
+      { screen: { file: "screen-raster-deep.png", element: chart } });
+    for (let press = 0; press < 4; press += 1) tourQuery("#zoom-out")?.click();
+    await record("screen-raster-back");
+  }
+
+  // Out past the edge of the drawn world, where what shows is the background
+  // the lens declares rather than the lens.
+  for (let press = 0; press < 3; press += 1) tourQuery("#zoom-out")?.click();
+  await settle();
+  await shot("screen-outside-bounds", chart);
+  await record("screen-outside-bounds",
+    { screen: { file: "screen-outside-bounds.png", element: chart } });
+
+  // Ground, drawn whole. On a volume whose districts are multipart this is
+  // the picture that says whether the second part was drawn at all.
+  const firstZone = tourQuery(".zone-index-item");
+  if (firstZone) {
+    firstZone.click();
+    await settle();
+    await shot("screen-ground", chart);
+    await record("screen-ground", { screen: { file: "screen-ground.png", element: chart } });
+    tourQuery("#close-detail")?.click();
+    await record("screen-ground-cleared");
+  }
+
+  // The sphere: its skin, and its names.
+  const toggle = tourQuery("#globe-toggle");
+  if (toggle && !toggle.hidden) {
+    toggle.click();
+    await settle();
+    await shot("screen-globe", "atlas-globe");
+    await record("screen-globe", { screen: { file: "screen-globe.png", element: "atlas-globe" } });
+    keydown("z");
+    await settle();
+    await shot("screen-globe-labels", "atlas-globe");
+    await record("screen-globe-labels",
+      { screen: { file: "screen-globe-labels.png", element: "atlas-globe" } });
+    keyup("z");
+    tourQuery("#globe-toggle").click();
+    await record("screen-globe-left");
   }
 }
 

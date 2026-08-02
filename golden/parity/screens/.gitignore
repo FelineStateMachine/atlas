@@ -1,0 +1,16 @@
+# The committed pictures live here: golden/parity/screens/<volume>/<step>.png,
+# one per screenshot step of the extended tour (SCHEMA.md §2.3).
+#
+# THE DIRECTORY IS THE CONVENTION; THE PICTURES ARE NOT HERE YET. The
+# screenshot steps were written while the fixes they are meant to hold were
+# still landing on other branches, and a baseline taken from a build that is
+# about to change is a baseline of the wrong thing. So until the final capture
+# wave runs `capture.mjs --capture-extended` against the finished build, a
+# walk's pictures are a candidate with no twin and `compare.mjs` reports them
+# as "not captured" rather than as a pass.
+#
+# THE FINAL WAVE DELETES THE LINE BELOW and commits the pictures it took. That
+# is the whole of the switch: with pictures here the gate compares them, and
+# with the extended steps in the baselines it walks them (compare.mjs,
+# `extendedBaseline`).
+*.png
