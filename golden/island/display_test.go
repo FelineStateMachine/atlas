@@ -225,3 +225,156 @@ func TestSearchNarrowsPointsAndNeverTheGround(t *testing.T) {
 		t.Error("the panel does not say what it is searching for")
 	}
 }
+
+// TestTheCardSaysWhetherItIsOpen is the defect that made a correct count read
+// as a blank panel, held in the one place it can be held from Go.
+//
+// The carried assets/css/pin-detail.css hands the results list over to the
+// card with `.dock-body:has(.pin-detail:not([hidden])) .dock-results`. That
+// rule asks the card a question, and the only way the card can answer it is by
+// wearing `hidden` when it is closed -- which the reference implementation's
+// script set by hand and the server renders here. A card that never wears it
+// answers "open" in every state, and the list is hidden under an empty card
+// forever.
+//
+// Only the attribute can be checked from here; whether the browser then draws
+// the list is the parity tour's `searchResultsVisible`. So this walks the four
+// states the rule distinguishes and reads the attribute off both places the
+// card is rendered -- the dock's own re-render and the card's own region --
+// because two answers that disagree are the same bug wearing a hat.
+func TestTheCardSaysWhetherItIsOpen(t *testing.T) {
+	handler, _ := newApp(t, fixtureVolume(t, "bend-or"))
+	const world = "2026-08-02"
+	page := get(t, handler, "/v/bend-or/"+world, nil)
+	if page.Code != http.StatusOK {
+		t.Fatalf("the explorer answered %d", page.Code)
+	}
+
+	// The steps run in order against one handler: "back from a card" is only
+	// a state if a card was open first.
+	steps := []struct {
+		name string
+		// concern and form are the interaction that reaches the state. The
+		// first step has none: it is the page as it is first painted.
+		concern string
+		form    url.Values
+		// hidden is what the card must be wearing once the state is reached,
+		// and rows is how many results are standing behind it.
+		hidden bool
+		rows   int
+		// title is the card's heading when one is open.
+		title string
+	}{
+		{
+			name:   "a full list and no card",
+			hidden: true,
+			rows:   100,
+		},
+		{
+			name:    "an empty list and no card",
+			concern: "search",
+			form:    url.Values{"q": {"zzzzznothing"}},
+			hidden:  true,
+			rows:    0,
+		},
+		{
+			name:    "the list back, still no card",
+			concern: "search",
+			form:    url.Values{"q": {""}},
+			hidden:  true,
+			rows:    100,
+		},
+		{
+			name:    "a card open over the list",
+			concern: "select",
+			form:    url.Values{"feature": {"890910106"}, "focus": {"1"}},
+			hidden:  false,
+			rows:    100,
+			title:   "A.C. Lucas House",
+		},
+		{
+			name:    "back from the card",
+			concern: "select",
+			form:    url.Values{"feature": {""}},
+			hidden:  true,
+			rows:    100,
+		},
+	}
+
+	for _, tt := range steps {
+		t.Run(tt.name, func(t *testing.T) {
+			body := page.Body.String()
+			if tt.concern != "" {
+				form := url.Values{"volume": {"bend-or"}}
+				for name, values := range tt.form {
+					form[name] = values
+				}
+				answer := post(t, handler, "/session/"+tt.concern, form)
+				if answer.Code != http.StatusOK {
+					t.Fatalf("/session/%s answered %d: %s", tt.concern, answer.Code, answer.Body)
+				}
+				body = answer.Body.String()
+			}
+
+			tags := openingTags(body, `<article id="atlas-detail"`)
+			if len(tags) == 0 {
+				t.Fatalf("the answer carries no card at all:\n%s", body)
+			}
+			for _, tag := range tags {
+				if wearing := strings.Contains(tag, " hidden"); wearing != tt.hidden {
+					t.Errorf("the card is %q; hidden = %v, want %v", tag, wearing, tt.hidden)
+				}
+			}
+
+			// The list is never the one hidden: the reference implementation
+			// left `#dock-results` alone and let the card's rule cover it,
+			// which is what the tour reads back as searchResultsVisible.
+			for _, tag := range openingTags(body, `<div class="dock-results"`) {
+				if strings.Contains(tag, " hidden") {
+					t.Errorf("the results list hid itself: %q", tag)
+				}
+			}
+			if rows := strings.Count(body, `class="search-result`); rows != tt.rows {
+				t.Errorf("the list carries %d rows, want %d", rows, tt.rows)
+			}
+
+			// A card that is open has something in it, and a card that is
+			// closed has nothing: the emptiness is still true, it is simply
+			// no longer the thing the stylesheet is asked to read.
+			switch {
+			case tt.title != "":
+				if !strings.Contains(body, `id="detail-title">`+tt.title+`<`) {
+					t.Errorf("the open card does not name %q:\n%s", tt.title, body)
+				}
+				if !strings.Contains(body, `id="close-detail"`) {
+					t.Error("the open card offers no way back to the list")
+				}
+			default:
+				if strings.Contains(body, `id="detail-title"`) {
+					t.Error("a closed card still holds a heading")
+				}
+			}
+		})
+	}
+}
+
+// openingTags collects every opening tag in a rendered answer that starts with
+// the given prefix, as far as its own `>`. A region can be rendered more than
+// once in one answer -- the card is inside the dock and is also its own swap --
+// and an attribute worth checking is worth checking on all of them.
+func openingTags(page, prefix string) []string {
+	var out []string
+	for at := 0; ; {
+		found := strings.Index(page[at:], prefix)
+		if found < 0 {
+			return out
+		}
+		at += found
+		end := strings.IndexByte(page[at:], '>')
+		if end < 0 {
+			return out
+		}
+		out = append(out, page[at:at+end+1])
+		at += end + 1
+	}
+}

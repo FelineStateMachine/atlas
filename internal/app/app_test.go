@@ -607,12 +607,18 @@ func TestDetailFragment(t *testing.T) {
 	if got.Code != http.StatusOK {
 		t.Fatalf("the detail fragment answered %d", got.Code)
 	}
-	// This volume's payload holds no features, so the card is empty -- which
-	// is how a closed card is spelled (see assets/css/chrome.css). What the
-	// fragment must always carry is its own container, because the region is
-	// swapped into it by id.
+	// What the fragment must always carry is its own container, because the
+	// region is swapped into it by id.
 	if !strings.Contains(got.Body.String(), `id="atlas-detail"`) {
 		t.Errorf("the fragment carries no card container:\n%s", got.Body)
+	}
+	// This volume's payload holds no features, so nothing resolves and the
+	// card comes back closed -- which it says with the `hidden` the carried
+	// assets/css/pin-detail.css reads, not by being empty. The states a reader
+	// walks through are held in golden/island; this is the one the fragment
+	// route reaches on its own.
+	if !strings.Contains(got.Body.String(), `class="pin-detail" hidden>`) {
+		t.Errorf("a card with nothing to show does not say it is closed:\n%s", got.Body)
 	}
 	if got := get(t, handler, "/fragments/detail/1849", nil); got.Code != http.StatusBadRequest {
 		t.Errorf("a fragment naming no volume answered %d", got.Code)
