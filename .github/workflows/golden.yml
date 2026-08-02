@@ -1,0 +1,47 @@
+# The clean-room rewrite's enforcement job (issue #5 §6, §9).
+#
+# Deliberately separate from CI: that workflow builds and ships the current
+# desktop app, which needs GTK and WebKitGTK headers and the frontend
+# toolchain. This one judges the rewrite, needs nothing but Go, and stays
+# green from the day the harness lands — most gates skip because their lane
+# does not exist yet, and depcheck runs for real over whatever does.
+
+name: Golden
+
+on:
+  push:
+    branches:
+      - main
+      - "m[0-9]/**"
+      - "cleanroom/**"
+  pull_request:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: golden-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  GOFLAGS: -buildvcs=false
+
+jobs:
+  harness:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+
+      # The guardrails are tested like anything else: the import matrix is a
+      # pure function of two package paths, and its table lives here.
+      - name: Test the harness itself
+        run: go test ./golden/...
+
+      # One entrypoint, same one a developer runs locally with `make golden`.
+      # Prints the waiver file on every run: an accepted divergence from a
+      # golden is a standing cost, not a silent one.
+      - name: Run the golden gates
+        run: make golden
