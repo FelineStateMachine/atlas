@@ -401,9 +401,39 @@ detected**: guessing wrong divides a whole map into pieces nobody asked for.
 Two modes: `worlds` gives each piece its own entry in the picker, `lenses`
 keeps one world and offers the pieces one at a time.
 
-*(The splitter is the next wave. Until it lands, composition refuses a curated
-sheet loudly rather than writing it whole, because writing it whole would
-publish a volume that silently disagrees with every build before it.)*
+The splitter reads only the interchange document's own vocabulary, so a second
+source describing the same sheet the same way splits the same way. A **piece**
+is one top-level area — an area feature nothing is the parent of — together with
+its descendants and the point features that name one of them as their member.
+
+1. **Plan.** Every area walks up its parent chain to its root. A piece's extent
+   is the ground its areas outline, projected into world pixels; the points
+   assigned to it do not stretch it. A point belonging to no area fails the
+   build, because it would vanish when the sheet came apart.
+2. **Grow.** Each extent widens by up to 256 world pixels into the empty space
+   around it, stopping halfway to whatever it would run into, so a title printed
+   beside a piece travels with the piece it names. Two pieces that grew into the
+   same diagonal corner are eased apart along whichever axis they overlap least,
+   and neither is ever pushed back inside the ground it grew from.
+3. **Rehome.** A point whose position lies outside the piece that claims it, and
+   inside exactly one other, moves. Where it sits is not in doubt; the claim is
+   treated as the mistake it is. An ambiguous point stays where it was claimed.
+4. **Order.** Lenses read top to bottom, so the sky comes before the ground
+   beneath it. Separate worlds lead with the largest, so a sheet's main map heads
+   its insets.
+5. **Cut.** Into worlds: the first piece keeps the sheet's identity and every
+   other becomes `<sheet title> — <area title>` under `<sheet slug>-<slug of the
+   area title>`, carrying `parent`. Into lenses: one lens per piece, named after
+   its area, and every feature carries the piece it belongs to as its `shard`. In
+   both modes the piece's own outline is dropped — once an area has been used to
+   cut a world out of a sheet, drawing it again just traces the edge of what the
+   reader is already looking at — and a point collection left empty goes with it.
+
+The lenses of every piece draw from the same pyramid; only the window onto it
+changes. A piece's `bounds` is the grown window and its `surface` is the ground
+it actually covers, clipped to that window, because those are not the same
+rectangle and anything measuring a world rather than drawing it wants the
+ground.
 
 ### 5.3 The payload
 

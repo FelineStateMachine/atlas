@@ -48,14 +48,27 @@ import (
 	"github.com/FelineStateMachine/atlas/internal/generate/tiles"
 )
 
-// The fixture this file reproduces. Tunic is the plain-MapGenie shape: one
-// world, one lens, one pyramid, no merge beyond its own origin account and no
-// split sheet -- the simplest thing the pipeline writes, and the fixture a
-// change to composition breaks first.
-const (
-	fixtureVolume = "tunic"
-	fixtureDir    = "../fixtures/bundles/tunic"
-)
+// The fixtures this file reproduces: every bundle fixture whose ledger names
+// one source, which is every fixture the generate lane can answer for alone.
+// Cyberpunk is left out on purpose -- its world was merged from two sources, so
+// nothing short of generate ⊕ enrich can write it, and it is the enrich lane's
+// gate rather than this one's.
+//
+// Each entry says what shape it is a fixture of, because that is what a failure
+// here has to be read against: a broken splitter fails the split sheet first, a
+// broken lens shard fails the sharded one, and a change to composition itself
+// fails the plain one before any of them.
+var singleSource = []struct {
+	volume string
+	shape  string
+}{
+	{"tunic", "plain: one world, one lens, one pyramid"},
+	{"fallout-new-vegas", "split sheet: thirteen worlds, eight of them insets of the first"},
+	{"zelda-tears-of-the-kingdom", "lens shards: one world offered three elevations at a time"},
+}
+
+// fixturePath is where a volume's captured extractions sit.
+func fixturePath(volume string) string { return "../fixtures/bundles/" + volume }
 
 // TestComposeReproducesBundleFixture composes the fixture volume from the
 // archive and holds the result against every extraction the reference build was
@@ -67,83 +80,93 @@ const (
 // reported either way, because a stamp is a promise about rebuild cost rather
 // than about correctness.
 func TestComposeReproducesBundleFixture(t *testing.T) {
-	built := composeFixture(t)
-	fixture := readVolumeFixture(t)
+	for _, subject := range singleSource {
+		t.Run(subject.volume, func(t *testing.T) {
+			t.Logf("%s -- %s", subject.volume, subject.shape)
+			dir := fixturePath(subject.volume)
+			built := composeFixture(t, subject.volume)
+			fixture := readVolumeFixture(t, subject.volume)
 
-	t.Run("part hashes", func(t *testing.T) {
-		for _, name := range sortedKeys(fixture.PartHashes) {
-			data, err := built.reader.ReadEntry(name)
-			if err != nil {
-				t.Fatalf("read %s: %v", name, err)
-			}
-			if got := bundle.HashBytes(data); got != fixture.PartHashes[name] {
-				t.Errorf("%s: hash %s, fixture %s", name, got, fixture.PartHashes[name])
-			}
-		}
-	})
+			t.Run("part hashes", func(t *testing.T) {
+				for _, name := range sortedKeys(fixture.PartHashes) {
+					data, err := built.reader.ReadEntry(name)
+					if err != nil {
+						t.Fatalf("read %s: %v", name, err)
+					}
+					if got := bundle.HashBytes(data); got != fixture.PartHashes[name] {
+						t.Errorf("%s: hash %s, fixture %s", name, got, fixture.PartHashes[name])
+					}
+				}
+			})
 
-	t.Run("manifest", func(t *testing.T) {
-		compareCanon(t, built, bundle.ManifestName, filepath.Join(fixtureDir, "manifest.json"))
-	})
+			t.Run("manifest", func(t *testing.T) {
+				compareCanon(t, built, bundle.ManifestName, filepath.Join(dir, "manifest.json"))
+			})
 
-	t.Run("world payloads", func(t *testing.T) {
-		for _, entry := range built.reader.Manifest.Worlds {
-			compareCanon(t, built,
-				bundle.WorldEntryName(entry.Slug, bundle.WorldSuffix),
-				filepath.Join(fixtureDir, "worlds", entry.Slug+".payload.json"))
-			compareCanon(t, built,
-				bundle.WorldEntryName(entry.Slug, bundle.TextSuffix),
-				filepath.Join(fixtureDir, "worlds", entry.Slug+".text.json"))
-			compareLocations(t, built, entry.Slug)
-		}
-	})
+			t.Run("world payloads", func(t *testing.T) {
+				for _, entry := range built.reader.Manifest.Worlds {
+					compareCanon(t, built,
+						bundle.WorldEntryName(entry.Slug, bundle.WorldSuffix),
+						filepath.Join(dir, "worlds", entry.Slug+".payload.json"))
+					compareCanon(t, built,
+						bundle.WorldEntryName(entry.Slug, bundle.TextSuffix),
+						filepath.Join(dir, "worlds", entry.Slug+".text.json"))
+					compareLocations(t, built, dir, entry.Slug)
+				}
+			})
 
-	t.Run("icons", func(t *testing.T) { compareIcons(t, built) })
+			t.Run("icons", func(t *testing.T) { compareIcons(t, built, dir) })
 
-	t.Run("tile inventory", func(t *testing.T) { compareTiles(t, built) })
+			t.Run("tile inventory", func(t *testing.T) { compareTiles(t, built, dir, fixture) })
 
-	t.Run("entry order", func(t *testing.T) {
-		if got := hashOf(built.reader.Names()); got != fixture.EntryOrder.SHA256 {
-			t.Errorf("entry order %s, fixture %s", got, fixture.EntryOrder.SHA256)
-		}
-	})
+			t.Run("entry order", func(t *testing.T) {
+				if got := hashOf(built.reader.Names()); got != fixture.EntryOrder.SHA256 {
+					t.Errorf("entry order %s, fixture %s", got, fixture.EntryOrder.SHA256)
+				}
+			})
 
-	// The aspiration, reported rather than merely asserted, so a run says how
-	// close it came even when it fails.
-	t.Run("stamp", func(t *testing.T) {
-		got := built.reader.Manifest.Version
-		switch {
-		case got.Stamp == fixture.Stamp && built.file == fixture.File && built.sha256 == fixture.FileSHA256:
-			t.Logf("stamp-identical and byte-identical: %s (%d bytes)", built.file, built.bytes)
-		case got.Stamp == fixture.Stamp:
-			t.Errorf("stamp identical but bytes differ: %s vs fixture %s", built.sha256, fixture.FileSHA256)
-		default:
-			t.Errorf("stamp %s, fixture %s (canonical content is checked above; "+
-				"stamp identity is the aspiration of issue #5 §6)", got.Stamp, fixture.Stamp)
-		}
-		if got.Revision != fixture.Revision {
-			t.Errorf("revision %d, fixture %d", got.Revision, fixture.Revision)
-		}
-		if got.CreatedAt != fixture.CreatedAt {
-			t.Errorf("createdAt %q, fixture %q", got.CreatedAt, fixture.CreatedAt)
-		}
-	})
+			// The aspiration, reported rather than merely asserted, so a run
+			// says how close it came even when it fails.
+			t.Run("stamp", func(t *testing.T) {
+				got := built.reader.Manifest.Version
+				switch {
+				case got.Stamp == fixture.Stamp && built.file == fixture.File && built.sha256 == fixture.FileSHA256:
+					t.Logf("stamp-identical and byte-identical: %s (%d bytes)", built.file, built.bytes)
+				case got.Stamp == fixture.Stamp:
+					t.Errorf("stamp identical but bytes differ: %s vs fixture %s", built.sha256, fixture.FileSHA256)
+				default:
+					t.Errorf("stamp %s, fixture %s (canonical content is checked above; "+
+						"stamp identity is the aspiration of issue #5 §6)", got.Stamp, fixture.Stamp)
+				}
+				if got.Revision != fixture.Revision {
+					t.Errorf("revision %d, fixture %d", got.Revision, fixture.Revision)
+				}
+				if got.CreatedAt != fixture.CreatedAt {
+					t.Errorf("createdAt %q, fixture %q", got.CreatedAt, fixture.CreatedAt)
+				}
+			})
+		})
+	}
 }
 
 // TestComposeIsIdempotent holds the determinism invariant the registry stands
 // on: a second composition of an untouched archive writes nothing, because the
 // build it would write is already there under a name carrying its stamp.
 func TestComposeIsIdempotent(t *testing.T) {
-	built := composeFixture(t)
-	again, err := compose.Compose(built.options)
-	if err != nil {
-		t.Fatalf("recompose: %v", err)
-	}
-	if !again.Present {
-		t.Errorf("recomposing an unchanged archive wrote %s again", again.File)
-	}
-	if again.Stamp != built.result.Stamp {
-		t.Errorf("stamp moved between runs: %s then %s", built.result.Stamp, again.Stamp)
+	for _, subject := range singleSource {
+		t.Run(subject.volume, func(t *testing.T) {
+			built := composeFixture(t, subject.volume)
+			again, err := compose.Compose(built.options)
+			if err != nil {
+				t.Fatalf("recompose: %v", err)
+			}
+			if !again.Present {
+				t.Errorf("recomposing an unchanged archive wrote %s again", again.File)
+			}
+			if again.Stamp != built.result.Stamp {
+				t.Errorf("stamp moved between runs: %s then %s", built.result.Stamp, again.Stamp)
+			}
+		})
 	}
 }
 
@@ -159,7 +182,7 @@ func TestComposeIsIdempotent(t *testing.T) {
 // link resolution -- and every intentional difference of shape is named in the
 // table below rather than left for a reader to infer.
 func TestTranslatorAgreesWithFixture(t *testing.T) {
-	document := translateFixture(t)
+	document := translateFixture(t, "tunic")
 
 	var reference struct {
 		ID         int64   `json:"id"`
@@ -324,9 +347,9 @@ type composedBundle struct {
 	bytes   int64
 }
 
-func composeFixture(t *testing.T) composedBundle {
+func composeFixture(t *testing.T, volume string) composedBundle {
 	t.Helper()
-	document := translateFixture(t)
+	document := translateFixture(t, volume)
 	tables, err := curation.Load()
 	if err != nil {
 		t.Fatalf("curation: %v", err)
@@ -368,7 +391,7 @@ func composeFixture(t *testing.T) composedBundle {
 	}
 }
 
-func translateFixture(t *testing.T) doc.Document {
+func translateFixture(t *testing.T, want string) doc.Document {
 	t.Helper()
 	store, err := archive.Open(archiveDir(t))
 	if err != nil {
@@ -386,11 +409,11 @@ func translateFixture(t *testing.T) doc.Document {
 			}
 			t.Fatalf("translate %s: %v", volume.Title, err)
 		}
-		if document.Volume.Slug == fixtureVolume {
+		if document.Volume.Slug == want {
 			return document
 		}
 	}
-	t.Fatalf("the archive at %s holds no readable %s", archiveDir(t), fixtureVolume)
+	t.Fatalf("the archive at %s holds no readable %s", archiveDir(t), want)
 	return doc.Document{}
 }
 
@@ -446,10 +469,10 @@ type volumeFixture struct {
 	} `json:"pyramids"`
 }
 
-func readVolumeFixture(t *testing.T) volumeFixture {
+func readVolumeFixture(t *testing.T, volume string) volumeFixture {
 	t.Helper()
 	var out volumeFixture
-	readJSON(t, filepath.Join(fixtureDir, "volume.json"), &out)
+	readJSON(t, filepath.Join(fixturePath(volume), "volume.json"), &out)
 	return out
 }
 
@@ -472,7 +495,7 @@ func compareCanon(t *testing.T, built composedBundle, entry, fixture string) {
 	}
 }
 
-func compareLocations(t *testing.T, built composedBundle, world string) {
+func compareLocations(t *testing.T, built composedBundle, dir, world string) {
 	t.Helper()
 	packed, err := built.reader.ReadEntry(bundle.WorldEntryName(world, bundle.PackedSuffix))
 	if err != nil {
@@ -496,7 +519,7 @@ func compareLocations(t *testing.T, built composedBundle, world string) {
 			Title  string  `json:"title"`
 		} `json:"locations"`
 	}
-	readJSON(t, filepath.Join(fixtureDir, "worlds", world+".locations.json"), &fixture)
+	readJSON(t, filepath.Join(dir, "worlds", world+".locations.json"), &fixture)
 
 	if len(packed) != fixture.PackedBytes || bundle.HashBytes(packed) != fixture.PackedSHA256 {
 		t.Errorf("packed payload is %d bytes %s, fixture %d bytes %s",
@@ -518,7 +541,7 @@ func compareLocations(t *testing.T, built composedBundle, world string) {
 	}
 }
 
-func compareIcons(t *testing.T, built composedBundle) {
+func compareIcons(t *testing.T, built composedBundle, dir string) {
 	t.Helper()
 	var fixture struct {
 		Count  int    `json:"count"`
@@ -529,7 +552,7 @@ func compareIcons(t *testing.T, built composedBundle) {
 			SHA256 string `json:"sha256"`
 		} `json:"icons"`
 	}
-	readJSON(t, filepath.Join(fixtureDir, "icons.json"), &fixture)
+	readJSON(t, filepath.Join(dir, "icons.json"), &fixture)
 
 	var got []string
 	for _, name := range built.reader.Names() {
@@ -563,9 +586,8 @@ func compareIcons(t *testing.T, built composedBundle) {
 // exists to tell a re-encode of the same picture from a picture that moved.
 // Equal content hashes settle both at once, so the pixel digests are compared
 // only through the pyramid's own content rollup.
-func compareTiles(t *testing.T, built composedBundle) {
+func compareTiles(t *testing.T, built composedBundle, dir string, fixture volumeFixture) {
 	t.Helper()
-	fixture := readVolumeFixture(t)
 	for _, pyramid := range fixture.Pyramids {
 		var inventory struct {
 			Count         int    `json:"count"`
@@ -577,7 +599,7 @@ func compareTiles(t *testing.T, built composedBundle) {
 				SHA256 string `json:"sha256"`
 			} `json:"tiles"`
 		}
-		readJSON(t, filepath.Join(fixtureDir, pyramid.Inventory), &inventory)
+		readJSON(t, filepath.Join(dir, pyramid.Inventory), &inventory)
 
 		prefix := "tiles/" + pyramid.Pyramid + "/"
 		var names []string
