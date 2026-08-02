@@ -4,6 +4,11 @@
 # public table in arcgismap.go carries only the proof city.
 /internal/arcgismap/cities_local.go
 /frontend/node_modules/
+# The clean-room TypeScript lanes install at the repository root (npm
+# workspaces); a workspace gets a link farm of its own beside its package.
+/node_modules/
+/analysis/node_modules/
+/render/node_modules/
 /.playwright-cli/
 /output/
 /crawl
