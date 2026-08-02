@@ -12,6 +12,14 @@
 // fixture files and points the application at that, which makes the fold a
 // no-op and the baseline reproducible from the same files anywhere.
 //
+// One volume is not in the registry and never will be: the city was built
+// for the fixture set rather than installed, by the pipeline commands in
+// golden/fixtures/README.md, into a directory beside the repository. Its
+// entry carries builtInto, the repository-relative directory it was built
+// into, and ATLAS_GOLDEN_CITY_DIR moves that -- the same variable and the
+// same dist/bundles default golden/capture/capture.sh uses, so a machine
+// that keeps its builds elsewhere says so once for both captures.
+//
 // A volume that may not be named in the repository is described in
 // FIXTURES.private.json, which git ignores, and captured only under
 // --private: that pass adds the private volumes to the library and writes
@@ -57,9 +65,25 @@ const has = (name) => args.includes(name);
 const registry = process.env.ATLAS_GOLDEN_BUNDLES ||
   join(homedir(), "Library/Application Support/dev.felinestatemachine.atlas/bundles");
 
+// Where a fixture file is read from: the installed library for the volumes
+// that live there, and the directory it was built into for the one that does
+// not. Both are read-only to this script.
+const sourceOf = (volume) => volume.builtInto
+  ? resolve(repoRoot, process.env.ATLAS_GOLDEN_CITY_DIR || volume.builtInto, volume.file)
+  : join(registry, volume.file);
+
 // The private pass reads the ignored companion file, puts its volumes on the
-// same library as the public ones -- a city beside five games is the library
-// the reader actually has -- and captures only those, out of the way.
+// same library as the public ones -- the library the reader actually has --
+// and captures only those, out of the way.
+//
+// It stays additive now that the public city fills the city slot: the private
+// volumes join the six rather than standing in for one of them. A swap would
+// make the private baseline comparable with the public city's, which is not
+// what it is for; it is a private record of the same tour over a volume that
+// may not be named here, kept under the ignored private/ and never diffed
+// against anything committed. So the private pass is a seven-volume library
+// and says so in every one of its snapshots -- which is the honest reading of
+// a machine that has seven volumes installed.
 let priv = [];
 if (has("--private")) {
   try {
@@ -87,14 +111,24 @@ const sha256 = (path) => new Promise((done, fail) => {
 });
 
 // The farm is rebuilt from scratch every run: a link left over from an
-// earlier fixture set would put a seventh volume on the select and move every
+// earlier fixture set would put one more volume on the select and move every
 // baseline's volume list.
 const farm = join(here, ".bundles");
 rmSync(farm, { recursive: true, force: true });
 mkdirSync(farm, { recursive: true });
 for (const volume of library) {
-  const source = join(registry, volume.file);
-  const info = statSync(source);
+  const source = sourceOf(volume);
+  let info;
+  try {
+    info = statSync(source);
+  } catch {
+    console.error(`${volume.slug}: no bundle at ${source}`);
+    if (volume.builtInto) {
+      console.error("this one is built rather than installed: golden/fixtures/README.md,");
+      console.error("'The city fixture', or point ATLAS_GOLDEN_CITY_DIR at where it was built");
+    }
+    process.exit(1);
+  }
   if (info.size !== volume.bytes) {
     console.error(`${volume.file}: ${info.size} bytes, the fixture names ${volume.bytes}`);
     process.exit(1);
