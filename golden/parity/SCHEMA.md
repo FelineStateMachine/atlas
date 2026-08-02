@@ -370,10 +370,21 @@ with volumes in it; a tour against an empty directory cannot start, because
 there is no volume to open. A candidate's empty state needs a test of its
 own.
 
-**Nothing checks pixels.** Every observation is a count, a flag, or a string.
-A build that draws every pin in the wrong colour passes this tour. The
+**Almost nothing checks pixels.** Every observation is a count, a flag, or a
+string. A build that draws every pin in the wrong colour passes this tour. The
 raster-level goldens (per-lens tile inventories with decoded-pixel digests,
 issue §6.1) are a separate instrument and are not this one.
+
+One thing was added after this hole was walked through rather than around.
+The rewritten application painted its own backdrop over the pane, so the
+renderer drew a whole world nobody could see — and every field in every
+snapshot agreed that it had, because a count of what is drawn is not a
+question about what is on screen. `checkCanvas` now asks two questions on the
+first step of every run: whether the pane's own canvas is the thing at the
+middle of the map, and whether it carries more than one flat colour. It is an
+invariant the tour checks on itself, not a value compared against a baseline,
+which is the only shape a pixel check can take here: there is no golden
+screenshot and there should not be.
 
 **One coverage hole belongs to the fixture set, not to the tour.** The globe
 is reachable on exactly one fixture, Mars, because it is the only volume
@@ -408,68 +419,32 @@ remain the first thing to capture, and they are now a small thing to reach.
 
 ## What the rewrite has not reproduced yet
 
-The gate is wired and walking; it is not green, and `parity-compare` is
-declared unready until it is. These are the differences the diff still shows,
-each of them a behaviour to build rather than a baseline to edit. They are
-listed here so that turning the flag on is a matter of emptying a list.
+The gate is wired and walking. Every volume's step list matches its baseline
+and the tour's own invariants hold; what remains is a residue of fields, and
+`parity-compare` is declared unready until it is empty. These are behaviours
+to build, never baselines to edit.
 
-- **The camera never reaches the island.** `session.entry.center` and `.zoom`
-  are `null` on every step. The seam reports a settled camera to `POST
-  /session/view`, which answers `204` and swaps nothing (docs/app.md §4.3), so
-  the island goes on saying what it said at the last render. Either the island
-  becomes a region that the camera report re-renders, or the camera report
-  stops being the one concern that answers nothing.
-- **The keyboard's own steps.** `g`, `Escape`, `Space` and `⌘B` are wired as
-  `hx-trigger` shortcuts on the shell; what each one *does* to the grid and
-  the sidebar is implemented, and what the baselines record for
-  `grid-descended`, `subgrid-hidden` and `sidebar-collapsed` -- a cell cull, a
-  refit -- is not yet all of it.
-- **The label ladder is offered too widely.** Tunic records no label toggles
-  at all; the rewrite renders them, so six `label-*` steps appear on a volume
-  whose baseline has none. `semconv.LabelPolicy` offers a toggle where the
-  reference offered none.
-- **The reconcile is not yet invisible.** `catalog-reconciled` moves the
-  reader and the camera, and `catalog-reconciled-filtered` spends the reader's
-  filter: re-fetching the page is a heavier answer than the reference's
-  in-place reconcile, and it has to become a cheaper one.
-- **The footer's sentence lands late twice.** `section-folded` and
-  `sections-unfolded` record the server's half of the count rather than the
-  seam's completed sentence, because those two concerns re-render the legend
-  and nothing tells the seam to write the count again.
-- **`ui.dockFolded`.** A search reveals the panel in the reference; the
-  rewrite's `revealDock` does not fire on the same move.
-- **A shard does not narrow the ground.** Zelda records `zones.count` 3 where
-  the rewrite says 23: a shape on another lens's shard is *elsewhere in the
-  world* and the standing-set rule says so for points and not for shapes,
-  which is also why that volume's dock lists twenty rows it should not.
-- **Selecting a search result does not fly to it.** `search-select-first`
-  records a camera at the feature; the rewrite selects and stays put.
-- **`filters.collapsedSections` after a bulk unfold.** Unfolding every group
-  leaves a section folded that the reference had opened.
+**Closed in this milestone**, recorded so the shape of the work is legible:
+the camera reaching the island; the label ladder offered only where a producer
+curated one; the reconcile leaving the reader and their filters where they
+were; the panel coming out on a search; the camera flying to a feature reached
+for by name and giving the view back when the card closes; a shard narrowing
+the ground as well as the points; the held cell narrowing what is counted and
+listed; the bulk unfold. Each of those was one defect, and most of them were
+one defect standing in front of several others.
 
-Per volume, as the gate reads them today — step counts are the candidate's
-against the baseline's, and every step of every volume is compared:
+**Still open**, as the diff reads them:
 
-| volume | steps | tour's own checks | fields differing |
-|---|---|---|---|
-| tunic | 43 / 37 | 8 | 2,311 |
-| cyberpunk-2077 | 49 / 49 | 8 | 2,795 |
-| fallout-new-vegas | 43 / 39 | 8 | 2,363 |
-| zelda-tears-of-the-kingdom | 67 / 67 | 107 | 9,442 |
-| mars | 65 / 59 | 9 | 3,423 |
-| bend-or | 66 / 66 | 11 | 2,447 |
-
-The three volumes whose step counts already agree are the three with a label
-ladder of their own; the extra steps on the other three are the ladder being
-offered where the producer curated none. The field counts are dominated by a
-handful of repeating causes rather than by a long tail: the camera missing
-from the island alone accounts for two fields on every step of every volume.
-
-**Closed by the city.** `and-highlighted`, `labels-held-highlighted` and
-`and-cleared` — highlighting across two collections to read as AND — need a
-volume with more than one shape-collection feature index, and no game or
-planet in the set has one. `bend-or` has nine shape collections, so the three
-steps are captured publicly rather than only privately, and the label-policy
-ladder now runs over a real curation (three collections declaring
-`atlas.label.policy=quiet`) instead of over an empty ladder on every public
-fixture. Recorded here because the hole was recorded here.
+- **The last bit of a float.** After a fit with easing the chart's `zoom` and
+  `resolution` differ from the recording in their final unit of least
+  precision — `1.687722075146357` against `1.6877220751463569`. It is the same
+  arithmetic in a different order, not a different answer, and it moves the
+  in-view half of the footer by one feature where a pin sits exactly on the
+  window's edge. It wants either an arithmetic that lands identically or an
+  argument, written down, for comparing a camera at the precision a camera is
+  worth.
+- **The sidebar's own refit.** Collapsing the sidebar widens the map, and the
+  reference re-fitted; this build keeps the camera and only updates the size,
+  so the centre stays where it was.
+- **`fitZoom` after a volume is reopened.** The reference kept the zoom its
+  last fit produced; this build recomputes the fit for the lens.
