@@ -59,9 +59,10 @@ func suites() []suite {
 		{
 			name:       "format-roundtrip",
 			milestone:  "M1",
-			awaiting:   "format/bundle and the bundle fixtures: canonical-content equality mandatory, stamp-identity tracked per fixture",
+			awaiting:   "",
 			entrypoint: "golden/format/roundtrip_test.go",
 			argv:       []string{"go", "test", "./golden/format/..."},
+			ready:      true,
 		},
 		{
 			name:       "generate-enrich",
