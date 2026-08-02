@@ -28,6 +28,7 @@ import (
 	"io/fs"
 	"net/http"
 	"sort"
+	"sync"
 
 	"github.com/FelineStateMachine/atlas/internal/app/hostenv"
 )
@@ -49,6 +50,15 @@ type App struct {
 	// over one host still answer the same, only slower.
 	worlds *worldCache
 	texts  *textCache
+
+	// writing serializes the read-modify-write of one volume's record. Two
+	// interactions can be in flight at once -- a reader holds a key down, a
+	// debounced search overlaps a click, the seam reports a camera while a
+	// filter is being answered -- and each one reads the record, changes one
+	// field and writes the whole thing back. Without this the later write
+	// silently discards whatever the earlier one had just decided, which
+	// shows up as a control that answered and then un-answered itself.
+	writing sync.Mutex
 }
 
 // Options is what a host tells the application about itself.

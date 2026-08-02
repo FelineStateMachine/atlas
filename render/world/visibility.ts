@@ -48,6 +48,13 @@ export interface PointStanding {
 export class Visibility {
   readonly points: readonly PointStanding[];
   readonly shapesShown: readonly ShapeRecord[];
+  /**
+   * Every shape on the layer this lens draws, whether or not a filter is
+   * letting it through. It is the size of the ground the reader is standing
+   * on, which is a different question from what is drawn on it: a split world
+   * keeps its other layers' ground elsewhere in the world rather than hidden.
+   */
+  readonly shapesHere: readonly ShapeRecord[];
   readonly eligible: number;
   readonly drawnPoints: number;
   readonly drawn: number;
@@ -114,8 +121,9 @@ export class Visibility {
     // A shape answers the legend and the shard and nothing else. Highlighting
     // narrows which points stand rather than which ground is drawn, and
     // searching for a place has never taken the ground out from under it.
-    this.shapesShown = model.shapes.filter((shape) =>
-      !scene.hidden.has(String(shape.collection.id)) && onActiveShard(shape.shard, shard));
+    this.shapesHere = model.shapes.filter((shape) => onActiveShard(shape.shard, shard));
+    this.shapesShown = this.shapesHere.filter((shape) =>
+      !scene.hidden.has(String(shape.collection.id)));
     this.drawn = eligible + this.shapesShown.length;
     this.listable = eligible + this.shapesShown.filter((shape) =>
       shape.title && (!search || shape.title.toLocaleLowerCase().includes(search))).length;
@@ -134,6 +142,26 @@ export class Visibility {
     for (let i = 0; i < this.model.points.length; i++) {
       const point = this.model.points[i];
       if (point && !this.at(i).hidden) yield point;
+    }
+  }
+
+  /**
+   * The same set, asked before the held cell narrowed it.
+   *
+   * A grid is a picture of where things are, so the number on a neighbouring
+   * cell has to be what that cell holds — not zero, which is all the held
+   * cell has left standing anywhere else. Every other filter still applies:
+   * a hidden collection holds nothing anywhere.
+   */
+  *withoutCell(): Generator<PointRecord> {
+    for (let i = 0; i < this.model.points.length; i++) {
+      const point = this.model.points[i];
+      const standing = this.at(i);
+      // Only the filters that are about the feature itself. A cell narrows
+      // where the reader is looking, and a grid that answered its own
+      // narrowing would put a zero on every neighbour it drew.
+      if (!point || standing.filteredHidden) continue;
+      yield point;
     }
   }
 }

@@ -12,6 +12,7 @@ import (
 	"github.com/FelineStateMachine/atlas/format/bundle"
 	"github.com/FelineStateMachine/atlas/format/semconv"
 	"github.com/FelineStateMachine/atlas/internal/app/hostenv"
+	"github.com/FelineStateMachine/atlas/internal/app/cells"
 )
 
 // The world as the display logic reads it.
@@ -59,6 +60,12 @@ type payloadLens struct {
 	MinZoom int    `json:"minZoom"`
 	MaxZoom int    `json:"maxZoom"`
 	Shard   int    `json:"shard"`
+	// Bounds is the raster window the pyramid fills; Surface is the ground
+	// that window pictures. They differ on a split sheet, where the window
+	// was grown to take in a title drawn beside the map, and anything that
+	// divides the world measures the ground (docs/render-seam.md §6.1).
+	Bounds  *cells.Rect `json:"bounds"`
+	Surface *cells.Rect `json:"surface"`
 }
 
 // payloadCollection is one ordered group of features.
@@ -83,6 +90,7 @@ type payloadFeature struct {
 	Parent   *int64             `json:"parent"`
 	Center   *bundle.Coordinate `json:"center"`
 	HasText  bool               `json:"hasText"`
+	Shard    int64              `json:"shard"`
 	Attrs    map[string]string  `json:"attrs"`
 	Geometry []payloadGeometry  `json:"geometry"`
 }
@@ -171,6 +179,10 @@ type shapeModel struct {
 	HasText    bool
 	Attrs      map[string]string
 	Collection *collectionModel
+	// Shard is the layer of a split world this ground belongs to. A shape on
+	// another lens's shard is elsewhere in the world rather than filtered
+	// out, exactly as a point is.
+	Shard      int64
 	Polygons   [][][]point // rings per polygon; ring 0 is the outline
 	Lines      [][]point
 	MinX, MinY float64
@@ -384,6 +396,7 @@ func buildShape(feature payloadFeature, collection *collectionModel, grid tileGr
 		Title:      feature.Title,
 		Subtitle:   feature.Subtitle,
 		HasText:    feature.HasText,
+		Shard:      feature.Shard,
 		Attrs:      feature.Attrs,
 		Collection: collection,
 		MinX:       math.Inf(1), MinY: math.Inf(1),

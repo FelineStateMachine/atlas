@@ -112,7 +112,7 @@ export function snapshot(viewport: AtlasViewport): SeamSnapshot {
     // it.
     zones: {
       visible: shapes.length > 0,
-      count: model?.shapes.length ?? 0,
+      count: visibility?.shapesHere.length ?? 0,
       highlighted: (visibility?.highlightedShapes ?? []).map((shape) => shape.title),
       focusedPins: visibility?.focusedPins ?? 0,
     },
@@ -166,12 +166,19 @@ interface DiagnosticsWindow {
  * its mere presence as "the sphere has been entered at least once this
  * session", so it must not exist before the sphere is built.
  */
-export function expose(viewport: AtlasViewport): void {
+export function expose(held: AtlasViewport): void {
   const host = window as unknown as DiagnosticsWindow;
-  const take = () => snapshot(viewport);
+  // The viewport is resolved at every reading rather than captured once. A
+  // navigation swaps the whole shell, which replaces the element these seams
+  // were opened over -- and a snapshot taken through the old one answers for
+  // the volume the reader has left, forever. The element held at boot is the
+  // fallback for a page with none on it.
+  const live = (): AtlasViewport =>
+    document.querySelector<AtlasViewport>("atlas-viewport") ?? held;
+  const take = () => snapshot(live());
   host.__atlasSeam = { snapshot: take, level: "1" };
   host.__atlasDebug = { snapshot: take };
-  host.advanceTime = () => viewport.chart?.renderSync();
+  host.advanceTime = () => live().chart?.renderSync();
   // The two halves, merged one level deep.
   //
   // A flat spread would be wrong for the three keys both halves speak to:
@@ -185,7 +192,7 @@ export function expose(viewport: AtlasViewport): void {
     mergeHalves(host.__atlasAppDiagnostics?.() ?? {}, take()));
   Object.defineProperty(window, "__atlasGlobe", {
     configurable: true,
-    get: () => viewport.globe?.built ? viewport.globe.diagnostics() : undefined,
+    get: () => live().globe?.built ? live().globe?.diagnostics() : undefined,
   });
   log.debug("the diagnostics seams are open", { op: "render" });
 }

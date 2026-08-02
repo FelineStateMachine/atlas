@@ -87,14 +87,21 @@ export class Styles {
     const held = this.icons.get(collection.id);
     if (held !== undefined) return held;
     let built: Icon | null = null;
-    if (collection.iconAsset) {
+    const src = collection.iconAsset ? this.context.iconURL(collection.iconAsset) : "";
+    // A style function runs inside a render, and a render that throws takes
+    // the map down with it. There is a moment during a navigation when the
+    // world the styles were built for is not the world the base names any
+    // more, and asking OpenLayers for an image with no source is fatal rather
+    // than blank. A collection with no picture draws as a plain mark, which
+    // is what it does on a build with no icons at all.
+    if (collection.iconAsset && src) {
       // A glyph is a monochrome mark the reader tints; a picture is drawn as
       // it was authored. `atlas.icon.kind` names what a file suffix used to
       // imply, and `iconPicture` is the manifest's own copy of the same fact.
       const picture = collection.iconPicture ||
         collection.attrs?.[KEY_ICON_KIND] === "picture";
       built = new Icon({
-        src: this.context.iconURL(collection.iconAsset),
+        src,
         ...(picture ? {} : { color: this.color(collection) }),
         width: 15,
         height: 15,

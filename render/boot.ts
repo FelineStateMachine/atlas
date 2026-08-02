@@ -52,9 +52,19 @@ export function boot(): void {
   const rescan = () => {
     for (const viewport of viewports()) viewport.rescan();
   };
-  for (const name of ["htmx:afterSwap", "htmx:afterSettle", "atlas:rescan"]) {
-    document.body.addEventListener(name, rescan);
-  }
+  // Both spellings of the same two events. htmx 4 separates the words with
+  // colons -- `htmx:after:swap` -- where htmx 2 camel-cased them, and a seam
+  // listening only for the old names is a seam that is never told a swap
+  // happened: the scene node is replaced whole, the watcher's observer goes
+  // with it, and everything this lane draws quietly stops answering the page.
+  // `atlas:rescan` is the plain custom event a page that swaps by some other
+  // means can raise without this module knowing anything about htmx.
+  const swapped = [
+    "htmx:after:swap", "htmx:after:settle",
+    "htmx:afterSwap", "htmx:afterSettle",
+    "atlas:rescan",
+  ];
+  for (const name of swapped) document.body.addEventListener(name, rescan);
   for (const viewport of viewports()) expose(viewport);
   log.info("the seam is up", { op: "render", viewports: viewports().length });
 }

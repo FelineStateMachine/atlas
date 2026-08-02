@@ -290,7 +290,7 @@ async function settle() {
       pane.labelKey, pane.labelSprites, pane.visibleSprites, pane.reticle,
       syncOf(), islandOf(),
     ]);
-    if (key === previous) {
+    if (key === previous && reported(s)) {
       stable += 1;
       if (stable >= 2) return;
     } else {
@@ -298,6 +298,28 @@ async function settle() {
     }
     previous = key;
   }
+}
+
+/**
+ * Whether the camera the chart is standing at has reached the record.
+ *
+ * The reference kept the arrangement in the browser, so the camera was in it
+ * the moment the view stopped moving. The rewrite keeps it on the server: the
+ * seam reports a settled camera once, debounced, and the record comes back as
+ * the state island. A step is therefore not over when the view stops -- it is
+ * over when the page has finished saying so, and this is that question asked
+ * of the two halves at once.
+ *
+ * A world with no camera reported at all is answered true rather than waited
+ * on: not every step of every volume has a chart standing under it.
+ */
+function reported(snapshot) {
+  const entry = islandOf().entry;
+  if (!entry || !snapshot || snapshot.zoom == null || !snapshot.center) return true;
+  if (entry.center === null || entry.zoom === null) return false;
+  return Math.abs(entry.zoom - Number(snapshot.zoom.toFixed(3))) < 1e-9 &&
+    entry.center[0] === Math.round(snapshot.center[0]) &&
+    entry.center[1] === Math.round(snapshot.center[1]);
 }
 
 function keydown(key, options = {}) {

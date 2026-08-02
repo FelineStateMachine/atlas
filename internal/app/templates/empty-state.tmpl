@@ -28,7 +28,7 @@
           hx-post="/bundles/import" hx-target="#atlas-import" hx-swap="beforeend">Open .atlas files…</button>
 </div>
 {{template "import" .}}
-<script type="application/json" id="atlas-session-island">{{.Island}}</script>
+{{template "island" .}}
 <div hidden hx-sse:connect="/events" hx-trigger="load" id="atlas-events"></div>
 <div hidden hx-get="/" hx-trigger="catalog from:#atlas-events"
      hx-target="#atlas-shell" hx-select="#atlas-shell" hx-swap="outerMorph"></div>

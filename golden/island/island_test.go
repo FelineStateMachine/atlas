@@ -365,8 +365,16 @@ func reportCamera(t *testing.T, handler http.Handler, slug, world string, want m
 		"y":    {strconv.FormatFloat(center[1].(float64), 'f', -1, 64)},
 		"zoom": {strconv.FormatFloat(zoom, 'f', -1, 64)},
 	}
-	if got := post(t, handler, "/session/view", form); got.Code != http.StatusNoContent {
+	// The report answers with the island alone, which is how the camera it
+	// just wrote becomes readable without a second request. Nothing a reader
+	// can see moves; the check below is the one that matters, and it is that
+	// the island already carries what was reported.
+	got := post(t, handler, "/session/view", form)
+	if got.Code != http.StatusOK {
 		t.Fatalf("the camera report answered %d", got.Code)
+	}
+	if !strings.Contains(got.Body.String(), `id="atlas-session-island"`) {
+		t.Fatalf("the camera report answered without the island:\n%s", got.Body)
 	}
 }
 

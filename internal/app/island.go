@@ -89,12 +89,20 @@ func islandOf(model *worldModel, shown *VolumeView, session Session) *islandEntr
 		// baseline and an island are diffable without a normalizer in
 		// between: whole world units for the centre, three decimals for
 		// the zoom (golden/parity/SCHEMA.md §3.2).
-		entry.Center = []float64{math.Round(camera.X), math.Round(camera.Y)}
+		entry.Center = []float64{halfUp(camera.X), halfUp(camera.Y)}
 		zoom := math.Round(camera.Zoom*1000) / 1000
 		entry.Zoom = &zoom
 	}
 	return entry
 }
+
+// halfUp rounds the way the harness that reads this rounds, which is the way
+// JavaScript's Math.round does: a half goes up, toward positive infinity,
+// rather than away from zero. On the y axis -- where every world coordinate is
+// negative -- the two conventions disagree on exactly the values a cell
+// boundary lands on, which is a whole world unit of difference in a field the
+// baselines compare exactly.
+func halfUp(value float64) float64 { return math.Floor(value + 0.5) }
 
 // identifiers writes a set of collection ids the way the golden records them:
 // sorted as the strings they ride the DOM as, and emitted as the numbers the

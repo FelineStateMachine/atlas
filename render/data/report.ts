@@ -1,15 +1,22 @@
 // The camera's whisper upward.
 //
-// This is the *only* thing the seam ever sends the application that is not a
-// DOM event, and it lives in the data layer because that is where the network
-// lives (issue #5 §9). It is a form post, because that is what the rest of
-// the page speaks and a camera is not special enough to invent a wire format
-// for; it is debounced by the caller; and it is answered `204`, because
-// swapping anything in response to a settling camera would fight the reader's
-// own hand (docs/app.md §4.3).
+// It is the one thing that leaves this lane besides a pick, and -- like the
+// pick -- it leaves as a DOM event rather than as a request. The application
+// renders a form for it and the fields it wants filled; this fills them and
+// says so; the page's own hypermedia runtime posts it and applies the answer.
 //
-// A failed report costs a reader their place on the next launch and nothing
-// else, so it is logged and dropped rather than retried into a queue.
+// THAT SPLIT IS DELIBERATE and it is the reason this module makes no network
+// call at all. A report the seam posted for itself would throw the answer
+// away, and the answer is the state island carrying the camera that was just
+// written -- the server's half of the joint diagnostics (issue #5 §6), which
+// would then be a render behind the reader forever. Data flows one way
+// (docs/render-seam.md §1.1); this is the page carrying a value the seam
+// happens to be the only one who can compute, which is exactly what the
+// labels hint and the corner locator already are.
+//
+// A page that renders no such form -- a host that mounted the seam over some
+// other chrome -- simply loses the report, which costs a reader their place
+// on the next launch and nothing else.
 
 import { logger } from "../log.ts";
 
@@ -26,34 +33,20 @@ export interface CameraPost {
 }
 
 /** Report a settled camera. Never throws: the page is not the report's. */
-export async function reportCamera(camera: CameraPost): Promise<void> {
-  const body = new URLSearchParams({
-    volume: camera.volume,
-    world: camera.world,
-    x: String(camera.x),
-    y: String(camera.y),
-    zoom: String(camera.zoom),
-    rotation: String(camera.rotation),
+export function reportCamera(camera: CameraPost): void {
+  const form = document.querySelector("#atlas-camera");
+  if (!form) return;
+  const fill = (id: string, value: string) => {
+    const field = document.querySelector<HTMLInputElement>(id);
+    if (field) field.value = value;
+  };
+  fill("#atlas-camera-world", camera.world);
+  fill("#atlas-camera-x", String(camera.x));
+  fill("#atlas-camera-y", String(camera.y));
+  fill("#atlas-camera-zoom", String(camera.zoom));
+  fill("#atlas-camera-rotation", String(camera.rotation));
+  window.dispatchEvent(new CustomEvent("atlas:camera", { bubbles: false }));
+  log.debug("the camera settled", {
+    op: "session", volume: camera.volume, world: camera.world, zoom: camera.zoom,
   });
-  try {
-    const response = await fetch("/session/view", {
-      method: "POST",
-      headers: { "content-type": "application/x-www-form-urlencoded" },
-      body,
-    });
-    if (response.status !== 204 && !response.ok) {
-      log.warn("the camera report was refused", {
-        op: "session", volume: camera.volume, world: camera.world,
-        status: response.status,
-      });
-      return;
-    }
-    log.debug("the camera settled", {
-      op: "session", volume: camera.volume, world: camera.world, zoom: camera.zoom,
-    });
-  } catch (error) {
-    log.warn("the camera report did not reach the application", {
-      op: "session", volume: camera.volume, error: String(error),
-    });
-  }
 }

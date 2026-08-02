@@ -38,6 +38,14 @@ import (
 //     spelling of that rule, so the guarantee is the runtime's rather than a
 //     convention every template has to remember.
 //
+// The island is a region for one reason and it is worth stating: the camera.
+// Every other key it publishes is decided by the request that is being
+// answered, so re-rendering the island with that answer would be enough. The
+// camera is not -- it arrives on its own route, from the seam, after the view
+// has settled, and nothing else is going to happen afterwards to carry it
+// back. Making it a region is what lets the one concern that answers nothing
+// visible still answer with the record it just wrote.
+//
 // The envelope spells its target and swap as hx-target and hx-swap rather
 // than as bare target and swap attributes: htmx 4 reads an <hx-partial>
 // through the same attribute vocabulary it reads everything else through, and
@@ -48,24 +56,35 @@ import (
 type partialTarget struct {
 	target string
 	swap   string
+
+	// template names the template to render when it is not the region's own
+	// name. Only the shell needs it: what a first paint answers with is a
+	// whole document, and what a swap answers with is the frame inside it.
+	template string
 }
 
 // partialTargets is the region map. A region absent from this table cannot be
 // swapped, which is the point: the set of things an interaction may move is
 // declared, not discovered.
 var partialTargets = map[string]partialTarget{
-	// shell and empty-state render a whole document rather than a region's
-	// container, so their inside is what lands inside #atlas-shell.
-	"shell":          {"#atlas-shell", "innerMorph"},
-	"topbar":         {"#atlas-topbar", "innerMorph"},
-	"legend":         {"#atlas-legend", "outerMorph"},
-	"dock":           {"#atlas-dock", "outerMorph"},
-	"detail":         {"#atlas-detail", "outerMorph"},
-	"grid-navigator": {"#atlas-grid-navigator", "outerMorph"},
-	"overview":       {"#atlas-overview", "outerMorph"},
-	"viewport":       {"#atlas-viewport-state", "outerMorph"},
-	"empty-state":    {"#atlas-shell", "innerMorph"},
-	"import":         {"#atlas-import", "beforeend"},
+	// The shell renders a whole document on a first paint and its own frame
+	// on a swap, which is why it names a template of its own. Morphing the
+	// element onto itself is what lets a swap set the class the sidebar's
+	// collapsed state is spelled as -- a container cannot be given an
+	// attribute by a swap that renders only its inside.
+	"shell":          {target: "#atlas-shell", swap: "outerMorph", template: "shell-region"},
+	"topbar":         {target: "#atlas-topbar", swap: "innerMorph"},
+	"legend":         {target: "#atlas-legend", swap: "outerMorph"},
+	"dock":           {target: "#atlas-dock", swap: "outerMorph"},
+	"detail":         {target: "#atlas-detail", swap: "outerMorph"},
+	"grid-navigator": {target: "#atlas-grid-navigator", swap: "outerMorph"},
+	"overview":       {target: "#atlas-overview", swap: "outerMorph"},
+	"viewport":       {target: "#atlas-viewport-state", swap: "outerMorph"},
+	// Replaced rather than morphed: it is a script node with nothing inside
+	// worth preserving, and morphing one leaves its text where it was.
+	"island":      {target: "#atlas-session-island", swap: "outerHTML"},
+	"empty-state": {target: "#atlas-shell", swap: "innerMorph"},
+	"import":      {target: "#atlas-import", swap: "beforeend"},
 }
 
 // renderPartials builds the <hx-partial> set for a list of regions.
@@ -77,7 +96,11 @@ func renderPartials(regions []string, data any) ([]byte, error) {
 			return nil, fmt.Errorf("region %q has no partial target", region)
 		}
 		fmt.Fprintf(&out, "<hx-partial hx-target=%q hx-swap=%q>", where.target, where.swap)
-		if err := templates.Render(&out, region, data); err != nil {
+		name := region
+		if where.template != "" {
+			name = where.template
+		}
+		if err := templates.Render(&out, name, data); err != nil {
 			return nil, err
 		}
 		out.WriteString("</hx-partial>\n")

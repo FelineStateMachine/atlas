@@ -500,8 +500,16 @@ func TestSessionConcerns(t *testing.T) {
 					t.Errorf("the answer carries no partial for %s:\n%s", target, body)
 				}
 			}
-			if swaps := strings.Count(body, "<hx-partial"); swaps != len(tt.targets) {
-				t.Errorf("the answer carries %d partials, want exactly the %d regions the concern touches",
+			// The regions the concern touches, and the island. Every answer
+			// carries the island because every answer has just written the
+			// record it publishes; it is inert and it moves nothing on
+			// screen, so it is not one of the regions an interaction is
+			// judged by, and it is not in the table above.
+			if !strings.Contains(body, `target="#atlas-session-island"`) {
+				t.Errorf("the answer carries no state island:\n%s", body)
+			}
+			if swaps := strings.Count(body, "<hx-partial"); swaps != len(tt.targets)+1 {
+				t.Errorf("the answer carries %d partials, want the %d regions the concern touches and the island",
 					swaps, len(tt.targets))
 			}
 
@@ -521,20 +529,29 @@ func TestSessionConcerns(t *testing.T) {
 	}
 }
 
-// The camera is the one continuous thing the server keeps, and it answers
-// with nothing: a swap in response to a settling camera would fight the
-// reader's own hand.
+// The camera is the one continuous thing the server keeps, and it answers with
+// nothing a reader can see: a swap of any of the chrome in response to a
+// settling camera would fight the reader's own hand. What it does answer with
+// is the state island, which is an inert script node -- no focus to lose, no
+// scroll to reset -- because otherwise the camera it just wrote would be
+// readable only after the next unrelated request, and the parity baselines
+// record it on their very first step.
 func TestCameraReportIsQuiet(t *testing.T) {
 	handler, host := newApp(t, volume("tunic", "TUNIC", tunicStamp))
 	got := post(t, handler, "/session/view", url.Values{
 		"volume": {"tunic"}, "world": {"overworld"},
 		"x": {"120.5"}, "y": {"-40"}, "zoom": {"6.25"}, "rotation": {"0.5"},
 	})
-	if got.Code != http.StatusNoContent {
-		t.Fatalf("a camera report answered %d, want 204", got.Code)
+	if got.Code != http.StatusOK {
+		t.Fatalf("a camera report answered %d, want 200", got.Code)
 	}
-	if got.Body.Len() != 0 {
-		t.Errorf("a camera report answered with %d bytes", got.Body.Len())
+	body := got.Body.String()
+	if strings.Count(body, "<hx-partial") != 1 ||
+		!strings.Contains(body, `target="#atlas-session-island"`) {
+		t.Errorf("a camera report answered with more than the island:\n%s", body)
+	}
+	if !strings.Contains(body, `"zoom":6.25`) {
+		t.Errorf("the island does not carry the camera just reported:\n%s", body)
 	}
 
 	held, err := host.sessions.Load("volume.tunic.json")

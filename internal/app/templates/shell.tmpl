@@ -25,7 +25,30 @@
 <script src="/assets/htmx.js" defer></script>
 </head>
 <body class="atlas">
-<div id="atlas-shell" class="app-shell{{if .Session.Sidebar.Collapsed}} sidebar-collapsed{{end}}"
+{{template "shell-region" .}}
+{{template "import" .}}
+{{/*
+  The seam. It is loaded from /static, which is whatever tree the host mounted
+  and answers 404 when it mounted none. An undefined <atlas-viewport> renders
+  nothing and breaks nothing, which is the deletability principle costing this
+  page one script tag (issue #5 §5.5).
+*/}}
+<script type="module" src="/static/app.js"></script>
+</body>
+</html>
+{{end}}
+
+{{/*
+  shell-region — the page frame as a region.
+
+  The document above is what a first paint answers with; this is what a swap
+  answers with, and they are the same bytes because the document renders this.
+  It matters that they are separable: the sidebar's collapsed state is a class
+  on this element, and a swap can only set an attribute on a container it
+  renders *itself* -- so the shell is an outer morph over this, and the
+  document is never a partial.
+*/}}
+{{define "shell-region"}}<div id="atlas-shell" class="app-shell{{if .Session.Sidebar.Collapsed}} sidebar-collapsed{{end}}"
      hx-vals:inherited='{"volume":"{{with .Volume}}{{.Slug}}{{end}}"}'
      hx-swap:inherited="none">
   <header id="atlas-topbar" class="topbar">{{template "topbar" .}}</header>
@@ -49,18 +72,7 @@
     </div>
   </main>
   {{template "dock" .}}
-  {{/*
-    The state island: the arrangement this page was rendered from, in the key
-    names golden/parity/SCHEMA.md records. It is inert, it is read by the
-    parity harness and by nothing else, and it is the server's half of the
-    joint diagnostics issue #5 §6 asks for.
-
-    It stands *inside* #atlas-shell, which is not decoration. Every navigation
-    on this page swaps the shell and selects `#atlas-shell` out of the answer;
-    an island beside the shell is therefore never replaced, and a reader who
-    switched volumes would go on being told about the volume they left.
-  */}}
-  <script type="application/json" id="atlas-session-island">{{.Island}}</script>
+  {{template "island" .}}
   {{/*
     The keyboard, as hypermedia.
 
@@ -71,22 +83,50 @@
     which holds the labels up while it is down and is continuous interaction
     state, so it belongs to the seam (issue #5 §4.1).
 
+    They listen on the window rather than on the body, because that is where
+    a keystroke with no focused control is heard: an event dispatched at the
+    window never travels down to the body, so a shortcut listening there would
+    hear a reader's own typing and nothing else.
+
     They are declared here rather than beside the controls they double for
-    because a shortcut heard `from:body` has to survive the region that would
-    have carried it being swapped, and the shell is the one region a swap
-    never replaces from underneath.
+    because a shortcut has to survive the region that would have carried it
+    being swapped, and the shell is the one region a swap never replaces from
+    underneath.
   */}}
   <div hidden id="atlas-shortcuts">
     <span hx-post="/session/grid" hx-vals:append='{"system":"toggle"}'
-          hx-trigger="keydown[key=='g'&&!metaKey&&!ctrlKey&&!altKey] from:body"></span>
+          hx-trigger="keydown[key=='g'&&!metaKey&&!ctrlKey&&!altKey] from:window"></span>
     <span hx-post="/session/grid" hx-vals:append='{"ascend":"1"}'
-          hx-trigger="keydown[key=='Escape'] from:body"></span>
+          hx-trigger="keydown[key=='Escape'] from:window"></span>
     <span hx-post="/session/grid" hx-vals:append='{"subgrid":"flip"}'
-          hx-trigger="keydown[key==' '] from:body"></span>
+          hx-trigger="keydown[key==' '] from:window"></span>
     <span hx-post="/session/sidebar"
           hx-vals:append='{"open":"{{if .Session.Sidebar.Collapsed}}1{{else}}0{{end}}"}'
-          hx-trigger="keydown[(metaKey||ctrlKey)&&key=='b'] from:body"></span>
+          hx-trigger="keydown[(metaKey||ctrlKey)&&key=='b'] from:window"></span>
   </div>
+  {{/*
+    The camera's way home.
+
+    The seam reports a settled camera so a volume reopens where the reader
+    left it (issue #5 §4.1). It is the one upward flow that is not a reader's
+    move, and it is *this page's* post rather than the seam's own: the
+    application renders the form and the fields, the seam fills them in and
+    raises the event, and htmx does the rest. That is the same arrangement the
+    labels hint and the corner locator already stand in -- chrome the
+    application renders for the seam to draw into (docs/render-seam.md §2) --
+    and it is what lets the answer land. A report the seam posted for itself
+    would throw the answer away, and the answer is the state island carrying
+    the camera that was just written.
+  */}}
+  <form hidden id="atlas-camera" hx-post="/session/view"
+        hx-trigger="atlas:camera from:window">
+    <input type="hidden" name="world" id="atlas-camera-world"
+           value="{{with .Volume}}{{.World.Slug}}{{end}}">
+    <input type="hidden" name="x" id="atlas-camera-x">
+    <input type="hidden" name="y" id="atlas-camera-y">
+    <input type="hidden" name="zoom" id="atlas-camera-zoom">
+    <input type="hidden" name="rotation" id="atlas-camera-rotation" value="0">
+  </form>
   {{/*
     Live updates. The stream carries ready-to-swap partials and two event
     names (docs/app.md §5); the page takes the plainer road of re-fetching
@@ -105,14 +145,4 @@
        hx-trigger="catalog from:#atlas-events, refresh from:#atlas-events"
        hx-target="#atlas-shell" hx-select="#atlas-shell" hx-swap="outerMorph"></div>{{end}}
 </div>
-{{template "import" .}}
-{{/*
-  The seam. It is loaded from /static, which is whatever tree the host mounted
-  and answers 404 when it mounted none. An undefined <atlas-viewport> renders
-  nothing and breaks nothing, which is the deletability principle costing this
-  page one script tag (issue #5 §5.5).
-*/}}
-<script type="module" src="/static/app.js"></script>
-</body>
-</html>
 {{end}}
