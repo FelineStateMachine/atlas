@@ -192,9 +192,10 @@ func (s *Set) Aligned(tileSet string) []Pyramid {
 	return out
 }
 
-// Tile is one raster inside a pyramid, named as a bundle entry names it:
-// "<z>/<x>/<y>.<ext>".
-type Tile struct {
+// Raster is one tile inside a derived pyramid, named as a bundle entry names
+// it: "<z>/<x>/<y>.<ext>". It is what composition copies; a captured Tile, which
+// the deriver folds down, is a different thing entirely.
+type Raster struct {
 	Name string
 	Path string
 }
@@ -203,9 +204,9 @@ type Tile struct {
 // is the order a directory walk yields them: lexical by path segment, so level
 // "10" sorts before level "2". The order is part of the bundle's entry order
 // and therefore part of what a reader sees when it lists an archive.
-func (s *Set) Tiles(p Pyramid) ([]Tile, error) {
+func (s *Set) Tiles(p Pyramid) ([]Raster, error) {
 	root := filepath.Join(s.dir, p.Name)
-	var out []Tile
+	var out []Raster
 	err := filepath.WalkDir(root, func(path string, entry fs.DirEntry, err error) error {
 		if err != nil {
 			return err
@@ -217,7 +218,7 @@ func (s *Set) Tiles(p Pyramid) ([]Tile, error) {
 		if err != nil {
 			return err
 		}
-		out = append(out, Tile{Name: filepath.ToSlash(rel), Path: path})
+		out = append(out, Raster{Name: filepath.ToSlash(rel), Path: path})
 		return nil
 	})
 	if err != nil {

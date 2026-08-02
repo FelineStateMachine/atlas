@@ -161,7 +161,11 @@ func (s Source) translateWorld(a *archive.Archive, ref archive.WorldRef, log *sl
 		},
 	}
 	for _, set := range raw.Config.TileSets {
-		world.Lenses = append(world.Lenses, doc.Lens{Name: set.Name, TileSet: set.Path})
+		world.Lenses = append(world.Lenses, doc.Lens{
+			Name:    set.Name,
+			TileSet: set.Path,
+			Frame:   frameOf(set),
+		})
 	}
 	collections, err := collectionsOf(raw)
 	if err != nil {
@@ -403,4 +407,26 @@ func optionalNumber(raw json.RawMessage) (float64, bool, error) {
 	}
 	n, err := number(raw)
 	return n, err == nil, err
+}
+
+// frameOf is what MapGenie says about the tiles it published: the zoom range it
+// serves, the encoding it serves them in, and the window each level covers. Only
+// the deriver reads it, and it reads it to know which tiles a complete level was
+// supposed to hold -- a question no amount of looking at an archive can settle,
+// because a level missing its last row looks exactly like a level that never had
+// one.
+func frameOf(set rawTileSet) *doc.Frame {
+	frame := &doc.Frame{
+		MinZoom: set.MinZoom,
+		MaxZoom: set.MaxZoom,
+		Format:  set.Extension,
+		Windows: make(map[string]doc.TileWindow, len(set.Bounds)),
+	}
+	for zoom, bound := range set.Bounds {
+		frame.Windows[zoom] = doc.TileWindow{
+			MinX: bound.X.Min, MinY: bound.Y.Min,
+			MaxX: bound.X.Max, MaxY: bound.Y.Max,
+		}
+	}
+	return frame
 }

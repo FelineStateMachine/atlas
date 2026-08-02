@@ -42,6 +42,7 @@ import (
 	"fmt"
 	"log/slog"
 	"math"
+	"strconv"
 	"strings"
 
 	"github.com/FelineStateMachine/atlas/format/semconv"
@@ -181,7 +182,11 @@ func (s Source) translateWorld(a *archive.Archive, ref archive.WorldRef, log *sl
 			ContentHash: archived.ContentHash,
 			CapturedAt:  archived.CapturedAt,
 		},
-		Lenses:      []doc.Lens{{Name: lensName, TileSet: scope}},
+		Lenses: []doc.Lens{{
+			Name:    lensName,
+			TileSet: scope,
+			Frame:   frameOf(&raw),
+		}},
 		Collections: collections,
 	}
 	log.Debug("world translated", logging.World(raw.MapSlug),
@@ -294,6 +299,23 @@ func (s Source) attachArtwork(a *archive.Archive, v archive.VolumeRef, out *doc.
 // into pixels.
 func imagePosition(lng, lat float64) doc.Position {
 	return doc.SyntheticPosition(lng*doc.SyntheticWorldSize, -lat*doc.SyntheticWorldSize)
+}
+
+// frameOf declares the wikimap's pyramid for the deriver. Every level is
+// declared, because a wikimap is not cut from the corpus's shared window and a
+// level left unsaid would be measured against a window it does not sit in.
+func frameOf(raw *capture) *doc.Frame {
+	frame := &doc.Frame{
+		MinZoom: raw.Map.MinZoom,
+		MaxZoom: raw.Map.MaxZoom,
+		Format:  TileExtension(raw.Map.Tileset),
+		Windows: make(map[string]doc.TileWindow, raw.Map.MaxZoom+1),
+	}
+	for zoom := 0; zoom <= raw.Map.MaxZoom; zoom++ {
+		maxX, maxY := LevelExtent(raw.Map.Width, raw.Map.Height, zoom)
+		frame.Windows[strconv.Itoa(zoom)] = doc.TileWindow{MaxX: maxX, MaxY: maxY}
+	}
+	return frame
 }
 
 func named(given, slug string) string {

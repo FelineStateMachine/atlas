@@ -196,7 +196,11 @@ func (s Source) translateWorld(a *archive.Archive, ref archive.WorldRef, log *sl
 			ContentHash: archived.ContentHash,
 			CapturedAt:  archived.CapturedAt,
 		},
-		Lenses:      []doc.Lens{{Name: "Default", TileSet: tileSet}},
+		Lenses: []doc.Lens{{
+			Name:    "Default",
+			TileSet: tileSet,
+			Frame:   frameOf(&raw),
+		}},
 		Collections: collections,
 	}
 	log.Debug("world translated", logging.World(raw.MapSlug),
@@ -398,6 +402,27 @@ func deepestWindowCenter(raw *capture) (float64, float64) {
 	x := (float64(deepest.MinX) + float64(deepest.MaxX+1)) / 2 * span
 	y := (float64(deepest.MinY) + float64(deepest.MaxY+1)) / 2 * span
 	return x, y
+}
+
+// frameOf declares the pyramid the crawler actually surveyed. Piggyback
+// publishes no bounds of its own, so what the crawler saw answer is the only
+// account there is of where the picture is drawn -- which is why a capture with
+// no observed level is refused before this is ever called.
+func frameOf(raw *capture) *doc.Frame {
+	deepest := raw.Levels[len(raw.Levels)-1]
+	frame := &doc.Frame{
+		MinZoom: raw.Levels[0].Zoom,
+		MaxZoom: deepest.Zoom,
+		Format:  TileExtension(raw.Map.TileServer),
+		Windows: make(map[string]doc.TileWindow, len(raw.Levels)),
+	}
+	for _, observed := range raw.Levels {
+		frame.Windows[strconv.Itoa(observed.Zoom)] = doc.TileWindow{
+			MinX: observed.MinX, MinY: observed.MinY,
+			MaxX: observed.MaxX, MaxY: observed.MaxY,
+		}
+	}
+	return frame
 }
 
 // TileSetPath cuts the layer path out of the tile URL template: everything

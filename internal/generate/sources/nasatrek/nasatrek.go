@@ -190,11 +190,13 @@ func (s Source) translateWorld(a *archive.Archive, ref archive.WorldRef, log *sl
 	world.Lenses = append(world.Lenses, doc.Lens{
 		Name:    named(raw.Map.LayerTitle, "default"),
 		TileSet: TileSetPath(raw.Body, raw.Layer),
+		Frame:   frameOf(raw.Map.MaxZoom, raw.Map.Extension),
 	})
 	for _, sibling := range raw.Variants {
 		world.Lenses = append(world.Lenses, doc.Lens{
 			Name:    named(sibling.Title, "default"),
 			TileSet: TileSetPath(raw.Body, sibling.Layer),
+			Frame:   frameOf(sibling.MaxZoom, sibling.Extension),
 		})
 	}
 
@@ -346,6 +348,28 @@ func worldPixel(longitude, latitude float64) (x, y float64) {
 	x = (wrapped + 180) / 360 * doc.SyntheticWorldSize
 	y = (90 - latitude) / 180 * (doc.SyntheticWorldSize / 2)
 	return x, y
+}
+
+// frameOf declares a mosaic's pyramid for the deriver. Every level down to zero
+// is declared: a level left unsaid would be measured against the corpus's shared
+// square, which this world does not sit in, and the half-height windows are what
+// tell frame discovery where the planet actually is. Every mosaic of a body
+// shares that window whatever its depth, which is what lets siblings ride one
+// world as its lenses.
+func frameOf(maxZoom int, format string) *doc.Frame {
+	if format == "" {
+		format = "jpg"
+	}
+	frame := &doc.Frame{
+		MaxZoom: maxZoom,
+		Format:  format,
+		Windows: make(map[string]doc.TileWindow, maxZoom+1),
+	}
+	for zoom := 0; zoom <= maxZoom; zoom++ {
+		maxX, maxY := LevelExtent(zoom)
+		frame.Windows[strconv.Itoa(zoom)] = doc.TileWindow{MaxX: maxX, MaxY: maxY}
+	}
+	return frame
 }
 
 func named(given, slug string) string {

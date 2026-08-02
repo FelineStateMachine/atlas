@@ -74,7 +74,14 @@ A **world**:
     "contentHash": "ff58c59a…",      // SHA-256 of the archived bytes
     "capturedAt": "2026-07-30T03:57:41.529Z"
   },
-  "lenses": [ { "name": "Default", "tileSet": "tunic/world/default-v2" } ],
+  "lenses": [ {
+    "name": "Default",
+    "tileSet": "tunic/world/default-v2",
+    "frame": {                         // the deriver reads this; composition never does
+      "minZoom": 9, "maxZoom": 15, "format": "jpg",
+      "windows": { "15": { "minX": 16256, "minY": 16256, "maxX": 16383, "maxY": 16383 } }
+    }
+  } ],
   "collections": [ … ],
   "attrs": { }                        // the world speaking the conventions
 }
@@ -128,7 +135,7 @@ itself into. Everything below is a departure from that.
 | coordinates | numbers *or* quoted strings, tolerated everywhere | `{lat, lng}` floats; a source's spelling tolerance is the source's business |
 | absence | `*int64` for `region_id` and `parent_region_id` | `0`, everywhere, matching the wire's own reading of zero |
 | icons | a key implying a file probe into an archive directory at composition time | the artwork travels in the document |
-| lens detail | the publisher's claimed zoom range and bounds | name and tile set only; what a bundle promises about a raster is what was actually derived |
+| lens detail | the publisher's claimed zoom range and bounds, read at composition | name and tile set for composition; the publisher's claimed frame carried separately, for the deriver alone, because only a source can say which tiles a complete level was supposed to hold |
 | provenance | recovered from the archive's directory names | `source` and a per-world `capture` on the document itself |
 | links | resolved at composition, with a MapGenie URL pattern compiled into it | resolved by the source, because a link syntax is a publisher's |
 | the world window | half from a hardcoded constant, half from the tile index | curation names the shared window; a pyramid names its own |
@@ -448,14 +455,24 @@ longer in front of it. A pyramid with an empty stamp stamps as empty, which is
 honest — the bundle records that nothing was claimed about how those tiles came
 to be.
 
-### 4.2 What the deriver must promise
+### 4.2 What the deriver promises
 
-*(Derivation itself is the next wave. The contract it must fill in, carried
-from the reference implementation:)*
+`atlas tiles -archive DIR -output DIR` folds captured frames into pyramids.
+Its input is the archive — the tiles a crawler wrote, under the paths a tile
+server used — plus each lens's **frame**, which is what the source declares
+about the tiles it captured: how deep the pyramid goes, in what encoding, and
+which tiles each level was supposed to hold. That last question is one no amount
+of looking at an archive can settle, because a level missing its last row looks
+exactly like a level that never had one, and it is the only reason a frame rides
+the interchange document at all. Composition never reads it.
 
 - **Frame discovery.** A world is a 32-tile square. Local zoom 0 is the source
   zoom whose window collapses to one tile; local coordinates are source
-  coordinates less the window's first tile.
+  coordinates less the window's first tile. No height is assumed: the frame is
+  measured, so a publisher cutting the same ground from zoom 6 and one cutting it
+  from zoom 13 both derive correctly. A frame whose axes come to rest on
+  different tiles is refused — it would draw a map in one place and its features
+  in another.
 - **The complete-level rule.** The deepest level whose expected tiles are all
   present is `fullZoom` and is copied byte for byte; every shallower level is
   folded down from it, never taken from the captured intermediates. Partial
@@ -474,9 +491,61 @@ from the reference implementation:)*
   level number, its tile count, and each tile's `x`, `y`, content hash and
   format, sorted by `x` then `y`. Every field is NUL-terminated. The listing
   order on disk is not an input.
+- **The background tile.** A level's filler is the content hash more than half
+  its tiles share, found once on the level that is trusted and omitted from every
+  level. Reusing one hash keeps a sparse deep level from having its handful of
+  real tiles voted "background" by its own majority. The colour painted behind
+  the raster is the mean of that tile's pixels, and only if the tile is flat
+  within twelve levels per channel — otherwise nothing is omitted at all, because
+  a hole nobody can paint over is worse than a duplicated tile.
 - **Incrementality.** A pyramid whose stamp matches the register's previous
   entry, whose asset path is unchanged and whose directory still exists, is
   carried over untouched.
+- **The write.** Each pyramid is derived under a temporary name and arrives by
+  one rename, so a reader never sees a half-written one; pyramids the archive no
+  longer offers are taken out; and the register is written last, so until the end
+  it still names the stamps of what is actually on disk. A run interrupted
+  anywhere leaves a register whose stamps disagree with a plan, and the next run
+  derives exactly those pyramids again.
+
+### 4.3 What a stamp promises, and what it does not
+
+A derivation stamp is a **rebuild-cost** promise — *nothing that made this has
+moved* — and never a content promise. It covers the deriving code's own source,
+so two derivers that write byte-identical tiles stamp differently. That is the
+point: changing how a level is reduced has to invalidate every pyramid, and a
+stamp that watched only the archive would quietly keep serving the old
+derivation.
+
+The consequence is that clean-room stamp identity for a pyramid is impossible by
+construction. What is proven instead, in `golden/pipeline/derive_test.go`, is the
+plan and the tiles: every field of the stamp except the tool hash is reproduced
+bit for bit against the reference implementation's recorded stamps, for all nine
+pyramids of the four single-source fixtures; and tunic's 741 tiles are rebuilt
+from the archive byte for byte, along with its zoom range, window, formats,
+bounds, background and coverage bitsets. `golden/format/STAMPS.md` carries the
+accounting.
+
+### 4.4 What the deriver does not do yet
+
+Two of the contract's clauses are declared but not built, and both are named
+where they would be used rather than left to be discovered:
+
+- **Warp variants.** The plan carries a `Warp` — a donor picture resampled
+  through an affine into another picture's world, so two sources' rasters answer
+  to one grid — and the stamp covers it, because the same donor through a
+  different transformation is a different picture. Fitting the affine is
+  alignment work: it stands on the names two sources share, and it is the same
+  machinery cross-source merge stands on. It lands with the enrich lane's `merge`
+  enricher rather than being written twice. `Derive` refuses a warp plan by name.
+- **Offline basemap rendering.** A city has no tile server: its deepest level is
+  rendered from the vectors its open data publishes, and every shallower level
+  folds down from there exactly as any other pyramid does. The renderer is a
+  deterministic rasterizer — a fixed role z-order, capsule strokes unioned by a
+  saturating rasterizer, Sutherland–Hodgman rings and Liang–Barsky segments
+  clipped against a window bled eight pixels past the tile edge, opaque
+  truecolour PNG — and it belongs beside the ArcGIS source's own crawl, since
+  what it renders is what that crawl fetched.
 
 ---
 
@@ -687,9 +756,13 @@ unmovable to a second source describing the same ground.
 ## 7. The CLI
 
 ```
+atlas tiles     -archive DIR -output DIR [-force] [volume…]
 atlas compose   -archive DIR -tiles INDEX [-bundles DIR] [-n] [volume…]
 atlas translate -archive DIR [-volume SLUG] [-artwork] [-list]
 ```
+
+`tiles` folds captured frames into the pyramids composition packs, carrying over
+every pyramid whose captures have not moved.
 
 `compose` builds every volume the archive holds a registered source for, or
 only the ones named. `-n` composes and stamps without writing. With no

@@ -2,9 +2,10 @@
 // one name, each as a subcommand.
 //
 //	atlas compose     build a volume from archived captures and derived tiles
+//	atlas tiles       derive raster pyramids from archived captures
 //	atlas translate   read archived captures and print the interchange document
 //
-// More subcommands arrive with the lanes that own them -- crawl, tiles, enrich,
+// More subcommands arrive with the lanes that own them -- crawl, enrich,
 // measure, workbench, serve, dev. Each lives in its own file and appears here as
 // one line of the table below, so two people adding two subcommands do not
 // collide over this file.
@@ -41,6 +42,7 @@ func commands() []command {
 	return []command{
 		composeCommand(),
 		serveCommand(),
+		tilesCommand(),
 		translateCommand(),
 	}
 }

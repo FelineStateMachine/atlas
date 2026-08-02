@@ -43,6 +43,12 @@
     }
   },
 
+  "pixelArt": {
+    "what": "volumes drawn on a pixel grid. Their pyramids are folded down nearest-neighbour and normalized to lossless PNG, and a reader draws them without interpolation, so the grid survives instead of being blurred into itself. Everything else is a photograph as far as the deriver is concerned.",
+    "why": "a box filter over a sprite map turns a two-pixel wall into a four-pixel smear, and a JPEG of it stores the smear",
+    "volumes": ["pokemon-red-blue-yellow", "pokemon-firered-leafgreen"]
+  },
+
   "shard": {
     "what": "the sheets that hold several separate places at once, and what to do with them. A sheet is declared here and never detected: guessing wrong divides a whole map into pieces nobody asked for. \"worlds\" gives each piece its own entry in the picker; \"lenses\" keeps one world and offers the pieces one at a time.",
     "worlds": {

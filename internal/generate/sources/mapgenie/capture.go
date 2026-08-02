@@ -34,12 +34,28 @@ type rawConfig struct {
 	TileSets []rawTileSet `json:"tile_sets"`
 }
 
-// rawTileSet names one raster of a map. Its zoom range, bounds and encoding are
-// deliberately not read: what a bundle carries is the derived pyramid's account
-// of itself, not the publisher's account of what it offered.
+// rawTileSet names one raster of a map. Its zoom range, bounds and encoding
+// reach the document only as the deriver's frame: what a bundle carries is the
+// derived pyramid's account of itself, never the publisher's account of what it
+// offered, but only the publisher can say which tiles a complete level was
+// supposed to hold.
 type rawTileSet struct {
-	Name string `json:"name"`
-	Path string `json:"path"`
+	Name      string              `json:"name"`
+	Path      string              `json:"path"`
+	MinZoom   int                 `json:"min_zoom"`
+	MaxZoom   int                 `json:"max_zoom"`
+	Extension string              `json:"extension"`
+	Bounds    map[string]rawBound `json:"bounds"`
+}
+
+type rawBound struct {
+	X rawRange `json:"x"`
+	Y rawRange `json:"y"`
+}
+
+type rawRange struct {
+	Min int `json:"min"`
+	Max int `json:"max"`
 }
 
 // rawGroup is a legend section. It is a heading and a colour default, and
