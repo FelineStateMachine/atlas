@@ -346,22 +346,53 @@ export function toggleSection(key) {
 }
 
 // Isolating is the common request of a long legend: "just the Korok Seeds",
-// out of a hundred and sixty categories. Everything else is hidden rather than
-// remembered, so Show all is the single, obvious way back.
+// out of a hundred and sixty categories. It stays inside its own domain --
+// point collections isolate against point collections, ground against
+// ground -- so highlighting a region and then asking for only one resource
+// leaves the region standing with the resource inside it. Everything else
+// in the domain is hidden rather than remembered; Show all is the single,
+// obvious way back.
+function collectionDomain(collection) {
+  return collection.kind === "point" ? "features" : "zones";
+}
+
+// soloDomains names the ground a target's isolation may touch: the target
+// collection's own domain, or every domain a section holds.
+function soloDomains(target) {
+  const domains = new Set();
+  for (const section of state.world.sections) {
+    for (const collection of section.collections) {
+      if (target.section === section.key || target.collection === collection.id) {
+        domains.add(collectionDomain(collection));
+      }
+    }
+  }
+  return domains;
+}
+
 export function showOnly(target) {
   if (!state.world) return;
   // Asking to isolate what is already isolated means the reader is done with
-  // it, so the same control lets them back out.
+  // it, so the same control lets them back out -- of this domain alone.
+  const domains = soloDomains(target);
   if (isOnly(target)) {
-    setAllCollections(true);
-    return;
-  }
-  state.hiddenCollections.clear();
-  for (const section of state.world.sections) {
-    const wanted = target.section === section.key;
-    for (const collection of section.collections) {
-      if (!wanted && target.collection !== collection.id) {
-        state.hiddenCollections.add(collection.id);
+    for (const section of state.world.sections) {
+      for (const collection of section.collections) {
+        if (domains.has(collectionDomain(collection))) {
+          state.hiddenCollections.delete(collection.id);
+        }
+      }
+    }
+  } else {
+    for (const section of state.world.sections) {
+      const wanted = target.section === section.key;
+      for (const collection of section.collections) {
+        if (!domains.has(collectionDomain(collection))) continue;
+        if (wanted || target.collection === collection.id) {
+          state.hiddenCollections.delete(collection.id);
+        } else {
+          state.hiddenCollections.add(collection.id);
+        }
       }
     }
   }
@@ -372,10 +403,13 @@ export function showOnly(target) {
   syncSectionSwitches();
 }
 
-// True when what is on screen is already exactly what this target would isolate.
+// True when this target's own domain already shows exactly what isolating
+// it would show. Other domains are none of the target's business.
 export function isOnly(target) {
+  const domains = soloDomains(target);
   for (const section of state.world.sections) {
     for (const collection of section.collections) {
+      if (!domains.has(collectionDomain(collection))) continue;
       const wanted = target.section === section.key || target.collection === collection.id;
       if (wanted === state.hiddenCollections.has(collection.id)) return false;
     }
@@ -384,33 +418,49 @@ export function isOnly(target) {
 }
 
 // Derived rather than remembered, so the chip is right however the state was
-// reached -- including by switching collections off one at a time.
+// reached -- including by switching collections off one at a time. Each
+// domain speaks for itself, and the chip reads them together: a region
+// isolated among the zones and a resource among the features is
+// "only: Regions · Ore", and one click shows everything again.
 export function updateSoloChip() {
   const chip = elements.soloChip;
   if (!state.world) {
     chip.hidden = true;
     return;
   }
-  let onlyVisible = null;
-  let visibleCount = 0;
-  let soleSection = null;
-  let sectionsShowing = 0;
-  for (const section of state.world.sections) {
-    let shown = 0;
-    for (const collection of section.collections) {
-      if (state.hiddenCollections.has(collection.id)) continue;
-      shown++;
-      visibleCount++;
-      onlyVisible = collection;
+  const labels = [];
+  for (const domain of ["zones", "features"]) {
+    let onlyVisible = null;
+    let visibleCount = 0;
+    let hiddenCount = 0;
+    let soleSection = null;
+    let sectionsShowing = 0;
+    for (const section of state.world.sections) {
+      let shown = 0;
+      let held = 0;
+      for (const collection of section.collections) {
+        if (collectionDomain(collection) !== domain) continue;
+        held++;
+        if (state.hiddenCollections.has(collection.id)) {
+          hiddenCount++;
+          continue;
+        }
+        shown++;
+        visibleCount++;
+        onlyVisible = collection;
+      }
+      if (shown > 0) {
+        sectionsShowing++;
+        soleSection = shown === held ? section : null;
+      }
     }
-    if (shown > 0) {
-      sectionsShowing++;
-      soleSection = shown === section.collections.length ? section : null;
+    if (hiddenCount === 0) continue;
+    if (visibleCount === 1 && onlyVisible) labels.push(onlyVisible.title);
+    else if (visibleCount > 1 && sectionsShowing === 1 && soleSection) {
+      labels.push(soleSection.title);
     }
   }
-  let label = "";
-  if (visibleCount === 1 && onlyVisible) label = onlyVisible.title;
-  else if (sectionsShowing === 1 && soleSection) label = soleSection.title;
+  const label = labels.join(" · ");
   chip.hidden = !label;
   chip.textContent = label ? `only: ${label}` : "";
   chip.title = label ? `Showing only ${label} — click to show everything` : "";
