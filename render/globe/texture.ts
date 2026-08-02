@@ -123,24 +123,28 @@ export class Skin {
   /**
    * Composite the neighbourhood under the camera.
    *
-   * The window is a degree box the caller worked out from the camera; only
-   * tiles inside it, at the level the camera's distance asked for, and only
-   * where the coverage admits one.
+   * The caller names the tiles, by column and row of the pyramid's own grid,
+   * because that is the unit the neighbourhood is budgeted in: a block of
+   * (2·reach+1)² tiles around the one the camera faces. Working the block out
+   * as a rectangle of world pixels and re-deriving the tiles from it is what
+   * put a hundred tiles under a camera the reference gave eighty-one — a
+   * rectangle landing a hair past a boundary takes the whole next row.
    */
   async detail(
     lens: Lens,
     z: number,
-    at: { x: number; y: number; width: number; height: number },
+    wanted: readonly (readonly [number, number])[],
     url: (z: number, x: number, y: number) => string | null,
     changed: () => void,
   ): Promise<void> {
-    const key = `${lens.tiles}/${z}/${Math.round(at.x)}/${Math.round(at.y)}`;
+    const key = `${lens.tiles}/${z}/` +
+      wanted.map(([x, y]) => `${x},${y}`).sort().join(" ");
     if (key === this.detailKey) return;
     this.generation++;
     this.detailKey = key;
     this.tiles.clear();
     this.lens = lens.tiles;
-    await this.paint(z, lens, url, changed, at);
+    await this.paint(z, lens, url, changed, wanted);
   }
 
   private async paint(
@@ -148,7 +152,7 @@ export class Skin {
     lens: Lens,
     url: (z: number, x: number, y: number) => string | null,
     changed: () => void,
-    limit: { x: number; y: number; width: number; height: number } | null,
+    only: readonly (readonly [number, number])[] | null,
   ): Promise<void> {
     const paper = this.paper;
     if (!paper) return;
@@ -156,30 +160,30 @@ export class Skin {
     paper.imageSmoothingEnabled = lens.interpolate;
     const coverage = new LensCoverage(lens);
     const edge = this.grid.size / 2 ** z;
-    const box = limit ?? this.window;
-    const x0 = Math.max(Math.floor(box.x / edge), Math.floor(this.window.x / edge));
-    const x1 = Math.min(
-      Math.ceil((box.x + box.width) / edge),
-      Math.ceil((this.window.x + this.window.width) / edge));
-    const y0 = Math.max(Math.floor(box.y / edge), Math.floor(this.window.y / edge));
-    const y1 = Math.min(
-      Math.ceil((box.y + box.height) / edge),
-      Math.ceil((this.window.y + this.window.height) / edge));
     const scale = (edge / this.window.width) * TEXTURE_WIDTH;
     const scaleY = (edge / this.window.height) * TEXTURE_HEIGHT;
+    for (const [x, y] of only ?? this.windowTiles(edge)) {
+      if (!coverage.has(this.grid, z, x, y)) continue;
+      const at = url(z, x, y);
+      if (!at) continue;
+      const image = await load(at);
+      if (mine !== this.generation) return;
+      if (!image) continue;
+      const [px, py] = this.place(x * edge, y * edge);
+      paper.drawImage(image, px, py, scale, scaleY);
+      if (only) this.tiles.set(`${z}/${x}/${y}`, true);
+      changed();
+    }
+  }
+
+  /** Every tile of one level the declared window covers, column by column. */
+  private *windowTiles(edge: number): Generator<[number, number]> {
+    const x0 = Math.floor(this.window.x / edge);
+    const x1 = Math.ceil((this.window.x + this.window.width) / edge);
+    const y0 = Math.floor(this.window.y / edge);
+    const y1 = Math.ceil((this.window.y + this.window.height) / edge);
     for (let x = x0; x < x1; x++) {
-      for (let y = y0; y < y1; y++) {
-        if (!coverage.has(this.grid, z, x, y)) continue;
-        const at = url(z, x, y);
-        if (!at) continue;
-        const image = await load(at);
-        if (mine !== this.generation) return;
-        if (!image) continue;
-        const [px, py] = this.place(x * edge, y * edge);
-        paper.drawImage(image, px, py, scale, scaleY);
-        if (limit) this.tiles.set(`${z}/${x}/${y}`, true);
-        changed();
-      }
+      for (let y = y0; y < y1; y++) yield [x, y];
     }
   }
 }
