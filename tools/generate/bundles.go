@@ -11,7 +11,6 @@ import (
 	"strings"
 
 	"github.com/FelineStateMachine/atlas/internal/bundle"
-	"github.com/FelineStateMachine/atlas/internal/semconv"
 )
 
 // policyRevision orders builds of the same capture. The data has not moved
@@ -70,9 +69,14 @@ func writeVolumeBundle(
 	manifest := bundle.Manifest{
 		Format:        bundle.Format,
 		FormatVersion: bundle.FormatVersion,
-		Conventions:   semconv.Version,
-		Volume:        bundle.Volume{Slug: game.Slug, Title: game.Title},
-		Version:       bundle.Version{Revision: policyRevision},
+		// The manifest names the vocabulary the payloads actually speak, and
+		// until the unified wire lands they still speak the v1 shapes -- the
+		// registry's own Version moved ahead to 2, but stamping that here
+		// would drift every bundle's identity over words no payload says yet.
+		// Flag day writes semconv.Version again.
+		Conventions: 1,
+		Volume:      bundle.Volume{Slug: game.Slug, Title: game.Title},
+		Version:     bundle.Version{Revision: policyRevision},
 		TileGrid: bundle.TileGrid{
 			SourceZoom: grid.SourceZoom,
 			FirstTile:  grid.FirstTile,

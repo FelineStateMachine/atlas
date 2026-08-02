@@ -258,13 +258,31 @@ func validateConventions(slug string, peek payloadPeek, text []byte) error {
 		}
 	}
 	for _, zone := range peek.Zones {
-		if err := semconv.Validate(semconv.EntityZone, zone.Attrs); err != nil {
+		// A zone's attributes attach to the feature it is -- except its
+		// stroke width, which the v2 wire spells on each zone though the
+		// registry attaches it to the collection. The zone answers for its
+		// collection until the unified wire moves the write.
+		attrs := zone.Attrs
+		if width, carried := attrs[semconv.KeyStrokeWidthPx]; carried {
+			if err := semconv.Validate(semconv.EntityCollection,
+				map[string]string{semconv.KeyStrokeWidthPx: width}); err != nil {
+				return fmt.Errorf("world %s: %w", slug, err)
+			}
+			rest := make(map[string]string, len(attrs)-1)
+			for key, value := range attrs {
+				if key != semconv.KeyStrokeWidthPx {
+					rest[key] = value
+				}
+			}
+			attrs = rest
+		}
+		if err := semconv.Validate(semconv.EntityFeature, attrs); err != nil {
 			return fmt.Errorf("world %s: %w", slug, err)
 		}
 	}
 	for _, group := range peek.Groups {
 		for _, category := range group.Categories {
-			if err := semconv.Validate(semconv.EntityCategory, category.Attrs); err != nil {
+			if err := semconv.Validate(semconv.EntityCollection, category.Attrs); err != nil {
 				return fmt.Errorf("world %s: %w", slug, err)
 			}
 			if declared, ok := category.Attrs[semconv.KeyRenderAs]; ok {
@@ -283,7 +301,7 @@ func validateConventions(slug string, peek payloadPeek, text []byte) error {
 		return fmt.Errorf("world %s: decode text: %w", slug, err)
 	}
 	for id, entry := range entries {
-		if err := semconv.Validate(semconv.EntityLocation, entry.Attrs); err != nil {
+		if err := semconv.Validate(semconv.EntityFeature, entry.Attrs); err != nil {
 			return fmt.Errorf("world %s pin %s: %w", slug, id, err)
 		}
 	}

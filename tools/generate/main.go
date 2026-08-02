@@ -525,7 +525,7 @@ func speakConventions(game *catalogVolume) error {
 			collection := &m.Collections[collectionIndex]
 			if collection.Kind != kindPoint {
 				for _, shape := range collection.Features {
-					if err := semconv.Validate(semconv.EntityZone, shape.Attrs); err != nil {
+					if err := validateShapeAttrs(shape.Attrs); err != nil {
 						return fmt.Errorf("world %s zone %q: %w", m.Slug, shape.Title, err)
 					}
 				}
@@ -540,8 +540,8 @@ func speakConventions(game *catalogVolume) error {
 			// reads identity off the payload rather than a table of its
 			// own.
 			if shared := categoryEquivalents[game.Slug][collection.Icon]; shared != "" {
-				if _, declared := collection.Attrs[semconv.KeyCategoryKey]; !declared {
-					collection.Attrs = withAttr(collection.Attrs, semconv.KeyCategoryKey, shared)
+				if _, declared := collection.Attrs[semconv.KeyCollectionKey]; !declared {
+					collection.Attrs = withAttr(collection.Attrs, semconv.KeyCollectionKey, shared)
 				}
 			}
 			if collection.IconAsset != "" {
@@ -551,17 +551,40 @@ func speakConventions(game *catalogVolume) error {
 				}
 				collection.Attrs = withAttr(collection.Attrs, semconv.KeyIconKind, kind)
 			}
-			if err := semconv.Validate(semconv.EntityCategory, collection.Attrs); err != nil {
+			if err := semconv.Validate(semconv.EntityCollection, collection.Attrs); err != nil {
 				return fmt.Errorf("world %s category %q: %w", m.Slug, collection.Title, err)
 			}
 			for _, pin := range collection.Features {
-				if err := semconv.Validate(semconv.EntityLocation, pin.Attrs); err != nil {
+				if err := semconv.Validate(semconv.EntityFeature, pin.Attrs); err != nil {
 					return fmt.Errorf("world %s pin %q: %w", m.Slug, pin.Title, err)
 				}
 			}
 		}
 	}
 	return nil
+}
+
+// validateShapeAttrs holds a shape feature's attributes to the registry as
+// the feature they attach to -- with one allowance that lasts until the
+// unified wire: the v2 wire spells a path collection's stroke width on each
+// zone, so the zone answers for its collection's one attribute here. Flag
+// day moves the write where the registry says the key lives and this
+// allowance goes with it.
+func validateShapeAttrs(attrs map[string]string) error {
+	if width, carried := attrs[semconv.KeyStrokeWidthPx]; carried {
+		if err := semconv.Validate(semconv.EntityCollection,
+			map[string]string{semconv.KeyStrokeWidthPx: width}); err != nil {
+			return err
+		}
+		rest := make(map[string]string, len(attrs)-1)
+		for key, value := range attrs {
+			if key != semconv.KeyStrokeWidthPx {
+				rest[key] = value
+			}
+		}
+		attrs = rest
+	}
+	return semconv.Validate(semconv.EntityFeature, attrs)
 }
 
 // withAttr sets one attribute on a copy of the map, never the map itself: a

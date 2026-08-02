@@ -38,7 +38,7 @@ const (
 
 // categoryEquivalents names the shared concept where two sources spell one
 // category differently, per game. It is applied by speakConventions, which
-// writes the shared name onto each category as atlas.category.key -- so the
+// writes the shared name onto each category as atlas.collection.key -- so the
 // payloads themselves carry the merge identity, and the merge below reads
 // only the attribute. Slugs equal after normalization pair automatically;
 // everything else stays source-specific rather than being guessed together.
@@ -58,7 +58,7 @@ var categoryEquivalents = map[string]map[string]string{
 // the payload carries one, its icon key otherwise -- which is today's
 // behavior, named.
 func categoryKey(icon string, attrs map[string]string) string {
-	if key := attrs[semconv.KeyCategoryKey]; key != "" {
+	if key := attrs[semconv.KeyCollectionKey]; key != "" {
 		return key
 	}
 	return icon
@@ -379,7 +379,7 @@ func mergeWorld(
 	// the serving map does not have at all keep their donor categories, so
 	// the source-named group holds nothing but what is truly source-specific.
 	// Categories meet under their declared merge identity -- the
-	// atlas.category.key their payloads carry, their icon key otherwise --
+	// atlas.collection.key their payloads carry, their icon key otherwise --
 	// so the equivalence curation lives in the payloads, not here.
 	var keptCollections []worldCollection
 	for _, donorCollection := range donor.Collections {
@@ -847,7 +847,7 @@ func mergeGate(merge *mergedSource, winner *catalogWorld) error {
 				tookNote = true
 				continue
 			}
-			if entity, known := semconv.EntityOf(key); !known || entity != semconv.EntityLocation {
+			if entity, known := semconv.EntityOf(key); !known || entity != semconv.EntityFeature {
 				return fmt.Errorf("pair %d took %q, which no pin may carry", pair.Donor, key)
 			}
 		}
@@ -857,7 +857,7 @@ func mergeGate(merge *mergedSource, winner *catalogWorld) error {
 		}
 	}
 	for _, take := range merge.Enriched {
-		if entity, known := semconv.EntityOf(take.Key); !known || entity != semconv.EntityCategory {
+		if entity, known := semconv.EntityOf(take.Key); !known || entity != semconv.EntityCollection {
 			return fmt.Errorf("category %q took %q, which no category may carry", take.Category, take.Key)
 		}
 	}

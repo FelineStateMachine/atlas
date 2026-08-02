@@ -207,7 +207,7 @@ func TestTranslateShapesTheDocument(t *testing.T) {
 	if historic.Title != "Historic Resources" || len(historic.Locations) != 2 {
 		t.Fatalf("category is %q with %d pins", historic.Title, len(historic.Locations))
 	}
-	if err := semconv.Validate(semconv.EntityCategory, historic.Attrs); err != nil {
+	if err := semconv.Validate(semconv.EntityCollection, historic.Attrs); err != nil {
 		t.Fatalf("category attrs: %v", err)
 	}
 	pin := historic.Locations[0]
@@ -217,7 +217,7 @@ func TestTranslateShapesTheDocument(t *testing.T) {
 	if pin.Description != "Residential · 42 NW Hawthorne Ave · Constructed: 1910" {
 		t.Fatalf("pin card reads %q", pin.Description)
 	}
-	if err := semconv.Validate(semconv.EntityLocation, pin.Attrs); err != nil {
+	if err := semconv.Validate(semconv.EntityFeature, pin.Attrs); err != nil {
 		t.Fatalf("pin attrs: %v", err)
 	}
 	if pin.Attrs[semconv.KeyGeoLat] != "44.0581" || pin.Attrs[semconv.KeyGeoLon] != "-121.3081" {
@@ -263,7 +263,7 @@ func TestTranslateShapesTheDocument(t *testing.T) {
 	if pf.Description != "Lies in the Tumalo Creek subwatershed (HUC 170703010101)." {
 		t.Fatalf("PF card reads %q", pf.Description)
 	}
-	if err := semconv.Validate(semconv.EntityZone, pf.Attrs); err != nil {
+	if err := semconv.Validate(semconv.EntityFeature, pf.Attrs); err != nil {
 		t.Fatalf("PF attrs: %v", err)
 	}
 	if pf.Attrs[semconv.KeyHydroHUC12] != "170703010101" {
@@ -294,8 +294,15 @@ func TestTranslateShapesTheDocument(t *testing.T) {
 	if trail.Subtitle != "Riley Ranch Nature Reserve" || len(trail.Features) != 1 {
 		t.Fatalf("trail zone is %+v", trail)
 	}
-	// A line zone stays the line it is, and declares the width it is drawn at.
-	if err := semconv.Validate(semconv.EntityZone, trail.Attrs); err != nil {
+	// A line zone stays the line it is, and declares the width it is drawn
+	// at. The v2 wire spells the collection's stroke on the zone, so its two
+	// keys validate under the entities the registry attaches them to.
+	if err := semconv.Validate(semconv.EntityCollection,
+		map[string]string{semconv.KeyStrokeWidthPx: trail.Attrs[semconv.KeyStrokeWidthPx]}); err != nil {
+		t.Fatalf("trail stroke: %v", err)
+	}
+	if err := semconv.Validate(semconv.EntityFeature,
+		map[string]string{semconv.KeyHydroHUC12: trail.Attrs[semconv.KeyHydroHUC12]}); err != nil {
 		t.Fatalf("trail attrs: %v", err)
 	}
 	if trail.Attrs[semconv.KeyStrokeWidthPx] != "12" {
