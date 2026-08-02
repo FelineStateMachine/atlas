@@ -30,7 +30,7 @@
         },
         "pins": 860,
         "eligibleLocations": 860,
-        "domNodes": 1250,
+        "domNodes": 1251,
         "canvases": 2,
         "rasterCacheSize": 64,
         "labelsHeld": false,
@@ -102,6 +102,7 @@
         },
         "library": {
           "volumes": [
+            "bend-or",
             "cyberpunk-2077",
             "fallout-new-vegas",
             "mars",
@@ -179,7 +180,7 @@
         },
         "pins": 860,
         "eligibleLocations": 564,
-        "domNodes": 1250,
+        "domNodes": 1251,
         "canvases": 2,
         "rasterCacheSize": 64,
         "labelsHeld": false,
@@ -251,6 +252,7 @@
         },
         "library": {
           "volumes": [
+            "bend-or",
             "cyberpunk-2077",
             "fallout-new-vegas",
             "mars",
@@ -321,14 +323,14 @@
         "maxZoom": 9,
         "interpolate": true,
         "tileStats": {
-          "requested": 42,
-          "loaded": 42,
+          "requested": 43,
+          "loaded": 43,
           "errors": 0,
           "peakPending": 16
         },
         "pins": 860,
         "eligibleLocations": 564,
-        "domNodes": 1250,
+        "domNodes": 1251,
         "canvases": 2,
         "rasterCacheSize": 64,
         "labelsHeld": false,
@@ -400,6 +402,7 @@
         },
         "library": {
           "volumes": [
+            "bend-or",
             "cyberpunk-2077",
             "fallout-new-vegas",
             "mars",
@@ -477,7 +480,7 @@
         },
         "pins": 860,
         "eligibleLocations": 564,
-        "domNodes": 1250,
+        "domNodes": 1251,
         "canvases": 2,
         "rasterCacheSize": 64,
         "labelsHeld": false,
@@ -549,6 +552,7 @@
         },
         "library": {
           "volumes": [
+            "bend-or",
             "cyberpunk-2077",
             "fallout-new-vegas",
             "mars",
@@ -626,7 +630,7 @@
         },
         "pins": 860,
         "eligibleLocations": 860,
-        "domNodes": 1250,
+        "domNodes": 1251,
         "canvases": 2,
         "rasterCacheSize": 64,
         "labelsHeld": false,
@@ -698,6 +702,7 @@
         },
         "library": {
           "volumes": [
+            "bend-or",
             "cyberpunk-2077",
             "fallout-new-vegas",
             "mars",
@@ -775,7 +780,7 @@
         },
         "pins": 860,
         "eligibleLocations": 693,
-        "domNodes": 1250,
+        "domNodes": 1251,
         "canvases": 2,
         "rasterCacheSize": 64,
         "labelsHeld": false,
@@ -849,6 +854,7 @@
         },
         "library": {
           "volumes": [
+            "bend-or",
             "cyberpunk-2077",
             "fallout-new-vegas",
             "mars",
@@ -928,7 +934,7 @@
         },
         "pins": 860,
         "eligibleLocations": 860,
-        "domNodes": 1250,
+        "domNodes": 1251,
         "canvases": 2,
         "rasterCacheSize": 64,
         "labelsHeld": false,
@@ -1000,6 +1006,7 @@
         },
         "library": {
           "volumes": [
+            "bend-or",
             "cyberpunk-2077",
             "fallout-new-vegas",
             "mars",
@@ -1077,7 +1084,7 @@
         },
         "pins": 860,
         "eligibleLocations": 275,
-        "domNodes": 1250,
+        "domNodes": 1251,
         "canvases": 2,
         "rasterCacheSize": 64,
         "labelsHeld": false,
@@ -1187,6 +1194,7 @@
         },
         "library": {
           "volumes": [
+            "bend-or",
             "cyberpunk-2077",
             "fallout-new-vegas",
             "mars",
@@ -1302,7 +1310,7 @@
         },
         "pins": 860,
         "eligibleLocations": 860,
-        "domNodes": 1250,
+        "domNodes": 1251,
         "canvases": 2,
         "rasterCacheSize": 64,
         "labelsHeld": false,
@@ -1374,6 +1382,7 @@
         },
         "library": {
           "volumes": [
+            "bend-or",
             "cyberpunk-2077",
             "fallout-new-vegas",
             "mars",
@@ -1451,7 +1460,7 @@
         },
         "pins": 860,
         "eligibleLocations": 860,
-        "domNodes": 1250,
+        "domNodes": 1251,
         "canvases": 2,
         "rasterCacheSize": 64,
         "labelsHeld": false,
@@ -1524,6 +1533,7 @@
         },
         "library": {
           "volumes": [
+            "bend-or",
             "cyberpunk-2077",
             "fallout-new-vegas",
             "mars",
@@ -1602,7 +1612,7 @@
         },
         "pins": 860,
         "eligibleLocations": 860,
-        "domNodes": 1250,
+        "domNodes": 1251,
         "canvases": 2,
         "rasterCacheSize": 64,
         "labelsHeld": false,
@@ -1672,6 +1682,7 @@
         },
         "library": {
           "volumes": [
+            "bend-or",
             "cyberpunk-2077",
             "fallout-new-vegas",
             "mars",
@@ -1747,7 +1758,7 @@
         },
         "pins": 860,
         "eligibleLocations": 0,
-        "domNodes": 750,
+        "domNodes": 751,
         "canvases": 2,
         "rasterCacheSize": 64,
         "labelsHeld": false,
@@ -1858,6 +1869,7 @@
         },
         "library": {
           "volumes": [
+            "bend-or",
             "cyberpunk-2077",
             "fallout-new-vegas",
             "mars",
@@ -1974,7 +1986,7 @@
         },
         "pins": 860,
         "eligibleLocations": 860,
-        "domNodes": 1250,
+        "domNodes": 1251,
         "canvases": 2,
         "rasterCacheSize": 64,
         "labelsHeld": false,
@@ -2044,6 +2056,7 @@
         },
         "library": {
           "volumes": [
+            "bend-or",
             "cyberpunk-2077",
             "fallout-new-vegas",
             "mars",
@@ -2119,7 +2132,7 @@
         },
         "pins": 860,
         "eligibleLocations": 860,
-        "domNodes": 1250,
+        "domNodes": 1251,
         "canvases": 2,
         "rasterCacheSize": 64,
         "labelsHeld": false,
@@ -2189,6 +2202,7 @@
         },
         "library": {
           "volumes": [
+            "bend-or",
             "cyberpunk-2077",
             "fallout-new-vegas",
             "mars",
@@ -2267,7 +2281,7 @@
         },
         "pins": 860,
         "eligibleLocations": 860,
-        "domNodes": 1250,
+        "domNodes": 1251,
         "canvases": 2,
         "rasterCacheSize": 64,
         "labelsHeld": false,
@@ -2337,6 +2351,7 @@
         },
         "library": {
           "volumes": [
+            "bend-or",
             "cyberpunk-2077",
             "fallout-new-vegas",
             "mars",
@@ -2412,7 +2427,7 @@
         },
         "pins": 860,
         "eligibleLocations": 860,
-        "domNodes": 1250,
+        "domNodes": 1251,
         "canvases": 2,
         "rasterCacheSize": 64,
         "labelsHeld": false,
@@ -2482,6 +2497,7 @@
         },
         "library": {
           "volumes": [
+            "bend-or",
             "cyberpunk-2077",
             "fallout-new-vegas",
             "mars",
@@ -2560,7 +2576,7 @@
         },
         "pins": 860,
         "eligibleLocations": 860,
-        "domNodes": 1250,
+        "domNodes": 1251,
         "canvases": 2,
         "rasterCacheSize": 64,
         "labelsHeld": false,
@@ -2630,6 +2646,7 @@
         },
         "library": {
           "volumes": [
+            "bend-or",
             "cyberpunk-2077",
             "fallout-new-vegas",
             "mars",
@@ -2705,7 +2722,7 @@
         },
         "pins": 860,
         "eligibleLocations": 860,
-        "domNodes": 1250,
+        "domNodes": 1251,
         "canvases": 2,
         "rasterCacheSize": 64,
         "labelsHeld": false,
@@ -3165,6 +3182,7 @@
         },
         "library": {
           "volumes": [
+            "bend-or",
             "cyberpunk-2077",
             "fallout-new-vegas",
             "mars",
@@ -3240,7 +3258,7 @@
         },
         "pins": 860,
         "eligibleLocations": 8,
-        "domNodes": 789,
+        "domNodes": 790,
         "canvases": 2,
         "rasterCacheSize": 64,
         "labelsHeld": false,
@@ -4084,6 +4102,7 @@
         },
         "library": {
           "volumes": [
+            "bend-or",
             "cyberpunk-2077",
             "fallout-new-vegas",
             "mars",
@@ -4159,7 +4178,7 @@
         },
         "pins": 860,
         "eligibleLocations": 8,
-        "domNodes": 789,
+        "domNodes": 790,
         "canvases": 2,
         "rasterCacheSize": 64,
         "labelsHeld": false,
@@ -5003,6 +5022,7 @@
         },
         "library": {
           "volumes": [
+            "bend-or",
             "cyberpunk-2077",
             "fallout-new-vegas",
             "mars",
@@ -5078,7 +5098,7 @@
         },
         "pins": 860,
         "eligibleLocations": 860,
-        "domNodes": 1250,
+        "domNodes": 1251,
         "canvases": 2,
         "rasterCacheSize": 64,
         "labelsHeld": false,
@@ -5538,6 +5558,7 @@
         },
         "library": {
           "volumes": [
+            "bend-or",
             "cyberpunk-2077",
             "fallout-new-vegas",
             "mars",
@@ -5613,7 +5634,7 @@
         },
         "pins": 860,
         "eligibleLocations": 860,
-        "domNodes": 1250,
+        "domNodes": 1251,
         "canvases": 2,
         "rasterCacheSize": 64,
         "labelsHeld": false,
@@ -5683,6 +5704,7 @@
         },
         "library": {
           "volumes": [
+            "bend-or",
             "cyberpunk-2077",
             "fallout-new-vegas",
             "mars",
@@ -5758,7 +5780,7 @@
         },
         "pins": 860,
         "eligibleLocations": 860,
-        "domNodes": 1250,
+        "domNodes": 1251,
         "canvases": 2,
         "rasterCacheSize": 64,
         "labelsHeld": true,
@@ -5828,6 +5850,7 @@
         },
         "library": {
           "volumes": [
+            "bend-or",
             "cyberpunk-2077",
             "fallout-new-vegas",
             "mars",
@@ -5903,7 +5926,7 @@
         },
         "pins": 860,
         "eligibleLocations": 860,
-        "domNodes": 1250,
+        "domNodes": 1251,
         "canvases": 2,
         "rasterCacheSize": 64,
         "labelsHeld": false,
@@ -5973,6 +5996,7 @@
         },
         "library": {
           "volumes": [
+            "bend-or",
             "cyberpunk-2077",
             "fallout-new-vegas",
             "mars",
@@ -6048,7 +6072,7 @@
         },
         "pins": 860,
         "eligibleLocations": 860,
-        "domNodes": 1250,
+        "domNodes": 1251,
         "canvases": 2,
         "rasterCacheSize": 64,
         "labelsHeld": false,
@@ -6118,6 +6142,7 @@
         },
         "library": {
           "volumes": [
+            "bend-or",
             "cyberpunk-2077",
             "fallout-new-vegas",
             "mars",
@@ -6193,7 +6218,7 @@
         },
         "pins": 860,
         "eligibleLocations": 860,
-        "domNodes": 1250,
+        "domNodes": 1251,
         "canvases": 2,
         "rasterCacheSize": 64,
         "labelsHeld": false,
@@ -6263,6 +6288,7 @@
         },
         "library": {
           "volumes": [
+            "bend-or",
             "cyberpunk-2077",
             "fallout-new-vegas",
             "mars",
@@ -6338,7 +6364,7 @@
         },
         "pins": 860,
         "eligibleLocations": 860,
-        "domNodes": 1250,
+        "domNodes": 1251,
         "canvases": 2,
         "rasterCacheSize": 64,
         "labelsHeld": false,
@@ -6408,6 +6434,7 @@
         },
         "library": {
           "volumes": [
+            "bend-or",
             "cyberpunk-2077",
             "fallout-new-vegas",
             "mars",
@@ -6483,7 +6510,7 @@
         },
         "pins": 860,
         "eligibleLocations": 860,
-        "domNodes": 1250,
+        "domNodes": 1251,
         "canvases": 2,
         "rasterCacheSize": 64,
         "labelsHeld": false,
@@ -6553,6 +6580,7 @@
         },
         "library": {
           "volumes": [
+            "bend-or",
             "cyberpunk-2077",
             "fallout-new-vegas",
             "mars",
@@ -6628,7 +6656,7 @@
         },
         "pins": 860,
         "eligibleLocations": 860,
-        "domNodes": 1250,
+        "domNodes": 1251,
         "canvases": 2,
         "rasterCacheSize": 64,
         "labelsHeld": false,
@@ -6698,6 +6726,7 @@
         },
         "library": {
           "volumes": [
+            "bend-or",
             "cyberpunk-2077",
             "fallout-new-vegas",
             "mars",
@@ -6773,7 +6802,7 @@
         },
         "pins": 860,
         "eligibleLocations": 860,
-        "domNodes": 1250,
+        "domNodes": 1251,
         "canvases": 2,
         "rasterCacheSize": 64,
         "labelsHeld": false,
@@ -6843,6 +6872,7 @@
         },
         "library": {
           "volumes": [
+            "bend-or",
             "cyberpunk-2077",
             "fallout-new-vegas",
             "mars",
@@ -6918,7 +6948,7 @@
         },
         "pins": 860,
         "eligibleLocations": 860,
-        "domNodes": 1250,
+        "domNodes": 1251,
         "canvases": 2,
         "rasterCacheSize": 64,
         "labelsHeld": false,
@@ -6988,6 +7018,7 @@
         },
         "library": {
           "volumes": [
+            "bend-or",
             "cyberpunk-2077",
             "fallout-new-vegas",
             "mars",
@@ -7063,7 +7094,7 @@
         },
         "pins": 860,
         "eligibleLocations": 860,
-        "domNodes": 1250,
+        "domNodes": 1251,
         "canvases": 2,
         "rasterCacheSize": 64,
         "labelsHeld": false,
@@ -7133,6 +7164,7 @@
         },
         "library": {
           "volumes": [
+            "bend-or",
             "cyberpunk-2077",
             "fallout-new-vegas",
             "mars",
@@ -7208,7 +7240,7 @@
         },
         "pins": 860,
         "eligibleLocations": 860,
-        "domNodes": 1250,
+        "domNodes": 1251,
         "canvases": 2,
         "rasterCacheSize": 64,
         "labelsHeld": false,
@@ -7278,6 +7310,7 @@
         },
         "library": {
           "volumes": [
+            "bend-or",
             "cyberpunk-2077",
             "fallout-new-vegas",
             "mars",
@@ -7333,33 +7366,33 @@
       "name": "game-second",
       "snapshot": {
         "coordinateSystem": "ATLAS:PIXELS; origin top-left; x increases right; y decreases downward",
-        "volume": "Fallout: New Vegas",
-        "world": "Mojave Wasteland",
-        "lens": "Pip-Boy",
-        "zoom": 2.2437937637036787,
+        "volume": "Bend, Oregon",
+        "world": "2026-08-02",
+        "lens": "Basemap",
+        "zoom": 1.3398500028846247,
         "center": [
-          4095.5,
-          -4209
+          4096,
+          -4096
         ],
-        "resolution": 6.756172839506172,
-        "nativeMaxZoom": 5,
-        "maxZoom": 7,
+        "resolution": 12.641975308641975,
+        "nativeMaxZoom": 6,
+        "maxZoom": 8,
         "interpolate": true,
         "tileStats": {
-          "requested": 12,
-          "loaded": 12,
+          "requested": 4,
+          "loaded": 4,
           "errors": 0,
-          "peakPending": 12
+          "peakPending": 4
         },
-        "pins": 1257,
-        "eligibleLocations": 1257,
-        "domNodes": 1243,
+        "pins": 65,
+        "eligibleLocations": 65,
+        "domNodes": 1315,
         "canvases": 2,
         "rasterCacheSize": 64,
         "labelsHeld": false,
         "hoveredPin": null,
         "selectedPin": null,
-        "fitZoom": 2.240073875723823,
+        "fitZoom": 1.2620948453701795,
         "filters": {
           "hiddenCategories": [],
           "collapsedSections": [
@@ -7373,24 +7406,24 @@
           "searchQuery": "",
           "searchResultsVisible": true,
           "soloChip": null,
-          "visibleCountText": "1,257 of 1,257 features in view",
+          "visibleCountText": "213 of 213 features in view",
           "overviewDocked": false,
           "dockFolded": true,
           "dockDismissed": false,
           "subgridVisible": true
         },
         "zones": {
-          "visible": false,
-          "count": 0,
+          "visible": true,
+          "count": 148,
           "focused": null,
           "highlighted": [],
           "focusedPins": 0
         },
         "sync": {
-          "drawn": 1257,
-          "listable": 1257,
-          "footerText": "1,257 of 1,257 features in view",
-          "dockText": "1,257 features",
+          "drawn": 213,
+          "listable": 213,
+          "footerText": "213 of 213 features in view",
+          "dockText": "213 features",
           "dockFlag": null,
           "dockRows": 100,
           "searching": false
@@ -7425,29 +7458,18 @@
         },
         "library": {
           "volumes": [
+            "bend-or",
             "cyberpunk-2077",
             "fallout-new-vegas",
             "mars",
             "tunic",
             "zelda-tears-of-the-kingdom"
           ],
-          "volumeValue": "fallout-new-vegas",
+          "volumeValue": "bend-or",
           "worlds": [
-            "mojave-wasteland",
-            "mojave-wasteland-camp-forlorn-hope",
-            "mojave-wasteland-camp-mccarran",
-            "mojave-wasteland-freeside",
-            "mojave-wasteland-north-vegas-square",
-            "mojave-wasteland-south-vegas-ruins",
-            "mojave-wasteland-the-fort",
-            "mojave-wasteland-the-strip",
-            "mojave-wasteland-westside",
-            "big-mt",
-            "sierra-madre",
-            "the-divide",
-            "zion-canyon"
+            "2026-08-02"
           ],
-          "worldValue": "mojave-wasteland",
+          "worldValue": "2026-08-02",
           "lenses": [
             "0"
           ],
@@ -7458,32 +7480,51 @@
           "emptyOpenDisabled": false
         },
         "labels": {
-          "speaking": [],
-          "silent": []
+          "speaking": [
+            "1410210368",
+            "2143902706",
+            "39191589",
+            "80332795"
+          ],
+          "silent": [
+            "1951802496",
+            "253393030",
+            "50985093"
+          ]
         },
         "session": {
-          "last": "fallout-new-vegas",
+          "last": "bend-or",
           "entry": {
-            "volume": "fallout-new-vegas",
-            "world": "mojave-wasteland",
+            "volume": "bend-or",
+            "world": "2026-08-02",
             "lens": 0,
             "center": [
               4096,
-              -4209
+              -4096
             ],
-            "zoom": 2.244,
+            "zoom": 1.34,
             "hidden": [],
             "collapsed": [
               "zones"
             ],
-            "expanded": [],
+            "expanded": [
+              1402791847,
+              1410210368,
+              1951802496,
+              2143902706,
+              253393030,
+              39191589,
+              480364651,
+              50985093,
+              80332795
+            ],
             "labels": [],
             "overviewDocked": false,
             "dockFolded": true,
             "dockDismissed": false
           }
         },
-        "route": "#fallout-new-vegas/mojave-wasteland"
+        "route": "#bend-or/2026-08-02"
       }
     },
     {
@@ -7510,7 +7551,7 @@
         },
         "pins": 860,
         "eligibleLocations": 860,
-        "domNodes": 1250,
+        "domNodes": 1251,
         "canvases": 2,
         "rasterCacheSize": 64,
         "labelsHeld": false,
@@ -7580,6 +7621,7 @@
         },
         "library": {
           "volumes": [
+            "bend-or",
             "cyberpunk-2077",
             "fallout-new-vegas",
             "mars",
@@ -7655,7 +7697,7 @@
         },
         "pins": 860,
         "eligibleLocations": 860,
-        "domNodes": 1250,
+        "domNodes": 1251,
         "canvases": 2,
         "rasterCacheSize": 64,
         "labelsHeld": false,
@@ -7725,6 +7767,7 @@
         },
         "library": {
           "volumes": [
+            "bend-or",
             "cyberpunk-2077",
             "fallout-new-vegas",
             "mars",
@@ -7800,7 +7843,7 @@
         },
         "pins": 860,
         "eligibleLocations": 860,
-        "domNodes": 1250,
+        "domNodes": 1251,
         "canvases": 2,
         "rasterCacheSize": 64,
         "labelsHeld": false,
@@ -7870,6 +7913,7 @@
         },
         "library": {
           "volumes": [
+            "bend-or",
             "cyberpunk-2077",
             "fallout-new-vegas",
             "mars",
@@ -7945,7 +7989,7 @@
         },
         "pins": 860,
         "eligibleLocations": 860,
-        "domNodes": 1250,
+        "domNodes": 1251,
         "canvases": 2,
         "rasterCacheSize": 64,
         "labelsHeld": false,
@@ -8015,6 +8059,7 @@
         },
         "library": {
           "volumes": [
+            "bend-or",
             "cyberpunk-2077",
             "fallout-new-vegas",
             "mars",
@@ -8090,7 +8135,7 @@
         },
         "pins": 860,
         "eligibleLocations": 860,
-        "domNodes": 1250,
+        "domNodes": 1251,
         "canvases": 2,
         "rasterCacheSize": 64,
         "labelsHeld": false,
@@ -8160,6 +8205,7 @@
         },
         "library": {
           "volumes": [
+            "bend-or",
             "cyberpunk-2077",
             "fallout-new-vegas",
             "mars",
@@ -8235,7 +8281,7 @@
         },
         "pins": 860,
         "eligibleLocations": 693,
-        "domNodes": 1250,
+        "domNodes": 1251,
         "canvases": 2,
         "rasterCacheSize": 64,
         "labelsHeld": false,
@@ -8307,6 +8353,7 @@
         },
         "library": {
           "volumes": [
+            "bend-or",
             "cyberpunk-2077",
             "fallout-new-vegas",
             "mars",
@@ -8384,7 +8431,7 @@
         },
         "pins": 860,
         "eligibleLocations": 693,
-        "domNodes": 1250,
+        "domNodes": 1251,
         "canvases": 2,
         "rasterCacheSize": 64,
         "labelsHeld": false,
@@ -8456,6 +8503,7 @@
         },
         "library": {
           "volumes": [
+            "bend-or",
             "cyberpunk-2077",
             "fallout-new-vegas",
             "mars",
@@ -8533,7 +8581,7 @@
         },
         "pins": 860,
         "eligibleLocations": 860,
-        "domNodes": 1250,
+        "domNodes": 1251,
         "canvases": 2,
         "rasterCacheSize": 64,
         "labelsHeld": false,
@@ -8603,6 +8651,7 @@
         },
         "library": {
           "volumes": [
+            "bend-or",
             "cyberpunk-2077",
             "fallout-new-vegas",
             "mars",
@@ -8678,7 +8727,7 @@
         },
         "pins": 860,
         "eligibleLocations": 860,
-        "domNodes": 1250,
+        "domNodes": 1251,
         "canvases": 2,
         "rasterCacheSize": 64,
         "labelsHeld": false,
@@ -8748,6 +8797,7 @@
         },
         "library": {
           "volumes": [
+            "bend-or",
             "cyberpunk-2077",
             "fallout-new-vegas",
             "mars",
@@ -8823,7 +8873,7 @@
         },
         "pins": 860,
         "eligibleLocations": 860,
-        "domNodes": 1250,
+        "domNodes": 1251,
         "canvases": 2,
         "rasterCacheSize": 64,
         "labelsHeld": false,
@@ -8893,6 +8943,7 @@
         },
         "library": {
           "volumes": [
+            "bend-or",
             "cyberpunk-2077",
             "fallout-new-vegas",
             "mars",
@@ -8971,7 +9022,7 @@
         },
         "pins": 860,
         "eligibleLocations": 860,
-        "domNodes": 1250,
+        "domNodes": 1251,
         "canvases": 2,
         "rasterCacheSize": 64,
         "labelsHeld": true,
@@ -9041,6 +9092,7 @@
         },
         "library": {
           "volumes": [
+            "bend-or",
             "cyberpunk-2077",
             "fallout-new-vegas",
             "mars",
@@ -9119,7 +9171,7 @@
         },
         "pins": 860,
         "eligibleLocations": 860,
-        "domNodes": 1250,
+        "domNodes": 1251,
         "canvases": 2,
         "rasterCacheSize": 64,
         "labelsHeld": false,
@@ -9189,6 +9241,7 @@
         },
         "library": {
           "volumes": [
+            "bend-or",
             "cyberpunk-2077",
             "fallout-new-vegas",
             "mars",
@@ -9267,7 +9320,7 @@
         },
         "pins": 860,
         "eligibleLocations": 860,
-        "domNodes": 1250,
+        "domNodes": 1251,
         "canvases": 2,
         "rasterCacheSize": 64,
         "labelsHeld": false,
@@ -9337,6 +9390,7 @@
         },
         "library": {
           "volumes": [
+            "bend-or",
             "cyberpunk-2077",
             "fallout-new-vegas",
             "mars",
@@ -9412,7 +9466,7 @@
         },
         "pins": 860,
         "eligibleLocations": 860,
-        "domNodes": 1250,
+        "domNodes": 1251,
         "canvases": 2,
         "rasterCacheSize": 64,
         "labelsHeld": false,
@@ -9482,6 +9536,7 @@
         },
         "library": {
           "volumes": [
+            "bend-or",
             "cyberpunk-2077",
             "fallout-new-vegas",
             "mars",
@@ -9560,7 +9615,7 @@
         },
         "pins": 860,
         "eligibleLocations": 860,
-        "domNodes": 1250,
+        "domNodes": 1251,
         "canvases": 2,
         "rasterCacheSize": 64,
         "labelsHeld": false,
@@ -9630,6 +9685,7 @@
         },
         "library": {
           "volumes": [
+            "bend-or",
             "cyberpunk-2077",
             "fallout-new-vegas",
             "mars",

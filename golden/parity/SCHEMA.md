@@ -50,16 +50,28 @@ list is a property of the *volume*, not of the build — which is exactly why
 there is one baseline per volume and why the fixture set spans the format's
 shapes. The step lists as captured:
 
-| group | tunic | cyberpunk-2077 | fallout-new-vegas | zelda-totk | mars |
-|---|---|---|---|---|---|
-| core (selection, search, filters, sections, grid, chrome, zoom, overview) | ✓ | ✓ | ✓ | ✓ | ✓ |
-| `variant-*` (lens switching) | – | ✓ | – | ✓ | ✓ |
-| `map-*` (world switching) | – | – | ✓ | – | – |
-| `zone-*`, `collection-*`, `filter-highlight-*`, `dock-*` (shape collections) | – | – | – | ✓ | – |
-| `labels-flipped/curated`, `point-labels-*`, `label-*` ladder | – | ✓ | – | ✓ | – |
-| `globe-*` | – | – | – | – | ✓ |
-| `globe-offered`, `library-*`, `import-*`, `catalog-*`, `label-ladder-initial` | ✓ | ✓ | ✓ | ✓ | ✓ |
-| **total steps** | **37** | **49** | **39** | **67** | **59** |
+| group | tunic | cyberpunk-2077 | fallout-new-vegas | zelda-totk | mars | bend-or |
+|---|---|---|---|---|---|---|
+| core (selection, search, filters, sections, grid, chrome, zoom, overview) | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
+| `variant-*` (lens switching) | – | ✓ | – | ✓ | ✓ | – |
+| `map-*` (world switching) | – | – | ✓ | – | – | – |
+| `zone-*`, `collection-*`, `filter-highlight-*`, `dock-*` (shape collections) | – | – | – | ✓ | – | ✓ |
+| `and-highlighted`, `labels-held-highlighted`, `and-cleared` (two feature indexes) | – | – | – | – | – | ✓ |
+| `labels-flipped/curated`, `label-*` ladder | – | ✓ | – | ✓ | – | ✓ |
+| `point-labels-*` (a point collection with a label toggle) | – | ✓ | – | ✓ | – | – |
+| `globe-*` | – | – | – | – | ✓ | – |
+| `globe-offered`, `library-*`, `import-*`, `catalog-*`, `label-ladder-initial` | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
+| **total steps** | **37** | **49** | **39** | **67** | **59** | **66** |
+
+The city is the only fixture whose ladder starts with anything silent:
+`label-ladder-initial` records three collections quiet by curation there
+(`atlas.label.policy=quiet` on Watersheds, Subwatersheds and Waterbodies)
+against an empty `silent` on every other volume, so `label-override-set` and
+`label-silenced-held` are read over a real curation rather than over a ladder
+that only ever said yes. `point-labels-*` is nevertheless absent there: a
+point collection is offered the toggle only where its curation drew it as
+text (`atlas.render.as=text`), and the city's one point collection is drawn
+as pins, so the row has no button to press.
 
 Some steps are unconditional anchors even where the feature is absent —
 `globe-offered` records `pane.globeOffered: false` on a plane, and
@@ -94,6 +106,13 @@ renamed: `game-second` used to switch to the second volume on the select and
 now switches to the first volume that is not the one open. With no volume
 pinned the two are the same volume, so the older behaviour is a special case
 of the new one.
+
+Which volume that lands on is a property of the library, not of the build.
+The select sorts by slug, `bend-or` sorts first, so every fixture but the
+city now switches to the city and the city switches to `cyberpunk-2077`. The
+five game and planet baselines moved at exactly three places when the city
+joined the library — `library.volumes` and `domNodes` on every step, and the
+`game-second` step itself, which changed destination — and nowhere else.
 
 ---
 
@@ -236,7 +255,7 @@ Two fields, both counting tiles fetched since the lens was chosen. They
 measure the *route* two runs took to the same destination rather than the
 destination: a browser that samples one fly-to a frame differently fetches a
 tile the other never wanted, and no amount of settling undoes a request
-already made. Across every paired run taken here — each of the five public
+already made. Across every paired run taken here — each of the six public
 fixtures captured twice from two fresh launches, twice over — nothing else
 ever moved. The fields stay recorded — a candidate that fetches four times as
 many tiles is worth seeing — they are simply not equality-checked.
@@ -259,7 +278,7 @@ is the rule:
   fixed — the golden reference is not edited.)*
 
 Determinism is a checked property, not a claim: `capture.mjs --twice` takes
-each baseline twice from two fresh launches and diffs the pair. All five
+each baseline twice from two fresh launches and diffs the pair. All six
 public baselines are identical across every step under the ignore list above.
 
 ---
@@ -268,14 +287,20 @@ public baselines are identical across every step under the ignore list above.
 
 ```sh
 npm --prefix frontend ci && npm --prefix frontend run build   # assets/app.js carries the tour
-node golden/parity/capture.mjs --twice --verify               # all five, each twice, hashes checked
+node golden/parity/capture.mjs --twice --verify               # all six, each twice, hashes checked
 node golden/parity/capture.mjs --only mars --twice            # one of them
 ```
 
 `capture.mjs` links the exact fixture files named in `FIXTURES.json` into
 `golden/parity/.bundles` and points the application at that directory, so the
 registry's newest-wins fold has nothing to choose between and the library is
-the same everywhere. Each tour is its own application process and its own
+the same everywhere. Five of the six come from the installed library; the
+city is built rather than installed, so its entry carries `builtInto` — the
+repository-relative directory the pipeline wrote it to, `dist/bundles`, with
+`ATLAS_GOLDEN_CITY_DIR` overriding it exactly as in
+`golden/capture/capture.sh`. A missing city bundle stops the run and names
+the four commands that build it rather than capturing five volumes and
+calling it the set. Each tour is its own application process and its own
 browser session — the fresh-launch rule holds by construction — and the tour
 clears the saved session at both ends.
 
@@ -323,13 +348,16 @@ A build that draws every pin in the wrong colour passes this tour. The
 raster-level goldens (per-lens tile inventories with decoded-pixel digests,
 issue §6.1) are a separate instrument and are not this one.
 
-**Two coverage holes belong to the fixture set, not to the tour.**
+**One coverage hole belongs to the fixture set, not to the tour.** The globe
+is reachable on exactly one fixture, Mars, because it is the only volume
+declaring a sphere. Every `globe-*` assertion rests on that one volume's
+data.
 
-- `and-highlighted`, `labels-held-highlighted`, `and-cleared` — highlighting
-  across two collections to read as AND — need a volume with more than one
-  shape-collection feature index. None of the five public fixtures has one.
-  The city fixture does, and its baseline is captured privately; the public
-  proof city will restore this coverage when it lands.
-- The globe is reachable on exactly one fixture, Mars, because it is the only
-  volume declaring a sphere. Every `globe-*` assertion rests on that one
-  volume's data.
+**Closed by the city.** `and-highlighted`, `labels-held-highlighted` and
+`and-cleared` — highlighting across two collections to read as AND — need a
+volume with more than one shape-collection feature index, and no game or
+planet in the set has one. `bend-or` has nine shape collections, so the three
+steps are captured publicly rather than only privately, and the label-policy
+ladder now runs over a real curation (three collections declaring
+`atlas.label.policy=quiet`) instead of over an empty ladder on every public
+fixture. Recorded here because the hole was recorded here.
