@@ -71,7 +71,7 @@ func runDev(args []string) error {
 	static := flags.String("static", "",
 		"a directory served under /static: the seam's built bundle")
 	seamWatch := flags.Bool("seam-watch", false,
-		"also run the seam's bundler in watch mode; a no-op with a message while the seam does not exist")
+		"also run the seam's bundler in watch mode (npm run watch in render/)")
 	var logs logging.Options
 	logs.Bind(flags)
 	if err := flags.Parse(args); err != nil {
@@ -224,16 +224,15 @@ func watchChrome(ctx context.Context, root string) (func(), error) {
 
 // watchSeam runs the seam's bundler beside the server.
 //
-// The seam is M6 and does not exist yet, so this is deliberately a stub that
-// says so rather than a failure: `atlas dev -seam-watch` is the command a
-// developer will want the day the seam lands, and it should not need writing
-// then. When render/ exists with a package.json, this runs its watch script
-// and streams its output into the same event stream everything else uses.
+// When render/ exists with a package.json, this runs its watch script and
+// streams its output into the same event stream everything else uses; a
+// checkout without the seam gets a note rather than a failure, because the
+// application must build and serve without it.
 func watchSeam(ctx context.Context, root string) error {
 	seam := filepath.Join(root, devSeam)
 	if _, err := os.Stat(filepath.Join(seam, "package.json")); err != nil {
 		slog.Info("no seam to watch", logging.Op("serve"), logging.Path(seam),
-			slog.String("note", "render/ lands in M6; -seam-watch will run its bundler then"))
+			slog.String("note", "the application serves without the seam; -seam-watch runs its bundler when render/ is present"))
 		return nil
 	}
 	cmd := exec.CommandContext(ctx, "npm", "run", "watch")

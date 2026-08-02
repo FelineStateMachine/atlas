@@ -11,9 +11,9 @@
 //
 // # The safety properties, carried verbatim
 //
-// They come from the reference workbench (cmd/cartograph, ops.go and server.go)
-// and are named here because they are the contract, not an implementation
-// detail:
+// They are carried verbatim from the reference workbench (readable on the
+// golden-reference tag) and are named here because they are the contract, not
+// an implementation detail:
 //
 //   - **Origin-checked.** A browser sends Origin on any cross-site POST.
 //     [CheckOrigin] refuses a foreign one, so a stray page cannot operate the

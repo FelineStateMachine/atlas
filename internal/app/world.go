@@ -11,8 +11,8 @@ import (
 
 	"github.com/FelineStateMachine/atlas/format/bundle"
 	"github.com/FelineStateMachine/atlas/format/semconv"
-	"github.com/FelineStateMachine/atlas/internal/app/hostenv"
 	"github.com/FelineStateMachine/atlas/internal/app/cells"
+	"github.com/FelineStateMachine/atlas/internal/app/hostenv"
 )
 
 // The world as the display logic reads it.

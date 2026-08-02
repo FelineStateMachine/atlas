@@ -6,9 +6,8 @@
 // Most of these rules exist to say "we don't do that here" — the message is
 // the point, so every one names the contract and cites the issue section.
 //
-// This config is not wired into the existing frontend build. The lanes it
-// polices (analysis/, render/) arrive in M6; until then it is the written form
-// of their boundaries. To run it:
+// The lanes it polices (analysis/, render/) consume it through the root
+// workspace's `npm run lint`. To run it:
 //
 //   npm i -D eslint typescript-eslint
 //   make lint-lanes

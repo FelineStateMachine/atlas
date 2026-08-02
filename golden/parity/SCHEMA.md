@@ -244,7 +244,7 @@ Named steps:
 
 ## 5. Comparing: what binds and what does not
 
-Run `frontend/parity/compare.mjs baseline.json candidate.json`. Every leaf of
+Run `golden/parity/compare.mjs baseline.json candidate.json`. Every leaf of
 every snapshot binds, **except**:
 
 ```
@@ -313,7 +313,7 @@ seam that existed only to be driven.
 ## 6. Reproducing a baseline
 
 ```sh
-npm --prefix frontend ci && npm --prefix frontend run build   # assets/app.js carries the tour
+# re-capture runs from the golden-reference tag; see golden/capture/README.md
 node golden/parity/capture.mjs --twice --verify               # all six, each twice, hashes checked
 node golden/parity/capture.mjs --only mars --twice            # one of them
 ```

@@ -103,3 +103,21 @@ instruction.
    ships, and the city it would feed is composed, drawn, enriched and measured
    from a staged archive today. A crawler that is the last item on a lane's
    list is parked, not abandoned, so the document keeps the word.
+
+## Post-parity follow-ups
+
+Named here so they are findable, none load-bearing for parity (the tour has no
+pixel checks and no canvas-pick step, which is itself the first entry):
+
+- **Pixel and pick coverage.** The parity tour compares counts, cameras and
+  state, never rendered pixels, and no step exercises a canvas pick. Three
+  seam findings ride on that blind spot: `atlas.icon.outset` is read but the
+  outset rim is drawn with the literal token as its colour; `atlas.render.as:
+  text` forces labels on but still draws a pin instead of a text symbol; the
+  `atlas:pick` event has no consumer, so canvas selection is inert (selection
+  works through the dock and card). Each is a faithful-rendering question the
+  golden-reference tag answers.
+- **CI does not walk the tour** (`golden/HARNESS.md` records the bargain): a
+  runner would need `make static` + a browser and ~35 minutes.
+- **The seam is 358 authored lines past its ~3,000 guideline**; `render-lane`
+  warns on every run, as designed (issue #5 §5.5).
