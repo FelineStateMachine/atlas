@@ -12,8 +12,9 @@
 //   HOLDS THE EPHEMERAL. Z, the hover, which pane is up, and the camera —
 //   the continuous half of issue #5 §4.1, none of which is the session's.
 //
-// Two things leave: the pick, as a DOM event the page's glue submits, and the
-// settled camera, debounced. Nothing else, ever.
+// Three things leave, all of them as DOM events the page's glue submits: the
+// pick, the cell a surface was pointed at, and the settled camera, debounced.
+// Nothing else, ever.
 
 import { KEY_ICON_OUTSET } from "@atlas/analysis/semconv/keys";
 import { applicableSystems, cellSystems } from "@atlas/analysis";
@@ -61,6 +62,7 @@ export class AtlasViewport extends HTMLElement {
     this.unkey = wireKeyboard(this);
     this.wireGlobeToggle();
     this.wireZoom();
+    this.wireGridInput();
     // The sphere's camera, written where a camera can be read: the corner
     // locator's rectangle, which is the one form the globe's view ever takes
     // outside its own scene graph.
@@ -80,6 +82,9 @@ export class AtlasViewport extends HTMLElement {
     this.watcher?.rescan();
     this.wireGlobeToggle();
     this.wireZoom();
+    // The navigator is a region and a swap replaces it whole, so the field the
+    // last swap left behind is not the field on screen.
+    this.wireGridInput();
     // The footer's sentence is half the application's and half this lane's,
     // and a swap that re-rendered the legend has just put the application's
     // half back on screen. A concern that touches the legend and not the
@@ -176,14 +181,30 @@ export class AtlasViewport extends HTMLElement {
   private refresh({ recount = true } = {}): void {
     const context = this.context;
     if (!context) return;
-    const test = context.system
-      ? cellTest(context.ground, context.system, context.cell)
-      : null;
-    context.visibility = new Visibility(
-      context.model, context.scene, context.lens?.shard ?? 0, test, context.hovered);
-    this.chart?.restyle();
-    if (recount) this.chart?.writeCount();
-    this.globe?.update();
+    // WRAPPED, because everything inside it asks a cell system a question and
+    // a cell system is allowed to refuse. S2 throws outright on a ground with
+    // no invertible flattening rather than shrugging -- `appliesTo` is the
+    // question a caller was supposed to ask first (analysis/cellsystems/s2.ts)
+    // -- and the guard in `system` below is the asking. This is the second
+    // fence: a refusal that got past it costs one repaint and a line in the
+    // log, and never the map. A reader whose grid is wrong can still read
+    // their world; a reader whose repaint threw has a page that answers
+    // nothing at all.
+    try {
+      const test = context.system
+        ? cellTest(context.ground, context.system, context.cell)
+        : null;
+      context.visibility = new Visibility(
+        context.model, context.scene, context.lens?.shard ?? 0, test, context.hovered);
+      this.chart?.restyle();
+      if (recount) this.chart?.writeCount();
+      this.globe?.update();
+    } catch (error) {
+      log.error("the arrangement could not be repainted", {
+        op: "render", volume: context.scene.volume, world: context.scene.world,
+        system: context.system?.slug ?? "", cell: context.cell, error: String(error),
+      });
+    }
   }
 
   private lensIndex(model: WorldModel, scene: Scene): number {
@@ -192,11 +213,96 @@ export class AtlasViewport extends HTMLElement {
     return Math.min(Math.max(scene.lensIndex, 0), Math.max(0, model.payload.lenses.length - 1));
   }
 
+  /**
+   * The system dividing this world, and only if it can.
+   *
+   * THE FALLBACK WAS THE BUG. A system named in the session that this ground
+   * does not offer used to be looked up in the registry and handed back
+   * anyway, which is the one answer that cannot be given: the systems are
+   * exact rather than approximate, and one asked about a ground it refused
+   * throws on the first question the grid puts to it. So the offered set is
+   * the whole of the answer -- `applicableSystems` is `appliesTo` over the
+   * registry -- and a name outside it draws no grid and says so once.
+   *
+   * The server refuses such a value too (internal/app/session.go, applyGrid),
+   * and that is not a reason to trust it here: a record written by an older
+   * build, or a hand-edited session, arrives at this lane all the same, and
+   * the pane that would throw is this one.
+   */
   private system(scene: Scene, ground: ReturnType<WorldModel["ground"]>): CellSystem | null {
     if (!scene.gridSystem) return null;
     const offered = applicableSystems(ground);
-    return offered.find((candidate) => candidate.slug === scene.gridSystem) ??
-      cellSystems.get(scene.gridSystem) ?? null;
+    const found = offered.find((candidate) => candidate.slug === scene.gridSystem);
+    if (found) return found;
+    log.warn("the session names a system this world cannot be divided by", {
+      op: "render", volume: scene.volume, world: scene.world, system: scene.gridSystem,
+      offered: offered.map((candidate) => candidate.slug).join(","),
+      known: cellSystems.get(scene.gridSystem) !== undefined,
+    });
+    return null;
+  }
+
+  /**
+   * The navigator's field, kept spellable.
+   *
+   * THE SERVER STAYS AUTHORITATIVE. What a cell address is, and whether the
+   * text has become one, is decided where the session is written; this is
+   * display assist and nothing more -- the field shows the reader only what
+   * their system could keep of what they typed, so a capital or a stray
+   * character does not sit in the box looking like part of an address.
+   *
+   * IN THE CAPTURE PHASE, so the value is normalized before the route bound to
+   * this same field reads it: one keystroke, one posted value, and the two
+   * halves of the page agree about what was typed. It never stops the event --
+   * the field's own `input` trigger is the application's and must fire exactly
+   * as it did -- and it rewrites nothing when there is nothing to rewrite,
+   * which is every keystroke that was already an address.
+   */
+  private wireGridInput(): void {
+    const field = document.querySelector<HTMLInputElement>("#grid-input");
+    if (!field || wired.has(field)) return;
+    wired.add(field);
+    // The live viewport, not this one: a swap can carry a control across while
+    // the element it was wired to is no longer the element on the page.
+    field.addEventListener("input", () => {
+      (document.querySelector<AtlasViewport>("atlas-viewport") ?? this).normalizeCell(field);
+    }, { capture: true });
+  }
+
+  /**
+   * Rewrite what is in the field as the active system spells it, keeping the
+   * caret where the reader left it.
+   *
+   * The caret is counted rather than kept: how many characters of what stands
+   * *before* it survive normalization is where it belongs afterwards, which is
+   * the one arithmetic that holds however many characters were dropped and
+   * wherever in the text they were. Typing at the end -- which is nearly all
+   * typing -- lands it at the end, as it would have anyway.
+   *
+   * Public because the listener above resolves the live element and calls it.
+   */
+  normalizeCell(field: HTMLInputElement): void {
+    const context = this.context;
+    if (!context?.system) return;
+    const raw = field.value;
+    let on;
+    try {
+      on = context.system.on(context.ground);
+    } catch (error) {
+      log.warn("the active system cannot spell an address on this ground", {
+        op: "render", system: context.system.slug, error: String(error),
+      });
+      return;
+    }
+    const shown = on.normalizeInput(raw);
+    // Nothing to say. This is the path the recorded tours take -- "m" is
+    // already what geohash keeps of "m" -- so the field, the event and the
+    // caret are all left exactly as they were found.
+    if (shown === raw) return;
+    const caret = field.selectionStart ?? raw.length;
+    const before = on.normalizeInput(raw.slice(0, caret)).length;
+    field.value = shown;
+    field.setSelectionRange?.(before, before);
   }
 
   private async tileGrid(scene: Scene): Promise<TileGrid | null> {
