@@ -86,7 +86,7 @@ export async function selectWorld(slug) {
       if (!category.visible) state.hiddenCategories.add(category.id);
     }
   }
-  const restore = state.restore?.map === state.world.slug ? state.restore : null;
+  const restore = state.restore?.world === state.world.slug ? state.restore : null;
   if (restore) {
     state.hiddenCategories = new Set(restore.hidden);
     state.collapsedSections = new Set(restore.collapsed);
@@ -220,7 +220,7 @@ export function selectLens(index, resetView = false) {
   // picture of the ground the reader is already looking at -- spring for
   // summer, one layer of a split map for another -- so the swap is made
   // underneath them and everything else, the view included, stays as it is.
-  const resume = resetView && state.restore?.map === state.world.slug ? state.restore : null;
+  const resume = resetView && state.restore?.world === state.world.slug ? state.restore : null;
   // Zones and pins are built before a lens is chosen, so on a split world the
   // first render shows every layer at once. Comparing against what was actually
   // rendered catches that as well as a later switch between layers.
