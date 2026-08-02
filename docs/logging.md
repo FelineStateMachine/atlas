@@ -100,10 +100,13 @@ logger.Info("bundle installed",
 
 ## The browser half
 
-`analysis/` and `render/` mirror this with a thin leveled `log` module —
-console-backed, structured fields as an object payload, level gate via query
-param or localStorage in dev. The browser console becomes the same kind of
-stream, which the headless parity runner already captures, so a failing tour
-step ships its console context for free. An ESLint rule forbids bare
-`console.*` outside that module. It arrives with the seam (M6); the level
-names and the attribute vocabulary above are shared.
+`render/log.ts` mirrors this: a thin leveled module, console-backed,
+structured fields as an object payload, the level gate read once from
+`?atlas-log=` or `localStorage`. Reading it once is deliberate — a level that
+changed mid-run would make two captures of one tour disagree. The browser
+console becomes the same kind of stream, which the headless parity runner
+already captures, so a failing tour step ships its console context for free. An
+ESLint rule forbids bare `console.*` outside that module and names this
+contract when it fires. The level names and the attribute vocabulary above are
+shared; the analysis lane has no logger of its own, because a pure
+transformation of its declared inputs has nothing to narrate.
