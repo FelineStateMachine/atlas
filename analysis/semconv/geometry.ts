@@ -2,13 +2,12 @@
 // analysis lane.
 //
 // Issue #5 §3.2 lets this lane depend on "its own math and the published
-// attribute vocabulary" and nothing else. `format/semconv` is the vocabulary's
-// Go home and `spec/registry.yaml` (§8, an M7 fast-follow) will be the one
-// machine-readable source both ends generate from. Until that exists, this
-// module is the lane's hand-written reader for the four `atlas.geometry.*`
-// keys a cell system can be asked about — and it is deliberately a *reader*:
-// it never writes a key, never validates a bundle, and knows nothing about
-// how a world reached it.
+// attribute vocabulary" and nothing else. `spec/registry.yaml` is that
+// vocabulary's one machine-readable source; `./keys.ts` beside this file is
+// generated from it, and so is `format/semconv`. This module is the lane's
+// *reader* for the four `atlas.geometry.*` keys a cell system can be asked
+// about: it never writes a key, never validates a bundle, and knows nothing
+// about how a world reached it.
 //
 //   atlas.geometry.surface       "sphere" | "plane" (absent means plane)
 //   atlas.geometry.projection    "equirect" | "mercator"
@@ -20,6 +19,15 @@
 // top-left. The cell systems work in OL world coordinates (y negative-down)
 // and flip the sign at the call, which is the one place the two conventions
 // meet.
+
+import {
+  KEY_GEOMETRY_EQUIRECT_DEG,
+  KEY_GEOMETRY_EQUIRECT_PX,
+  KEY_GEOMETRY_MERCATOR_DEG,
+  KEY_GEOMETRY_MERCATOR_PX,
+  KEY_GEOMETRY_PROJECTION,
+  KEY_GEOMETRY_SURFACE,
+} from "./keys.ts";
 
 /** A world's attribute bag: `atlas.*` keys to their string values. */
 export type WorldAttrs = Readonly<Record<string, string>>;
@@ -43,15 +51,21 @@ export interface GeoMapping {
   toWorld(lat: number, lng: number): readonly [number, number];
 }
 
-const SURFACE = "atlas.geometry.surface";
-const PROJECTION = "atlas.geometry.projection";
+/** The flattenings this reader knows how to invert. */
+type Projection = "equirect" | "mercator";
+
+/** Each projection's declared window, by the generated key that carries it. */
+const WINDOW: Readonly<Record<Projection, { px: string; deg: string }>> = {
+  equirect: { px: KEY_GEOMETRY_EQUIRECT_PX, deg: KEY_GEOMETRY_EQUIRECT_DEG },
+  mercator: { px: KEY_GEOMETRY_MERCATOR_PX, deg: KEY_GEOMETRY_MERCATOR_DEG },
+};
 
 /**
  * What the world's raster pictures. A world that says nothing is a plane,
  * which every world was until the planets arrived.
  */
 export function worldSurface(world: World | null | undefined): string {
-  const declared = world?.attrs?.[SURFACE];
+  const declared = world?.attrs?.[KEY_GEOMETRY_SURFACE];
   return declared ? declared : "plane";
 }
 
@@ -130,12 +144,12 @@ type Quad = readonly [number, number, number, number];
  */
 function declaredWindow(
   world: World | null | undefined,
-  projection: string,
+  projection: Projection,
 ): { px: Quad; deg: Quad } | null {
   const attrs = world?.attrs;
-  if (!attrs || attrs[PROJECTION] !== projection) return null;
-  const px = quad(attrs[`atlas.geometry.${projection}.px`]);
-  const deg = quad(attrs[`atlas.geometry.${projection}.deg`]);
+  if (!attrs || attrs[KEY_GEOMETRY_PROJECTION] !== projection) return null;
+  const px = quad(attrs[WINDOW[projection].px]);
+  const deg = quad(attrs[WINDOW[projection].deg]);
   if (!px || !deg) return null;
   const [, , w, h] = px;
   const [west, north, east, south] = deg;

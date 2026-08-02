@@ -16,9 +16,9 @@
 // The lane is TypeScript; node strips the types on import (22.18+ / 24+), so
 // there is still no bundler in the gate.
 import path from "node:path";
-import { pathToFileURL } from "node:url";
+import { fileURLToPath, pathToFileURL } from "node:url";
 
-const here = path.dirname(new URL(import.meta.url).pathname);
+const here = path.dirname(fileURLToPath(import.meta.url));
 const repoRoot = path.resolve(here, "..", "..", "..");
 const lane = pathToFileURL(path.join(repoRoot, "analysis", "cellsystems", "index.ts")).href;
 

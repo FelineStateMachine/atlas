@@ -24,6 +24,11 @@
 import * as THREE from "three";
 import Globe from "globe.gl";
 import type { GlobeInstance } from "globe.gl";
+import {
+  KEY_GEOMETRY_EQUIRECT_DEG,
+  KEY_GEOMETRY_EQUIRECT_PX,
+  KEY_GEOMETRY_SURFACE,
+} from "@atlas/analysis/semconv/keys";
 import { cellPlan, cellRings, equirectMapping } from "@atlas/analysis";
 import type { GeoMapping, PlanCell } from "@atlas/analysis";
 import { logger } from "../log.ts";
@@ -57,8 +62,8 @@ export interface Equirect {
 /** The declared flattening, or null when this world is not a sphere. */
 export function equirectOf(attrs: Attrs): Equirect | null {
   const mapping = equirectMapping({ attrs });
-  const px = quad(attrs["atlas.geometry.equirect.px"]);
-  const deg = quad(attrs["atlas.geometry.equirect.deg"]);
+  const px = quad(attrs[KEY_GEOMETRY_EQUIRECT_PX]);
+  const deg = quad(attrs[KEY_GEOMETRY_EQUIRECT_DEG]);
   if (!mapping || !px || !deg) return null;
   return { px, deg, mapping };
 }
@@ -106,7 +111,7 @@ export class AtlasGlobe extends HTMLElement {
 
   /** Whether this world can be a sphere at all. */
   static offers(attrs: Attrs): boolean {
-    return attrs["atlas.geometry.surface"] === "sphere" && equirectOf(attrs) !== null;
+    return attrs[KEY_GEOMETRY_SURFACE] === "sphere" && equirectOf(attrs) !== null;
   }
 
   /** Whether the sphere exists yet: entered at least once this session. */

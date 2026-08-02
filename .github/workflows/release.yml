@@ -1,0 +1,149 @@
+# The clean-room release recipe (issue #5 §7, M7).
+#
+# What ships from the rewrite today is `atlas`, the one CLI: crawl, tiles,
+# translate, compose, enrich, measure, workbench, serve, dev. The desktop shell
+# is a later wave — the Wails host of §3.4 does not exist yet — so this
+# workflow carries the release recipe forward for the binary that does exist
+# and holds a marked slot for the one that will.
+#
+# It does not replace `ci.yml`. That workflow still builds and releases the
+# pre-rewrite desktop app on `v*` tags, and it keeps working until the old tree
+# is archived at close-out. This one answers to `atlas-v*` tags, so the two
+# never race for the same release. When the Wails host lands, the desktop job
+# below stops being a TODO, `v*` moves here, and ci.yml's build and release
+# jobs are deleted along with the tree they build.
+#
+# The recipe it carries from ci.yml:
+#
+#   - version from the tag, `dev-<short sha>` off a tag, as before;
+#   - `-trimpath` and `-ldflags "-s -w"`, so a build is a function of its
+#     inputs and carries no local paths;
+#   - one archive per platform: .tar.gz for the unix targets, .zip for Windows;
+#   - a release job gated on the tag, `--generate-notes --verify-tag`, and a
+#     prerelease when the tag carries a hyphen.
+#
+# What it drops, deliberately: the per-platform runners. The old recipe needed
+# macOS to assemble Atlas.app with ditto and an Info.plist, and Linux runners
+# with GTK and WebKitGTK headers to link a webview. The CLI needs none of that
+# — it is pure Go, `CGO_ENABLED=0` on every target — so it cross-compiles from
+# one runner, which is both cheaper and more reproducible. The desktop slot
+# below is where the native runners come back.
+
+name: Release
+
+on:
+  push:
+    tags: ["atlas-v*"]
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "version label for a dispatched build, e.g. atlas-v0.1.0"
+        required: false
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+env:
+  CGO_ENABLED: "0"
+  GOFLAGS: -trimpath -buildvcs=false
+
+jobs:
+  cli:
+    name: atlas ${{ matrix.goos }}/${{ matrix.goarch }}
+    runs-on: ubuntu-24.04
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { goos: linux, goarch: amd64 }
+          - { goos: linux, goarch: arm64 }
+          - { goos: darwin, goarch: arm64 }
+          - { goos: darwin, goarch: amd64 }
+          - { goos: windows, goarch: amd64 }
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+
+      - name: Build
+        env:
+          GOOS: ${{ matrix.goos }}
+          GOARCH: ${{ matrix.goarch }}
+        run: |
+          if [[ "${GITHUB_REF}" == refs/tags/atlas-v* ]]; then
+            VERSION="${GITHUB_REF_NAME#atlas-}"
+          elif [[ -n "${{ inputs.version }}" ]]; then
+            VERSION="${{ inputs.version }}"
+          else
+            VERSION="dev-$(git rev-parse --short HEAD)"
+          fi
+          NAME="atlas-${VERSION}-${GOOS}-${GOARCH}"
+          BINARY="atlas"
+          if [[ "${GOOS}" == "windows" ]]; then BINARY="atlas.exe"; fi
+          mkdir -p "dist/${NAME}"
+          go build -ldflags "-s -w" -o "dist/${NAME}/${BINARY}" ./cmd/atlas
+          cp README.md LICENSE "dist/${NAME}/"
+          cd dist
+          if [[ "${GOOS}" == "windows" ]]; then
+            zip -qr "${NAME}.zip" "${NAME}"
+          else
+            tar -czf "${NAME}.tar.gz" "${NAME}"
+          fi
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: atlas-${{ matrix.goos }}-${{ matrix.goarch }}
+          path: |
+            dist/*.tar.gz
+            dist/*.zip
+          if-no-files-found: error
+
+  # TODO(desktop shell): the Wails host of issue #5 §3.4 — ~150 lines around
+  # the application handler, the seam bundle mounted at /static, and the native
+  # file dialog behind Hostenv.PickFile. When it lands, this slot builds it,
+  # and the recipe it wants is the one ci.yml already proved:
+  #
+  #   linux    ubuntu-24.04, apt libgtk-3-dev libwebkit2gtk-4.1-dev,
+  #            -tags "desktop,production,webkit2_41", tar.gz
+  #   windows  cross-compiled from ubuntu, CGO_ENABLED=0,
+  #            -tags "desktop,production", -ldflags "-H windowsgui", zip
+  #   macos    macos-15, -tags "desktop,production", then Atlas.app assembled
+  #            by hand (Contents/MacOS + an Info.plist naming
+  #            dev.felinestatemachine.atlas, LSMinimumSystemVersion 12.0,
+  #            NSHighResolutionCapable) and packed with
+  #            `ditto -c -k --keepParent`
+  #
+  # The seam has to be built first (`make static`) and mounted where the shell
+  # embeds it; the CLI above needs none of that, which is the deletability
+  # principle showing up in the release recipe.
+
+  release:
+    if: startsWith(github.ref, 'refs/tags/atlas-v')
+    needs: [cli]
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/download-artifact@v4
+        with:
+          path: dist
+          merge-multiple: true
+      - name: Create the GitHub release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          # A hyphen in the version itself -- atlas-v0.2.0-rc1 -- is a
+          # prerelease, the same rule ci.yml uses one prefix down.
+          VERSION="${GITHUB_REF_NAME#atlas-}"
+          PRERELEASE=""
+          if [[ "${VERSION}" == *-* ]]; then PRERELEASE="--prerelease"; fi
+          gh release create "${GITHUB_REF_NAME}" dist/* \
+            --title "atlas ${VERSION}" \
+            --generate-notes --verify-tag ${PRERELEASE}

@@ -20,6 +20,7 @@ import Style from "ol/style/Style.js";
 import Text from "ol/style/Text.js";
 import Point from "ol/geom/Point.js";
 import type { FeatureLike } from "ol/Feature.js";
+import { KEY_ICON_KIND, KEY_STROKE_WIDTH_PX } from "@atlas/analysis/semconv/keys";
 import { gridTheme, paletteColor } from "@atlas/analysis";
 import type { CellVisual } from "@atlas/analysis";
 import type { Collection } from "../data/payload.ts";
@@ -91,7 +92,7 @@ export class Styles {
       // it was authored. `atlas.icon.kind` names what a file suffix used to
       // imply, and `iconPicture` is the manifest's own copy of the same fact.
       const picture = collection.iconPicture ||
-        collection.attrs?.["atlas.icon.kind"] === "picture";
+        collection.attrs?.[KEY_ICON_KIND] === "picture";
       built = new Icon({
         src: this.context.iconURL(collection.iconAsset),
         ...(picture ? {} : { color: this.color(collection) }),
@@ -173,7 +174,7 @@ export class Styles {
   /** A path drawn at its declared ground width, never thinner than a hair. */
   path(shape: ShapeRecord, resolution: number, highlighted: boolean): Style[] {
     const color = this.color(shape.collection);
-    const ground = Number(shape.collection.attrs?.["atlas.stroke.width_px"] ?? 0);
+    const ground = Number(shape.collection.attrs?.[KEY_STROKE_WIDTH_PX] ?? 0);
     const width = Math.max(1.4, ground > 0 ? ground / resolution : 2);
     return [
       new Style({

@@ -3,7 +3,7 @@
 # These targets are the clean-room rewrite's enforcement surface; the existing
 # build recipes are untouched and still live where they always did.
 
-.PHONY: golden golden-all depcheck lint-lanes analysis-lane render-lane seam seam-watch static serve-static
+.PHONY: golden golden-all spec depcheck lint-lanes analysis-lane render-lane seam seam-watch static serve-static
 
 # The one entrypoint. Runs every gate of §6 in order; gates whose lane does not
 # exist yet report SKIP with the milestone they wait on, so a green run doubles
@@ -15,6 +15,14 @@ golden:
 # Useful when you have just landed a lane and want to see its gate go red.
 golden-all:
 	go run ./golden/harness -suites=all
+
+# The semantic conventions, from their one machine-readable source: the Go
+# registry, the TypeScript lanes' key constants, and the document a reader
+# learns the vocabulary from. `go generate ./format/semconv` is the same run.
+# `make golden`'s semconv-codegen gate checks that what is committed is what
+# this would write.
+spec:
+	go run ./spec/gen
 
 # The guardrails alone: the lane import matrix, the clean-room rule, hostenv
 # purity, network confinement, semconv discipline.
