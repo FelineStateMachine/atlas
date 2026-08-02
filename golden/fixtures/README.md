@@ -27,6 +27,9 @@ would *serve* — the winner of `internal/bundle`'s newest-per-slug fold — and
 that build's stamp is recorded in `FIXTURES.json`, so a later capture that
 picks a different build announces itself rather than sliding past.
 
+One volume comes from neither input: **`bend-or`**, the city, was built for
+this fixture rather than found installed. See *The city fixture* below.
+
 ## Re-running the capture
 
     golden/capture/capture.sh                 # writes golden/fixtures
@@ -38,6 +41,12 @@ plane, and stops the server. It writes nothing outside the fixtures
 directory and its own temporary directory, redirects `HOME` for the headless
 run so no other checkout's `inspector.url` is disturbed, and takes whatever
 port is free so a running application is never in the way.
+
+The city is not in the library, so the script looks for it where it was
+built — `dist/bundles` by default, `ATLAS_GOLDEN_CITY_DIR` otherwise — and
+refuses to run without it rather than measure a set one volume short.
+`ATLAS_GOLDEN_CITY_ARCHIVE` points the translator capture at the city's own
+crawl archive; without it the `arcgis-hub` fixture is left as committed.
 
 Individual captures, if one of them is what changed:
 
@@ -94,10 +103,11 @@ these files catch is a source's semantics quietly moving — an id space that
 stops being stable, a projection that shifts, a category that stops being
 declared.
 
-**`arcgis-hub` is not captured here.** Its archived capture is present, but
-`arcgismap.Translate` refuses a city it is not curated for, and the only
-curated city on the capturing machine is the withheld one below. See
-`FIXTURES.json`.
+**`arcgis-hub` is captured from its own archive.** `arcgismap.Translate`
+refuses a city it is not curated for, and the archive beside the library
+holds only the withheld city, so this fixture is translated from the
+`bend-or` archive the city volume was built from — the same program, pointed
+with `-archive` at that archive. See *The city fixture* below.
 
 ### `measure/`
 
@@ -112,9 +122,9 @@ in the output itself is corrected.
 `transcript.json` is every recorded request and its answer: status, response
 headers, body length and body hash, with small text bodies quoted. It covers
 the catalog, a payload, a packed payload, a text payload, an icon and a tile
-for every fixture volume, a range request, eight refusals, the application
-shell and the two shell assets the headless host answers for. `catalog.json`
-is the catalog body as served.
+for every fixture volume *except the city*, a range request, eight refusals,
+the application shell and the two shell assets the headless host answers for.
+`catalog.json` is the catalog body as served.
 
 Two values are machine-specific and are replaced: the `Date` header, and the
 `bundlesDir` the catalog reports. Nothing else is normalized.
@@ -126,19 +136,65 @@ copies the entry — a `Range` request is answered `200` with the whole body
 and no `Accept-Ranges`. The transcript records that, so the rewrite either
 keeps the behavior or changes it on purpose.
 
-## The withheld city fixture
+## The city fixture
 
-The fixture set calls for a city — basemap lens, curated municipal layers,
-national hydrography with HUC12 membership. The only city curated on the
-capturing machine is registered from `internal/arcgismap/cities_local.go`,
-which git ignores deliberately, because it is a personal location. Its
-fixtures are therefore captured into **`golden/fixtures/private/`**, which
-git also ignores, and its name appears in no committed file.
+The fixture set calls for a city — a basemap lens, curated municipal layers,
+national hydrography with HUC12 membership — and for a while it had none it
+could commit. The only city installed on the capturing machine is registered
+from `internal/arcgismap/cities_local.go`, which git ignores deliberately,
+because it is a personal location; its fixtures go to
+`golden/fixtures/private/`, which git also ignores, and its name appears in
+no committed file.
 
-What that costs, written down so it is not discovered later: no committed
-fixture exercises path or area collections, inline geometry, label policy,
-standard icons resolved through the conventions, HUC12 membership in the
-packed `member` column, or the `DescribedPct` defect. When a bundle exists
-for one of the publicly curated cities — `bend-or`, `redondo-beach-ca` — the
-city fixture should be re-captured from it and committed, and this paragraph
-deleted.
+The city slot is now filled publicly. `bend-or` — the City of Bend, Oregon —
+is one of the two proof cities curated in `internal/arcgismap`'s own table,
+open data published by the city itself, and nothing about it needs
+withholding. No bundle for it existed, so one was built by the reference
+tree's pipeline, unchanged since the `golden-reference` tag, into a directory
+outside the library:
+
+    go run ./tools/crawl -arcgis bend-or -archive <archive>
+    go run ./tools/tiles -source <archive> -output <tiles>
+    go run ./tools/generate -source <archive-parent> \
+        -tiles <tiles>/index.json -bundles <dir>
+
+    go run ./golden/capture/bundles -dir <dir> -out golden/fixtures bend-or
+    go run ./golden/capture/translators -archive <archive> -out golden/fixtures
+    go run ./tools/maturity -bundles <six-volume-registry> \
+        >golden/fixtures/measure/maturity.txt
+    go run ./golden/capture/measure -bundles <six-volume-registry> \
+        -out golden/fixtures
+
+The crawl is the only stage that touches the network: the city's hub
+(`data.bendoregon.gov`, through the ArcGIS Hub download API with
+`spatialRefId=4326`) and the two USGS services on `hydro.nationalmap.gov`
+that every curated city is enriched from by bounding box. The basemap is not
+fetched from anywhere — it is rendered from the city's own vector data by
+`internal/basemap`, so the pyramid is reproducible offline from the archived
+capture alone.
+
+**The capture day is part of the identity.** A city versions by crawl day:
+the day is the world's slug, it is in the basemap's tile-set path, and it
+sets the bundle's version. This fixture is the day `2026-08-02`. Re-crawling
+on another day builds another world, not this one, and the hub's data will
+have moved besides — so a re-capture of this fixture means re-reading the
+same archived capture, not re-crawling.
+
+What the city fixture pins that nothing else in the set does: 104 paths and
+44 areas with inline geometry, 88 shape features carrying
+`atlas.hydro.huc12` from the subwatershed membership join, four national
+layers declaring `atlas.label.policy=quiet`, a standard icon resolved by
+convention (`atlas.icon.std=maki/monument` → `icons/std--maki-monument.svg`),
+and the `DescribedPct` defect, which reads **235%** here — 153 described
+entries over 65 pins, because described shapes defer their prose into the
+same `.text` payload the pins do.
+
+Two things it does *not* pin, so nobody goes looking for them:
+
+- the packed `member` column is zero for every row. `member` is the id of
+  the *area feature containing a point*, and it is filled from a
+  translator's `region_id`; the ArcGIS translator assigns none, so its pins
+  are unowned. HUC12 membership is not carried there — it rides on the
+  shape features as an attribute and a sentence in the `.text` payload.
+- `http/transcript.json` predates this fixture and does not sample it. See
+  `FIXTURES.json`'s `http.cityGap` for what re-recording would cost.
