@@ -1,0 +1,30 @@
+{{/*
+  shell — the whole page. The region containers below are the contract the
+  partial envelope swaps into (internal/app/partials.go) and the CSS system
+  files itself under; the templates wave fills them in.
+*/}}
+{{define "shell"}}<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>{{.Title}} — Atlas</title>
+<link rel="stylesheet" href="/static/app.css">
+</head>
+<body class="atlas">
+<div id="atlas-shell" data-volume="{{with .Volume}}{{.Slug}}{{end}}" data-world="{{with .Volume}}{{.World.Slug}}{{end}}">
+  <header id="atlas-topbar">{{template "topbar" .}}</header>
+  <nav id="atlas-legend">{{template "legend" .}}</nav>
+  <main id="atlas-main">
+    {{template "viewport" .}}
+    <aside id="atlas-overview">{{template "overview" .}}</aside>
+    <aside id="atlas-grid-navigator">{{template "grid-navigator" .}}</aside>
+  </main>
+  <section id="atlas-dock">{{template "dock" .}}</section>
+  <section id="atlas-detail">{{template "detail" .}}</section>
+  <section id="atlas-import"></section>
+</div>
+<script type="module" src="/static/app.js"></script>
+</body>
+</html>
+{{end}}

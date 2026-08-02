@@ -1,0 +1,5 @@
+{{/* dock — the readout beside the map: counts, held cell, selection. */}}
+{{define "dock"}}<div class="dock" data-open="{{.Session.Dock.Open}}" data-section="{{.Session.Dock.Section}}">
+{{with .Session.Grid}}{{if .System}}<span class="dock-cell" data-system="{{.System}}">{{.Cell}}</span>{{end}}{{end}}
+</div>
+{{end}}

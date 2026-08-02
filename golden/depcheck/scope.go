@@ -21,6 +21,14 @@ const (
 	LaneCLI       Lane = "cmd/atlas"
 	LaneGolden    Lane = "golden"
 
+	// LaneLogging is the one shared clean-room package: the leveled event
+	// stream every lane narrates itself through (issue #5 §9,
+	// docs/logging.md). It is a lane of its own so that who may import it is
+	// answered by the matrix rather than by where it happens to sit —
+	// everybody may, except format/, which depends on the standard library
+	// alone and says so in its own rule.
+	LaneLogging Lane = "logging"
+
 	// LaneOutside covers everything the clean room does not own yet: the
 	// golden-reference tree (the pre-rewrite packages), tools/, and the root
 	// desktop shell. Rules never fire on it — the old tree is the oracle, not
@@ -38,6 +46,7 @@ var cleanRoomRoots = []string{
 	"internal/enrich",
 	"internal/app",
 	"internal/workbench",
+	"internal/logging",
 	"cmd/atlas",
 	"golden",
 }
@@ -53,6 +62,7 @@ var lanePrefixes = []struct {
 	{LaneEnrich, "internal/enrich"},
 	{LaneApp, "internal/app"},
 	{LaneWorkbench, "internal/workbench"},
+	{LaneLogging, "internal/logging"},
 	{LaneCLI, "cmd/atlas"},
 	{LaneGolden, "golden"},
 }

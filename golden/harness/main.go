@@ -93,9 +93,10 @@ func suites() []suite {
 		{
 			name:       "http-replay",
 			milestone:  "M5",
-			awaiting:   "atlas serve: the recorded catalog and sampled /data responses replayed with their headers, byte-compatible with today",
+			awaiting:   "",
 			entrypoint: "golden/http/replay_test.go",
 			argv:       []string{"go", "test", "./golden/http/..."},
+			ready:      true,
 		},
 		{
 			name:       "depcheck",

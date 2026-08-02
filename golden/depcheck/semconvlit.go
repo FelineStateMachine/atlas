@@ -38,6 +38,9 @@ const semconvRegistry = "format/semconv"
 var atlasKey = regexp.MustCompile(`^atlas(\.[a-z0-9][a-z0-9_]*){2,}$`)
 
 func runSemconvLiterals(pass *analysis.Pass) (any, error) {
+	if testBinary(pass) {
+		return nil, nil
+	}
 	fromRel, ok := rel(packagePath(pass))
 	if !ok {
 		return nil, nil

@@ -50,6 +50,9 @@ var outbound = map[string]map[string]bool{
 }
 
 func runNetConfine(pass *analysis.Pass) (any, error) {
+	if testBinary(pass) {
+		return nil, nil
+	}
 	fromRel, ok := rel(packagePath(pass))
 	if !ok {
 		return nil, nil

@@ -1,0 +1,3 @@
+{{/* import — one row per step of an import, streamed as it happens. */}}
+{{define "import"}}{{range .Rows}}<p class="import-row" data-state="{{.State}}">{{.Detail}}</p>
+{{end}}{{end}}

@@ -1,0 +1,16 @@
+{{/* empty-state — the library card: what a bundle is and where it goes. */}}
+{{define "empty-state"}}<!doctype html>
+<html lang="en">
+<head><meta charset="utf-8"><title>Atlas</title><link rel="stylesheet" href="/static/app.css"></head>
+<body class="atlas">
+<div id="atlas-shell">
+  <section id="atlas-library" class="empty-state">
+    <h1>No volumes installed</h1>
+    <p>Drop an <code>.atlas</code> bundle into <code>{{.LibraryDir}}</code>, or import one.</p>
+    <form method="post" action="/bundles/import"><button type="submit">Import a bundle</button></form>
+    <section id="atlas-import"></section>
+  </section>
+</div>
+</body>
+</html>
+{{end}}

@@ -16,6 +16,9 @@ type edgeRule func(from Lane, fromRel, importPath string) string
 // rule shares this walk so a new boundary is a function, not a driver.
 func runImportRule(rule edgeRule) func(*analysis.Pass) (any, error) {
 	return func(pass *analysis.Pass) (any, error) {
+		if testBinary(pass) {
+			return nil, nil
+		}
 		fromRel, ok := rel(packagePath(pass))
 		if !ok {
 			return nil, nil
@@ -51,4 +54,14 @@ func packagePath(pass *analysis.Pass) string {
 		path = path[:i]
 	}
 	return strings.TrimSuffix(path, "_test")
+}
+
+// testBinary reports whether a pass is over the package `go test` synthesizes
+// to run a test binary. It is generated code -- a main that imports os and
+// testing and calls into the package under test -- and it carries the import
+// path of the package it was written for with a .test suffix, which would
+// otherwise read as that package importing os. Nobody wrote it; judging it
+// says nothing about anybody's boundaries.
+func testBinary(pass *analysis.Pass) bool {
+	return strings.HasSuffix(pass.Pkg.Path(), ".test")
 }

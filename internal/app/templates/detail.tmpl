@@ -1,0 +1,3 @@
+{{/* detail — one feature's card, fetched by /fragments/detail/{id}. */}}
+{{define "detail"}}<article class="detail" data-open="{{.Session.Detail.Open}}" data-feature="{{if .Feature}}{{.Feature}}{{else}}{{.Session.Selected}}{{end}}"></article>
+{{end}}
