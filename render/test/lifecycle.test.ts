@@ -201,7 +201,7 @@ test("a disconnected sphere gives back its renderer, its skin and its cards", ()
   const texture = new THREE.CanvasTexture(stubNode() as unknown as HTMLCanvasElement);
   inner.texture = texture;
   watch(texture, seen, "skin");
-  inner.skin = { tiles: new Map() };
+  inner.skin = {};
 
   for (const [group, title] of [[inner.labels, "Elysium"], [inner.cells, "Hellas"]] as const) {
     const card = nameCard(title, somewhere);

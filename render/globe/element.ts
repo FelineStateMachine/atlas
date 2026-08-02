@@ -10,7 +10,9 @@
 // FOUR BUDGETS, each of them a decision rather than a limit:
 //
 //   The base skin is one texture, composited once per lens.
-//   The detail is composited into that same texture, under the camera only.
+//   The detail is a mesh per tile, draped under the camera only — never into
+//   the skin, which is level four across the whole window and would throw
+//   three quarters of a deeper capture away before drawing it.
 //   Names are raised only while Z is held, and at most 180 of them: past that
 //   a sphere is a word cloud with a planet behind it. WHICH 180 is the
 //   camera's answer and not the legend's — the nearest names to what is being
@@ -1048,7 +1050,6 @@ export class AtlasGlobe extends HTMLElement {
 
   /** Put the neighbourhood away. A globe nobody is looking at holds none. */
   private clearDetail(): void {
-    this.skin?.clearDetail();
     release(this.tiles);
     this.draped.clear();
     this.seam.detail.tiles.clear();
