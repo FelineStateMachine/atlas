@@ -178,6 +178,41 @@ type Lens struct {
 	// is how composition finds the derived pyramid; it is a key into a tile
 	// set, never a URL.
 	TileSet string `json:"tileSet"`
+	// Frame is what the source knows about the tiles it captured. Composition
+	// never reads it -- what a bundle promises about a raster is what the
+	// deriver actually derived, not what a publisher offered -- but the deriver
+	// does, because only the source can say which tiles a complete level was
+	// supposed to hold. A lens with no frame is a picture nothing can derive.
+	Frame *Frame `json:"frame,omitempty"`
+}
+
+// Frame is the captured pyramid as its source declares it: how deep it goes, in
+// what encoding, and which tiles each level was asked for.
+//
+// The zooms and the tile numbers are the publisher's own, not local ones. A
+// source publishing into the corpus's shared window speaks zoom 13 and tiles
+// 4064..4095; one publishing its own picture speaks whatever its tile server
+// does. The deriver halves a frame's deepest window until it comes to rest in a
+// single tile, and that level is where local zoom 0 sits -- so no height is
+// assumed, and two publishers cutting the same ground from different heights
+// both derive correctly.
+type Frame struct {
+	MinZoom int    `json:"minZoom"`
+	MaxZoom int    `json:"maxZoom"`
+	Format  string `json:"format"`
+	// Windows is the tile window of each captured zoom, keyed by the zoom as a
+	// decimal string, because that is how a publisher spells it and how JSON
+	// keys a map. A zoom with no window is measured against the corpus's shared
+	// square instead.
+	Windows map[string]TileWindow `json:"windows"`
+}
+
+// TileWindow is an inclusive rectangle of tiles at one zoom.
+type TileWindow struct {
+	MinX int `json:"minX"`
+	MinY int `json:"minY"`
+	MaxX int `json:"maxX"`
+	MaxY int `json:"maxY"`
 }
 
 // Collection is an ordered group of features of one kind.

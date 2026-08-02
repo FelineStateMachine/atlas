@@ -53,6 +53,7 @@ type Tables struct {
 	newestFirst     map[string]bool
 	outsetByVolume  map[string]string
 	outsetByWorld   map[string]string
+	pixelArt        map[string]bool
 	shard           map[string]ShardMode
 	equivalents     map[string]map[string]string
 }
@@ -87,6 +88,9 @@ type wire struct {
 		ByVolume map[string]string `json:"byVolume"`
 		ByWorld  map[string]string `json:"byWorld"`
 	} `json:"iconOutset"`
+	PixelArt struct {
+		Volumes []string `json:"volumes"`
+	} `json:"pixelArt"`
 	Shard struct {
 		Worlds map[string]ShardMode `json:"worlds"`
 	} `json:"shard"`
@@ -114,11 +118,15 @@ func parse(data []byte) (Tables, error) {
 		newestFirst:     make(map[string]bool, len(raw.WorldOrder.NewestFirst.Volumes)),
 		outsetByVolume:  raw.IconOutset.ByVolume,
 		outsetByWorld:   raw.IconOutset.ByWorld,
+		pixelArt:        make(map[string]bool, len(raw.PixelArt.Volumes)),
 		shard:           raw.Shard.Worlds,
 		equivalents:     make(map[string]map[string]string, len(raw.CollectionEquivalents)),
 	}
 	for _, slug := range raw.WorldOrder.NewestFirst.Volumes {
 		out.newestFirst[slug] = true
+	}
+	for _, slug := range raw.PixelArt.Volumes {
+		out.pixelArt[slug] = true
 	}
 	// The equivalents table carries prose keys alongside its volumes, the way
 	// every other section does, so a value that is not an object is commentary
@@ -164,6 +172,10 @@ func (t Tables) IconOutset(volume, world string) string {
 	}
 	return t.outsetByVolume[volume]
 }
+
+// PixelArt reports whether a volume is drawn on a pixel grid, which decides how
+// its pyramids are reduced and whether a reader smooths them when magnified.
+func (t Tables) PixelArt(volume string) bool { return t.pixelArt[volume] }
 
 // Shard is what becomes of a sheet holding several places, or ShardNone.
 func (t Tables) Shard(volume, world string) ShardMode { return t.shard[volume+"/"+world] }

@@ -27,8 +27,10 @@ import (
 	"log/slog"
 	"sort"
 
+	"github.com/FelineStateMachine/atlas/format/semconv"
 	"github.com/FelineStateMachine/atlas/internal/generate/curation"
 	"github.com/FelineStateMachine/atlas/internal/generate/doc"
+	"github.com/FelineStateMachine/atlas/internal/generate/icons"
 	"github.com/FelineStateMachine/atlas/internal/generate/tiles"
 	"github.com/FelineStateMachine/atlas/internal/logging"
 )
@@ -155,27 +157,74 @@ func Compose(o Options) (Result, error) {
 
 	var worlds []composedWorld
 	for _, source := range o.Document.Worlds {
-		world, err := resolveWorld(source, o, grid, log)
+		pieces, err := resolveWorld(source, o, grid, log)
 		if err != nil {
 			return Result{}, fmt.Errorf("world %s: %w", source.Slug, err)
 		}
-		worlds = append(worlds, world)
+		worlds = append(worlds, pieces...)
 	}
 	if len(worlds) == 0 {
 		return Result{}, fmt.Errorf("volume %s: no world is ready to compose", o.Document.Volume.Slug)
 	}
 	orderWorlds(o.Curation, o.Document.Volume.Slug, worlds)
-	icons := attachArtwork(o.Document, worlds)
+	artwork := attachArtwork(o.Document, worlds)
+	if err := resolveStandardIcons(worlds, artwork); err != nil {
+		return Result{}, fmt.Errorf("volume %s: %w", o.Document.Volume.Slug, err)
+	}
 	if err := speakConventions(o.Curation, o.Document.Volume.Slug, worlds); err != nil {
 		return Result{}, fmt.Errorf("volume %s: %w", o.Document.Volume.Slug, err)
 	}
-	return write(o, worlds, icons, log)
+	return write(o, worlds, artwork, log)
 }
 
-// resolveWorld turns one document world into a world under composition:
-// its lenses found in the tile set, its collections numbered, the ground its
-// contents cover measured, and its own account of where it came from opened.
-func resolveWorld(source doc.World, o Options, shared worldGrid, log *slog.Logger) (composedWorld, error) {
+// resolveStandardIcons makes good on every atlas.icon.std declaration: the named
+// library glyph lands in the volume's artwork under its provenance-spelling
+// name, and the collection wears it exactly the way it would wear artwork the
+// source shipped itself.
+//
+// A source that has no artwork at all -- a gazetteer, a city's open data --
+// names a glyph rather than inventing one, and naming is all it may do: which
+// picture answers to the name is the library's business, and packing it is
+// composition's. It runs after the document's own artwork has been attached and
+// only where a source's own icon has not already won the slot, because a
+// publisher's own drawing of a thing always beats a generic one.
+//
+// A declaration the library cannot answer fails the build. The promise was made
+// in a translator; it is kept here or heard about, rather than reaching a
+// reader as a collection with a hole where its marker should be.
+func resolveStandardIcons(worlds []composedWorld, artwork map[string][]byte) error {
+	for worldIndex := range worlds {
+		world := &worlds[worldIndex]
+		for index := range world.Collections {
+			collection := &world.Collections[index]
+			if collection.Kind != doc.KindPoint {
+				continue
+			}
+			ref := collection.Attrs[semconv.KeyIconStd]
+			if ref == "" || collection.IconAsset != "" {
+				continue
+			}
+			data, asset, err := icons.Standard(ref)
+			if err != nil {
+				return fmt.Errorf("world %s collection %q: %w", world.Slug, collection.Title, err)
+			}
+			artwork[asset] = data
+			collection.IconAsset = asset
+			collection.IconPicture = false
+		}
+	}
+	return nil
+}
+
+// resolveWorld turns one document world into the worlds under composition it
+// becomes: its lenses found in the tile set, its collections numbered, a curated
+// sheet taken apart, the ground each piece covers measured, and every piece's
+// own account of where it came from opened.
+//
+// It answers with a slice because one sheet may hold several places. All but one
+// volume in the corpus answer with exactly one world, and the one that does not
+// is declared in curation rather than detected.
+func resolveWorld(source doc.World, o Options, shared worldGrid, log *slog.Logger) ([]composedWorld, error) {
 	out := composedWorld{
 		ID:         source.ID,
 		Slug:       source.Slug,
@@ -185,22 +234,11 @@ func resolveWorld(source doc.World, o Options, shared worldGrid, log *slog.Logge
 		CapturedAt: source.Capture.CapturedAt,
 		Attrs:      source.Attrs,
 	}
-	// A sheet holding several separate places is declared for splitting in
-	// curation, never detected. The splitter itself is the next wave of this
-	// lane; until it lands, a curated sheet is refused loudly rather than
-	// written whole, because writing it whole would publish a volume that
-	// silently disagrees with every build before it.
-	if mode := o.Curation.Shard(o.Document.Volume.Slug, source.Slug); mode != curation.ShardNone {
-		return composedWorld{}, fmt.Errorf(
-			"curation declares this world for splitting into %s, which composition cannot do yet "+
-				"(see docs/generate.md, splitting)", mode)
-	}
-
 	window := shared
 	for index, declared := range source.Lenses {
 		pyramid, ok := o.Tiles.Native(declared.TileSet)
 		if !ok {
-			return composedWorld{}, fmt.Errorf("no pyramid is derived from tile set %s", declared.TileSet)
+			return nil, fmt.Errorf("no pyramid is derived from tile set %s", declared.TileSet)
 		}
 		found := worldGrid{SourceZoom: pyramid.Window.SourceZoom, FirstTile: pyramid.Window.FirstTile}
 		if found == (worldGrid{}) {
@@ -218,7 +256,7 @@ func resolveWorld(source doc.World, o Options, shared worldGrid, log *slog.Logge
 				out.Grid = &grid
 			}
 		} else if found != window {
-			return composedWorld{}, fmt.Errorf(
+			return nil, fmt.Errorf(
 				"tile set %s sits in a different window from %s",
 				declared.TileSet, source.Lenses[0].TileSet)
 		}
@@ -233,7 +271,7 @@ func resolveWorld(source doc.World, o Options, shared worldGrid, log *slog.Logge
 				FirstTile:  aligned.Window.FirstTile,
 			}
 			if alignedWindow != window {
-				return composedWorld{}, fmt.Errorf(
+				return nil, fmt.Errorf(
 					"aligned pyramid %s was rendered in a different window", aligned.Name)
 			}
 			out.Lenses = append(out.Lenses, lensOf(aligned.LensName, aligned, o.Document.Volume.Slug))
@@ -243,24 +281,39 @@ func resolveWorld(source doc.World, o Options, shared worldGrid, log *slog.Logge
 
 	collections, err := numberCollections(source)
 	if err != nil {
-		return composedWorld{}, err
+		return nil, err
 	}
 	out.Collections = collections
-	markSurfaces(&out, surfaceGrid{
+
+	grid := surfaceGrid{
 		SourceZoom: window.SourceZoom,
 		FirstTile:  window.FirstTile,
 		TileSize:   o.Tiles.TileSize,
 		Size:       o.Tiles.Size,
-	})
-	out.Merged = []origin{{
-		Source:        o.Document.Source.Label,
-		Slug:          o.Document.Source.Name,
-		Origin:        true,
-		DonorFeatures: tally(out.Collections),
-	}}
-	log.Debug("world composed", logging.World(out.Slug),
-		"lenses", len(out.Lenses), "collections", len(out.Collections))
-	return out, nil
+	}
+	// A sheet holding several separate places is taken apart here, where the
+	// window it was cut from is finally known, and before the ground each piece
+	// covers is measured: a piece's surface is its own, not the sheet's.
+	mode := o.Curation.Shard(o.Document.Volume.Slug, source.Slug)
+	pieces, err := splitWorld(out, mode, grid)
+	if err != nil {
+		return nil, fmt.Errorf("splitting into %s: %w", mode, err)
+	}
+	for index := range pieces {
+		markSurfaces(&pieces[index], grid)
+		// Every world opens its account with where it came from, split or not:
+		// provenance is part of a world, not a side effect of composition.
+		pieces[index].Merged = []origin{{
+			Source:        o.Document.Source.Label,
+			Slug:          o.Document.Source.Name,
+			Origin:        true,
+			DonorFeatures: tally(pieces[index].Collections),
+		}}
+		log.Debug("world composed", logging.World(pieces[index].Slug),
+			"lenses", len(pieces[index].Lenses),
+			"collections", len(pieces[index].Collections))
+	}
+	return pieces, nil
 }
 
 func lensOf(name string, p tiles.Pyramid, volume string) lens {

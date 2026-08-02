@@ -74,7 +74,14 @@ A **world**:
     "contentHash": "ff58c59a…",      // SHA-256 of the archived bytes
     "capturedAt": "2026-07-30T03:57:41.529Z"
   },
-  "lenses": [ { "name": "Default", "tileSet": "tunic/world/default-v2" } ],
+  "lenses": [ {
+    "name": "Default",
+    "tileSet": "tunic/world/default-v2",
+    "frame": {                         // the deriver reads this; composition never does
+      "minZoom": 9, "maxZoom": 15, "format": "jpg",
+      "windows": { "15": { "minX": 16256, "minY": 16256, "maxX": 16383, "maxY": 16383 } }
+    }
+  } ],
   "collections": [ … ],
   "attrs": { }                        // the world speaking the conventions
 }
@@ -128,7 +135,7 @@ itself into. Everything below is a departure from that.
 | coordinates | numbers *or* quoted strings, tolerated everywhere | `{lat, lng}` floats; a source's spelling tolerance is the source's business |
 | absence | `*int64` for `region_id` and `parent_region_id` | `0`, everywhere, matching the wire's own reading of zero |
 | icons | a key implying a file probe into an archive directory at composition time | the artwork travels in the document |
-| lens detail | the publisher's claimed zoom range and bounds | name and tile set only; what a bundle promises about a raster is what was actually derived |
+| lens detail | the publisher's claimed zoom range and bounds, read at composition | name and tile set for composition; the publisher's claimed frame carried separately, for the deriver alone, because only a source can say which tiles a complete level was supposed to hold |
 | provenance | recovered from the archive's directory names | `source` and a per-world `capture` on the document itself |
 | links | resolved at composition, with a MapGenie URL pattern compiled into it | resolved by the source, because a link syntax is a publisher's |
 | the world window | half from a hardcoded constant, half from the tile index | curation names the shared window; a pyramid names its own |
@@ -238,11 +245,131 @@ in the tree today.
 - Artwork is read once per key, `.svg` then `.png`, and carried in the
   document.
 
-### 2.3 Adding a sixth source
+### 2.3 The NASA Trek reader
 
-*(The source-authoring walkthrough lands with the next wave, when there is a
-second source in the clean room to generalize from. What is written down today
-is the interface, the rules of §2.1, and the registry seam.)*
+`internal/generate/sources/nasatrek` reads a planetary volume. A capture marries
+two publications that know nothing of each other: a global equirectangular
+mosaic from NASA's Trek tile services, and the IAU Gazetteer of Planetary
+Nomenclature's feature list for the same body.
+
+- Capture kind `trek-map`, one per body, carrying every mosaic captured for it.
+- The coordinate design is the whole trick. A Trek mosaic is two tiles wide and
+  one tall at its own zoom zero, so a Trek level sits one zoom up in the square
+  the corpus cuts and the planet fills the top half of the world square. A
+  feature's planetary coordinates become a pixel of that image — longitude across
+  the full width, latitude down the top half — and the pixel becomes a synthetic
+  position. The projection's distortion cancels exactly, because the raster and
+  the features ride one mapping.
+- The world declares the flattening as conventions (`atlas.geometry.surface`,
+  `.projection`, `.equirect.px`, `.equirect.deg`, `.body`), so a reader can run a
+  packed position backward and stand on the planet, and every feature carries the
+  coordinates the Gazetteer published verbatim as `atlas.geo.lat`/`.lon`.
+- One collection per Gazetteer feature type, sorted, all under the heading
+  `Nomenclature`. The type descriptor `"Crater, craters"` keeps its singular half
+  as the title and lends its slug as the artwork key.
+- The Gazetteer has no artwork, so each collection names a library glyph through
+  `atlas.icon.std`, chosen from the IAU's own type codes — a *mons* is a mountain,
+  a *patera* a volcano, a *palus* literally a marsh — falling back to shape
+  language where no glyph says the thing.
+- `idSpace: "derived"`: nothing in either publication numbers a mosaic or a
+  feature type, so every identity is minted from a stable name.
+
+### 2.4 The IGN reader
+
+`internal/generate/sources/ign` reads a community wikimap: a flat image tiled
+like a world, markers placed on it in image-relative coordinates, and a flat list
+of marker types that names a parent to make two levels of legend.
+
+- Capture kind `ign-map`.
+- A wikimap's image is normalized so its taller dimension spans 1. A marker's
+  latitude runs down that span and is negative, its longitude across it, so
+  `(lng, -lat)` times the world square's edge is the pixel it is drawn on.
+- One collection per marker type, types in slug order, gathered under the heading
+  of whichever parent each names, headings in the order their first type appears.
+  A type no marker uses is left out — an empty collection would only dim the
+  legend — but it stays in the capture, so a marker appearing under it later
+  revives the collection without a policy change.
+- Artwork is a PNG sprite per type slug, read from the archive and carried.
+- **The gate: an embedded MapGenie map is not an IGN map.** Some IGN wikimap
+  pages are MapGenie maps in an IGN frame — the page declares a MapGenie game id
+  and serves MapGenie's tiles. Capturing one here would archive a second, worse
+  copy of data Atlas already reads properly, and a merge would then fold a source
+  into itself. The refusal lives in `internal/generate/crawl`, where the page's
+  own declaration is still in front of the crawler; by the time a capture exists
+  the evidence has been thrown away.
+- `idSpace: "derived"`: markers are opaque strings and types are slugs.
+
+### 2.5 The Piggyback reader
+
+`internal/generate/sources/piggyback` reads the official guide house's maps,
+which carry what a community wikimap does not: prose. Pins arrive with names and
+descriptions and both survive into a volume.
+
+- Capture kind `piggyback-map`.
+- Piggyback draws in a game's own coordinates on a Leaflet `CRS.Simple` map: a
+  linear transformation squeezes them onto the unit tile at zoom zero. A pin
+  passes through it and then through the shared inverse Mercator.
+- A declared category becomes a heading and its types become collections under
+  it, ordered by declared position then key. A type no pin uses is left out.
+- District name pins arrive filed under the reader-state `favorites` category,
+  which is nothing to build a legend from. They gather under their own heading
+  and render as `text`, which is what they are on Piggyback's own map. Any *other*
+  undeclared type fails the build: better a loud build than a pin silently
+  dropped.
+- Piggyback publishes no bounds, so the crawler's own survey of which tiles
+  answered is the only account of where the pyramid is drawn, and a capture with
+  no observed level is refused.
+- **The gate: an unverified transform is refused.** The transformation is read
+  off the page's own scripts, it decides where every pin in the volume stands,
+  and a wrong one puts a whole map's contents somewhere plausible and wrong —
+  exactly the failure a later merge would try to fit an affine to.
+  `verifiedTransforms` is the list of games whose numbers have been checked
+  against the published map; a capture whose numbers are not in it fails.
+- `idSpace: "derived"`: pins, categories and types are opaque string ids.
+
+### 2.6 Adding a sixth source
+
+A source is one directory, one constructor, and one line in
+`internal/generate/sources/registry.go`. The walkthrough:
+
+1. **Declare what you read.** Put the archived capture's shape in
+   `capture.go`, with only the fields the interchange document needs. A capture
+   holds a great deal else, and the way to keep it out of Atlas is to not have a
+   field for it. These are the only declarations in the tree permitted to carry
+   your publisher's field names.
+2. **Describe yourself.** `Describe() doc.Provenance` returns the registry slug a
+   ledger names you by, the label a person reads, the licence and attribution the
+   volume owes, and your id space. Every document you emit carries it verbatim,
+   and the workbench's source card reads it.
+3. **State your gates.** Before anything is read out of a capture, say what a
+   capture has to be: the right kind, a named map, a declared pyramid, features
+   that are actually somewhere. Refuse rather than guess. A volume that is merely
+   *not crawled yet* wraps `ErrNotReady` and is skipped; anything else fails the
+   build.
+4. **Number things.** If your captures carry stable numeric identities, pass them
+   through and declare `IDSpaceNative`. If they do not, mint them with
+   `doc.NewIDSpace()` from stable names, declare `IDSpaceDerived`, and let a
+   collision fail rather than rename something.
+5. **Place things.** If your ground is a real planet, publish real coordinates.
+   If it is a picture, measure in the world square's pixels and hand them to
+   `doc.SyntheticPosition`, which inverts the reader's own projection so a
+   feature lands on exactly the pixel you measured.
+6. **Resolve your links.** A publisher's link syntax is the publisher's business:
+   turn a deep link into a `doc.Link` where it names another feature of the same
+   world, and strip every URL that survives. A bundle serves offline.
+7. **Say it in the conventions.** A publisher's own render field, its declared
+   projection, a feature's true coordinates — speak them once through
+   `format/semconv`'s registered keys and let the field itself stop there.
+8. **Register.** One line in `registry.go`, naming a constructor. If you need a
+   second line there, the source is leaking.
+9. **Prove it.** A translator fixture test in `golden/pipeline` comparing what
+   your document *means* against the reference material, and — if the archive
+   holds a volume only your source reads — a row in `singleSource` so the whole
+   bundle is reproduced end to end.
+
+What you may not do: reach the network (`depcheck`'s `netconfine` rule forbids
+it outside `internal/generate/crawl`), sort anything the capture ordered, read a
+clock, or let your vocabulary out of your directory.
 
 ---
 
@@ -280,7 +407,98 @@ something for RFC 3339.
 disk.
 
 *(The layout a new archive would use — and whether one is worth writing — is
-the next wave's question. Nothing new inherits this naming.)*
+still an open question. Nothing new inherits this naming.)*
+
+### 3.1 Writing it
+
+`internal/generate/crawl` is the write path, and it is **the only package in
+Atlas permitted to reach the network**. `depcheck`'s `netconfine` rule is what
+makes that true rather than customary: no other package in the format or
+pipeline lanes may import `net/http` at all, and the outbound half of it is
+reported anywhere outside this package. Fetching is crawling wherever it
+happens — the enrich lane's national hydrography evidence is captured here too,
+and travels in the archive, so its join re-runs against the archive rather than
+against a live endpoint.
+
+**Politeness.** One `Fetcher` per run holds a single monotonically advancing
+instant under a lock. Every request of the run takes the next slot, so two
+requests are never closer together than the interval (150 ms by default,
+under seven a second) however many goroutines are waiting. It is not a token
+bucket on purpose: a bucket lets a run that idled spend its savings in a burst,
+which is the exact shape a rate limiter is watching for. A 429 or a 5xx pushes
+*the schedule* forward — the origin's own `Retry-After` where it gives one,
+exponential backoff otherwise — so the whole run slows rather than the one
+worker that heard the refusal. Four attempts including the first; beyond that,
+an origin that is refusing is refusing.
+
+The user-agent is a browser's string, and that is a decision. Several of these
+origins answer 403 to anything else, and a 403 is indistinguishable from "never
+published" in a tile pyramid, so an honest header would silently punch holes in
+an archive. The politeness that matters is in the behaviour.
+
+**Absence is a result.** 404 and 403 both mean *not published*: a pyramid is a
+rectangle and its corners are usually empty. It is recorded as `absent` so a
+re-crawl does not ask again. 202 means the origin is preparing the answer, and
+the caller waits. Anything else non-200 is a disagreement rather than a hiccup
+and is not retried.
+
+**Content addressing.** A capture's body is written to a path that is its own
+SHA-256, so writing it twice writes the same bytes; the index is appended to
+only when that hash has never been seen. `capturedAt` is therefore **first-seen,
+never last-verified**, and a re-crawl of unchanged data leaves the working tree
+byte for byte as it was. That is the property everything replayable stands on:
+the translators replay, the derivation stamps stand still, and a rebuild writes
+the file that is already there.
+
+**Nothing is renamed.** A register entry is found by identity, merged in place,
+and keeps its position — so a directory named once is named forever, and a field
+this package has never heard of survives a run. Directory names are only ever
+computed on first sight.
+
+**The same-slug policy.** Two publishers describe Night City. Each registers the
+volume under its *plain* title, so their builds answer for one library entry and
+the newest capture is the one a reader sees; each names its *directory* from a
+title carrying its own prefix (`IGN Cyberpunk 2077`), so they do not fight over
+one directory. And each source's archive identities carry a bit of their own —
+IGN at 2³², Piggyback at 2³³, NASA Trek at 2³⁴, ArcGIS at 2³⁵ — over an FNV-1a
+hash of a stable name in the low 31 bits, all held under 2⁵³ so a JSON round
+trip through `float64` is exact.
+
+**A crawl is interruptible.** Every write is idempotent and every fetched thing
+is recorded before the next is asked for, so stopping a run is a normal way to
+end it. A resumed run skips what is cached and does not re-ask for what was
+absent.
+
+### 3.2 The crawlers
+
+```
+atlas crawl -archive DIR -source NAME TARGET [-n] [-interval D] [-concurrency N] [-max-zoom Z] [-on DATE]
+atlas crawl -source list
+```
+
+A crawler is the outward half of a source, and a separate package from its
+reader on purpose: the two have opposite properties. A reader is a pure function
+of an archive; a crawler is the only thing in Atlas that can fail because
+somebody else's server is having a bad afternoon.
+
+| crawler | target | runnable here |
+| --- | --- | --- |
+| `ign` | `<objectSlug>/<mapSlug>` | code-complete, not run — the captures are archived |
+
+The game sources' captures are archived and their endpoints are somebody else's
+editorial work, so their crawlers are kept complete and are not run against live
+endpoints. The ArcGIS/USGS crawler is the one that may run, because its data is
+public — it lands with the offline basemap renderer it feeds (§4.4), since what
+that renders is exactly what that crawl fetches.
+
+The IGN crawler carries this lane's most consequential gate. Some IGN wikimap
+pages are MapGenie maps in an IGN frame: the page declares a MapGenie game id
+and serves MapGenie's tiles. Archiving one would put a second, worse copy of
+data Atlas already reads properly into the archive, where a later merge would
+fold a source into itself and report a beautiful agreement between a thing and
+itself. The evidence is the page's own declaration, and it exists only while the
+crawler is looking at the page — which is why the refusal lives there and the
+reader says plainly that it cannot check.
 
 ---
 
@@ -328,14 +546,24 @@ longer in front of it. A pyramid with an empty stamp stamps as empty, which is
 honest — the bundle records that nothing was claimed about how those tiles came
 to be.
 
-### 4.2 What the deriver must promise
+### 4.2 What the deriver promises
 
-*(Derivation itself is the next wave. The contract it must fill in, carried
-from the reference implementation:)*
+`atlas tiles -archive DIR -output DIR` folds captured frames into pyramids.
+Its input is the archive — the tiles a crawler wrote, under the paths a tile
+server used — plus each lens's **frame**, which is what the source declares
+about the tiles it captured: how deep the pyramid goes, in what encoding, and
+which tiles each level was supposed to hold. That last question is one no amount
+of looking at an archive can settle, because a level missing its last row looks
+exactly like a level that never had one, and it is the only reason a frame rides
+the interchange document at all. Composition never reads it.
 
 - **Frame discovery.** A world is a 32-tile square. Local zoom 0 is the source
   zoom whose window collapses to one tile; local coordinates are source
-  coordinates less the window's first tile.
+  coordinates less the window's first tile. No height is assumed: the frame is
+  measured, so a publisher cutting the same ground from zoom 6 and one cutting it
+  from zoom 13 both derive correctly. A frame whose axes come to rest on
+  different tiles is refused — it would draw a map in one place and its features
+  in another.
 - **The complete-level rule.** The deepest level whose expected tiles are all
   present is `fullZoom` and is copied byte for byte; every shallower level is
   folded down from it, never taken from the captured intermediates. Partial
@@ -354,9 +582,61 @@ from the reference implementation:)*
   level number, its tile count, and each tile's `x`, `y`, content hash and
   format, sorted by `x` then `y`. Every field is NUL-terminated. The listing
   order on disk is not an input.
+- **The background tile.** A level's filler is the content hash more than half
+  its tiles share, found once on the level that is trusted and omitted from every
+  level. Reusing one hash keeps a sparse deep level from having its handful of
+  real tiles voted "background" by its own majority. The colour painted behind
+  the raster is the mean of that tile's pixels, and only if the tile is flat
+  within twelve levels per channel — otherwise nothing is omitted at all, because
+  a hole nobody can paint over is worse than a duplicated tile.
 - **Incrementality.** A pyramid whose stamp matches the register's previous
   entry, whose asset path is unchanged and whose directory still exists, is
   carried over untouched.
+- **The write.** Each pyramid is derived under a temporary name and arrives by
+  one rename, so a reader never sees a half-written one; pyramids the archive no
+  longer offers are taken out; and the register is written last, so until the end
+  it still names the stamps of what is actually on disk. A run interrupted
+  anywhere leaves a register whose stamps disagree with a plan, and the next run
+  derives exactly those pyramids again.
+
+### 4.3 What a stamp promises, and what it does not
+
+A derivation stamp is a **rebuild-cost** promise — *nothing that made this has
+moved* — and never a content promise. It covers the deriving code's own source,
+so two derivers that write byte-identical tiles stamp differently. That is the
+point: changing how a level is reduced has to invalidate every pyramid, and a
+stamp that watched only the archive would quietly keep serving the old
+derivation.
+
+The consequence is that clean-room stamp identity for a pyramid is impossible by
+construction. What is proven instead, in `golden/pipeline/derive_test.go`, is the
+plan and the tiles: every field of the stamp except the tool hash is reproduced
+bit for bit against the reference implementation's recorded stamps, for all nine
+pyramids of the four single-source fixtures; and tunic's 741 tiles are rebuilt
+from the archive byte for byte, along with its zoom range, window, formats,
+bounds, background and coverage bitsets. `golden/format/STAMPS.md` carries the
+accounting.
+
+### 4.4 What the deriver does not do yet
+
+Two of the contract's clauses are declared but not built, and both are named
+where they would be used rather than left to be discovered:
+
+- **Warp variants.** The plan carries a `Warp` — a donor picture resampled
+  through an affine into another picture's world, so two sources' rasters answer
+  to one grid — and the stamp covers it, because the same donor through a
+  different transformation is a different picture. Fitting the affine is
+  alignment work: it stands on the names two sources share, and it is the same
+  machinery cross-source merge stands on. It lands with the enrich lane's `merge`
+  enricher rather than being written twice. `Derive` refuses a warp plan by name.
+- **Offline basemap rendering.** A city has no tile server: its deepest level is
+  rendered from the vectors its open data publishes, and every shallower level
+  folds down from there exactly as any other pyramid does. The renderer is a
+  deterministic rasterizer — a fixed role z-order, capsule strokes unioned by a
+  saturating rasterizer, Sutherland–Hodgman rings and Liang–Barsky segments
+  clipped against a window bled eight pixels past the tile edge, opaque
+  truecolour PNG — and it belongs beside the ArcGIS source's own crawl, since
+  what it renders is what that crawl fetched.
 
 ---
 
@@ -390,9 +670,23 @@ from the reference implementation:)*
 | `atlas.collection.key` | composition | from curation, unless declared |
 | `atlas.render.as` | the source | it is a reading of a publisher's own field |
 | `atlas.geometry.*`, `atlas.geo.*` | the source | only a source knows what its ground is |
-| `atlas.icon.std` | left unresolved | standard-icon resolution is an enricher (`stdicons`) |
+| `atlas.icon.std` | the source | naming a glyph is all a source without artwork can do |
 
 Nothing composition writes overwrites what a source said.
+
+**Standard icons are named by a source and resolved by composition.** A source
+with no artwork of its own — a gazetteer that names two thousand craters and
+draws none of them, a city's open data — names a library glyph through
+`atlas.icon.std` instead of inventing one. Composition resolves the name against
+the vendored library in `internal/generate/icons` and packs the glyph under a
+provenance-spelling asset name (`std--maki-mountain.svg`), so a source's own
+drawing of a thing can never be shadowed by a generic one and a bundle's icon
+listing reads honestly. A declaration the library cannot answer fails the build.
+
+Resolving a name is not choosing one. Deciding that a collection which named
+nothing should carry a standard glyph — and which — is a judgement made after two
+sources have been folded together, and it belongs to the enrich lane's
+`stdicons` enricher (issue #5 §5.3). The two meet at the attribute.
 
 ### 5.2 Splitting
 
@@ -401,9 +695,39 @@ detected**: guessing wrong divides a whole map into pieces nobody asked for.
 Two modes: `worlds` gives each piece its own entry in the picker, `lenses`
 keeps one world and offers the pieces one at a time.
 
-*(The splitter is the next wave. Until it lands, composition refuses a curated
-sheet loudly rather than writing it whole, because writing it whole would
-publish a volume that silently disagrees with every build before it.)*
+The splitter reads only the interchange document's own vocabulary, so a second
+source describing the same sheet the same way splits the same way. A **piece**
+is one top-level area — an area feature nothing is the parent of — together with
+its descendants and the point features that name one of them as their member.
+
+1. **Plan.** Every area walks up its parent chain to its root. A piece's extent
+   is the ground its areas outline, projected into world pixels; the points
+   assigned to it do not stretch it. A point belonging to no area fails the
+   build, because it would vanish when the sheet came apart.
+2. **Grow.** Each extent widens by up to 256 world pixels into the empty space
+   around it, stopping halfway to whatever it would run into, so a title printed
+   beside a piece travels with the piece it names. Two pieces that grew into the
+   same diagonal corner are eased apart along whichever axis they overlap least,
+   and neither is ever pushed back inside the ground it grew from.
+3. **Rehome.** A point whose position lies outside the piece that claims it, and
+   inside exactly one other, moves. Where it sits is not in doubt; the claim is
+   treated as the mistake it is. An ambiguous point stays where it was claimed.
+4. **Order.** Lenses read top to bottom, so the sky comes before the ground
+   beneath it. Separate worlds lead with the largest, so a sheet's main map heads
+   its insets.
+5. **Cut.** Into worlds: the first piece keeps the sheet's identity and every
+   other becomes `<sheet title> — <area title>` under `<sheet slug>-<slug of the
+   area title>`, carrying `parent`. Into lenses: one lens per piece, named after
+   its area, and every feature carries the piece it belongs to as its `shard`. In
+   both modes the piece's own outline is dropped — once an area has been used to
+   cut a world out of a sheet, drawing it again just traces the edge of what the
+   reader is already looking at — and a point collection left empty goes with it.
+
+The lenses of every piece draw from the same pyramid; only the window onto it
+changes. A piece's `bounds` is the grown window and its `surface` is the ground
+it actually covers, clipped to that window, because those are not the same
+rectangle and anything measuring a world rather than drawing it wants the
+ground.
 
 ### 5.3 The payload
 
@@ -523,9 +847,15 @@ unmovable to a second source describing the same ground.
 ## 7. The CLI
 
 ```
+atlas crawl     -archive DIR -source NAME TARGET [-n]
+atlas tiles     -archive DIR -output DIR [-force] [volume…]
 atlas compose   -archive DIR -tiles INDEX [-bundles DIR] [-n] [volume…]
 atlas translate -archive DIR [-volume SLUG] [-artwork] [-list]
 ```
+
+`crawl` is the network-touching, hand-run step: §3.2. `tiles` folds captured
+frames into the pyramids composition packs, carrying over every pyramid whose
+captures have not moved.
 
 `compose` builds every volume the archive holds a registered source for, or
 only the ones named. `-n` composes and stamps without writing. With no
@@ -542,15 +872,32 @@ Both write their event stream to stderr, so piped stdout stays clean. See
 
 ## 8. What is proven
 
-`golden/pipeline` composes the plain-MapGenie bundle fixture from archived
-captures and holds the result against every extraction the reference build was
-captured into: part hashes, the canonicalized manifest, the world payload, the
-unpacked locations, the deferred prose, the icon set, the tile inventory and the
+`golden/pipeline` composes every bundle fixture whose ledger names one source
+and holds the result against every extraction the reference build was captured
+into: part hashes, the canonicalized manifest, the world payloads, the unpacked
+locations, the deferred prose, the icon set, the tile inventory and the
 archive's entry order. Canonical-content equality is mandatory; stamp identity
-is tracked as an aspiration.
+was tracked as an aspiration and, for these four, is now held.
 
-Today the fixture reproduces **byte for byte**: the same stamp, the same file
-name, the same 8,047,414 bytes, the same SHA-256.
+| fixture | shape it is a fixture of | source | result |
+| --- | --- | --- | --- |
+| `tunic` | plain: one world, one lens, one pyramid | mapgenie | byte-identical, 8,047,414 bytes |
+| `fallout-new-vegas` | a split sheet: 13 worlds, 8 of them insets | mapgenie | byte-identical, 23,188,369 bytes |
+| `zelda-tears-of-the-kingdom` | lens shards: three elevations of one ground | mapgenie | byte-identical, 58,031,657 bytes |
+| `mars` | a sphere, a derived id space, named artwork | nasa-trek | byte-identical, 255,455,078 bytes |
+| `cyberpunk-2077` | two sources merged | ign ⊕ piggyback | M3 — this lane is single-source |
+| `bend-or` | a city, basemap and national layers | arcgis-hub | blocked: the capture is gone |
+
+Every source is held against the reference tree's own reading of the same
+archived capture — what the two documents *mean*, since the shapes deliberately
+differ — collection for collection, feature for feature, attribute for
+attribute. All five have such a fixture; four of the five are checked against
+one today, and the ArcGIS one waits with its volume.
+
+The tile deriver is proven in two halves, for the reason §4.3 gives: the plan
+is bit-identical to the reference's for all nine pyramids of the four
+single-source fixtures, and tunic's 741 tiles rebuild from the archive byte for
+byte. `golden/format/STAMPS.md` carries the accounting and the ceiling.
 
 The tests are gated on the two inputs that are deliberately not in git — the
 capture archive and the derived tile set — and skip with an explanation when
@@ -559,6 +906,19 @@ gitignored copies are present.
 
 The harness's `generate-enrich` gate stays **skipped**: its contract is
 `generate ⊕ enrich` over every bundle fixture, and enrichment does not exist
-yet, so the merged, split-sheet, lens-sharded and city fixtures cannot be
-reproduced by anything. The single-source half runs as an ordinary test in the
-meantime.
+yet, so the merged fixture cannot be reproduced by anything. The single-source
+half runs as an ordinary test in the meantime.
+
+### 8.1 What the city fixture is waiting for
+
+`bend-or` was built during M0 from a live crawl of a public city's ArcGIS Hub,
+and that capture archive was not kept. The translator fixture is the reference
+tree's *output* for it, committed; the input is gone. Re-crawling is permitted
+and the data is public, but it would not reproduce the fixture either:
+`capturedAt` is first-seen, a build's `createdAt` is capture-derived by the
+format's own invariant, and the file name would differ even if every byte of
+the city's open data were unchanged.
+
+So the volume waits on three things, in this order: the ArcGIS/USGS crawler
+(§3.2), the offline basemap renderer (§4.4), and a fresh capture — after which
+it reproduces from *that* archive rather than from the fixture's.
