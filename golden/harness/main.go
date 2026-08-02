@@ -78,10 +78,12 @@ func suites() []suite {
 			argv:       []string{"go", "test", "./golden/pipeline/..."},
 			scope: "five of six bundle fixtures: tunic, fallout-new-vegas, " +
 				"zelda-tears-of-the-kingdom and mars single-source, cyberpunk-2077 merged. " +
-				"bend-or is out of scope — its capture archive was not kept, so nothing " +
-				"can rebuild it (golden/format/STAMPS.md). Reproduction needs the capture " +
-				"archive and the derived tile set, which are not in git; a checkout " +
-				"without them skips and says so.",
+				"bend-or awaits the offline basemap rasterizer — its archive is an input " +
+				"again and its translator has landed, but a city has no tile server and " +
+				"nothing yet renders its deepest level from the vectors its open data " +
+				"publishes (docs/generate.md §4.5, golden/format/STAMPS.md). Reproduction " +
+				"needs the capture archive and the derived tile set, which are not in git; " +
+				"a checkout without them skips and says so.",
 			ready: true,
 		},
 		{
@@ -106,6 +108,20 @@ func suites() []suite {
 			awaiting:   "",
 			entrypoint: "analysis/package.json",
 			argv:       []string{"npm", "run", "--silent", "lane"},
+			ready:      true,
+		},
+		{
+			// The seam's own gate, beside the analysis lane's: the same
+			// TypeScript boundary rules, the type checker at its strictest,
+			// the seam's unit tests against the golden fixtures -- the
+			// packed layout, the tile inventories, the scene node, the
+			// standing set, the grid the tour recorded -- and the authored
+			// line budget of §5.5 as a warning.
+			name:       "render-lane",
+			milestone:  "M6",
+			awaiting:   "",
+			entrypoint: "render/package.json",
+			argv:       []string{"npm", "run", "--silent", "seam-lane"},
 			ready:      true,
 		},
 		{

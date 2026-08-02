@@ -1,0 +1,169 @@
+{{/*
+  volume — one volume measured.
+
+  The headline is the score and how it moved, because that is what the gate
+  reads (docs/enrich.md). Under it, every build in full: what each world is
+  worth, the five absolute axes as diagnostics, and the whole of every ledger
+  the payloads carry — every held feature with its reason, every adoption,
+  every correction. A count is a summary; this page is the account.
+*/}}
+{{define "title"}}{{.Volume.Title}}{{end}}
+{{define "content"}}
+{{$volume := .Volume}}
+<section class="page-head">
+  <h1>{{.Volume.Title}} <span class="dim">{{.Volume.Slug}}</span></h1>
+  <p class="dim">{{len .Volume.Builds}} builds, newest first — the first is the one a reader is given.</p>
+</section>
+
+<section class="headline">
+  <p class="score-big">{{.Volume.Serving.Total}}<span class="dim"> points · point table v{{.Table}}</span></p>
+  {{with .Movement}}
+    {{if .Comparable}}
+      <p class="movement {{if gt .Delta 0}}delta-up{{else if lt .Delta 0}}delta-down{{else}}delta-flat{{end}}">
+        {{if gt .Delta 0}}+{{end}}{{.Delta}} against the build before it ({{.Before}} → {{.After}})</p>
+      {{if lt .Delta 0}}
+        <p class="dim">The ledger accounts for {{.Allowance}} of the decline.
+          {{range .Reasons}}<span class="badge">{{.}}</span>{{end}}</p>
+      {{end}}
+    {{else}}
+      <p class="movement dim">The build before it was scored under another point table; nothing is concluded.</p>
+    {{end}}
+  {{else}}<p class="movement dim">The only build of this volume.</p>{{end}}
+</section>
+
+{{if gt (len .Volume.Builds) 1}}
+<form class="compare" action="/volume/{{.Volume.Slug}}/diff" method="get">
+  <label for="build-a">compare</label>
+  <select id="build-a" name="a">
+    {{range $at, $build := .Volume.Builds}}<option value="{{$build.File}}"{{if eq $at 1}} selected{{end}}>{{$build.File}}</option>{{end}}
+  </select>
+  <label for="build-b">against</label>
+  <select id="build-b" name="b">
+    {{range $at, $build := .Volume.Builds}}<option value="{{$build.File}}"{{if eq $at 0}} selected{{end}}>{{$build.File}}</option>{{end}}
+  </select>
+  <button>What moved</button>
+</form>
+{{end}}
+
+{{range $at, $build := .Volume.Builds}}
+<section class="build{{if eq $at 0}} serving{{end}}">
+  <h2>{{$build.File}}{{if eq $at 0}} <span class="tag">serving</span>{{end}}</h2>
+  <p class="dim">captured {{$build.CreatedAt}} · revision {{$build.Revision}} · stamp {{short $build.Stamp}}
+    {{if $build.Enriched}} · enriched under policy {{$build.EnrichPolicy}}{{end}}</p>
+  <p class="score">{{$build.Total}} points <span class="dim">table v{{$build.TableVersion}}</span></p>
+
+  <table class="worlds">
+    <thead><tr>
+      <th>world</th><th class="num">score</th><th class="num">features</th>
+      <th class="num">collections</th><th class="num">world</th>
+    </tr></thead>
+    <tbody>
+    {{range $build.Worlds}}
+      <tr><td>{{.Slug}}</td><td class="num score">{{.Total}}</td><td class="num">{{.Features}}</td>
+        <td class="num">{{.Collections}}</td><td class="num">{{.World}}</td></tr>
+    {{end}}
+    </tbody>
+  </table>
+
+  <h3 class="axes-head">Diagnostics <span class="dim">the five absolute axes; nothing gates on them</span></h3>
+  <dl class="axes">
+    <div><dt>annotation</dt><dd><b>{{$build.Axes.Points}}</b> point features of {{$build.Axes.Features}} in all ·
+      {{$build.Axes.Described}} described ({{$build.Axes.DescribedShare}}) · median {{$build.Axes.MedianLength}} chars</dd></div>
+    <div><dt>cartography</dt><dd><b>{{$build.Axes.TileCount}}</b> tiles · {{$build.Axes.RasterMB}} MB unique raster ·
+      depth z{{$build.Axes.Depth}} holds {{$build.Axes.DepthTiles}} tiles</dd></div>
+    <div><dt>structure</dt><dd><b>{{$build.Axes.Collections}}</b> collections in {{$build.Axes.Groups}} groups ·
+      {{$build.Axes.TextSets}} text label sets · {{$build.Axes.Shapes}} shapes ({{$build.Axes.Vertices}} vertices) ·
+      {{$build.Axes.Lenses}} lenses</dd></div>
+    <div><dt>icons</dt><dd><b>{{$build.Axes.IconsCarried}}</b> of {{$build.Axes.IconsWanted}} marker collections
+      carry one ({{$build.Axes.IconShare}})</dd></div>
+    <div><dt>conventions</dt><dd>
+      {{if $build.Axes.Conventions}}<b>v{{$build.Axes.Conventions}}</b> · {{$build.Axes.RenderShare}} of collections
+        declare their rendering · geometry {{$build.Axes.Geometry}}
+        {{if $build.Axes.StdIcons}} · {{$build.Axes.StdIcons}} standard icons{{end}}
+        {{if $build.Axes.GeoFeatures}} · {{$build.Axes.GeoFeatures}} features carry true coordinates{{end}}
+        {{if $build.Axes.Memberships}} · {{$build.Axes.Memberships}} memberships joined{{end}}
+        {{if $build.Axes.UnknownAttrs}} · {{$build.Axes.UnknownAttrs}} attributes this build does not know{{end}}
+      {{else}}none declared (pre-conventions build){{end}}</dd></div>
+  </dl>
+
+  {{if $build.Ledger}}
+  <h3>Ledger <span class="dim">every reading this build carries</span></h3>
+  <table class="ledger">
+    <thead><tr>
+      <th>world</th><th>reading</th><th class="num">offered</th><th class="num">matched</th>
+      <th class="num">median px</th><th class="num">enriched</th><th class="num">added</th>
+      <th class="num">adopted</th><th class="num">held</th><th class="num">rejected</th><th>alignment</th>
+    </tr></thead>
+    <tbody>
+    {{range $build.Ledger}}
+      <tr>
+        <td>{{.World}}</td>
+        <td>{{.Account.Source}}{{if .Account.Origin}} <span class="tag">origin</span>{{end}}</td>
+        <td class="num">{{.Account.DonorFeatures.Total}}
+          <span class="dim">{{.Account.DonorFeatures.Point}}p/{{.Account.DonorFeatures.Path}}l/{{.Account.DonorFeatures.Area}}a</span></td>
+        <td class="num">{{.Account.MatchedN}}</td>
+        <td class="num">{{.Account.MedianMatchPx}}</td>
+        <td class="num">{{.Account.EnrichedN}}</td>
+        <td class="num">{{.Account.Added}}</td>
+        <td class="num">{{.Account.AdoptedN}}</td>
+        <td class="num">{{.Account.HeldN}}</td>
+        <td class="num">{{.Account.RejectedN}}</td>
+        <td class="dim">{{.Account.Alignment}}</td>
+      </tr>
+    {{end}}
+    </tbody>
+  </table>
+
+  {{range $build.Ledger}}
+    {{if .Account.Held}}
+    <details class="account">
+      <summary>{{.Account.Source}} · {{.World}} — {{.Account.HeldN}} features held back</summary>
+      <table>
+        <thead><tr><th class="num">donor id</th><th>title</th><th>reason</th></tr></thead>
+        <tbody>{{range .Account.Held}}<tr><td class="num">{{.Donor}}</td><td>{{.Title}}</td><td class="dim">{{.Reason}}</td></tr>{{end}}</tbody>
+      </table>
+    </details>
+    {{end}}
+    {{if .Account.Rejected}}
+    <details class="account">
+      <summary>{{.Account.Source}} · {{.World}} — {{.Account.RejectedN}} features rejected</summary>
+      <table>
+        <thead><tr><th class="num">donor id</th><th>title</th><th>reason</th></tr></thead>
+        <tbody>{{range .Account.Rejected}}<tr><td class="num">{{.Donor}}</td><td>{{.Title}}</td><td class="dim">{{.Reason}}</td></tr>{{end}}</tbody>
+      </table>
+    </details>
+    {{end}}
+    {{if .Account.Adopted}}
+    <details class="account">
+      <summary>{{.Account.Source}} · {{.World}} — {{.Account.AdoptedN}} features adopted into this world's own collections</summary>
+      <table>
+        <thead><tr><th class="num">donor id</th><th>into</th></tr></thead>
+        <tbody>{{range .Account.Adopted}}<tr><td class="num">{{.Donor}}</td><td>{{.Into}}</td></tr>{{end}}</tbody>
+      </table>
+    </details>
+    {{end}}
+    {{if .Account.Enriched}}
+    <details class="account">
+      <summary>{{.Account.Source}} · {{.World}} — collections that took an attribute</summary>
+      <table>
+        <thead><tr><th>collection</th><th>key</th></tr></thead>
+        <tbody>{{range .Account.Enriched}}<tr><td>{{.Collection}}</td><td class="dim">{{.Key}}</td></tr>{{end}}</tbody>
+      </table>
+    </details>
+    {{end}}
+    {{if .Account.Corrections}}
+    <details class="account" open>
+      <summary>{{.Account.Source}} · {{.World}} — corrections</summary>
+      <table>
+        <thead><tr><th>world</th><th>reason</th><th class="num">points</th></tr></thead>
+        <tbody>{{range .Account.Corrections}}<tr><td>{{.World}}</td><td>{{.Reason}}</td><td class="num">{{.Points}}</td></tr>{{end}}</tbody>
+      </table>
+    </details>
+    {{end}}
+  {{end}}
+  {{else}}
+  <p class="dim">This build carries no ledger: nothing was folded into it.</p>
+  {{end}}
+</section>
+{{end}}
+{{end}}

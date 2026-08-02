@@ -186,6 +186,37 @@ on another day builds another world, not this one, and the hub's data will
 have moved besides — so a re-capture of this fixture means re-reading the
 same archived capture, not re-crawling.
 
+### Where the archive is
+
+The first build's archive was not kept, and for a while this fixture could not
+be rebuilt from anything. It was re-crawled on the same day it answers to, from
+the same eleven datasets and the same three endpoints, into the archive the
+pipeline keeps:
+
+    ../gamemap/fmg-archive/games/arcgis-hub-bend-oregon-34950069941
+                          /maps/2026-08-02-35604576620
+
+The repository stages a one-game copy of it at `crawl/bend-or/fmg-archive` —
+gitignored, the shape `tools/generate` reads, and the `<archive>` the four
+commands above take. The full archive is staged at `crawl/fmg-archive` for
+`golden/pipeline`, which reads the whole capture set.
+
+The re-crawl reproduced the lost build exactly. All 2,320 non-manifest entries
+of the rebuilt bundle hash as the first build's did — the payloads, the icon and
+every one of the 2,316 basemap tiles — so the city's open data had not moved
+between the crawls and the offline render is deterministic over it. `atlas.json`
+differs in three fields and no others: `version.createdAt` and the world's
+`updatedAt`, which are capture-derived and therefore carry the second crawl's
+clock, and `version.stamp`, which moves because the manifest's bytes are a
+stamped part. The file name moves with the stamp:
+`bend-or-20260802-f0feba1cd00c.atlas` became
+`bend-or-20260802-3610a0f10798.atlas`. `golden/format/STAMPS.md` reads that as
+the row it always was — a stamp is a rebuild-cost promise, never a content one.
+
+The re-crawl is also the reproducibility check: two runs of `tools/generate`
+over the staged archive write byte-identical files, and two runs of
+`tools/tiles` derive the same pyramid under the same derivation stamp.
+
 What the city fixture pins that nothing else in the set does: 104 paths and
 44 areas with inline geometry, 88 shape features carrying
 `atlas.hydro.huc12` from the subwatershed membership join, four national
@@ -195,12 +226,16 @@ and the `DescribedPct` defect, which reads **235%** here — 153 described
 entries over 65 pins, because described shapes defer their prose into the
 same `.text` payload the pins do.
 
-Two things it does *not* pin, so nobody goes looking for them:
+One thing it does *not* pin, so nobody goes looking for it — and one that it
+used not to, kept here so a reader of the old note is not sent chasing it:
 
 - the packed `member` column is zero for every row. `member` is the id of
   the *area feature containing a point*, and it is filled from a
   translator's `region_id`; the ArcGIS translator assigns none, so its pins
   are unowned. HUC12 membership is not carried there — it rides on the
   shape features as an attribute and a sentence in the `.text` payload.
-- `http/transcript.json` predates this fixture and does not sample it. See
-  `FIXTURES.json`'s `http.cityGap` for what re-recording would cost.
+- nothing, any more, on the HTTP side. The bullet that stood here said the
+  transcript predated the city and pointed at a `http.cityGap` note; the
+  transcript has since been re-recorded over the six-volume set and `bend-or`
+  sorts first in it, so it carries the range request and the eight refusals.
+  The `§ http/` section above is the current reading.

@@ -28,11 +28,13 @@ A run prints one line per gate, then the waiver file, then a count:
 ```
   PASS  format-roundtrip  ok  github.com/FelineStateMachine/atlas/golden/format  0.35s
   PASS  generate-enrich   ok  github.com/FelineStateMachine/atlas/golden/pipeline  15.2s
-                          scope: five of six bundle fixtures: … bend-or is out of
-                          scope — its capture archive was not kept, so nothing can
-                          rebuild it (golden/format/STAMPS.md). …
+                          scope: five of six bundle fixtures: … bend-or awaits the
+                          offline basemap rasterizer — its archive is an input again
+                          and its translator has landed, but nothing yet renders a
+                          city's deepest level (docs/generate.md §4.5). …
   PASS  analysis-vectors  9 grounds, 178 vectors in 8 families, 28 plans over …
   PASS  analysis-lane     analysis lane: the boundary rules, tsc --strict and …
+  PASS  render-lane       render lane: the boundary rules, tsc --strict, the seam …
   SKIP  parity-compare    awaiting M5+M6 — the app and the seam: …
   PASS  island            ok  github.com/FelineStateMachine/atlas/golden/island
   PASS  http-replay       ok  github.com/FelineStateMachine/atlas/golden/http
@@ -43,7 +45,7 @@ waivers: 3 accepted divergences from the goldens (golden/waivers.json)
   WAIVED  seam-assets      http-replay/GET /static/app.css, …
   WAIVED  enriched-build-revision  generate-enrich/bundles/cyberpunk-2077 …
 
-8 suites: 7 passed, 1 skipped, 0 failed
+9 suites: 8 passed, 1 skipped, 0 failed
 ```
 
 A ready gate that does not judge everything its contract names prints a **scope**
@@ -69,11 +71,11 @@ recorded bodies too when the variable names a bundles directory holding the
 fixture builds (see `golden/http/NOTES.md`). Both modes must pass; CI runs the
 first.
 
-Six gates run today. `depcheck`, `format-roundtrip`, `island`, `http-replay` and
-`generate-enrich` need only Go — though `generate-enrich` needs two directories
-that are not in git before it judges anything, and says so when it has them.
-The two
-analysis gates run on plain node and need one `npm ci` at the **repository
+Eight gates run today. `depcheck`, `format-roundtrip`, `island`, `http-replay`
+and `generate-enrich` need only Go — though `generate-enrich` needs two
+directories that are not in git before it judges anything, and says so when it
+has them. The lane
+gates run on plain node and need one `npm ci` at the **repository
 root** — the workspace install that brings the analysis lane its single
 dependency (s2js), plus eslint and tsc — and a node that strips TypeScript
 types (22.18+, or 24+). The workflow installs them; no browser and no bundler
@@ -168,16 +170,17 @@ every fixture that can be rebuilt at all:
 | `zelda-tears-of-the-kingdom` | lens shards | generate | byte-identical |
 | `mars` | a sphere, named artwork | generate | byte-identical |
 | `cyberpunk-2077` | two sources merged | generate ⊕ enrich | canonically identical; one waived stamp |
-| `bend-or` | a city | — | **out of scope: the capture is gone** |
+| `bend-or` | a city | — | **awaiting the offline basemap rasterizer** |
 
-`bend-or` is not skipped for want of a lane. Its bundle was built during M0 from
-a live crawl and that capture archive was not kept, so nothing can rebuild it
-from anything — and a fresh capture would not reproduce it either, because
-`capturedAt` is first-seen and a build's `createdAt` is capture-derived by the
-format's own invariant. `golden/format/STAMPS.md` carries the row and the
-reason; the gate prints the scope on every run, so the missing sixth is a stated
-cost rather than a silent omission. A sibling is re-capturing the city; when that
-lands, the fixture is re-captured with it and the row moves.
+`bend-or` is named rather than omitted. Its archive is an input again — the city
+was re-crawled and the rebuild hashes identically everywhere but the clock, which
+`golden/format/STAMPS.md` records — and its `arcgishub` translator has landed, so
+the city can be read. What it cannot yet be given is a picture: a city has no
+tile server, its deepest level is rendered from the vectors its open data
+publishes, and `internal/generate/tiles` has no offline basemap rasterizer yet
+(`docs/generate.md` §4.5). Until that lands there is no pyramid to compose
+against. The gate prints that scope on every run, so the missing sixth is a
+stated cost rather than a silent omission.
 
 The merged fixture is reproduced **by the shipped command**, not by a test's own
 reassembly of the pipeline: the gate runs `atlas enrich` over the archive into an

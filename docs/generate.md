@@ -327,7 +327,47 @@ descriptions and both survive into a volume.
   against the published map; a capture whose numbers are not in it fails.
 - `idSpace: "derived"`: pins, categories and types are opaque string ids.
 
-### 2.6 Adding a sixth source
+### 2.6 The ArcGIS Hub reader
+
+`internal/generate/sources/arcgishub` reads a city. It is the only source whose
+subject is a real place, and the only one where **a world is a date**: each crawl
+day of a city's open-data hub registers its own world, so a volume's world picker
+is the city's version history and the difference between two worlds is a
+difference in the city.
+
+- Capture kind `arcgis-map`.
+- A city sits off the Web-Mercator diagonal, so its curated bounding box is
+  padded five percent per side and squared in Mercator's own terms; that square
+  is the world. Features project through the Mercator forward onto it and out
+  again through the shared synthetic inverse, and the world declares the mapping
+  as `atlas.geometry.mercator.px`/`.deg`, so a reader can invert it and stand on
+  the ground. Every pin also keeps the coordinates the city published, verbatim.
+- Polygon and line datasets become shape collections — one collection per
+  dataset, one feature per curated bucket, holding every row that fell into it.
+  Point datasets become pins under their curated heading. Pins are emitted first
+  and ground second, which is the legend order.
+- **The membership join.** A capture that also carries the national
+  subwatersheds can say which subwatershed each of the *city's own* zones lies
+  in, computed from the captured polygons at translate time and carried as
+  `atlas.hydro.huc12` plus one sentence. The claim is made only when every
+  sampled part of a zone agrees on one answer: a zone that straddles two says
+  nothing rather than something misleading.
+- **The gate: an uncurated city is not read.** The curation table is the whole
+  authority — an unverified window would hang every pin on the wrong pixel, and
+  unverified field names would title every zone with nothing. Unlike the other
+  gates it is not a build failure: an uncurated city wraps `ErrNotReady` and the
+  volume is passed over, because an archive may legitimately hold a city this
+  table may not name (the operator's own), and a hard refusal would take every
+  other volume down with it.
+- The one lens is a basemap **rendered offline from the city's own vector data**,
+  never fetched, so the pyramid is reproducible from the archived capture alone.
+  Its frame declares every level complete, which is what lands the derivation on
+  the translated world's own grid rather than on the shared window a city does
+  not sit in. The renderer itself is not built yet — see §4.4.
+- `idSpace: "derived"`: a hub's object ids are load artifacts that churn between
+  refreshes, and nothing above a row is numbered at all.
+
+### 2.7 Adding a source
 
 A source is one directory, one constructor, and one line in
 `internal/generate/sources/registry.go`. The walkthrough:
@@ -702,6 +742,17 @@ would be used rather than left to be discovered:
   clipped against a window bled eight pixels past the tile edge, opaque
   truecolour PNG — and it belongs beside the ArcGIS source's own crawl, since
   what it renders is what that crawl fetched.
+
+  This is now the **only** thing between the clean room and the city fixture.
+  The reader is in place (§2.6) and agrees with the reference translator on
+  every identity, position, bucket and attribute; the capture archive it reads
+  has been crawled back and is staged at `crawl/bend-or/fmg-archive`; the
+  lens declares its frame. What is missing is the rasters the frame names, so
+  `golden/pipeline`'s `singleSource` table cannot yet carry `bend-or` — nothing
+  would have a pyramid to compose. The curation the renderer answers to already
+  travels with the rest of a layer's judgement: each dataset carries a `Role`
+  and an optional `Emphasis`, unread by translation, so the renderer will not
+  need a second table that could drift from the first.
 
 ---
 

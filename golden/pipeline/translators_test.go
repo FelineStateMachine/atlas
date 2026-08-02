@@ -17,6 +17,7 @@ import (
 	"math"
 	"testing"
 
+	"github.com/FelineStateMachine/atlas/format/semconv"
 	"github.com/FelineStateMachine/atlas/internal/generate/doc"
 )
 
@@ -64,13 +65,15 @@ type referenceDocument struct {
 		Attrs map[string]string `json:"atlas_attrs"`
 	} `json:"atlas_collections"`
 	Regions []struct {
-		ID          int64   `json:"id"`
-		Title       string  `json:"title"`
-		Description string  `json:"description"`
-		Collection  string  `json:"atlas_collection"`
-		Parent      *int64  `json:"parent_region_id"`
-		CenterX     float64 `json:"center_x"`
-		CenterY     float64 `json:"center_y"`
+		ID          int64             `json:"id"`
+		Title       string            `json:"title"`
+		Subtitle    string            `json:"subtitle"`
+		Description string            `json:"description"`
+		Collection  string            `json:"atlas_collection"`
+		Parent      *int64            `json:"parent_region_id"`
+		CenterX     float64           `json:"center_x"`
+		CenterY     float64           `json:"center_y"`
+		Attrs       map[string]string `json:"atlas_attrs"`
 		Features    []struct {
 			Geometry struct {
 				Type string `json:"type"`
@@ -344,5 +347,186 @@ func TestPiggybackTranslatorAgreesWithFixture(t *testing.T) {
 	}
 	if labels == 0 {
 		t.Error("no collection renders as text, so the district names became pins")
+	}
+}
+
+// TestArcGISHubTranslatorAgreesWithFixture holds the city reader against the
+// document the reference tree made of the same archived capture.
+//
+// This is the fixture with the most shape in it, and the only one whose input
+// had to be crawled back: the archive the first bundle was built from was lost,
+// and this document is the reference tree's output for the re-crawl (see
+// golden/format/STAMPS.md, "The city fixture"). It came back byte for byte, so
+// the fixture is the same reading it always was.
+//
+// Three differences of shape are deliberate and are not compared:
+//
+//   - The reference document declared the basemap's zoom range, extension and
+//     per-level bounds on the tile set. The clean room's lens says only its name
+//     and its tile set and hands the rest to the frame, because what a bundle
+//     promises about a raster must be what the deriver derived.
+//   - The reference document nested the point collections under group
+//     containers and carried the shape collections as a separate declarations
+//     array beside a flat regions list. The clean room carries one ordered
+//     collections array: pins first, then ground, each shape collection holding
+//     its own features.
+//   - A shape collection's kind is a field here and was an attribute there, so
+//     atlas.geometry.kind is compared as the kind rather than as an attribute.
+func TestArcGISHubTranslatorAgreesWithFixture(t *testing.T) {
+	document := translateFrom(t, "arcgis-hub", "bend-or")
+
+	var reference referenceDocument
+	readJSON(t, "../fixtures/translators/arcgis-hub.doc.json", &reference)
+
+	if document.Source.IDSpace != doc.IDSpaceDerived {
+		t.Errorf("a hub numbers rows with churning object ids and nothing above them, so the "+
+			"source must declare %q, not %q", doc.IDSpaceDerived, document.Source.IDSpace)
+	}
+	if len(document.Worlds) != 1 {
+		t.Fatalf("document carries %d worlds, the fixture describes one crawl day", len(document.Worlds))
+	}
+	world := document.Worlds[0]
+
+	if document.Volume.Slug != reference.Game.Slug || document.Volume.Title != reference.Game.Title {
+		t.Errorf("volume %s/%s, fixture %s/%s",
+			document.Volume.Slug, document.Volume.Title, reference.Game.Slug, reference.Game.Title)
+	}
+	// The day is the world, which is what makes a city's picker its version
+	// history rather than a list of pictures.
+	if world.ID != reference.ID || world.Slug != reference.Slug || world.Title != reference.Title {
+		t.Errorf("world identity %d/%s/%s, fixture %d/%s/%s",
+			world.ID, world.Slug, world.Title, reference.ID, reference.Slug, reference.Title)
+	}
+	if !near(world.Center.Lat, reference.InitialLatitude) || !near(world.Center.Lng, reference.InitialLongitude) {
+		t.Errorf("center %v,%v, fixture %v,%v",
+			world.Center.Lat, world.Center.Lng, reference.InitialLatitude, reference.InitialLongitude)
+	}
+	// The declared Mercator window is the whole coordinate design: it is exactly
+	// the transform every position in this document was projected through, so a
+	// window that moved would move every feature with it.
+	compareAttrs(t, "world "+world.Slug, world.Attrs, reference.Attrs)
+	if len(world.Lenses) != len(reference.Config.TileSets) {
+		t.Fatalf("%d lenses, fixture %d", len(world.Lenses), len(reference.Config.TileSets))
+	}
+	for i, set := range reference.Config.TileSets {
+		if world.Lenses[i].Name != set.Name || world.Lenses[i].TileSet != set.Path {
+			t.Errorf("lens %d is %s/%s, fixture %s/%s",
+				i, world.Lenses[i].Name, world.Lenses[i].TileSet, set.Name, set.Path)
+		}
+		if world.Lenses[i].Frame == nil {
+			t.Errorf("lens %d declares no frame; a rendered basemap is the one pyramid whose "+
+				"levels are complete by construction, and nothing could derive it without "+
+				"being told so", i)
+		}
+	}
+
+	// Pins first: the reference's group-of-categories nesting, in order,
+	// against the head of the collections array.
+	pins := 0
+	for _, group := range reference.Groups {
+		pins += len(group.Categories)
+	}
+	if len(document.Worlds[0].Collections) < pins {
+		t.Fatalf("document carries %d collections, the fixture's groups alone hold %d",
+			len(world.Collections), pins)
+	}
+	compareCategories(t, world.Collections[:pins], reference)
+
+	// Then ground: one collection per declared collection, in the same order,
+	// each holding the regions that named it.
+	shapes := world.Collections[pins:]
+	if len(shapes) != len(reference.Collections) {
+		t.Fatalf("%d shape collections, fixture declares %d", len(shapes), len(reference.Collections))
+	}
+	huc12 := 0
+	byKind := map[string]int{}
+	for at, declared := range reference.Collections {
+		got := shapes[at]
+		if got.Key != declared.Key || got.Title != declared.Title {
+			t.Errorf("shape collection %d is %s/%q, fixture %s/%q",
+				at, got.Key, got.Title, declared.Key, declared.Title)
+			continue
+		}
+		// The kind moved from an attribute to a field; everything else the
+		// declaration said is still an attribute and still compared.
+		want := map[string]string{}
+		for key, value := range declared.Attrs {
+			if key == semconv.KeyGeometryKind {
+				if got.Kind != value {
+					t.Errorf("collection %s is kind %q, fixture declares %q", got.Key, got.Kind, value)
+				}
+				continue
+			}
+			want[key] = value
+		}
+		compareAttrs(t, "collection "+got.Key, got.Attrs, want)
+
+		var regions []int
+		for index, region := range reference.Regions {
+			if region.Collection == declared.Key {
+				regions = append(regions, index)
+			}
+		}
+		if len(got.Features) != len(regions) {
+			t.Errorf("collection %s holds %d features, fixture %d", got.Key, len(got.Features), len(regions))
+			continue
+		}
+		byKind[got.Kind] += len(got.Features)
+		for i, index := range regions {
+			region := reference.Regions[index]
+			feature := got.Features[i]
+			if feature.ID != region.ID || feature.Title != region.Title ||
+				feature.Subtitle != region.Subtitle || feature.Description != region.Description {
+				t.Errorf("collection %s feature %d is %d/%q/%q/%q, fixture %d/%q/%q/%q",
+					got.Key, i, feature.ID, feature.Title, feature.Subtitle, feature.Description,
+					region.ID, region.Title, region.Subtitle, region.Description)
+				continue
+			}
+			compareAttrs(t, "feature "+feature.Title, feature.Attrs, region.Attrs)
+			if feature.Attrs[semconv.KeyHydroHUC12] != "" {
+				huc12++
+			}
+			if len(feature.Geometry) != len(region.Features) {
+				t.Errorf("collection %s feature %q draws %d parts, fixture %d",
+					got.Key, feature.Title, len(feature.Geometry), len(region.Features))
+				continue
+			}
+			for part := range region.Features {
+				if feature.Geometry[part].Type != region.Features[part].Geometry.Type {
+					t.Errorf("collection %s feature %q part %d is a %s, fixture %s",
+						got.Key, feature.Title, part, feature.Geometry[part].Type,
+						region.Features[part].Geometry.Type)
+				}
+			}
+		}
+	}
+
+	// What the city fixture pins that nothing else in the set does. These are
+	// counted rather than merely walked, because the numbers are the fixture's
+	// own description of itself in golden/fixtures/README.md, and a curation
+	// change that quietly halved one would otherwise pass every check above.
+	if byKind[doc.KindPath] != 104 || byKind[doc.KindArea] != 44 {
+		t.Errorf("%d paths and %d areas, the fixture is 104 and 44",
+			byKind[doc.KindPath], byKind[doc.KindArea])
+	}
+	if huc12 != 88 {
+		t.Errorf("%d shape features carry %s, the fixture is 88 from the subwatershed join",
+			huc12, semconv.KeyHydroHUC12)
+	}
+	quiet := 0
+	for _, collection := range shapes {
+		if collection.Attrs[semconv.KeyLabelPolicy] == semconv.LabelQuiet {
+			quiet++
+		}
+	}
+	if quiet != 3 {
+		t.Errorf("%d collections label quiet; the fixture is the three national area layers", quiet)
+	}
+	// The standard glyph is named and not resolved: resolving it against the
+	// icon library is composition's work, and a source that resolved it would be
+	// deciding what artwork a bundle carries.
+	if len(document.Icons) != 0 {
+		t.Errorf("the document carries %d pieces of artwork; a city's hub publishes none, and "+
+			"its one icon is a standard glyph named for composition to resolve", len(document.Icons))
 	}
 }

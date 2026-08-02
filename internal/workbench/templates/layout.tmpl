@@ -1,0 +1,35 @@
+{{/*
+  layout — the page around every page.
+
+  The workbench is pure hypermedia: real URLs for every view, ordinary links
+  and forms, and one swap (the operations console, which grows a row at a
+  time). The hx-* vocabulary lives in these files and nowhere else, so the
+  runtime being absent costs the console its liveness and costs the rest of
+  the workbench nothing (issue #5 §4.3).
+*/}}
+{{define "layout"}}<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="dark">
+<link rel="icon" href="data:,">
+<title>{{block "title" .}}Workbench{{end}} — Atlas</title>
+<link rel="stylesheet" href="/assets/workbench.css">
+<script src="/assets/htmx.js" defer></script>
+</head>
+<body class="workbench">
+<header class="topbar">
+  <a class="brand" href="/">Workbench</a>
+  <nav>
+    <a href="/">Library</a>
+    <a href="/sources">Sources</a>
+    <a href="/operations">Operations</a>
+  </nav>
+</header>
+<main>
+{{template "content" .}}
+</main>
+</body>
+</html>
+{{end}}

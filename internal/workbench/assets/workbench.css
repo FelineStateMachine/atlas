@@ -1,0 +1,248 @@
+/* The workbench's own surface, spelled entirely in the tokens above.
+
+   The identity is the application's: neutral near-black chrome, linen text,
+   cerulean for everything interactive and for the data readouts, the earth
+   browns for warm detail. What differs is the shape of the work — this is a
+   measurement instrument, so it is dense tables, a score that reads at arm's
+   length, and one console pane that grows a row at a time. */
+
+* { box-sizing: border-box; }
+
+body.workbench {
+  margin: 0;
+  background: var(--bg);
+  color: var(--text);
+  font: 14px/1.55 var(--font, inherit);
+  font-family: Inter, ui-sans-serif, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+}
+
+/* topbar --------------------------------------------------------------- */
+
+.topbar {
+  display: flex;
+  align-items: baseline;
+  gap: 24px;
+  padding: 14px 24px;
+  background: var(--panel);
+  border-bottom: 1px solid var(--line);
+  position: sticky;
+  top: 0;
+  z-index: 2;
+}
+
+.topbar .brand {
+  font-weight: 600;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  font-size: 12px;
+  color: var(--text-strong);
+  text-decoration: none;
+}
+
+.topbar nav { display: flex; gap: 18px; }
+.topbar nav a { color: var(--muted); text-decoration: none; font-size: 13px; }
+.topbar nav a:hover { color: var(--accent); }
+
+main { padding: 24px; max-width: 1500px; }
+
+/* page furniture -------------------------------------------------------- */
+
+.page-head { margin-bottom: 20px; }
+.page-head h1 { font-size: 22px; font-weight: 600; margin: 0 0 4px; color: var(--text-strong); }
+
+h2 { font-size: 15px; font-weight: 600; margin: 0 0 8px; color: var(--text-strong); }
+h3 { font-size: 13px; font-weight: 600; margin: 18px 0 6px; color: var(--text-strong); }
+
+a { color: var(--accent); }
+
+.dim { color: var(--muted); font-weight: 400; }
+.note { margin-top: -6px; }
+.empty { color: var(--muted); padding: 32px 0; }
+
+.warn {
+  color: var(--warm-strong);
+  background: rgba(138, 106, 68, 0.12);
+  border-left: 2px solid var(--warm);
+  padding: 8px 12px;
+  margin: 8px 0;
+}
+
+.badge {
+  display: inline-block;
+  padding: 1px 7px;
+  margin-right: 4px;
+  border: 1px solid var(--line-strong);
+  border-radius: 999px;
+  font-size: 11px;
+  color: var(--data);
+}
+
+.tag {
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: var(--accent-ink);
+  background: var(--accent);
+  padding: 1px 6px;
+  border-radius: 3px;
+  vertical-align: middle;
+}
+
+/* the headline: a score, and how it moved ------------------------------- */
+
+.headline {
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-left: 3px solid var(--accent);
+  padding: 16px 20px;
+  margin-bottom: 20px;
+}
+
+.score-big {
+  margin: 0;
+  font-size: 34px;
+  font-weight: 600;
+  line-height: 1.1;
+  color: var(--data);
+  font-variant-numeric: tabular-nums;
+}
+
+.score-big .dim { font-size: 13px; font-weight: 400; }
+.movement { margin: 6px 0 0; font-size: 13px; }
+.score { font-size: 16px; font-weight: 600; color: var(--data); margin: 4px 0 12px; }
+td.score { font-weight: 600; color: var(--data); }
+
+.delta-up { color: var(--accent); }
+.delta-down { color: var(--warm-strong); }
+.delta-flat { color: var(--muted); }
+
+/* tables ---------------------------------------------------------------- */
+
+table {
+  border-collapse: collapse;
+  width: 100%;
+  margin: 8px 0 4px;
+  font-variant-numeric: tabular-nums;
+}
+
+th, td {
+  text-align: left;
+  padding: 5px 10px;
+  border-bottom: 1px solid var(--line);
+  vertical-align: top;
+}
+
+th {
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--muted);
+  font-weight: 500;
+  white-space: nowrap;
+}
+
+td.num, th.num { text-align: right; white-space: nowrap; }
+tbody tr:hover { background: var(--accent-wash); }
+
+/* builds, cards, accounts ------------------------------------------------ */
+
+.build, .card {
+  background: var(--panel);
+  border: 1px solid var(--line);
+  padding: 16px 20px;
+  margin-bottom: 16px;
+}
+
+.build.serving { border-left: 3px solid var(--accent); }
+
+.columns {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(340px, 1fr));
+  gap: 16px;
+  align-items: start;
+}
+
+.axes { margin: 4px 0 12px; }
+.axes div { display: flex; gap: 12px; padding: 3px 0; border-bottom: 1px solid var(--line); }
+.axes dt {
+  width: 110px;
+  flex: none;
+  color: var(--muted);
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  padding-top: 2px;
+}
+.axes dd { margin: 0; }
+.axes-head { color: var(--muted); }
+
+.terms div { padding: 6px 0; border-bottom: 1px solid var(--line); }
+.terms dt {
+  color: var(--muted);
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+.terms dd { margin: 2px 0 0; }
+
+details.account { margin: 6px 0; }
+details.account summary { cursor: pointer; color: var(--muted); padding: 4px 0; }
+details.account summary:hover { color: var(--accent); }
+
+/* forms ------------------------------------------------------------------ */
+
+form { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin: 10px 0; }
+form.compare { margin-bottom: 18px; }
+
+label { color: var(--muted); font-size: 12px; }
+
+input, select, button {
+  font: inherit;
+  color: var(--text);
+  background: var(--panel-raised);
+  border: 1px solid var(--line-strong);
+  border-radius: 3px;
+  padding: 5px 9px;
+}
+
+input { min-width: 240px; }
+input::placeholder { color: var(--muted); }
+
+button {
+  color: var(--accent-ink);
+  background: var(--accent);
+  border-color: transparent;
+  cursor: pointer;
+  font-weight: 500;
+}
+
+button:hover { filter: brightness(1.1); }
+input:focus-visible, select:focus-visible, button:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
+}
+
+/* the console: one row per line the operation said ----------------------- */
+
+.console {
+  background: var(--bg);
+  border: 1px solid var(--line);
+  padding: 10px 12px;
+  max-height: 60vh;
+  overflow: auto;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 12px;
+}
+
+.op-row { margin: 0; padding: 1px 0; display: flex; gap: 8px; flex-wrap: wrap; }
+.op-row .seq { color: var(--muted); min-width: 2.5em; text-align: right; }
+.op-row .level { color: var(--muted); min-width: 4em; }
+.op-row .msg { color: var(--text); }
+.op-row .attr { color: var(--data); }
+.op-row .attr b { color: var(--muted); font-weight: 400; margin-right: 3px; }
+
+.op-row[data-kind="command"] { color: var(--accent); border-top: 1px solid var(--line); padding-top: 6px; }
+.op-row[data-kind="command"] .msg { color: var(--accent); }
+.op-row[data-kind="result"] .msg { font-weight: 600; }
+.op-row[data-level="WARN"] .msg { color: var(--warm-strong); }
+.op-row[data-failed] .msg { color: #d98a72; }

@@ -7,13 +7,13 @@
 //	atlas enrich      fold every reading of a volume together and build it
 //	atlas measure     score every build in a registry
 //	atlas translate   read archived captures and print the interchange document
+//	atlas workbench   serve the workbench: scores, diffs, sources, operations
 //	atlas serve -bundles DIR      # the headless application host
 //	atlas dev   -bundles DIR      # the same, reading its chrome from the working copy
 //
-// More subcommands arrive with the lanes that own them -- workbench.
-// Each lives in its own file and appears here as
-// one line of the table below, so two people adding two subcommands do not
-// collide over this file.
+// More subcommands arrive with the lanes that own them. Each lives in its own
+// file and appears here as one line of the table below, so two people adding two
+// subcommands do not collide over this file.
 //
 // Every run writes a structured event stream to stderr, so piped stdout stays
 // clean for whatever the subcommand's product is. --log-json makes the stream
@@ -53,6 +53,7 @@ func commands() []command {
 		serveCommand(),
 		tilesCommand(),
 		translateCommand(),
+		workbenchCommand(),
 	}
 }
 

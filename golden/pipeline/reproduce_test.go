@@ -403,30 +403,33 @@ func translateFixture(t *testing.T, want string) doc.Document {
 // "whoever answers" names none.
 func translateFrom(t *testing.T, from, want string) doc.Document {
 	t.Helper()
-	store, err := archive.Open(archiveDir(t))
-	if err != nil {
-		t.Fatalf("archive: %v", err)
-	}
-	for _, volume := range store.Volumes() {
-		if from != "" && volume.Source != from {
-			continue
-		}
-		source, err := sources.For(volume.Source)
+	roots := archiveDirs(t)
+	for _, root := range roots {
+		store, err := archive.Open(root)
 		if err != nil {
-			continue
+			t.Fatalf("archive %s: %v", root, err)
 		}
-		document, err := source.Translate(store, volume, slog.New(slog.DiscardHandler))
-		if err != nil {
-			if errors.Is(err, sources.ErrNotReady) {
+		for _, volume := range store.Volumes() {
+			if from != "" && volume.Source != from {
 				continue
 			}
-			t.Fatalf("translate %s: %v", volume.Title, err)
-		}
-		if document.Volume.Slug == want {
-			return document
+			source, err := sources.For(volume.Source)
+			if err != nil {
+				continue
+			}
+			document, err := source.Translate(store, volume, slog.New(slog.DiscardHandler))
+			if err != nil {
+				if errors.Is(err, sources.ErrNotReady) {
+					continue
+				}
+				t.Fatalf("translate %s: %v", volume.Title, err)
+			}
+			if document.Volume.Slug == want {
+				return document
+			}
 		}
 	}
-	t.Fatalf("the archive at %s holds no readable %s", archiveDir(t), want)
+	t.Fatalf("no archive of %s holds a readable %s", strings.Join(roots, ", "), want)
 	return doc.Document{}
 }
 
@@ -435,6 +438,37 @@ func translateFrom(t *testing.T, from, want string) doc.Document {
 func archiveDir(t *testing.T) string {
 	t.Helper()
 	return required(t, "ATLAS_ARCHIVE_DIR", "../../crawl/fmg-archive", "archive.json")
+}
+
+// archiveDirs is every capture archive staged in this checkout, the games
+// archive first.
+//
+// One archive is the usual case and the one ATLAS_ARCHIVE_DIR names. It is not
+// the only case: a volume whose captures were crawled on their own -- the city,
+// re-crawled after its first archive was lost -- is staged beside the games
+// archive as its own one-volume archive of the same shape, so it can be rebuilt
+// without walking a library-sized capture. A test that wants a reading asks for
+// the volume, not for the directory somebody happened to put it in.
+func archiveDirs(t *testing.T) []string {
+	t.Helper()
+	roots := []string{archiveDir(t)}
+	if os.Getenv("ATLAS_ARCHIVE_DIR") != "" {
+		return roots
+	}
+	entries, err := os.ReadDir("../../crawl")
+	if err != nil {
+		return roots
+	}
+	for _, entry := range entries {
+		staged := filepath.Join("../../crawl", entry.Name(), "fmg-archive")
+		if staged == roots[0] {
+			continue
+		}
+		if _, err := os.Stat(filepath.Join(staged, "archive.json")); err == nil {
+			roots = append(roots, staged)
+		}
+	}
+	return roots
 }
 
 func tileIndex(t *testing.T) string {
