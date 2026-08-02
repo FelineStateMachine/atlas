@@ -89,6 +89,10 @@ func visible(model *worldModel, session Session, lens *payloadLens) visibility {
 	if lens != nil {
 		shard = int64(lens.Shard)
 	}
+	// The held cell narrows exactly the way a highlight does, and it spares
+	// the same two answers: the feature the reader has open, and one they are
+	// searching for by name.
+	cell := heldCell(session, lens, float64(model.Grid.Size))
 
 	for _, pin := range model.Points {
 		if !onShard(pin.Shard, shard) || hidden[pin.Collection.ID] {
@@ -106,14 +110,25 @@ func visible(model *worldModel, session Session, lens *payloadLens) visibility {
 			pin.ID != session.Selected && !searched {
 			continue
 		}
+		if cell != nil && !cell.Holds(pin.X, pin.Y) &&
+			pin.ID != session.Selected && !searched {
+			continue
+		}
 		out.Points = append(out.Points, pin)
 	}
 	out.Eligible = len(out.Points)
 
 	// Ground is drawn while its collection is shown: highlighting narrows
-	// which points stand, not which ground is drawn.
+	// which points stand, not which ground is drawn. The shard is the one
+	// question ground answers the same way a point does -- a shape on
+	// another lens's layer is elsewhere in the world, not filtered out, so
+	// it is neither drawn nor counted nor listed.
 	for _, shape := range model.Shapes {
-		if hidden[shape.Collection.ID] || !shape.Drawn {
+		if !onShard(shape.Shard, shard) || hidden[shape.Collection.ID] || !shape.Drawn {
+			continue
+		}
+		if cell != nil && !cell.Holds((shape.MinX+shape.MaxX)/2, (shape.MinY+shape.MaxY)/2) &&
+			shape.ID != session.Selected {
 			continue
 		}
 		out.Shapes = append(out.Shapes, shape)

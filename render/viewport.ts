@@ -50,7 +50,7 @@ export class AtlasViewport extends HTMLElement {
     this.chart?.attach(this.plane, (camera) => {
       const scene = this.watcher?.scene;
       if (!scene?.volume) return;
-      void reportCamera({ volume: scene.volume, world: scene.world, ...camera });
+      reportCamera({ volume: scene.volume, world: scene.world, ...camera });
     });
     this.wireKeys();
     this.wireGlobeToggle();

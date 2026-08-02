@@ -191,12 +191,20 @@ what keeps an accepted divergence a visible cost rather than a green tick.
 The two advisory `tileStats` fields are *not* waivers — they are recorded and
 not compared, for the reason SCHEMA.md §5 gives, and they need no reviewer.
 
-**It is not ready yet, and the flag says so.** The tour walks, the step lists
-agree on the volumes checked, and the diff is down to a readable handful of
-fields per step. What is still open is written in `golden/parity/SCHEMA.md`
-§7 under "What the rewrite has not reproduced yet", one entry per behaviour,
-so that turning the flag on is a matter of emptying that list rather than of
-deciding the gate is close enough.
+**It is not ready yet, and the flag says so.** The tour walks, every volume's
+step list matches its baseline, the tour's own invariants hold, and the diff is
+down to a residue rather than a long tail. What is still open is written in
+`golden/parity/SCHEMA.md` §7 under "What the rewrite has not reproduced yet",
+one entry per behaviour, so that turning the flag on is a matter of emptying
+that list rather than of deciding the gate is close enough.
+
+**One gate came out of this one.** `golden/cells` holds `internal/app/cells`
+— the geohash halving the *server* needs, because the count above the panel
+beside the map is the count of what the map draws and the map draws what the
+held cell holds — to the 1,248 cell extents the six baselines recorded. It is
+a second copy of an arithmetic the analysis lane already owns, which is a cost
+rather than a design; it is written down as one in `internal/app/cells`, and a
+Go twin of the analysis lane deletes both it and this gate.
 
 ## analysis-vectors
 

@@ -13,16 +13,30 @@
   more: a pick, which arrives as an ordinary POST /session/select, and a
   settled camera, which arrives debounced at POST /session/view.
 */}}
-{{define "viewport-surface"}}<atlas-viewport state-src="#atlas-viewport-state" hx-morph-skip-children>
+{{/*
+  ORDER IS PAINT ORDER, and it is the whole reason this looked broken.
+
+  #map and <atlas-viewport> are absolutely positioned siblings filling the
+  same box. In the reference implementation #map *was* the map -- the renderer
+  drew into it -- and it carries the backdrop the map sits on. Here the panes
+  are the custom elements and #map is what is left: the focusable surface the
+  keyboard is heard on, and the home of the loading scrim. Rendered after the
+  panes, its backdrop covered them completely: every count was right, every
+  tile was fetched, and the page showed an empty rectangle.
+
+  So it goes first, and the scrim comes out of it and goes last, because a
+  message about loading has to be readable over the thing that is loading.
+*/}}
+{{define "viewport-surface"}}<div class="map" id="map" tabindex="0"
+     aria-label="Interactive world map" hx-morph-skip-children></div>
+<atlas-viewport state-src="#atlas-viewport-state" hx-morph-skip-children>
   <atlas-chart></atlas-chart>
   <atlas-globe hidden></atlas-globe>
 </atlas-viewport>
-<div class="map" id="map" tabindex="0" aria-label="Interactive world map" hx-morph-skip-children>
-  <div class="map-loading" id="map-loading" hidden>
-    <span class="spinner"></span>
-    <strong>Unfolding map</strong>
-    <small>Loading visible embedded tiles…</small>
-  </div>
+<div class="map-loading" id="map-loading" hidden>
+  <span class="spinner"></span>
+  <strong>Unfolding map</strong>
+  <small>Loading visible embedded tiles…</small>
 </div>
 {{end}}
 

@@ -290,7 +290,7 @@ async function settle() {
       pane.labelKey, pane.labelSprites, pane.visibleSprites, pane.reticle,
       syncOf(), islandOf(),
     ]);
-    if (key === previous) {
+    if (key === previous && reported(s)) {
       stable += 1;
       if (stable >= 2) return;
     } else {
@@ -298,6 +298,28 @@ async function settle() {
     }
     previous = key;
   }
+}
+
+/**
+ * Whether the camera the chart is standing at has reached the record.
+ *
+ * The reference kept the arrangement in the browser, so the camera was in it
+ * the moment the view stopped moving. The rewrite keeps it on the server: the
+ * seam reports a settled camera once, debounced, and the record comes back as
+ * the state island. A step is therefore not over when the view stops -- it is
+ * over when the page has finished saying so, and this is that question asked
+ * of the two halves at once.
+ *
+ * A world with no camera reported at all is answered true rather than waited
+ * on: not every step of every volume has a chart standing under it.
+ */
+function reported(snapshot) {
+  const entry = islandOf().entry;
+  if (!entry || !snapshot || snapshot.zoom == null || !snapshot.center) return true;
+  if (entry.center === null || entry.zoom === null) return false;
+  return Math.abs(entry.zoom - Number(snapshot.zoom.toFixed(3))) < 1e-9 &&
+    entry.center[0] === Math.round(snapshot.center[0]) &&
+    entry.center[1] === Math.round(snapshot.center[1]);
 }
 
 function keydown(key, options = {}) {
@@ -373,6 +395,55 @@ function checkSync(name, snapshot) {
   return problems;
 }
 
+/**
+ * Whether what the map says it is drawing is actually on screen.
+ *
+ * The tour is a count, a flag and a string all the way down, and it was
+ * possible for every one of them to be right while the page showed an empty
+ * rectangle: the application's own backdrop was painted over the pane, so the
+ * renderer drew a world nobody could see and every field in this file agreed
+ * that it had. This is deliberately not a pixel comparison -- there is no
+ * golden to compare against and there should not be. It asks two questions a
+ * blank page answers wrongly: is the pane's own canvas the thing at the
+ * middle of the map, and does it have anything but one flat colour on it.
+ *
+ * It runs once, on the first step, because it is about how the page is put
+ * together rather than about what the reader just did.
+ */
+function checkCanvas(name, snapshot) {
+  if (snapshot.sync.drawn === 0) return [];
+  const pane = tourQuery(snapshot.pane.globeActive ? "atlas-globe" : "atlas-chart");
+  const canvas = pane?.querySelector("canvas");
+  if (!canvas) return [`${name}: the pane has no canvas to draw on`];
+  const box = canvas.getBoundingClientRect();
+  const problems = [];
+  const middle = document.elementFromPoint(box.x + box.width / 2, box.y + box.height / 2);
+  if (middle !== canvas && !canvas.contains(middle)) {
+    problems.push(`${name}: ${middle?.tagName}#${middle?.id} covers the map's own canvas`);
+  }
+  try {
+    const paper = canvas.getContext("2d", { willReadFrequently: true });
+    if (paper) {
+      const width = Math.min(canvas.width, 160);
+      const height = Math.min(canvas.height, 160);
+      const pixels = paper.getImageData(
+        Math.max(0, (canvas.width - width) / 2),
+        Math.max(0, (canvas.height - height) / 2), width, height).data;
+      const seen = new Set();
+      for (let i = 0; i < pixels.length; i += 4) {
+        seen.add(`${pixels[i]},${pixels[i + 1]},${pixels[i + 2]}`);
+        if (seen.size > 4) break;
+      }
+      if (seen.size <= 1) {
+        problems.push(`${name}: the map draws ${snapshot.sync.drawn} features onto one flat colour`);
+      }
+    }
+  } catch {
+    // A tainted or WebGL canvas cannot be read; the covering check stands.
+  }
+  return problems;
+}
+
 function cameraOf(snapshot) {
   return {
     center: (snapshot.center || []).map((value) => Math.round(value)),
@@ -415,6 +486,7 @@ async function tour(options = {}) {
     const snapshot = { ...JSON.parse(window.render_game_to_text()), ...observe() };
     steps.push({ name, snapshot });
     problems.push(...checkSync(name, snapshot));
+    if (steps.length === 1) problems.push(...checkCanvas(name, snapshot));
     return snapshot;
   };
 

@@ -231,11 +231,6 @@ func (a *App) rememberVolume(slug string) error {
 type concern struct {
 	apply   func(c *concernContext, form formValues) error
 	regions []string
-
-	// quiet marks a concern that answers with no content at all: the camera
-	// report is a debounced upward whisper, not an interaction, and swapping
-	// anything in response to it would fight the reader's own hand.
-	quiet bool
 }
 
 // concernContext is what a concern gets to work with: the record it is
@@ -271,8 +266,16 @@ var concerns = map[string]concern{
 	"select":      {apply: applySelect, regions: []string{"legend", "dock", "detail", "viewport"}},
 	"grid":        {apply: applyGrid, regions: []string{"grid-navigator", "dock", "viewport"}},
 	"overview":    {apply: applyOverview, regions: []string{"overview"}},
-	"view":        {apply: applyView, quiet: true},
-	"sidebar":     {apply: applySidebar, regions: []string{"shell"}},
+	// The camera report names no region. It is a debounced upward whisper
+	// rather than an interaction, and swapping any of the chrome in response
+	// to a settling camera would fight the reader's own hand. It still
+	// answers with the island the dispatcher appends -- an inert script node
+	// with no focus to lose, no scroll to reset and nothing on screen that
+	// moves -- because otherwise the camera it just wrote would be readable
+	// only after the next unrelated request, and the baselines record it on
+	// their very first step.
+	"view":    {apply: applyView},
+	"sidebar": {apply: applySidebar, regions: []string{"shell"}},
 }
 
 // formValues is the parsed body of a session POST, read through accessors so
@@ -318,6 +321,10 @@ func (a *App) handleSession(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	form := formValues{values: r.PostForm}
+	// One record, one writer at a time. Everything from here to the write is
+	// a read-modify-write of the same bytes.
+	a.writing.Lock()
+	defer a.writing.Unlock()
 
 	slug := form.get("volume")
 	if err := bundle.ValidSlug(slug); err != nil {
@@ -347,11 +354,11 @@ func (a *App) handleSession(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if held.quiet {
-		w.WriteHeader(http.StatusNoContent)
-		return
-	}
-	a.writePartials(w, held.regions, a.view(library, volume, session))
+	// Every answer carries the island, because every answer has just written
+	// the record the island publishes. It is inert, it is last, and it is
+	// what makes the server's half of the joint diagnostics a reading of the
+	// record rather than a reading of the last page render.
+	a.writePartials(w, append(held.regions, "island"), a.view(library, volume, session))
 }
 
 // arrange fills a fresh record with the arrangement the world itself asks for
@@ -635,10 +642,14 @@ func applyGrid(c *concernContext, form formValues) error {
 			// that has one. Closing it takes the held cell with it, because a
 			// cell nobody can see is not a place anybody is standing.
 			if s.Grid.System != "" {
-				s.Grid = Grid{}
+				s.Grid = Grid{Subgrid: s.Grid.Subgrid}
 				return nil
 			}
-			s.Grid = Grid{System: defaultCellSystem}
+			// The subdivision is not the grid's: a reader who put it away
+			// wants it away the next time they open a grid too, which is why
+			// every baseline carries `subgridVisible` from its first step,
+			// long before any grid is open.
+			s.Grid = Grid{System: defaultCellSystem, Subgrid: s.Grid.Subgrid}
 		case "cycle":
 			// One system, for now. Cycling is written as a move rather than a
 			// destination so the day a second system is registered the control
@@ -653,7 +664,7 @@ func applyGrid(c *concernContext, form formValues) error {
 		// out of the grid altogether once there is no address left. The two
 		// presses the tours record are exactly these two answers.
 		if s.Grid.Cell == "" {
-			s.Grid = Grid{}
+			s.Grid = Grid{Subgrid: s.Grid.Subgrid}
 			return nil
 		}
 		runes := []rune(s.Grid.Cell)

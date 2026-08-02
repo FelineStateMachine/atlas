@@ -51,6 +51,21 @@ import { Overview } from "./overview.ts";
 
 const log = logger("chart");
 
+/**
+ * How close a jump gets. A reader who reached for a feature by name wants to
+ * see what is around it; a reader already deeper than this keeps their depth,
+ * because they were reading something and the jump is a detour rather than a
+ * reset.
+ */
+const FOCUS_ZOOM = 4;
+
+/**
+ * The room a held cell is given inside the window. A cell fitted edge to edge
+ * has its own boundary drawn off the screen, and the boundary is the whole
+ * point of holding it.
+ */
+const GRID_FIT_PADDING = 52;
+
 /** What the chart publishes about itself, in the golden key names. */
 export interface ChartDiagnostics {
   coordinateSystem: string;
@@ -85,6 +100,14 @@ export class AtlasChart extends HTMLElement {
   };
   private styles: Styles | null = null;
   private context: WorldContext | null = null;
+  /** The feature the card is open about, so a change in it can be acted on. */
+  private selected = "";
+  /** The view a jump borrowed, and the view the jump landed on. */
+  private borrowed: { x: number; y: number; zoom: number; rotation: number } | null = null;
+  private landed: { x: number; y: number; zoom: number; rotation: number } | null = null;
+  private sizes: ResizeObserver | null = null;
+  /** The cell the camera was last flown to hold. */
+  private heldCell = "";
   private plane: DataPlane | null = null;
   private overview: Overview | null = null;
   private fitZoom: number | null = null;
@@ -108,6 +131,7 @@ export class AtlasChart extends HTMLElement {
     const lensKey = `${worldKey}#${context.lens?.tiles ?? ""}@${context.lensIndex}`;
     if (worldKey !== this.worldKey) {
       this.build(context);
+      this.watchSize();
       this.worldKey = worldKey;
       this.lensKey = "";
     }
@@ -115,7 +139,83 @@ export class AtlasChart extends HTMLElement {
       this.openLens(context, this.lensKey === "");
       this.lensKey = lensKey;
     }
+    this.follow(context);
     this.restyle();
+    // The first camera a volume ever has is the one the fit produced, and a
+    // fit without an animation raises no `moveend` -- so without this the
+    // opening view is the one camera the server is never told about, and the
+    // reader's own first arrangement is the only one that reopens wrong.
+    this.report();
+  }
+
+  /**
+   * Keep the map the size of its pane.
+   *
+   * OpenLayers measures once and has to be told when the container moves, and
+   * on this page the container moves without the window doing anything: the
+   * panel beside the map comes out the first time a search has something to
+   * say, and the sidebar folds under a keystroke. A map that did not hear
+   * about it would draw at the old size and, worse, go on believing the whole
+   * world still fits its window -- which is the question the corner locator
+   * puts itself away over.
+   */
+  private watchSize(): void {
+    if (this.sizes || typeof ResizeObserver === "undefined") return;
+    this.sizes = new ResizeObserver(() => {
+      // A pane measured mid-transition can be zero across, and telling
+      // OpenLayers its map is zero pixels wide throws its size away.
+      if (!this.clientWidth || !this.clientHeight) return;
+      this.map?.updateSize();
+      this.overview?.draw();
+      this.writeCount();
+    });
+    this.sizes.observe(this);
+  }
+
+  /**
+   * The camera's side of a selection, and the way back from it.
+   *
+   * A feature reached for from a panel is worth moving the camera for: the
+   * reader asked for something they could not see. A feature clicked on the
+   * canvas is already in front of them, and the pick goes through the same
+   * route, so the test is whether the camera can already see it.
+   *
+   * The way back is the other half. A jump borrows the view, and closing the
+   * card gives it back — unless the reader steered while the card was open,
+   * in which case the view they steered to is the one they chose and the loan
+   * is off. "Steered" is read off the camera rather than off the events: if
+   * the camera is not where the jump put it, a hand moved it.
+   */
+  private follow(context: WorldContext): void {
+    const selected = context.scene.selected;
+    if (selected === this.selected) return;
+    this.selected = selected;
+    const view = this.view;
+    if (!view) return;
+    if (!selected) {
+      const back = this.borrowed;
+      this.borrowed = null;
+      const standing = this.camera();
+      // Where the jump left the camera, to a pixel: sub-pixel drift out of an
+      // easing animation is not a reader's hand.
+      const steered = !this.landed || !standing ||
+        Math.abs(standing.zoom - this.landed.zoom) > 1e-3 ||
+        Math.abs(standing.x - this.landed.x) > 0.5 ||
+        Math.abs(standing.y - this.landed.y) > 0.5;
+      this.landed = null;
+      if (back && !steered) this.goTo(back.x, back.y, back.zoom, back.rotation);
+      return;
+    }
+    const feature = context.model.feature(selected);
+    const at = feature && "coordinate" in feature ? feature.coordinate : feature?.center;
+    if (!at) return;
+    const standing = this.camera();
+    const lens = context.lens;
+    if (!standing || !lens) return;
+    if (!this.borrowed) this.borrowed = standing;
+    const zoom = Math.min(viewMaxZoom(lens), Math.max(standing.zoom, FOCUS_ZOOM));
+    view.animate({ center: [at[0], at[1]], zoom, duration: 220 });
+    this.landed = { x: at[0], y: at[1], zoom, rotation: standing.rotation };
   }
 
   /** Restyle in place: a filter moved, or a selection, or the held key. */
@@ -250,7 +350,12 @@ export class AtlasChart extends HTMLElement {
 
   /** Force a synchronous frame, so a driver can read a settled camera. */
   renderSync(): void {
-    this.map?.renderSync();
+    // A map whose pane has no size has no frame to render, and asking for one
+    // walks a null frame state. It happens for a moment whenever the chrome
+    // moves -- a sidebar folding, a panel coming out -- and the harness's
+    // settle loop forces a frame on every poll, so the moment is reachable.
+    if (!this.map?.getSize()) return;
+    this.map.renderSync();
   }
 
   disconnectedCallback(): void {
@@ -419,7 +524,7 @@ export class AtlasChart extends HTMLElement {
     this.gridExtent = null;
     if (!context.system || !context.scene.gridSystem) return;
     const resolution = this.view?.getResolution() ?? 1;
-    const standing = [...context.visibility.standing()];
+    const standing = [...context.visibility.withoutCell()];
     const drawn = drawGrid(
       context.ground, context.system, context.cell, context.subgridVisible,
       resolution, standing, this.sources.grid, this.sources.gridContext);
@@ -431,6 +536,22 @@ export class AtlasChart extends HTMLElement {
       ...this.sources.gridContext.getFeatures(),
     ].map((feature) => feature.get("gridCell") as DrawnCell);
     this.gridExtent = drawn.extent ? [...drawn.extent] : null;
+    // Descending holds the cell: the camera is flown to the ground the
+    // address names, the same way the navigator's own field does it. Only a
+    // change of cell moves it -- redrawing the same grid because a filter
+    // moved must not drag the reader back.
+    if (context.cell !== this.heldCell) {
+      this.heldCell = context.cell;
+      const size = this.map?.getSize();
+      // Ascending is a move too: the reader asked for the ground one level
+      // out, and the camera goes there the same way it came in.
+      if (this.gridExtent && this.view && size && context.lens) {
+        this.view.fit(this.gridExtent as [number, number, number, number], {
+          size, padding: [GRID_FIT_PADDING, GRID_FIT_PADDING, GRID_FIT_PADDING, GRID_FIT_PADDING],
+          maxZoom: viewMaxZoom(context.lens), nearest: false, duration: 180,
+        });
+      }
+    }
   }
 
   // ---- styles ---------------------------------------------------------
@@ -526,6 +647,12 @@ export class AtlasChart extends HTMLElement {
     });
     map.on("moveend", () => {
       this.report();
+      // The corner locator answers two questions about the camera -- where it
+      // is, and whether it can see the whole map at once -- and both of them
+      // are this event's. Redrawing it only when a filter moved left the
+      // shelf put away across a whole zoom: the map no longer fitted, and
+      // nothing had told the corner so.
+      this.overview?.draw();
       // The window moved, so how much of what is drawn it is over has moved
       // with it. The count is the camera's answer and belongs to the camera's
       // own event, not to a filter's.

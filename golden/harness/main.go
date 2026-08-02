@@ -157,6 +157,20 @@ func suites() []suite {
 			ready:      true,
 		},
 		{
+			// The one piece of cell-system arithmetic the server needs,
+			// held to the cell extents the parity baselines recorded. It
+			// exists because the panel's count is the count of what the map
+			// draws and the map draws what the held cell holds; it is a
+			// second copy of what the analysis lane owns, and this is what
+			// keeps the two from drifting until a Go twin deletes both.
+			name:       "cells",
+			milestone:  "M6",
+			awaiting:   "",
+			entrypoint: "golden/cells/cells_test.go",
+			argv:       []string{"go", "test", "./golden/cells/..."},
+			ready:      true,
+		},
+		{
 			name:       "http-replay",
 			milestone:  "M5",
 			awaiting:   "",
