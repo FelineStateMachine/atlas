@@ -12,9 +12,19 @@
 //   The base skin is one texture, composited once per lens.
 //   The detail is composited into that same texture, under the camera only.
 //   Names are raised only while Z is held, and at most 180 of them: past that
-//   a sphere is a word cloud with a planet behind it.
-//   Sprites are built once per pin and afterwards only shown or hidden, so a
-//   filter costs a boolean per pin rather than a rebuild.
+//   a sphere is a word cloud with a planet behind it. WHICH 180 is the
+//   camera's answer and not the legend's — the nearest names to what is being
+//   looked at, out to the rim and no further.
+//   Sprites are built once per pin and afterwards only shown, hidden or
+//   re-dressed, so a filter costs a boolean per pin rather than a rebuild —
+//   and the dressing itself is one shared material per collection.
+//
+// THE HORIZON is enforced by hand. Cards and chips turn the depth test off,
+// because a screen-sized card anchored on the ground would otherwise lose its
+// lower half to the planet's own curve; `cull` puts the silhouette back, so
+// nothing on the far side shines through. The pins keep their depth test and
+// are left alone by it, which is what keeps the standing count a reading of
+// the filters rather than of where the camera is pointing.
 //
 // THE CAMERA ROUND TRIP is the pane's one contract with the chart. A flip to
 // the sphere and straight back must land the chart's camera exactly where it
@@ -28,6 +38,7 @@ import {
   KEY_GEOMETRY_EQUIRECT_DEG,
   KEY_GEOMETRY_EQUIRECT_PX,
   KEY_GEOMETRY_SURFACE,
+  KEY_ICON_KIND,
 } from "@atlas/analysis/semconv/keys";
 import {
   cellPlan, cellRings, cellSystems, equirectMapping, gridCellVisual, gridTheme,
@@ -35,9 +46,10 @@ import {
 import type { GeoMapping, PlanCell } from "@atlas/analysis";
 import { logger } from "../log.ts";
 import type { WorldContext } from "../context.ts";
-import type { Attrs } from "../data/payload.ts";
+import type { Attrs, Collection } from "../data/payload.ts";
 import { reportPick } from "../data/report.ts";
 import { viewMaxZoom } from "../chart/projection.ts";
+import { collectionColor, outsetColor } from "../chart/styles.ts";
 import { Skin } from "./texture.ts";
 
 const log = logger("globe");
@@ -80,6 +92,35 @@ const DETAIL_TILE_BUDGET = 96;
 
 /** Names raised over the sphere at once. */
 const LABEL_BUDGET = 180;
+
+/**
+ * How far from what the camera faces a name may still be raised, in degrees.
+ *
+ * The budget says how many names; this says *which*. Past 85° a pin is on the
+ * rim or behind it, and a card raised there is either edge-on or on ground
+ * nobody can see -- so it takes a place in the budget away from a name the
+ * reader is actually looking at. Collection priority decided this before, and
+ * priority knows nothing about where the camera is standing.
+ */
+const LABEL_REACH_DEG = 85;
+
+/** Where a name's card floats: just off the skin, as a fraction of the radius. */
+const LABEL_ALTITUDE = 0.006;
+
+/** A card's height on screen, and the canvas it is written on. */
+const LABEL_HEIGHT = 0.028;
+const CARD_FONT = "600 26px Inter, system-ui, sans-serif";
+const CARD_TALL = 40;
+const CARD_PAD = 24;
+
+/** A marker's canvas, and the pitch its initials are cut at. */
+const MARKER_SIZE = 80;
+const MARKER_FONT = "900 26px Inter, system-ui, sans-serif";
+
+/** How big a pin stands on screen, plain and chosen, and how far off the skin. */
+const PIN_SIZE = 0.045;
+const PIN_SELECTED_SIZE = 0.08;
+const PIN_ALTITUDE = 0.005;
 
 function clamp(value: number, low: number, high: number): number {
   return Math.min(Math.max(value, low), high);
@@ -223,6 +264,9 @@ export class AtlasGlobe extends HTMLElement {
     if (!context) return;
     if (context.scene.selected !== this.selected) {
       this.selected = context.scene.selected;
+      // The ring is worn whether or not anybody is looking: a selection made
+      // over the chart is what the sphere comes up already dressed for.
+      this.restyle();
       this.face(this.selected);
     }
     // A sphere nobody is looking at shows and hides nothing. Everything below
@@ -377,24 +421,64 @@ export class AtlasGlobe extends HTMLElement {
     this.globe.onGlobeClick(({ lat, lng }) => this.pick(lat, lng));
   }
 
-  /** One sprite per pin, built once and afterwards only shown or hidden. */
+  /**
+   * One sprite per pin, built once and afterwards only shown, hidden or
+   * re-dressed.
+   *
+   * A pin on the sphere wears what the same pin wears on the chart: its
+   * collection's mark in its collection's colour, rimmed with the world's
+   * declared outset. Two thousand identical cyan beads say only "something is
+   * here", which is the one thing a reader can already see.
+   *
+   * The materials are shared and cached per collection, so this mints two
+   * thousand *sprites* and a handful of textures -- and nothing here is
+   * disposed on a rebuild, because none of it belongs to a pin.
+   */
   private buildSprites(context: WorldContext): void {
     this.pins.clear();
     this.sprites.clear();
     const equirect = this.equirect;
     const globe = this.globe;
     if (!equirect || !globe) return;
+    const marks = markersOf(context);
     for (const point of context.model.points) {
       const [lat, lng] = equirect.mapping.toLatLng(point.coordinate[0], -point.coordinate[1]);
-      const sprite = new THREE.Mesh(
-        new THREE.SphereGeometry(0.6, 6, 6),
-        new THREE.MeshBasicMaterial({ color: 0x4fb3d5 }),
-      );
-      const at = globe.getCoords(lat, lng, 0.005);
+      const chosen = point.id === context.scene.selected;
+      const mark = marks.get(point.collection.id) ?? BARE_MARKER;
+      const sprite = new THREE.Sprite(markerMaterial(mark, chosen));
+      const size = chosen ? PIN_SELECTED_SIZE : PIN_SIZE;
+      sprite.scale.set(size, size, 1);
+      const at = globe.getCoords(lat, lng, PIN_ALTITUDE);
       sprite.position.set(at.x, at.y, at.z);
-      sprite.userData = { id: point.id, lat, lng };
+      sprite.userData = {
+        id: point.id, lat, lng, title: point.title, owner: point.collection.id,
+      };
       this.pins.add(sprite);
       this.sprites.set(point.id, sprite);
+    }
+  }
+
+  /**
+   * Dress the standing sprites for the selection.
+   *
+   * The chosen pin grows and takes its white ring; the one it replaced settles
+   * back among the rest. Both materials come out of the same cache the build
+   * drew from, so a selection costs two lookups rather than two thousand
+   * canvases.
+   */
+  private restyle(): void {
+    const context = this.context;
+    if (!context) return;
+    const marks = markersOf(context);
+    for (const held of this.sprites.values()) {
+      const sprite = held as THREE.Sprite;
+      if (!sprite.isSprite) continue;
+      const stood = held.userData as { id?: string; owner?: number };
+      const mark = marks.get(stood.owner ?? -1) ?? BARE_MARKER;
+      const chosen = stood.id === context.scene.selected;
+      sprite.material = markerMaterial(mark, chosen);
+      const size = chosen ? PIN_SELECTED_SIZE : PIN_SIZE;
+      sprite.scale.set(size, size, 1);
     }
   }
 
@@ -410,53 +494,73 @@ export class AtlasGlobe extends HTMLElement {
     const context = this.context;
     const globe = this.globe;
     if (!context || !globe) return;
-    if (!context.labelsHeld) {
-      this.releaseLabels();
-      this.labelKey = "";
-      this.seam.labels.key = "";
-      return;
-    }
     const pov = globe.pointOfView();
     // The rounding is the contract: whole degrees and two decimals of
     // altitude, which is what every recorded `globe-labels-held` is written
     // in ("0:0:0.68:geohash:"). Finer rounding would make the key move where
     // the baseline says it stands still.
-    const key = [
+    const key = context.labelsHeld ? [
       String(Math.round(pov.lat)), String(Math.round(pov.lng)), pov.altitude.toFixed(2),
       // The system, whether or not a grid is open: which system *would*
       // divide this world is a property of the world, and the key the
       // baselines record carries it over a closed grid ("0:0:0.68:geohash:").
       context.system?.slug ?? cellSystems.systems[0]?.slug ?? "", context.cell,
-    ].join(":");
+    ].join(":") : "";
     if (key === this.labelKey) return;
     this.labelKey = key;
     this.seam.labels.key = key;
-    this.releaseLabels();
-    const standing = [...context.visibility.standing()]
-      .sort((a, b) => a.priority - b.priority)
-      .slice(0, LABEL_BUDGET);
-    const equirect = this.equirect;
-    if (!equirect) return;
-    for (const point of standing) {
-      const [lat, lng] = equirect.mapping.toLatLng(point.coordinate[0], -point.coordinate[1]);
-      const sprite = new THREE.Sprite(new THREE.SpriteMaterial({
-        map: textTexture(point.title), depthTest: false, transparent: true,
-      }));
-      const at = globe.getCoords(lat, lng, 0.02);
-      sprite.position.set(at.x, at.y, at.z);
-      sprite.scale.set(18, 5, 1);
-      this.labels.add(sprite);
+    // Every rebuild mints a card canvas per name and a texture over it. The
+    // group being emptied is not the texture being freed, and a camera settling
+    // through a flight rebuilds these dozens of times.
+    release(this.labels);
+    if (!context.labelsHeld) return;
+    // WHICH names, not which collections. The budget is what a sphere can
+    // carry; the camera is what decides who spends it.
+    for (const near of labelCandidates(pov, this.standing(), LABEL_BUDGET)) {
+      const at = globe.getCoords(near.lat, near.lng, LABEL_ALTITUDE);
+      this.labels.add(nameCard(near.title, at));
+    }
+    // Cards are born visible, and a rebuild with the camera already elsewhere
+    // must not leave the far side's names shining through the planet.
+    this.cull();
+  }
+
+  /** The pins a name could be raised over: standing, placed and named. */
+  private *standing(): Generator<Placed> {
+    for (const held of this.sprites.values()) {
+      if (!held.visible) continue;
+      const stood = held.userData as Partial<Placed>;
+      if (stood.title === undefined || stood.lat === undefined) continue;
+      if (stood.lng === undefined) continue;
+      yield { title: stood.title, lat: stood.lat, lng: stood.lng };
     }
   }
 
-  /** Drop the raised names and give their textures back. */
-  private releaseLabels(): void {
-    for (const held of [...this.labels.children]) {
-      const sprite = held as THREE.Sprite;
-      sprite.material?.map?.dispose?.();
-      sprite.material?.dispose?.();
+  /**
+   * The horizon, enforced by hand.
+   *
+   * Cards and chips are drawn with the depth test off, because a screen-sized
+   * card anchored on the ground loses its lower half to the planet's own curve
+   * at any glancing angle. The price of that is a card on the far side of the
+   * world shining straight through it, so the silhouette is applied here
+   * instead: a point at the limb sits where the cosine of its angle from the
+   * camera's axis equals the radius over the distance, and anything past that
+   * is ground nobody can see.
+   *
+   * Only sprites, and only the two groups that turned their depth test off.
+   * The pins keep theirs, so the sphere occludes them itself -- and the count
+   * of standing sprites the baselines record stays a count of what the filters
+   * left, never a reading of where the camera happens to be pointing.
+   */
+  private cull(): void {
+    const camera = this.globe?.camera().position;
+    if (!camera) return;
+    for (const group of [this.cells, this.labels]) {
+      for (const child of group.children) {
+        if (!(child as THREE.Sprite).isSprite) continue;
+        child.visible = facesCamera(child.position, camera);
+      }
     }
-    this.labels.clear();
   }
 
   /** The grid, from the same plan and the same tokens the chart draws. */
@@ -465,19 +569,8 @@ export class AtlasGlobe extends HTMLElement {
     const globe = this.globe;
     const equirect = this.equirect;
     if (!context || !globe || !equirect) return;
-    // Cleared *and released*. Every rebuild mints new geometries, and a chip
-    // mints a canvas texture of its own; the grid is rebuilt whenever the
-    // camera moves far enough in depth to change what fits, which over one
-    // flight to a cell is several rebuilds of a couple of hundred objects.
-    // Dropping them out of the group is not dropping them off the card, and
-    // the sphere eventually stops answering at all.
-    for (const held of [...this.cells.children]) {
-      const drawn = held as THREE.Mesh & { material?: THREE.Material & { map?: THREE.Texture } };
-      drawn.geometry?.dispose?.();
-      drawn.material?.map?.dispose?.();
-      drawn.material?.dispose?.();
-    }
-    this.cells.clear();
+    // Cleared *and released*, by the same call the names are released with.
+    release(this.cells);
     // The fit key is not cleared when the grid closes. It is the last frame
     // the camera was flown to hold a cell, and the baselines carry it through
     // the grid closing, the pane being left, and the volume being reopened --
@@ -540,6 +633,9 @@ export class AtlasGlobe extends HTMLElement {
     // reader is already looking at moves nothing.
     if (this.heldCell !== null && this.heldCell !== context.cell) this.frameCell();
     this.heldCell = context.cell;
+    // Chips are born visible, like the name cards, and are held to the same
+    // horizon for the same reason.
+    this.cull();
   }
 
   /**
@@ -771,6 +867,10 @@ export class AtlasGlobe extends HTMLElement {
     this.refreshDetail();
     if (this.context?.labelsHeld) this.drawLabels();
     this.regridWhenFitChanges();
+    // The horizon moved with the camera even where nothing was rebuilt: the
+    // memo on the label key and the one on the fit key both stand still
+    // through a turn of the planet, and the silhouette does not.
+    this.cull();
     const pov = this.globe?.pointOfView();
     if (pov && this.onCamera) this.onCamera(pov);
   }
@@ -911,21 +1011,263 @@ function planOf(context: WorldContext): PlanCell[] {
   return cellPlan(context.ground, context.system, context.cell);
 }
 
-/** A name as a texture, which is the cheapest sprite a label can be. */
-function textTexture(text: string): THREE.CanvasTexture {
+/** A pin the camera could raise a name over. */
+export interface Placed {
+  readonly title: string;
+  readonly lat: number;
+  readonly lng: number;
+}
+
+/**
+ * The great-circle separation of two places, in degrees.
+ *
+ * Which is what "near what the camera is looking at" means on a sphere: not
+ * the difference of two latitudes and two longitudes, which calls the whole
+ * arctic a neighbourhood.
+ */
+export function angularDistance(
+  a: { lat: number; lng: number }, b: { lat: number; lng: number },
+): number {
+  const rad = Math.PI / 180;
+  const inner = Math.sin(a.lat * rad) * Math.sin(b.lat * rad) +
+    Math.cos(a.lat * rad) * Math.cos(b.lat * rad) * Math.cos((a.lng - b.lng) * rad);
+  return (Math.acos(clamp(inner, -1, 1)) * 180) / Math.PI;
+}
+
+/**
+ * The names worth raising: the nearest ones to what the camera faces, within
+ * the reach and inside the budget.
+ *
+ * The budget is a decision about a sphere -- past a couple of hundred names a
+ * planet is a word cloud -- and the ordering is a decision about a *reader*.
+ * Spending it in collection order hands every card to whichever collection
+ * happens to be rarest, wherever in the world it stands, and leaves the ground
+ * under the camera bare.
+ */
+export function labelCandidates(
+  pov: { lat: number; lng: number },
+  standing: Iterable<Placed>,
+  budget: number,
+): Placed[] {
+  const near: { placed: Placed; distance: number }[] = [];
+  for (const placed of standing) {
+    const distance = angularDistance(pov, placed);
+    if (distance > LABEL_REACH_DEG) continue;
+    near.push({ placed, distance });
+  }
+  near.sort((a, b) => a.distance - b.distance);
+  return near.slice(0, budget).map((entry) => entry.placed);
+}
+
+/**
+ * Whether a point on the sphere is on the side of it the camera can see.
+ *
+ * The limb is where the cosine of a point's angle from the camera's own axis
+ * equals the radius over the camera's distance: nearer the axis than that and
+ * the point is facing us, past it and the planet is in the way.
+ */
+export function facesCamera(
+  anchor: { x: number; y: number; z: number },
+  camera: { x: number; y: number; z: number },
+  radius = GLOBE_RADIUS,
+): boolean {
+  const distance = Math.hypot(camera.x, camera.y, camera.z) || 1;
+  const reach = Math.hypot(anchor.x, anchor.y, anchor.z) || 1;
+  const facing = (anchor.x * camera.x + anchor.y * camera.y + anchor.z * camera.z) /
+    (reach * distance);
+  return facing > radius / distance;
+}
+
+/**
+ * One name, on a card floated above its pin.
+ *
+ * The card is cut to the name: the text is measured in the font it will be
+ * drawn in, and the canvas, the texture and the sprite's own aspect all follow
+ * that one number. A fixed canvas clips every name longer than it and pads
+ * every name shorter, and a fixed sprite scale then stretches whatever
+ * survived to the same width regardless -- so "Olympus Mons" and "Tharsis
+ * Tholus" came out the same size and neither was the size it asked for.
+ */
+export function nameCard(
+  title: string, at: { x: number; y: number; z: number },
+): THREE.Sprite {
+  const width = Math.ceil(measure(title, CARD_FONT)) + CARD_PAD;
   const canvas = document.createElement("canvas");
-  canvas.width = 256;
-  canvas.height = 64;
+  canvas.width = width;
+  canvas.height = CARD_TALL;
   const paper = canvas.getContext("2d");
   if (paper) {
-    paper.font = "600 28px ui-sans-serif, system-ui, sans-serif";
+    paper.font = CARD_FONT;
+    paper.textAlign = "center";
+    paper.textBaseline = "middle";
+    paper.fillStyle = "rgba(10, 13, 17, 0.78)";
+    paper.fillRect(0, 0, width, CARD_TALL);
+    paper.fillStyle = "#e6ebf0";
+    paper.fillText(title, width / 2, 21);
+  }
+  const texture = new THREE.CanvasTexture(canvas);
+  texture.colorSpace = THREE.SRGBColorSpace;
+  const sprite = new THREE.Sprite(new THREE.SpriteMaterial({
+    // No depth test: a screen-sized card anchored on the ground loses its
+    // lower half to the planet's curve at any glancing angle. `cull` puts the
+    // horizon back by hand.
+    map: texture, depthTest: false, depthWrite: false,
+    sizeAttenuation: false, transparent: true,
+  }));
+  sprite.position.set(at.x, at.y, at.z);
+  sprite.renderOrder = 4;
+  sprite.scale.set((LABEL_HEIGHT * width) / CARD_TALL, LABEL_HEIGHT, 1);
+  // Anchored at its bottom edge, so the card floats above the marker rather
+  // than covering it.
+  sprite.center.set(0.5, 0);
+  return sprite;
+}
+
+/** What a collection's marker is, as the sphere has to draw it. */
+export interface Marker {
+  /** Where the collection's picture lives, or "" when it has none. */
+  readonly icon: string;
+  readonly picture: boolean;
+  readonly color: string;
+  /** The rim, already resolved from the world's declared outset token. */
+  readonly outset: string;
+  readonly title: string;
+}
+
+/**
+ * What a pin wears when its collection is not in the world's own list.
+ *
+ * Which cannot happen through the model, and is a shared cache entry rather
+ * than a fresh material anyway: a marker nobody can account for is still not
+ * two thousand canvases nobody disposes.
+ */
+const BARE_MARKER: Marker = {
+  icon: "", picture: false, color: "#4fb3d5", outset: outsetColor("light"), title: "",
+};
+
+/** Every collection's marker, in payload order, which is palette order. */
+function markersOf(context: WorldContext): Map<number, Marker> {
+  const outset = outsetColor(context.outset);
+  const marker = (collection: Collection, ordinal: number): [number, Marker] => [
+    collection.id,
+    {
+      icon: collection.iconAsset ? `${context.base}/icons/${collection.iconAsset}` : "",
+      picture: Boolean(collection.iconPicture ||
+        collection.attrs?.[KEY_ICON_KIND] === "picture"),
+      color: collectionColor(collection, ordinal),
+      outset,
+      title: collection.title,
+    },
+  ];
+  return new Map(context.model.collections.map(marker));
+}
+
+/**
+ * One sprite material per marker and selection state, cached and shared.
+ *
+ * A material is what a pin *is*, not what a pin *has*: two thousand pins of
+ * twenty collections are forty materials, and a filter or a selection swaps
+ * which of the forty a sprite points at. The cache is therefore never
+ * disposed -- entries outlive every sprite that wore them, which is the whole
+ * point of them.
+ */
+export function markerMaterial(marker: Marker, selected: boolean): THREE.SpriteMaterial {
+  const key = [marker.icon, marker.color, marker.outset, selected ? "ringed" : "plain"]
+    .join(":");
+  const held = markers.get(key);
+  if (held) return held;
+  // Pins keep one size on screen however close the camera comes, the way the
+  // chart draws its markers: world-sized sprites become dinner plates from low
+  // altitude.
+  const material = new THREE.SpriteMaterial({ depthWrite: false, sizeAttenuation: false });
+  markers.set(key, material);
+  const dress = (image: HTMLImageElement | null): void => {
+    material.map = markerTexture(marker, selected, image);
+    material.needsUpdate = true;
+  };
+  if (!marker.icon) dress(null);
+  else {
+    const image = new Image();
+    image.crossOrigin = "anonymous";
+    image.onload = () => dress(image);
+    // A collection whose picture never arrives wears its initials, which is
+    // what a build with no icons at all draws.
+    image.onerror = () => dress(null);
+    image.src = marker.icon;
+  }
+  return material;
+}
+
+const markers = new Map<string, THREE.SpriteMaterial>();
+
+/** The 80×80 canvas a marker is drawn on: a picture, or a name's initials. */
+function markerTexture(
+  marker: Marker, selected: boolean, image: HTMLImageElement | null,
+): THREE.CanvasTexture {
+  const canvas = document.createElement("canvas");
+  canvas.width = MARKER_SIZE;
+  canvas.height = MARKER_SIZE;
+  const paper = canvas.getContext("2d");
+  if (paper && image) {
+    paper.drawImage(image, 8, 8, 64, 64);
+    // A glyph is a silhouette the reader tints; a picture carries its own
+    // colour, and flattening it would leave nothing but its outline filled in.
+    if (!marker.picture) {
+      paper.globalCompositeOperation = "source-in";
+      paper.fillStyle = marker.color;
+      paper.fillRect(0, 0, MARKER_SIZE, MARKER_SIZE);
+      paper.globalCompositeOperation = "source-over";
+    }
+  } else if (paper) {
+    const short = initialsOf(marker.title);
+    paper.font = MARKER_FONT;
     paper.textAlign = "center";
     paper.textBaseline = "middle";
     paper.lineWidth = 6;
-    paper.strokeStyle = "rgba(6, 9, 14, 0.86)";
-    paper.strokeText(text, 128, 32);
-    paper.fillStyle = "#f2f5f9";
-    paper.fillText(text, 128, 32);
+    paper.strokeStyle = marker.outset;
+    paper.strokeText(short, 40, 41);
+    paper.fillStyle = marker.color;
+    paper.fillText(short, 40, 41);
   }
-  return new THREE.CanvasTexture(canvas);
+  if (paper && selected) {
+    paper.beginPath();
+    paper.arc(40, 40, 36, 0, Math.PI * 2);
+    paper.lineWidth = 5;
+    paper.strokeStyle = "#ffffff";
+    paper.stroke();
+  }
+  const texture = new THREE.CanvasTexture(canvas);
+  texture.colorSpace = THREE.SRGBColorSpace;
+  return texture;
+}
+
+/** A collection's name, cut down to what fits inside a marker. */
+export function initialsOf(title: string): string {
+  return title.split(/\s+/).slice(0, 2).map((part) => part[0] ?? "").join("");
+}
+
+/**
+ * Drop a group's children and give the GPU back what they were holding.
+ *
+ * Dropping an object out of a group is not freeing what it owns: a texture
+ * lives until something says so, and both the names and the grid mint one per
+ * card on every rebuild. The grid is redrawn whenever the camera moves far
+ * enough in depth to change what fits, and the names whenever it settles
+ * anywhere new -- over one flight to a cell that is dozens of rebuilds of a
+ * couple of hundred objects each.
+ *
+ * A sprite's geometry is three's own, shared by every sprite in the scene, so
+ * it is the one thing here that is not this group's to give back.
+ */
+export function release(group: THREE.Group): void {
+  for (const child of [...group.children]) {
+    group.remove(child);
+    const drawn = child as THREE.Mesh & {
+      isSprite?: boolean;
+      material?: THREE.Material & { map?: THREE.Texture | null };
+    };
+    if (!drawn.isSprite) drawn.geometry?.dispose?.();
+    drawn.material?.map?.dispose?.();
+    drawn.material?.dispose?.();
+  }
 }
