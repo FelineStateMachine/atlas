@@ -9,6 +9,7 @@ import (
 
 	"github.com/FelineStateMachine/atlas/format/bundle"
 	"github.com/FelineStateMachine/atlas/format/semconv"
+	"github.com/FelineStateMachine/atlas/internal/app/cells"
 	"github.com/FelineStateMachine/atlas/internal/app/hostenv"
 )
 
@@ -171,6 +172,23 @@ type GridView struct {
 	Cell    string
 	Subgrid bool
 	Offered bool
+
+	// Mark is the short mark the cycle button wears, Next names the system it
+	// would step to, and Cycles is whether the button is on the page at all.
+	//
+	// A world most systems refuse -- every game map, which declares nothing
+	// about what its picture is of -- offers geohash alone, and a control that
+	// cycles between one thing is a control that does nothing. The reference
+	// hid it (`syncGridSystemControl`: `hidden = systems.length < 2`), so the
+	// question the button asks a reader is always a real one.
+	Mark   string
+	Next   string
+	Cycles bool
+
+	// Length is how many characters the field accepts: the depth this
+	// system's telescope stops at, spelled on the input so a reader cannot
+	// type past a floor the record would silently clamp them to.
+	Length int
 }
 
 // OverviewView is the corner locator's chrome.
@@ -348,14 +366,12 @@ func gridView(session Session, model *worldModel) GridView {
 		Subgrid: session.Grid.Subgrid > 0,
 		Offered: model != nil,
 	}
-	switch out.System {
-	case "":
-		out.Name = ""
-	case "geohash":
-		out.Name = "Geohash"
-	default:
-		out.Name = strings.ToUpper(out.System)
-	}
+	out.Name, out.Mark, out.Length = systemName(out.System), systemMark(out.System), inputLength(out.System)
+	// Which systems divide this world is the world's own answer, and the
+	// button is offered only when there is a second one to step to.
+	offered := cells.ApplicableSystems(worldAttrs(model))
+	out.Cycles = len(offered) > 1 && out.System != ""
+	out.Next = systemName(nextSystem(offered, out.System))
 	return out
 }
 

@@ -470,10 +470,14 @@ func TestSessionConcerns(t *testing.T) {
 		},
 		{
 			concern: "grid",
+			// The field posts what the reader typed and the record holds an
+			// address: four characters is past the geohash telescope's floor,
+			// so what lands is the three-character cell the navigator would
+			// have shown (internal/app/grid.go, normalizeCell).
 			form:    url.Values{"system": {"geohash"}, "cell": {"9q5c"}, "subgrid": {"2"}},
 			targets: []string{"#atlas-grid-navigator", "#atlas-dock", "#atlas-viewport-state"},
 			check: func(t *testing.T, s app.Session) {
-				if s.Grid.System != "geohash" || s.Grid.Cell != "9q5c" || s.Grid.Subgrid != 2 {
+				if s.Grid.System != "geohash" || s.Grid.Cell != "9q5" || s.Grid.Subgrid != 2 {
 					t.Errorf("grid = %+v", s.Grid)
 				}
 			},

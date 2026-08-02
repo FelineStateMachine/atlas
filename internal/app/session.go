@@ -716,16 +716,17 @@ func applyGrid(c *concernContext, form formValues) error {
 				s.Grid = Grid{Subgrid: s.Grid.Subgrid}
 				return nil
 			}
-			// The subdivision is not the grid's: a reader who put it away
-			// wants it away the next time they open a grid too, which is why
-			// every baseline carries `subgridVisible` from its first step,
-			// long before any grid is open.
-			s.Grid = Grid{System: defaultCellSystem, Subgrid: s.Grid.Subgrid}
+			// Opening it divides the cell again. A reader who put the subgrid
+			// away and then closed the grid altogether is starting over rather
+			// than resuming, which is the reference's own reading of the move
+			// (`toggleGrid` -> `setSubgridVisible(true)` on enable). The
+			// setting still outlives a *closed* grid -- the line above carries
+			// it -- so a reader who only ever hides the subdivision keeps it
+			// hidden for as long as the grid stays open.
+			s.Grid = Grid{System: defaultCellSystem, Subgrid: 1}
 		case "cycle":
-			// One system, for now. Cycling is written as a move rather than a
-			// destination so the day a second system is registered the control
-			// does not have to be rewritten -- only this switch.
-			s.Grid.System = defaultCellSystem
+			cycleGrid(c)
+			return nil
 		default:
 			// A system named outright is the one value on this concern that
 			// is not a move but a destination, and a destination has to
@@ -748,23 +749,30 @@ func applyGrid(c *concernContext, form formValues) error {
 					slog.String("offered", strings.Join(cells.ApplicableSystems(attrs), ",")))
 				return nil
 			}
-			s.Grid.System = value
+			setGridSystem(c, value)
 		}
 	}
 	if form.on("ascend") {
-		// Escape telescopes out: one character of the address at a time, and
-		// out of the grid altogether once there is no address left. The two
+		// Escape telescopes out: one level of the address at a time, and out
+		// of the grid altogether once there is no address left. The two
 		// presses the tours record are exactly these two answers.
+		//
+		// One level is not one character. What the parent of an address is, is
+		// the address's own system's business (grid.go, parentCell), and the
+		// only reason to say so twice is that the shape of a geohash makes the
+		// wrong answer look right.
+		if s.Grid.System == "" {
+			return nil
+		}
 		if s.Grid.Cell == "" {
 			s.Grid = Grid{Subgrid: s.Grid.Subgrid}
 			return nil
 		}
-		runes := []rune(s.Grid.Cell)
-		s.Grid.Cell = string(runes[:len(runes)-1])
+		s.Grid.Cell = parentCell(s.Grid.System, s.Grid.Cell)
 		return nil
 	}
 	if cell, sent := form.values["cell"]; sent {
-		s.Grid.Cell = strings.TrimSpace(first(cell))
+		selectGridCell(s, first(cell))
 	}
 	if form.get("subgrid") == "flip" {
 		if s.Grid.Subgrid > 0 {
@@ -778,6 +786,71 @@ func applyGrid(c *concernContext, form formValues) error {
 		s.Grid.Subgrid = int(depth)
 	}
 	return nil
+}
+
+// selectGridCell is the navigator's field arriving: whatever the reader has
+// typed, made into an address by the system holding the grid.
+//
+// Nothing here refuses a keystroke and nothing here reports one. A draft that
+// is not yet a place -- half an S2 token -- leaves the record exactly as it
+// was, which is the field holding the text while the map stays put; the next
+// keystroke either completes the address or does not. And a cell arriving at a
+// grid nobody has opened opens it, on the system that divides anything,
+// *without* restoring the subdivision: the reader went somewhere rather than
+// starting over, which is the one thing that separates this from the G key
+// (`selectGridCell` in the reference, which sets `gridEnabled` by hand for
+// exactly this reason).
+func selectGridCell(s *Session, raw string) {
+	system := s.Grid.System
+	if system == "" {
+		system = defaultCellSystem
+	}
+	cell, place := parseCell(system, normalizeCell(system, raw))
+	if !place {
+		return
+	}
+	s.Grid.Cell, s.Grid.System = cell, system
+}
+
+// setGridSystem changes which system divides the map, and carries the held
+// place across.
+//
+// The two hierarchies share no boundaries, so the address cannot survive; the
+// ground under the reader can, and does (internal/app/cells, Equivalent). The
+// view is left alone on purpose -- the carried cell covers roughly the ground
+// already on screen, and a camera move here would be the map jumping under a
+// reader who asked for nothing of the kind.
+func setGridSystem(c *concernContext, system string) {
+	s := c.session
+	if system == s.Grid.System {
+		return
+	}
+	from, held := s.Grid.System, s.Grid.Cell
+	s.Grid.System = system
+	if from == "" || held == "" {
+		return
+	}
+	s.Grid.Cell = cells.Equivalent(gridGround(c), worldAttrs(c.world), from, system, held)
+}
+
+// cycleGrid is the navigator's one button and the ⌘G it answers to: the next
+// system this world divides by, carrying the held place.
+//
+// It is a move rather than a destination, which is why it can never be
+// refused: the step is taken through the world's own list of systems, so a
+// world offering one has nowhere to step and a world offering two steps
+// between them. A grid nobody has opened has no system to cycle, and the
+// button that would have said so is not on the page.
+func cycleGrid(c *concernContext) {
+	s := c.session
+	if s.Grid.System == "" {
+		return
+	}
+	next := nextSystem(cells.ApplicableSystems(worldAttrs(c.world)), s.Grid.System)
+	if next == "" {
+		return
+	}
+	setGridSystem(c, next)
 }
 
 func applyOverview(c *concernContext, form formValues) error {

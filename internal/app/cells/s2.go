@@ -1,8 +1,10 @@
 package cells
 
 import (
+	"math"
 	"strings"
 
+	"github.com/golang/geo/r3"
 	"github.com/golang/geo/s2"
 
 	"github.com/FelineStateMachine/atlas/format/semconv"
@@ -36,6 +38,13 @@ import (
 // (analysis/cellsystems/s2.ts) and is spelled here so that an address arriving
 // from a request is held to the same floor the navigator would have produced.
 const deepestS2Level = 10
+
+// S2InputLength is how many characters the navigator's field accepts: a
+// level-10 token is six, and the field takes no more (the port's
+// `inputLength`). It is spelled beside the floor it follows from, because the
+// two move together or the field starts accepting addresses the telescope
+// would immediately clamp.
+const S2InputLength = 6
 
 // Mapping is a world's declared flattening, read once and inverted per point.
 //
@@ -181,6 +190,125 @@ func S2ParseCell(text string) (string, bool) {
 		return cell.Parent(deepestS2Level).ToToken(), true
 	}
 	return cell.ToToken(), true
+}
+
+// S2Descend is the child of an address holding a point, or nothing at the
+// telescope's floor. It is `descendTarget` in the port: the leaf under the
+// point, taken back up to one level below the address given, which is the same
+// child `contains` would have picked.
+func S2Descend(mapping Mapping, token string, x, y float64) string {
+	lat, lon := mapping.LatLng(x, y)
+	leaf := s2.CellIDFromLatLng(s2.LatLngFromDegrees(lat, lon))
+	if !leaf.IsValid() {
+		return ""
+	}
+	target := 0
+	if token != "" {
+		cell, ok := s2Cell(token)
+		if !ok {
+			return ""
+		}
+		target = cell.Level() + 1
+	}
+	if target > deepestS2Level {
+		return ""
+	}
+	return leaf.Parent(target).ToToken()
+}
+
+// S2Center is a cell's centre as world pixels: the point on the sphere the
+// library calls the middle of the cell, put back on the raster through the
+// declared flattening. The root has no centre of its own and answers the
+// middle of the ground it is standing for.
+func S2Center(mapping Mapping, ground Extent, token string) (x, y float64) {
+	cell, ok := s2Cell(token)
+	if !ok {
+		return (ground.MinX + ground.MaxX) / 2, (ground.MinY + ground.MaxY) / 2
+	}
+	return mapping.world(s2.CellFromCellID(cell).Center())
+}
+
+// S2Extent is a cell's bounding rectangle in world pixels.
+//
+// It is a *drawn* rectangle rather than a spherical one, and the difference is
+// the whole reason it is written out longhand. An S2 cell's edges are geodesics
+// -- straight on no projection -- so the box a reader sees around one is the box
+// around the flattened boundary, and it is that box the carry compares against a
+// halved rectangle. A spherical area in steradians is not comparable with a
+// rectangle in pixels at all, and a lat/lng bound would be a third number again:
+// only the picture's own measure puts the two hierarchies on one scale.
+//
+// The walk is `ringOf` in analysis/cellsystems/s2.ts, step for step, including
+// the sequential unwrap that keeps a loop crossing the antimeridian continuous
+// and the closing point that joins the loop in the frame the walk ended in. A
+// cell circling a pole accumulates a whole world of longitude, and both of those
+// are what stop it from measuring the entire planet.
+func S2Extent(mapping Mapping, ground Extent, token string) Extent {
+	cell, ok := s2Cell(token)
+	if !ok {
+		return ground
+	}
+	points := s2Ring(mapping, ground, cell)
+	out := Extent{MinX: math.Inf(1), MinY: math.Inf(1), MaxX: math.Inf(-1), MaxY: math.Inf(-1)}
+	for _, at := range points {
+		out.MinX, out.MaxX = math.Min(out.MinX, at[0]), math.Max(out.MaxX, at[0])
+		out.MinY, out.MaxY = math.Min(out.MinY, at[1]), math.Max(out.MaxY, at[1])
+	}
+	return out
+}
+
+// s2Ring walks the four geodesic edges in small great-circle steps and lands
+// each one on the raster. The step count is the seam's: enough that a face
+// reads as a curve and few enough that a cell at the floor is four corners.
+func s2Ring(mapping Mapping, ground Extent, cell s2.CellID) [][2]float64 {
+	face := s2.CellFromCellID(cell)
+	steps := int(math.Max(2, math.Min(16, math.Pow(2, float64(4-cell.Level()))*2)))
+	width := ground.MaxX - ground.MinX
+	points := make([][2]float64, 0, 4*steps+1)
+	for edge := range 4 {
+		from := face.Vertex(edge).Vector
+		to := face.Vertex((edge + 1) % 4).Vector
+		for step := range steps {
+			part := float64(step) / float64(steps)
+			at := r3.Vector{
+				X: from.X + (to.X-from.X)*part,
+				Y: from.Y + (to.Y-from.Y)*part,
+				Z: from.Z + (to.Z-from.Z)*part,
+			}
+			norm := math.Sqrt(at.X*at.X + at.Y*at.Y + at.Z*at.Z)
+			if norm == 0 {
+				norm = 1
+			}
+			x, y := mapping.world(s2.Point{Vector: r3.Vector{X: at.X / norm, Y: at.Y / norm, Z: at.Z / norm}})
+			points = append(points, [2]float64{x, y})
+		}
+	}
+	// Sequential unwrap: a jump of more than half the world is the seam, not
+	// the ground.
+	for at := 1; at < len(points); at++ {
+		delta := points[at][0] - points[at-1][0]
+		if delta > width/2 {
+			points[at][0] -= width
+		} else if delta < -width/2 {
+			points[at][0] += width
+		}
+	}
+	closing := points[0]
+	delta := closing[0] - points[len(points)-1][0]
+	if delta > width/2 {
+		closing[0] -= width
+	} else if delta < -width/2 {
+		closing[0] += width
+	}
+	return append(points, closing)
+}
+
+// world is a point on the sphere as world pixels, y negative-down: the reverse
+// of [Mapping.LatLng] and the same one flip of the sign.
+func (m Mapping) world(point s2.Point) (x, y float64) {
+	at := s2.LatLngFromPoint(point)
+	x, y = m.window.Apply(at.Lat.Degrees(), at.Lng.Degrees())
+	return x, -y
 }
 
 // s2Cell reads a token, refusing what is not a cell.
