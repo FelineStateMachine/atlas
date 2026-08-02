@@ -469,13 +469,11 @@ page one script tag rather than its chrome.
 
 Recorded here rather than papered over.
 
-- **The parity tour is not wired.** The seam publishes its half; the tour still
-  reads the reference implementation's DOM (`#map`, `#globe`,
-  `#overview-shelf`, `#volume-select`…). Re-pointing it is the next wave, and
-  the ids it will have to be told about are: the panes are `atlas-chart` and
-  `atlas-globe` rather than `#map` and `#globe`, and the locator's shelf is
-  `#atlas-overview` rather than `#overview-shelf` — `#overview-viewport`,
-  `#globe-toggle` and `#overview-canvas` kept their names.
+- **The parity tour is wired and not yet green.** `golden/parity/tour.js` reads
+  this lane through the ids above and walks every recorded step;
+  `golden/parity/compare.mjs` is the gate. What it still shows is listed in
+  `golden/parity/SCHEMA.md` §7, and most of it is the application's half
+  rather than this one's.
 - **The reconcile path is verified by hand, not by a tour.** Patching the state
   node in place and replacing it whole both land: a search narrows the
   standing set, a `<data>` child hides a collection, a replaced node plus one
@@ -484,13 +482,33 @@ Recorded here rather than papered over.
   *not* verified is the same journey through the application's own controls,
   because the legend's checkboxes currently post without a volume and answer
   `400` — an application-side defect, not the seam's.
-- **The globe's altitude pairing is uncalibrated.** The round trip is exact and
-  the budgets behave, but `ALTITUDE_AT_FULL = 2.5` and the locator rectangle
-  the globe writes do not reproduce the recorded numbers (`globe-entered`
-  records `reticle: "117 53 22 22"`; this seam writes a rectangle covering the
-  whole locator). The baselines carry enough paired numbers —
-  `globe-returned`'s chart zoom of 1.3219 and centre of 3929.6 among them — to
-  solve for the reference pairing exactly.
+- **The globe's altitude pairing is calibrated.** It is a power law anchored at
+  one point, not a field-of-view calculation:
+
+  ```
+  altitude(zoom)     = clamp(2.5 / 2^(zoom − 2), 0.08, 4)
+  zoom(altitude)     = clamp(2 + log2(2.5 / max(altitude, 0.04)), 0, lens.maxZoom + 2)
+  one zoom press     = altitude ÷ 2^±1, read off the camera, eased over 180 ms
+  ```
+
+  The whole disc at altitude 2.5 reads as the whole chart at zoom 2, and each
+  halving of altitude reads as one more zoom. The Mars baseline settles it
+  twice over: `globe-left` records a chart zoom of 1.3219, which is exactly
+  `2 + log2(2.5 / 4)` after the camera has been pushed out to the farthest
+  distance, and `globe-labels-held` records an altitude of 0.68, which is
+  `2.5 / 2^(1.8826 − 2)` halved twice — two halvings for three presses,
+  because two of them land in one tick and both read the same standing
+  altitude. The clamps are load-bearing rather than hygiene: the farthest is
+  what `globe-left`'s recorded zoom is a reading of.
+
+  The locator's mark is calibrated with it, and it is a **dot, not a
+  rectangle**: a fixed 22 × 22 box centred on the point the camera faces,
+  written in the canvas's own pixels. That is what makes `globe-entered`'s
+  `"117 53 22 22"` fall out — the world square is 8,192 across, the locator
+  composites it at 256 pixels, and a camera over the middle lands at
+  `0.5 × 256 − 11 = 117`. The box never changes size however close the camera
+  comes, because half a sphere is out of sight whatever the camera does and a
+  true-to-scale rectangle would be saying something false.
 - **Nearest-neighbour resampling is pinned by no fixture.** Every public lens
   declares `interpolate: true`.
 - **Hover, picks and the detail card** are implemented and unverified against

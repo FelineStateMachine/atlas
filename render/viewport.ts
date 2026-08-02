@@ -53,6 +53,7 @@ export class AtlasViewport extends HTMLElement {
     });
     this.wireKeys();
     this.wireGlobeToggle();
+    this.wireZoom();
     // The sphere's camera, written where a camera can be read: the corner
     // locator's rectangle, which is the one form the globe's view ever takes
     // outside its own scene graph.
@@ -69,6 +70,7 @@ export class AtlasViewport extends HTMLElement {
   rescan(): void {
     this.watcher?.rescan();
     this.wireGlobeToggle();
+    this.wireZoom();
   }
 
   /** The panes, looked up rather than held: a morph may not touch them, but
@@ -98,6 +100,9 @@ export class AtlasViewport extends HTMLElement {
     try {
       const grid = await this.tileGrid(scene);
       if (!grid) return;
+      const worldTitle = this.catalog?.volumes
+        .find((entry) => entry.slug === scene.volume)?.worlds
+        .find((world) => world.slug === scene.world)?.title ?? scene.world;
       const model = await this.model(scene, grid);
       // A scene that moved again while a payload was in flight wins: the last
       // thing the reader asked for is the thing to draw.
@@ -113,6 +118,7 @@ export class AtlasViewport extends HTMLElement {
         base: scene.base,
         grid: worldGrid(grid, model.payload),
         model,
+        worldTitle,
         lens,
         lensIndex: this.lensIndex(model, scene),
         outset: outsetOf(model),
@@ -234,7 +240,7 @@ export class AtlasViewport extends HTMLElement {
     if (!globe || !chart) return;
     const size = { width: this.clientWidth, height: this.clientHeight };
     if (this.globeUp) {
-      const camera = globe.leave(size);
+      const camera = globe.leave();
       if (camera) chart.goTo(camera.x, camera.y, camera.zoom, camera.rotation);
       chart.hidden = false;
       this.globeUp = false;
@@ -251,20 +257,43 @@ export class AtlasViewport extends HTMLElement {
     this.refresh();
   }
 
-  /** The globe's camera as an extent on the chart's own surface. */
+  /**
+   * The globe's camera, marked on the chart's own surface.
+   *
+   * A point, not an extent. On the sphere half the world is always out of
+   * sight, so the honest thing for the corner to say is where the camera is
+   * looking; the locator draws a fixed mark there, which is why every
+   * recorded globe step carries a 22-pixel box that never changes size
+   * however close the camera comes.
+   */
   private locate(pov: { lat: number; lng: number; altitude: number }): void {
-    const context = this.context;
     const globe = this.globe;
-    if (!context || !globe || !this.globeUp) return;
-    const camera = globe.cameraOf(pov, this.clientHeight || 1);
+    if (!globe || !this.globeUp) return;
+    const camera = globe.cameraOf(pov);
     if (!camera) return;
-    const resolution = context.grid.size / context.grid.tileSize / 2 ** camera.zoom;
-    const halfWidth = (resolution * (this.clientWidth || 1)) / 2;
-    const halfHeight = (resolution * (this.clientHeight || 1)) / 2;
-    this.chart?.locate([
-      camera.x - halfWidth, camera.y - halfHeight,
-      camera.x + halfWidth, camera.y + halfHeight,
-    ]);
+    this.chart?.locate([camera.x, camera.y]);
+  }
+
+  /**
+   * The zoom controls.
+   *
+   * Zoom is continuous interaction state, so it is the seam's (issue #5
+   * §4.1), and the two buttons are the application's chrome the way the globe
+   * toggle is: it renders them because they belong beside the map, and this
+   * lane wires them because pressing one moves nothing discrete. Which pane
+   * is up decides what a press means -- a zoom level on the chart, a halving
+   * of distance on the sphere.
+   */
+  private wireZoom(): void {
+    for (const [id, delta] of [["#zoom-in", 1], ["#zoom-out", -1]] as const) {
+      const button = document.querySelector<HTMLButtonElement>(id);
+      if (!button || button.dataset["atlasWired"] === "yes") continue;
+      button.dataset["atlasWired"] = "yes";
+      button.addEventListener("click", () => {
+        if (this.globeUp) this.globe?.changeZoom(delta);
+        else this.chart?.nudgeZoom(delta);
+      });
+    }
   }
 }
 

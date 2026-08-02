@@ -29,15 +29,62 @@ import type { GeoMapping, PlanCell } from "@atlas/analysis";
 import { logger } from "../log.ts";
 import type { WorldContext } from "../context.ts";
 import type { Attrs } from "../data/payload.ts";
+import { viewMaxZoom } from "../chart/projection.ts";
 import { Skin } from "./texture.ts";
 
 const log = logger("globe");
 
-/** The altitude a whole hemisphere sits at: globe.gl's own default distance. */
-const ALTITUDE_AT_FULL = 2.5;
+// THE PAIRING, calibrated against the recorded tours rather than guessed.
+//
+// The two cameras answer to one another as a power law anchored at one point:
+// the whole disc at altitude 2.5 reads like the whole chart at zoom 2, and
+// each halving of altitude reads like one more zoom. It is deliberately *not*
+// a field-of-view calculation -- an earlier draft of this seam derived the
+// altitude from the resolution, the viewport height and the declared degree
+// span, which is defensible arithmetic and reproduces none of the recorded
+// numbers. `golden/parity/mars/tour.json` settles it: `globe-left` records a
+// chart zoom of 1.3219 = 2 + log2(2.5 / 4) after the camera has been pushed
+// out to the farthest distance, and `globe-labels-held` records an altitude
+// of 0.68 = 2.5 / 2^(1.8826 - 2) / 4 after the zoom buttons have halved it
+// twice. Both fall out of the four constants below and nothing else does.
+const WHOLE_DISC_ALTITUDE = 2.5;
+const WHOLE_CHART_ZOOM = 2;
+
+// The camera keeps a respectful distance: never through the skin -- a camera
+// inside the sphere sees the world inside out -- and never so far the planet
+// is a dot. The clamps are load-bearing, not hygiene: the farthest is what
+// `globe-left`'s recorded zoom is a reading of.
+const NEAREST_ALTITUDE = 0.08;
+const FARTHEST_ALTITUDE = 4;
+
+/** The level the base skin is woven at; detail is only ever deeper. */
+const TEXTURE_ZOOM = 4;
+
+/** Tiles the neighbourhood under the camera may hold at once. */
+const DETAIL_TILE_BUDGET = 96;
 
 /** Names raised over the sphere at once. */
 const LABEL_BUDGET = 180;
+
+function clamp(value: number, low: number, high: number): number {
+  return Math.min(Math.max(value, low), high);
+}
+
+/** How far out a chart zoom stands the camera. */
+export function altitudeForZoom(zoom: number): number {
+  const safe = Number.isFinite(zoom) ? zoom : WHOLE_CHART_ZOOM;
+  return clamp(
+    WHOLE_DISC_ALTITUDE / 2 ** (safe - WHOLE_CHART_ZOOM),
+    NEAREST_ALTITUDE, FARTHEST_ALTITUDE);
+}
+
+/** How close in a distance reads on the chart. The inverse, with its ceiling. */
+export function zoomForAltitude(altitude: number, ceiling: number): number {
+  const safe = Number.isFinite(altitude)
+    ? Math.max(altitude, NEAREST_ALTITUDE / 2)
+    : WHOLE_DISC_ALTITUDE;
+  return clamp(WHOLE_CHART_ZOOM + Math.log2(WHOLE_DISC_ALTITUDE / safe), 0, ceiling);
+}
 
 /** The camera as the chart speaks it. */
 export interface ChartCamera {
@@ -172,7 +219,7 @@ export class AtlasGlobe extends HTMLElement {
     }
     this.globe?.width(this.clientWidth || viewport.width);
     this.globe?.height(this.clientHeight || viewport.height);
-    const pov = this.povOf(camera, viewport.height);
+    const pov = this.povOf(camera);
     if (!pov) return;
     this.handed = camera;
     this.given = pov;
@@ -189,8 +236,12 @@ export class AtlasGlobe extends HTMLElement {
    * it was given — the same numbers, not numbers that round-trip to within a
    * float of them. If they did move it, the pairing below is inverted
    * honestly and the chart lands where the sphere was looking.
+   *
+   * The pane's size is not asked for: the pairing between a distance and a
+   * zoom is a property of the two cameras, not of the window they are seen
+   * through (§7, calibrated against the recorded tours).
    */
-  leave(viewport: { width: number; height: number }): ChartCamera | null {
+  leave(): ChartCamera | null {
     this.hidden = true;
     const pov = this.globe?.pointOfView();
     // A globe nobody is looking at holds no pyramid tiles: the skin under it
@@ -202,7 +253,7 @@ export class AtlasGlobe extends HTMLElement {
     const unmoved = Math.abs(pov.lat - this.given.lat) < 1e-9 &&
       Math.abs(pov.lng - this.given.lng) < 1e-9 &&
       Math.abs(pov.altitude - this.given.altitude) < 1e-9;
-    return unmoved ? this.handed : this.cameraOf(pov, viewport.height);
+    return unmoved ? this.handed : this.cameraOf(pov);
   }
 
   /** The globe's own rounding of its camera, non-empty only while Z is down. */
@@ -213,31 +264,49 @@ export class AtlasGlobe extends HTMLElement {
   // ---- the pairing ----------------------------------------------------
 
   /** The chart's camera as a point of view. */
-  povOf(camera: ChartCamera, height: number): { lat: number; lng: number; altitude: number } | null {
+  povOf(camera: ChartCamera): { lat: number; lng: number; altitude: number } | null {
     const equirect = this.equirect;
-    const context = this.context;
-    if (!equirect || !context) return null;
+    if (!equirect) return null;
     const [lat, lng] = equirect.mapping.toLatLng(camera.x, -camera.y);
-    const resolution = context.grid.size / context.grid.tileSize / 2 ** camera.zoom;
-    const degrees = (resolution * height / equirect.px[3]) *
-      Math.abs(equirect.deg[1] - equirect.deg[3]);
-    return { lat, lng, altitude: (degrees / 180) * ALTITUDE_AT_FULL };
+    return { lat, lng, altitude: altitudeForZoom(camera.zoom) };
   }
 
   /** A point of view as the chart's camera. The inverse of `povOf`, exactly. */
-  cameraOf(
-    pov: { lat: number; lng: number; altitude: number },
-    height: number,
-  ): ChartCamera | null {
+  cameraOf(pov: { lat: number; lng: number; altitude: number }): ChartCamera | null {
     const equirect = this.equirect;
     const context = this.context;
     if (!equirect || !context) return null;
     const [x, y] = equirect.mapping.toWorld(pov.lat, pov.lng);
-    const degrees = (pov.altitude / ALTITUDE_AT_FULL) * 180;
-    const resolution = (degrees / Math.abs(equirect.deg[1] - equirect.deg[3])) *
-      equirect.px[3] / height;
-    const zoom = Math.log2(context.grid.size / context.grid.tileSize / resolution);
-    return { x, y: -y, zoom, rotation: 0 };
+    return { x, y: -y, zoom: zoomForAltitude(pov.altitude, this.ceiling()), rotation: 0 };
+  }
+
+  /** How deep the chart is willing to go, which is the pairing's own ceiling. */
+  private ceiling(): number {
+    const lens = this.context?.lens;
+    return lens ? viewMaxZoom(lens) : WHOLE_CHART_ZOOM;
+  }
+
+  /**
+   * One press of a zoom control, on the sphere.
+   *
+   * A press is one halving or doubling of the distance, read off the camera
+   * where it stands rather than off a target this pane remembers -- two
+   * presses in one tick therefore move the camera once, which is what the
+   * recorded tour did and what its `globe-labels-held` altitude records.
+   */
+  changeZoom(delta: number): void {
+    const globe = this.globe;
+    if (!globe) return;
+    const pov = globe.pointOfView();
+    const standing = Number.isFinite(pov.altitude) ? pov.altitude : WHOLE_DISC_ALTITUDE;
+    globe.pointOfView(
+      { altitude: clamp(standing / 2 ** delta, NEAREST_ALTITUDE, FARTHEST_ALTITUDE) }, 180);
+  }
+
+  /** Where the camera is looking, for the corner locator. */
+  facing(): { lat: number; lng: number } | null {
+    const pov = this.globe?.pointOfView();
+    return pov ? { lat: pov.lat, lng: pov.lng } : null;
   }
 
   // ---- building -------------------------------------------------------
@@ -312,8 +381,12 @@ export class AtlasGlobe extends HTMLElement {
       return;
     }
     const pov = globe.pointOfView();
+    // The rounding is the contract: whole degrees and two decimals of
+    // altitude, which is what every recorded `globe-labels-held` is written
+    // in ("0:0:0.68:geohash:"). Finer rounding would make the key move where
+    // the baseline says it stands still.
     const key = [
-      pov.lat.toFixed(2), pov.lng.toFixed(2), pov.altitude.toFixed(3),
+      String(Math.round(pov.lat)), String(Math.round(pov.lng)), pov.altitude.toFixed(2),
       context.scene.gridSystem, context.cell,
     ].join(":");
     if (key === this.labelKey) return;
@@ -345,10 +418,11 @@ export class AtlasGlobe extends HTMLElement {
     if (!context || !globe || !equirect) return;
     this.cells.clear();
     this.seam.grid.cell = context.cell || null;
-    if (!context.system || !context.scene.gridSystem) {
-      this.seam.grid.fitKey = "";
-      return;
-    }
+    // The fit key is not cleared when the grid closes. It is the last frame
+    // the camera was flown to hold a cell, and the baselines carry it through
+    // the grid closing, the pane being left, and the volume being reopened --
+    // a record of where the reader was taken, not a live flag.
+    if (!context.system || !context.scene.gridSystem) return;
     for (const cell of planOf(context)) {
       for (const ring of cellRings(context.ground, cell)) {
         const points = ring.map(([x, y]) => {
@@ -366,12 +440,15 @@ export class AtlasGlobe extends HTMLElement {
     // The frame the camera was flown to hold the cell, which is what makes a
     // held cell reproducible between runs rather than wherever the reader was
     // when they chose it.
+    // The fit key is a reading of depth, not of place: the system, the cell,
+    // and the chart zoom the camera's distance reads as, in half steps. That
+    // is what the baselines record ("geohash:m:7"), and it is what decides
+    // when a chip could newly fit inside a cell's footprint.
     if (context.cell) {
       const pov = globe.pointOfView();
-      this.fitKey = `${context.scene.gridSystem}:${context.cell}@${pov.lat.toFixed(2)},${pov.lng.toFixed(2)}`;
+      const depth = Math.round(zoomForAltitude(pov.altitude, this.ceiling()) * 2);
+      this.fitKey = `${context.scene.gridSystem}:${context.cell}:${depth}`;
       this.seam.grid.fitKey = this.fitKey;
-    } else {
-      this.seam.grid.fitKey = "";
     }
   }
 
@@ -395,25 +472,33 @@ export class AtlasGlobe extends HTMLElement {
     const equirect = this.equirect;
     if (!context?.lens || !globe || !equirect || !this.skin) return;
     const pov = globe.pointOfView();
-    const degrees = (pov.altitude / ALTITUDE_AT_FULL) * 180;
-    const [, , w, h] = equirect.px;
-    const span = Math.abs(equirect.deg[1] - equirect.deg[3]);
-    const worldHeight = (degrees / span) * h;
-    const wanted = Math.round(Math.log2(context.grid.size / Math.max(1, worldHeight))) + 2;
-    // Nothing is draped until the camera asks for more than the skin already
-    // has. A sphere seen whole is the base skin and nothing else, which is
-    // what makes "past the base skin's depth, tiles actually arrive" a
-    // statement the tour can check rather than a description of every frame.
-    if (wanted <= this.skin.baseLevel(context.lens)) {
+    // The level the distance asks for, spoken through the pairing: one step
+    // deeper than the chart zoom the camera reads as. Nothing is draped until
+    // that is deeper than the skin already is -- a sphere seen whole is the
+    // base skin and nothing else, which is what makes "past the base skin's
+    // depth, tiles actually arrive" a statement the tour can check rather
+    // than a description of every frame.
+    const z = Math.min(
+      Math.round(zoomForAltitude(pov.altitude, this.ceiling())) + 1,
+      context.lens.maxZoom);
+    if (z <= Math.max(TEXTURE_ZOOM, this.skin.baseLevel(context.lens))) {
       this.skin.clearDetail();
       return;
     }
-    const z = Math.min(context.lens.maxZoom, wanted);
+    // How much ground the camera can possibly see: the horizon angle at this
+    // altitude, padded by one tile so tiles arrive before their ground does,
+    // then pulled in until the neighbourhood fits its budget.
+    const span = 360 / 2 ** z;
+    const horizon = (Math.acos(1 / (1 + pov.altitude)) * 180) / Math.PI + span;
+    let reach = Math.ceil(horizon / span);
+    while ((2 * reach + 1) ** 2 > DETAIL_TILE_BUDGET && reach > 1) reach -= 1;
+    const [, , w, h] = equirect.px;
+    const tile = (h / 2 ** z) * 2;
+    const side = (2 * reach + 1) * tile;
     const [cx, cy] = equirect.mapping.toWorld(pov.lat, pov.lng);
-    const width = (worldHeight * w) / h;
     void this.skin.detail(
       context.lens, z,
-      { x: cx - width / 2, y: cy - worldHeight / 2, width, height: worldHeight },
+      { x: cx - side / 2, y: cy - side / 2, width: (side * w) / (h * 2), height: side },
       (level, x, y) => this.tileURL(level, x, y),
       () => this.refresh());
   }
