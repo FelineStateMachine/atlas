@@ -497,11 +497,13 @@ func buildVolume(
 		// registry names it by, so a ledger line and a plugin card point at
 		// each other without a translation table.
 		for index := range pieces {
+			counts := pieces[index].featureTally()
 			pieces[index].Merged = []mergedSource{{
-				Source:    sourceDisplayLabel(ref.Source),
-				Slug:      canonicalSourceSlug(ref.Source),
-				Origin:    true,
-				DonorPins: pieces[index].pinCount(),
+				Source:        sourceDisplayLabel(ref.Source),
+				Slug:          canonicalSourceSlug(ref.Source),
+				Origin:        true,
+				DonorPins:     counts.Point,
+				DonorFeatures: counts,
 			}}
 		}
 		game.Worlds = append(game.Worlds, pieces...)

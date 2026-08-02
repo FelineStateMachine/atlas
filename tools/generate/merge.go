@@ -98,14 +98,35 @@ type mergedSource struct {
 	// account is simply the map's own count at composition.
 	Origin    bool           `json:"origin,omitempty"`
 	DonorPins int            `json:"donorPins"`
-	Matched   []mergedPair   `json:"matched,omitempty"`
-	Added     int            `json:"added"`
-	Adopted   []adoptedPin   `json:"adopted,omitempty"`
-	Held      []heldPin      `json:"held,omitempty"`
-	Rejected  []heldPin      `json:"rejected,omitempty"`
-	Enriched  []categoryTake `json:"enrichedCategories,omitempty"`
-	Alignment string         `json:"alignment,omitempty"`
+	// DonorFeatures is the donor's whole offering counted per kind, points
+	// included: DonorPins repeats its point count, the older spelling kept
+	// for readers that predate shapes in the ledger.
+	DonorFeatures featureCounts `json:"donorFeatures,omitempty"`
+	Matched       []mergedPair  `json:"matched,omitempty"`
+	Added         int           `json:"added"`
+	// AddedShapes is reserved: no shape feature merges yet, so it is always
+	// zero, but the key holds the ledger's place for the day one does.
+	AddedShapes int            `json:"addedShapes,omitempty"`
+	Adopted     []adoptedPin   `json:"adopted,omitempty"`
+	Held        []heldPin      `json:"held,omitempty"`
+	Rejected    []heldPin      `json:"rejected,omitempty"`
+	Enriched    []categoryTake `json:"enrichedCategories,omitempty"`
+	Alignment   string         `json:"alignment,omitempty"`
 }
+
+// featureCounts counts features by kind: the three dimensionalities a
+// collection may declare, as the ledger speaks of them.
+type featureCounts struct {
+	Point int `json:"point"`
+	Path  int `json:"path"`
+	Area  int `json:"area"`
+}
+
+// heldShapeReason is the one reason a donor shape feature is held: matching
+// is point-only for now, so every donor path and area goes on the record
+// instead of vanishing. The gate reads the reason back off the ledger to
+// tell shape holds from point holds.
+const heldShapeReason = "shape features do not merge yet"
 
 // categoryTake records one attribute a serving category took from the
 // donor's counterpart: which category, which key.
@@ -384,6 +405,19 @@ func mergeWorld(
 	var keptCollections []worldCollection
 	for _, donorCollection := range donor.Collections {
 		if donorCollection.Kind != kindPoint {
+			// Matching is point-only, but the ledger is not: every donor
+			// path and area feature is held on the record, one line each
+			// with its title, rather than dropped without a word.
+			for _, shape := range donorCollection.Features {
+				if donorCollection.Kind == kindPath {
+					merge.DonorFeatures.Path++
+				} else {
+					merge.DonorFeatures.Area++
+				}
+				merge.Held = append(merge.Held, heldPin{
+					Donor: shape.ID, Title: shape.Title, Reason: heldShapeReason,
+				})
+			}
 			continue
 		}
 		kept := donorCollection
@@ -404,6 +438,7 @@ func mergeWorld(
 		}
 		for _, pin := range donorCollection.Features {
 			merge.DonorPins++
+			merge.DonorFeatures.Point++
 			x, y := affine.Apply(
 				projectX(pin.Lng, donorGrid),
 				projectY(pin.Lat, donorGrid),
@@ -504,8 +539,9 @@ func mergeWorld(
 	if err := mergeGate(merge, winner); err != nil {
 		return err
 	}
-	fmt.Printf("merge %s/%s: %s: %d donor pins → %d matched (%d enriched) · %d added · %d held · %d outside\n",
-		winnerGame.Slug, winner.Slug, sourceLabel, merge.DonorPins, len(merge.Matched),
+	donorTotal := merge.DonorFeatures.Point + merge.DonorFeatures.Path + merge.DonorFeatures.Area
+	fmt.Printf("merge %s/%s: %s: %d donor features → %d matched (%d enriched) · %d added · %d held · %d outside\n",
+		winnerGame.Slug, winner.Slug, sourceLabel, donorTotal, len(merge.Matched),
 		enrichedCount(merge), merge.Added, len(merge.Held), len(merge.Rejected))
 	return nil
 }
@@ -822,14 +858,34 @@ func enrichedCount(merge *mergedSource) int {
 	return count
 }
 
-// mergeGate is the merge's own audit: every donor pin accounted for, every
-// match one-to-one, no identifier doubled, nothing the serving map held made
-// worse. It fails the build rather than writing a bundle that quietly lost
-// something -- or quietly agreed too much.
+// mergeGate is the merge's own audit: every donor feature of every kind
+// accounted for, every match one-to-one, no identifier doubled, nothing the
+// serving map held made worse. It fails the build rather than writing a
+// bundle that quietly lost something -- or quietly agreed too much.
 func mergeGate(merge *mergedSource, winner *catalogWorld) error {
-	accounted := len(merge.Matched) + merge.Added + len(merge.Held) + len(merge.Rejected)
-	if accounted != merge.DonorPins {
-		return fmt.Errorf("merge accounts for %d of %d donor pins", accounted, merge.DonorPins)
+	// The two spellings of the donor's point count are one number, or the
+	// ledger is already lying to one of its readers.
+	if merge.DonorPins != merge.DonorFeatures.Point {
+		return fmt.Errorf("ledger speaks two point counts: donorPins %d, donorFeatures %d",
+			merge.DonorPins, merge.DonorFeatures.Point)
+	}
+	heldPoints, heldShapes := 0, 0
+	for _, held := range merge.Held {
+		if held.Reason == heldShapeReason {
+			heldShapes++
+		} else {
+			heldPoints++
+		}
+	}
+	accounted := len(merge.Matched) + merge.Added + heldPoints + len(merge.Rejected)
+	if accounted != merge.DonorFeatures.Point {
+		return fmt.Errorf("merge accounts for %d of %d donor points", accounted, merge.DonorFeatures.Point)
+	}
+	if shapes := merge.DonorFeatures.Path + merge.DonorFeatures.Area; heldShapes != shapes {
+		return fmt.Errorf("merge holds %d shape features of the %d the donor carries", heldShapes, shapes)
+	}
+	if merge.AddedShapes != 0 {
+		return fmt.Errorf("merge claims %d added shapes; no shape feature merges yet", merge.AddedShapes)
 	}
 	claimed := make(map[int64]int64)
 	for _, pair := range merge.Matched {
@@ -861,33 +917,51 @@ func mergeGate(merge *mergedSource, winner *catalogWorld) error {
 			return fmt.Errorf("category %q took %q, which no category may carry", take.Category, take.Key)
 		}
 	}
+	// One identifier space for every kind: a point and an area may not share
+	// an id any more than two points may.
 	seen := make(map[int64]string)
-	counted := 0
+	var counted featureCounts
 	for _, collection := range winner.Collections {
-		if collection.Kind != kindPoint {
-			continue
-		}
-		for _, pin := range collection.Features {
-			if holder, taken := seen[pin.ID]; taken {
-				return fmt.Errorf("pin id %d held by both %q and %q", pin.ID, holder, pin.Title)
+		for _, held := range collection.Features {
+			if holder, taken := seen[held.ID]; taken {
+				return fmt.Errorf("feature id %d held by both %q and %q", held.ID, holder, held.Title)
 			}
-			seen[pin.ID] = pin.Title
-			counted++
+			seen[held.ID] = held.Title
+			switch collection.Kind {
+			case kindPoint:
+				counted.Point++
+			case kindPath:
+				counted.Path++
+			default:
+				counted.Area++
+			}
 		}
 	}
-	// The count the map claims is no longer a field to drift; it is the sum
-	// of its own ledger -- what it opened with, plus what every merge says it
-	// added -- and the map must actually hold that many.
-	ledgered := 0
+	// The counts the map claims are no longer fields to drift; they are the
+	// sums of its own ledger -- what it opened with, plus what every merge
+	// says it added -- and the map must actually hold that many of each kind.
+	// Held shapes stay the donor's, so only the origin account speaks for the
+	// shapes the map draws.
+	var ledgered featureCounts
 	for _, account := range winner.Merged {
 		if account.Origin {
-			ledgered += account.DonorPins
+			ledgered.Point += account.DonorFeatures.Point
+			ledgered.Path += account.DonorFeatures.Path
+			ledgered.Area += account.DonorFeatures.Area
 		} else {
-			ledgered += account.Added
+			ledgered.Point += account.Added
+			if account.AddedShapes != 0 {
+				return fmt.Errorf("account of %s claims %d added shapes; no shape feature merges yet",
+					account.Source, account.AddedShapes)
+			}
 		}
 	}
-	if counted != ledgered {
-		return fmt.Errorf("world holds %d pins but its ledger claims %d", counted, ledgered)
+	if counted.Point != ledgered.Point {
+		return fmt.Errorf("world holds %d points but its ledger claims %d", counted.Point, ledgered.Point)
+	}
+	if counted.Path != ledgered.Path || counted.Area != ledgered.Area {
+		return fmt.Errorf("world holds %d paths and %d areas but its ledger claims %d and %d",
+			counted.Path, counted.Area, ledgered.Path, ledgered.Area)
 	}
 	return nil
 }

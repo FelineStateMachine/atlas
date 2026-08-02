@@ -293,14 +293,26 @@ func (m catalogWorld) v2Zones() []zone {
 	return zones
 }
 
+// featureTally counts the map's features by kind: the origin account's view
+// of what the map holds, and the yardstick every merge audit measures the
+// composed map against.
+func (m catalogWorld) featureTally() featureCounts {
+	var counts featureCounts
+	for _, collection := range m.Collections {
+		switch collection.Kind {
+		case kindPoint:
+			counts.Point += len(collection.Features)
+		case kindPath:
+			counts.Path += len(collection.Features)
+		default:
+			counts.Area += len(collection.Features)
+		}
+	}
+	return counts
+}
+
 // pinCount is how many point features the map holds, which is what the
 // manifest has always reported for it.
 func (m catalogWorld) pinCount() int {
-	total := 0
-	for _, collection := range m.Collections {
-		if collection.Kind == kindPoint {
-			total += len(collection.Features)
-		}
-	}
-	return total
+	return m.featureTally().Point
 }

@@ -88,8 +88,8 @@ func run(dir string) error {
 				b.IconsCarried, b.IconsWanted, b.IconPct())
 			fmt.Printf("    conventions  %s\n", conventionsLine(b))
 			for _, account := range b.Merges {
-				fmt.Printf("    merge        %s: %d donor pins · %d matched (median %dpx) · %d added (%d adopted) · %d held · %d rejected\n",
-					account.Source, account.DonorPins, account.MatchedN(), account.MedianMatchPx(),
+				fmt.Printf("    merge        %s: %d donor pins · %d donor shapes · %d matched (median %dpx) · %d added (%d adopted) · %d held · %d rejected\n",
+					account.Source, account.DonorPins, account.DonorShapesN(), account.MatchedN(), account.MedianMatchPx(),
 					account.Added, account.AdoptedN(), account.HeldN(), account.RejectedN())
 			}
 		}

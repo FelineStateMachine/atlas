@@ -73,12 +73,26 @@ type MergeAccount struct {
 	Map       string
 	Source    string
 	DonorPins int
-	Matched   []MatchedPair
-	Added     int
-	Adopted   []AdoptedPin
-	Held      []HeldPin
-	Rejected  []HeldPin
-	Alignment string
+	// DonorFeatures is the donor's offering counted per kind. Bundles from
+	// before the ledger spoke features carry only donorPins; for those the
+	// point count stands in and the shapes read zero.
+	DonorFeatures FeatureCounts
+	Matched       []MatchedPair
+	Added         int
+	// AddedShapes is the ledger's reserved shape-merge count, zero in every
+	// bundle written so far.
+	AddedShapes int
+	Adopted     []AdoptedPin
+	Held        []HeldPin
+	Rejected    []HeldPin
+	Alignment   string
+}
+
+// FeatureCounts counts donor features by kind, in the ledger's own words.
+type FeatureCounts struct {
+	Point int `json:"point"`
+	Path  int `json:"path"`
+	Area  int `json:"area"`
 }
 
 // MatchedPair records one place both sources pin, in the ledger's own words.
@@ -114,14 +128,16 @@ type worldDetail struct {
 		} `json:"categories"`
 	} `json:"groups"`
 	Merged []struct {
-		Source    string        `json:"source"`
-		DonorPins int           `json:"donorPins"`
-		Matched   []MatchedPair `json:"matched"`
-		Added     int           `json:"added"`
-		Adopted   []AdoptedPin  `json:"adopted"`
-		Held      []HeldPin     `json:"held"`
-		Rejected  []HeldPin     `json:"rejected"`
-		Alignment string        `json:"alignment"`
+		Source        string         `json:"source"`
+		DonorPins     int            `json:"donorPins"`
+		DonorFeatures *FeatureCounts `json:"donorFeatures"`
+		Matched       []MatchedPair  `json:"matched"`
+		Added         int            `json:"added"`
+		AddedShapes   int            `json:"addedShapes"`
+		Adopted       []AdoptedPin   `json:"adopted"`
+		Held          []HeldPin      `json:"held"`
+		Rejected      []HeldPin      `json:"rejected"`
+		Alignment     string         `json:"alignment"`
 	} `json:"merged"`
 	Zones []struct {
 		Features []struct {
@@ -147,6 +163,11 @@ func (m MergeAccount) MedianMatchPx() int {
 	sort.Ints(distances)
 	return distances[len(distances)/2]
 }
+
+// DonorShapesN is how many shape features -- paths and areas together --
+// the donor offered; none of them merge yet, so each one shows up again in
+// the held ledger.
+func (m MergeAccount) DonorShapesN() int { return m.DonorFeatures.Path + m.DonorFeatures.Area }
 
 func (m MergeAccount) MatchedN() int  { return len(m.Matched) }
 func (m MergeAccount) AdoptedN() int  { return len(m.Adopted) }
@@ -317,16 +338,25 @@ func MeasureBundle(path string) (*Build, error) {
 			}
 		}
 		for _, merged := range detail.Merged {
+			// Bundles in the wild predate the per-kind count: where the
+			// account says only donorPins, the points stand for the whole
+			// offering, exactly as the writer of that day meant it.
+			counts := FeatureCounts{Point: merged.DonorPins}
+			if merged.DonorFeatures != nil {
+				counts = *merged.DonorFeatures
+			}
 			b.Merges = append(b.Merges, MergeAccount{
-				Map:       entry.Slug,
-				Source:    merged.Source,
-				DonorPins: merged.DonorPins,
-				Matched:   merged.Matched,
-				Added:     merged.Added,
-				Adopted:   merged.Adopted,
-				Held:      merged.Held,
-				Rejected:  merged.Rejected,
-				Alignment: merged.Alignment,
+				Map:           entry.Slug,
+				Source:        merged.Source,
+				DonorPins:     counts.Point,
+				DonorFeatures: counts,
+				Matched:       merged.Matched,
+				Added:         merged.Added,
+				AddedShapes:   merged.AddedShapes,
+				Adopted:       merged.Adopted,
+				Held:          merged.Held,
+				Rejected:      merged.Rejected,
+				Alignment:     merged.Alignment,
 			})
 		}
 	}

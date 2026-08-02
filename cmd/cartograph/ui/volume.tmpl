@@ -30,7 +30,7 @@
   {{if $b.Merges}}
   <table class="merges">
     <thead><tr>
-      <th>map</th><th>source</th><th class="num">donor pins</th><th class="num">matched</th>
+      <th>map</th><th>source</th><th class="num">donor pins</th><th class="num">donor shapes</th><th class="num">matched</th>
       <th class="num">median px</th><th class="num">added</th><th class="num">adopted</th>
       <th class="num">held</th><th class="num">rejected</th><th>alignment</th>
     </tr></thead>
@@ -38,7 +38,7 @@
     {{range $b.Merges}}
       <tr>
         <td>{{.Map}}</td><td>{{.Source}}</td>
-        <td class="num">{{.DonorPins}}</td><td class="num">{{.MatchedN}}</td>
+        <td class="num">{{.DonorPins}}</td><td class="num">{{.DonorShapesN}}</td><td class="num">{{.MatchedN}}</td>
         <td class="num">{{.MedianMatchPx}}</td><td class="num">{{.Added}}</td>
         <td class="num">{{.AdoptedN}}</td><td class="num">{{.HeldN}}</td>
         <td class="num">{{.RejectedN}}</td><td class="dim">{{.Alignment}}</td>
