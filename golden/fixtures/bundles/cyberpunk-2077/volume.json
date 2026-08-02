@@ -1,0 +1,103 @@
+{
+  "slug": "cyberpunk-2077",
+  "title": "Cyberpunk 2077",
+  "file": "cyberpunk-2077-20260801-e191f1964b71.atlas",
+  "fileBytes": 196539858,
+  "fileSha256": "ed2cad1b420f385cca18cad38a205b621b37f0cf57297ed27af810c8c8a7c2d8",
+  "formatVersion": 3,
+  "conventions": 2,
+  "stamp": "e191f1964b718b193fdd627012f1e06e6f9fc3afb742d13fff3c7eb881d0fcd8",
+  "stamp12": "e191f1964b71",
+  "createdAt": "2026-08-01T05:09:07.367859Z",
+  "revision": 9,
+  "traits": [
+    "multi-source-merge"
+  ],
+  "tileGrid": {
+    "sourceZoom": 13,
+    "firstTile": 4064,
+    "tileSize": 256,
+    "size": 8192
+  },
+  "counts": {
+    "entries": 17549,
+    "worlds": 1,
+    "tiles": 17507,
+    "icons": 38,
+    "points": 860,
+    "paths": 0,
+    "areas": 0
+  },
+  "worlds": [
+    {
+      "slug": "night-city",
+      "title": "Night City",
+      "points": 860,
+      "paths": 0,
+      "areas": 0,
+      "collections": 40,
+      "lenses": [
+        "Default=night-city__cbp",
+        "IGN Wiki=night-city__cbp__aligned-cyberpunk-2077-night-city"
+      ],
+      "mergedFrom": [
+        "Piggyback (origin)",
+        "IGN Wiki"
+      ],
+      "textEntries": 445
+    }
+  ],
+  "pyramids": [
+    {
+      "pyramid": "night-city__cbp",
+      "worlds": [
+        "night-city"
+      ],
+      "lenses": [
+        "night-city/Default"
+      ],
+      "tiles": 16142,
+      "bytes": 185333352,
+      "contentRollup": "cc00f73c90591ebdb979623e03ccd4da791694b1e512d8d96381e9e005a69956",
+      "pixelRollup": "b114c2c1ff26cefc41eb44ce9144323588f683412bf76e1e13d5fcf8c04a126c",
+      "inventory": "tiles/night-city__cbp.json"
+    },
+    {
+      "pyramid": "night-city__cbp__aligned-cyberpunk-2077-night-city",
+      "worlds": [
+        "night-city"
+      ],
+      "lenses": [
+        "night-city/IGN Wiki"
+      ],
+      "tiles": 1365,
+      "bytes": 8196185,
+      "contentRollup": "448db983fc19476ebad0d30af8d4377e01f5a9871afa01e6c9a2b46bedcae131",
+      "pixelRollup": "7a1adcb8e5808873de05acb224cd09917e6ff1c5a3f31ace3afbde02ddce75fd",
+      "inventory": "tiles/night-city__cbp__aligned-cyberpunk-2077-night-city.json"
+    }
+  ],
+  "partHashes": {
+    "atlas.json": "552e779877aaa936218ca128f9a3c99d0310aa9d5d686ed6e0fe1f7bc22be9af",
+    "worlds/night-city.bin": "4a1638b14774dc1b37dff90a2e3ab4a8de518d6ef902ba316beeab2ce8bf8c01",
+    "worlds/night-city.json": "807d758e34f30666f7179ef3408fcac471bbec5ead7348f28ece0acfd8030026",
+    "worlds/night-city.text": "b87510799497bbad87c39ecc37aa71865914ab4532f1e737e338b853bb8fddb7"
+  },
+  "entryOrder": {
+    "first": [
+      "atlas.json",
+      "worlds/night-city.json",
+      "worlds/night-city.bin",
+      "worlds/night-city.text",
+      "tiles/night-city__cbp/0/0/0.jpg",
+      "tiles/night-city__cbp/1/0/0.jpg",
+      "tiles/night-city__cbp/1/0/1.jpg",
+      "tiles/night-city__cbp/1/1/0.jpg",
+      "tiles/night-city__cbp/1/1/1.jpg",
+      "tiles/night-city__cbp/2/0/0.jpg",
+      "tiles/night-city__cbp/2/0/1.jpg",
+      "tiles/night-city__cbp/2/0/2.jpg"
+    ],
+    "sha256": "715ed976f2a4985137064a3fcf3a7771146f67a3d31eea9800c703902e1a1624"
+  }
+}

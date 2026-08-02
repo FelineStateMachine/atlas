@@ -1,0 +1,447 @@
+{
+  "355530": {
+    "d": "**Location:** Crimson Caravan Company, Crimson Caravan Main Office - On top of a radio on a desk.",
+    "l": [
+      {
+        "locationId": 355529,
+        "title": "Crimson Caravan Company"
+      }
+    ]
+  },
+  "489541": {
+    "d": "**Location:** North Vegas Square  \n\n**Game Limit:** Unlimited\n\n**Note(s):**\n- Pass a Guns 50 and Survival 60 check to begin and complete Meeting an Equal\n  - The reward is Schematics - .44 Magnum, Hand Load\n- Spoken to as part of Someone to Watch Over Me",
+    "l": [
+      {
+        "locationId": 484720,
+        "title": "North Vegas Square"
+      },
+      {
+        "locationId": 510048,
+        "title": "Meeting an Equal"
+      },
+      {
+        "locationId": 514734,
+        "title": "Schematics - .44 Magnum, Hand Load"
+      },
+      {
+        "locationId": 502638,
+        "title": "Someone to Watch Over Me"
+      }
+    ]
+  },
+  "489561": {
+    "d": "**Location:** The Gray - Upper floor, on a table next to an empty bottle in a north-western room. Must be stolen.",
+    "l": [
+      {
+        "locationId": 509984,
+        "title": "The Gray"
+      }
+    ]
+  },
+  "489793": {
+    "d": "**Location:** Crimson Caravan Company\n\n**Noteworthy Inventory:**\n- Weapon Mods\n- Skill Magazines\n\n**Note(s):** \n- Sells quest items needed for Bitter Springs Infirmary Blues\n- Sells a quest item needed for How Little We Know\n- Spoken to as part of Dealing with Contreras\n- Spoken to as part of Not Worth a Hill of Corn and Beans",
+    "l": [
+      {
+        "locationId": 355529,
+        "title": "Crimson Caravan Company"
+      },
+      {
+        "locationId": 486408,
+        "title": "Bitter Springs Infirmary Blues"
+      },
+      {
+        "locationId": 502636,
+        "title": "How Little We Know"
+      },
+      {
+        "locationId": 502662,
+        "title": "Dealing with Contreras"
+      },
+      {
+        "locationId": 502663,
+        "title": "Not Worth a Hill of Corn and Beans"
+      }
+    ]
+  },
+  "489797": {
+    "d": "**Location:** Crimson Caravan Company, Crimson Caravan Main Office  \n\n**Note(s):**\n- Ask her for work to begin You Can Depend On Me\n- Spoken to as part of Heartache by the Number\n- Spoken to as part of Young Hearts",
+    "l": [
+      {
+        "locationId": 355529,
+        "title": "Crimson Caravan Company"
+      },
+      {
+        "locationId": 489798,
+        "title": "You Can Depend On Me"
+      },
+      {
+        "locationId": 355889,
+        "title": "Heartache by the Number"
+      },
+      {
+        "locationId": 485403,
+        "title": "Young Hearts"
+      }
+    ]
+  },
+  "489798": {
+    "d": "**Location:** Crimson Caravan Company, Crimson Caravan Main Office\n\n**Quest Giver:** Alice McLafferty\n\n**Quest Item(s):**\n- Crimson Caravan Invoice\n- Cassidy Caravans Buyout Offer\n- Milling Specifications\n\n**Reward:**\n- XP\n- Caps",
+    "l": [
+      {
+        "locationId": 355529,
+        "title": "Crimson Caravan Company"
+      },
+      {
+        "locationId": 489797,
+        "title": "Alice McLafferty"
+      },
+      {
+        "locationId": 489799,
+        "title": "Crimson Caravan Invoice"
+      },
+      {
+        "locationId": 513460,
+        "title": "Cassidy Caravans Buyout Offer"
+      },
+      {
+        "locationId": 513461,
+        "title": "Milling Specifications"
+      }
+    ]
+  },
+  "489799": {
+    "d": "**Location:** Crimson Caravan Company - Given to you by Alice McLafferty when you ask her for work.\n\n**Related Quest:** You Can Depend On Me",
+    "l": [
+      {
+        "locationId": 355529,
+        "title": "Crimson Caravan Company"
+      },
+      {
+        "locationId": 489797,
+        "title": "Alice McLafferty"
+      },
+      {
+        "locationId": 489798,
+        "title": "You Can Depend On Me"
+      }
+    ]
+  },
+  "489800": {
+    "d": "**Location:** Crimson Caravan Company, Crimson Caravan Main Office - but only during the day.\n\n**Note(s):**\n- Spoken to as part of Aba Daba Honeymoon",
+    "l": [
+      {
+        "locationId": 355529,
+        "title": "Crimson Caravan Company"
+      },
+      {
+        "locationId": 355728,
+        "title": "Aba Daba Honeymoon"
+      }
+    ]
+  },
+  "489801": {
+    "d": "**Location:** Crimson Caravan Company, Crimson Caravan Main Office - On the ground inside a bathroom stall. Must be stolen.  \n\n**Effects:** Critical Chance +5",
+    "l": [
+      {
+        "locationId": 355529,
+        "title": "Crimson Caravan Company"
+      }
+    ]
+  },
+  "489802": {
+    "d": "**Location:** Crimson Caravan Company, Caravaneer Barracks - On a desk at the edge of the room. Must be stolen.  \n\n**Affected Skill:** Sneak",
+    "l": [
+      {
+        "locationId": 355529,
+        "title": "Crimson Caravan Company"
+      }
+    ]
+  },
+  "489806": {
+    "d": "**Location:** Crimson Caravan Company  \n\n**Note(s):**\n- Spoken to as part of Young Hearts\n  - Moves to Nellis Air Force Base as part of the quest",
+    "l": [
+      {
+        "locationId": 355529,
+        "title": "Crimson Caravan Company"
+      },
+      {
+        "locationId": 485403,
+        "title": "Young Hearts"
+      },
+      {
+        "locationId": 396375,
+        "title": "Nellis Air Force Base"
+      }
+    ]
+  },
+  "502630": {
+    "d": "**Location:** Crimson Caravan Company\n\n**Quest Giver:** Alice McLafferty after completing You Can Depend On Me\n\n**Reward:**\n- XP\n- Caps\n- NCR fame",
+    "l": [
+      {
+        "locationId": 355529,
+        "title": "Crimson Caravan Company"
+      },
+      {
+        "locationId": 489797,
+        "title": "Alice McLafferty"
+      },
+      {
+        "locationId": 489798,
+        "title": "You Can Depend On Me"
+      }
+    ]
+  },
+  "502638": {
+    "d": "**Location:** North Vegas Square\n\n**Quest Giver:** Crandon\n\n**Quest Item(s):**\n- Henchman Message to Andy Scabb\n\n**Reward:**\n- Caps\n- XP",
+    "l": [
+      {
+        "locationId": 512699,
+        "title": "Crandon"
+      },
+      {
+        "locationId": 514891,
+        "title": "Henchman Message to Andy Scabb"
+      }
+    ]
+  },
+  "510048": {
+    "d": "**Location:** North Vegas Square\n\n**Quest Giver:** Jules - Begins and ends when you pass a Guns 50 and Survival 60 check.\n\n**Reward:**\n- Schematics - .44 Magnum, Hand Load",
+    "l": [
+      {
+        "locationId": 489541,
+        "title": "Jules"
+      },
+      {
+        "locationId": 514734,
+        "title": "Schematics - .44 Magnum, Hand Load"
+      }
+    ]
+  },
+  "512667": {
+    "d": "One of two entrances."
+  },
+  "512668": {
+    "d": "One of two entrances."
+  },
+  "512669": {
+    "d": "**World Map**",
+    "l": [
+      {
+        "locationId": 355529,
+        "title": "World Map"
+      }
+    ]
+  },
+  "512670": {
+    "d": "**World Map**",
+    "l": [
+      {
+        "locationId": 355529,
+        "title": "World Map"
+      }
+    ]
+  },
+  "512698": {
+    "d": "**World Map**",
+    "l": [
+      {
+        "locationId": 484720,
+        "title": "World Map"
+      }
+    ]
+  },
+  "512699": {
+    "d": "**Location:** North Vegas Square  \n\n**Note(s):**\n- Offer help and pass a Barter 35 or Speech 45 check to begin Someone to Watch Over Me",
+    "l": [
+      {
+        "locationId": 502638,
+        "title": "Someone to Watch Over Me"
+      }
+    ]
+  },
+  "513417": {
+    "d": "**Location:** Crimson Caravan Company - Sold by Blake, or can be stolen from the bottom shelf where it's next to some Whiskey.\n\n**Related Quest:** Bitter Springs Infirmary Blues",
+    "l": [
+      {
+        "locationId": 355529,
+        "title": "Crimson Caravan Company"
+      },
+      {
+        "locationId": 489793,
+        "title": "Blake"
+      },
+      {
+        "locationId": 486408,
+        "title": "Bitter Springs Infirmary Blues"
+      }
+    ]
+  },
+  "513418": {
+    "d": "**Location:** Crimson Caravan Company - Sold by Blake, or can be stolen from the shelf above the hats and first aid kits.\r\n\r\n**Related Quest:** Bitter Springs Infirmary Blues",
+    "l": [
+      {
+        "locationId": 355529,
+        "title": "Crimson Caravan Company"
+      },
+      {
+        "locationId": 489793,
+        "title": "Blake"
+      },
+      {
+        "locationId": 486408,
+        "title": "Bitter Springs Infirmary Blues"
+      }
+    ]
+  },
+  "513453": {
+    "d": "**Location:** Crimson Caravan Main Office - In the inventory of Alice McLafferty.\n\n**Used to Unlock:** The locked (Average) safe next to her desk.",
+    "l": [
+      {
+        "locationId": 512671,
+        "title": "Crimson Caravan Main Office"
+      },
+      {
+        "locationId": 489797,
+        "title": "Alice McLafferty"
+      }
+    ]
+  },
+  "513460": {
+    "d": "**Location:** Crimson Caravan Main Office - Given to you by Alice McLafferty when you agree to additional jobs.\n\n**Related Quest:** You Can Depend On Me & Heartache by the Number",
+    "l": [
+      {
+        "locationId": 512671,
+        "title": "Crimson Caravan Main Office"
+      },
+      {
+        "locationId": 489797,
+        "title": "Alice McLafferty"
+      },
+      {
+        "locationId": 489798,
+        "title": "You Can Depend On Me"
+      },
+      {
+        "locationId": 355889,
+        "title": "Heartache by the Number"
+      }
+    ]
+  },
+  "513463": {
+    "d": "**Location:** Crimson Caravan Main Office Inside the locked (Average) safe next to Alice's desk. Can be unlocked via Crimson Caravan Safe Key\n\n**Related Quest:** Heartache by the Number",
+    "l": [
+      {
+        "locationId": 512671,
+        "title": "Crimson Caravan Main Office"
+      },
+      {
+        "locationId": 513453,
+        "title": "Crimson Caravan Safe Key"
+      },
+      {
+        "locationId": 355889,
+        "title": "Heartache by the Number"
+      }
+    ]
+  },
+  "513687": {
+    "d": "**Location:** Sold by Blake.\n\n**Related Quest:** How Little We Know",
+    "l": [
+      {
+        "locationId": 489793,
+        "title": "Blake"
+      },
+      {
+        "locationId": 502636,
+        "title": "How Little We Know"
+      }
+    ]
+  },
+  "514734": {
+    "d": "**Location:** North Vegas Square - Reward for passing a Guns 50 and Survival 60 check when speaking to Jules as part of Meeting an Equal",
+    "l": [
+      {
+        "locationId": 489541,
+        "title": "Jules"
+      },
+      {
+        "locationId": 510048,
+        "title": "Meeting an Equal"
+      }
+    ]
+  },
+  "514735": {
+    "d": "**Location:** North Vegas Square  \n\n**Note(s):**\n- Spoken to as part of Someone to Watch Over Me\n  - Pass a Speech 45 or Barter 45 check to make him leave peacefully",
+    "l": [
+      {
+        "locationId": 502638,
+        "title": "Someone to Watch Over Me"
+      }
+    ]
+  },
+  "514736": {
+    "d": "**World Map**",
+    "l": [
+      {
+        "locationId": 484720,
+        "title": "World Map"
+      }
+    ]
+  },
+  "514737": {
+    "d": "**Location:** North Sewers  \n\n**Note(s):**\n- Spoken to as part of Someone to Watch Over Me\n  - Pass a Speech 65 check, or pay 100 caps (50 after a Barter 50 check) to make him leave peacefully.",
+    "l": [
+      {
+        "locationId": 509985,
+        "title": "North Sewers"
+      },
+      {
+        "locationId": 502638,
+        "title": "Someone to Watch Over Me"
+      }
+    ]
+  },
+  "514890": {
+    "d": "**Location:** The Gray - In the inventories of thugs throughout the building, and Andy Scabb himself.\n\n**Used to Unlock:** Locked (Average) door to Andy's Room",
+    "l": [
+      {
+        "locationId": 509984,
+        "title": "The Gray"
+      }
+    ]
+  },
+  "514891": {
+    "d": "**Location:** The Gray - Underneath the TV inside Andy's Room, found in the corner of the ground floor and unlocked via Andy's Room Key.\n\n**Related Quest:** Someone to Watch Over Me",
+    "l": [
+      {
+        "locationId": 509984,
+        "title": "The Gray"
+      },
+      {
+        "locationId": 514890,
+        "title": "Andy's Room Key"
+      },
+      {
+        "locationId": 502638,
+        "title": "Someone to Watch Over Me"
+      }
+    ]
+  },
+  "514892": {
+    "d": "**Location:** The Gray - Approaches when you try to leave after reading Henchman Message to Andy Scabb.  \n\n**Note(s):**\n- Spoken to as part of Someone to Watch Over Me\n  - Pass a Speech 65 check to leave peacefully",
+    "l": [
+      {
+        "locationId": 509984,
+        "title": "The Gray"
+      },
+      {
+        "locationId": 514891,
+        "title": "Henchman Message to Andy Scabb"
+      },
+      {
+        "locationId": 502638,
+        "title": "Someone to Watch Over Me"
+      }
+    ]
+  }
+}

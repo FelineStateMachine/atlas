@@ -1,0 +1,35 @@
+{
+  "conventions": 2,
+  "format": "atlas-bundle",
+  "formatVersion": 3,
+  "tileGrid": {
+    "firstTile": 4064,
+    "size": 8192,
+    "sourceZoom": 13,
+    "tileSize": 256
+  },
+  "version": {
+    "createdAt": "2026-08-01T14:48:10.486177Z",
+    "revision": 9,
+    "stamp": "68e141f26b1a77fc778f4b90dbdb4eb897fb5d190930a7171f88e0ffb99bfea7"
+  },
+  "volume": {
+    "slug": "mars",
+    "title": "Mars"
+  },
+  "worlds": [
+    {
+      "areas": 0,
+      "center": {
+        "lat": 66.51326044311185,
+        "lng": 0
+      },
+      "iconOutset": "dark",
+      "paths": 0,
+      "points": 2048,
+      "slug": "global",
+      "title": "Global",
+      "updatedAt": "2026-08-01T14:48:10.486177Z"
+    }
+  ]
+}
