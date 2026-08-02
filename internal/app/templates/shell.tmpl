@@ -48,6 +48,24 @@
   renders *itself* -- so the shell is an outer morph over this, and the
   document is never a partial.
 */}}
+{{/*
+  kbd-editable — the editable-target guard, spelled once and pasted into every
+  keyboard filter that needs it (see the shortcuts block below).
+
+  It is the reference implementation's isEditableTarget written as an
+  expression, and `event.target instanceof Element` is doing real work at both
+  ends. A select counts as editable: the reference says so, and a select
+  answers the space bar itself. And a synthetic key dispatched straight at the
+  window -- which is how the parity tour presses one -- has the window as its
+  target, which is not an Element, so it passes as a keystroke nobody was
+  typing.
+
+  It carries no `]` and no comma on purpose: htmx reads a trigger's name up to
+  the first `]`, and splits a trigger attribute on commas outside brackets, so
+  either character would cut the filter in half.
+*/}}
+{{define "kbd-editable"}}!(event.target instanceof Element&&(/^(INPUT|TEXTAREA|SELECT)$/.test(event.target.tagName)||event.target.isContentEditable)){{end}}
+
 {{define "shell-region"}}<div id="atlas-shell" class="app-shell{{if .Session.Sidebar.Collapsed}} sidebar-collapsed{{end}}"
      hx-vals:inherited='{"volume":"{{with .Volume}}{{.Slug}}{{end}}"}'
      hx-swap:inherited="none">
@@ -79,9 +97,10 @@
     Every shortcut below moves discrete state, so every one of them is a route
     rather than a handler: an hx-trigger naming the key and the element the
     key is heard on, and nothing else. There is no hx-on here and no listener
-    in the page -- the only shortcut this application does not spell out is Z,
-    which holds the labels up while it is down and is continuous interaction
-    state, so it belongs to the seam (issue #5 §4.1).
+    in the page. What is *not* here is the other half of the keyboard --
+    holding Z, focusing a field, flipping panes, stepping the zoom, swallowing
+    the webview's own menu -- because none of it moves discrete state and all
+    of it belongs to the seam (issue #5 §4.1, render/keys.ts).
 
     They listen on the window rather than on the body, because that is where
     a keystroke with no focused control is heard: an event dispatched at the
@@ -92,17 +111,114 @@
     because a shortcut has to survive the region that would have carried it
     being swapped, and the shell is the one region a swap never replaces from
     underneath.
+
+    THREE THINGS EVERY FILTER BELOW SAYS, and the page was broken for want of
+    all three.
+
+    It says whose keystroke it is. A shortcut heard on the window hears a
+    reader typing into the search field too, so "g" put a grid up mid-word and
+    the space bar in a hash flipped the subgrid; every filter but ⌘G carries
+    "kbd-editable", which is the reference implementation's isEditableTarget
+    written as an expression. ⌘G is deliberately above it, exactly as the
+    reference has it: switching cell systems is most wanted from inside the
+    token field.
+
+    It says the key is answered. `prevent` is htmx's own preventDefault, and
+    htmx runs it only when the filter passed -- so a shortcut suppresses the
+    keystroke it acts on and nothing else, which is what stops macOS sounding
+    the rejection tone at every press. ⌘R is nowhere here on purpose: reload
+    is the browser's and the session is restored on the way back.
+
+    And it says the key was pressed rather than held. `!event.repeat` keeps an
+    autorepeating key from posting sixty times a second down a route that
+    writes a file.
+
+    The filters read the live page where the state they need is not this
+    template's to know -- whether the grid is up, whether the panel is folded.
+    A value rendered into hx-vals here would be right once and stale for the
+    rest of the session, because those regions swap and the shell does not.
   */}}
   <div hidden id="atlas-shortcuts">
-    <span hx-post="/session/grid" hx-vals:append='{"system":"toggle"}'
-          hx-trigger="keydown[key=='g'&&!metaKey&&!ctrlKey&&!altKey] from:window"></span>
-    <span hx-post="/session/grid" hx-vals:append='{"ascend":"1"}'
-          hx-trigger="keydown[key=='Escape'] from:window"></span>
-    <span hx-post="/session/grid" hx-vals:append='{"subgrid":"flip"}'
-          hx-trigger="keydown[key==' '] from:window"></span>
+    {{/*
+      ⌘G cycles which cell system divides the map -- above the guard, so it
+      answers from inside the token field.
+    */}}
+    <span hx-post="/session/grid" hx-vals:append='{"system":"cycle"}'
+          hx-trigger="keydown[(metaKey||ctrlKey)&&key.toLowerCase()=='g'&&!event.repeat] from:window prevent"></span>
+    {{/*
+      ⌘⌥B folds the panel beside the map, the shortcut editors give their
+      secondary sidebar. BY PHYSICAL KEY: Option rewrites event.key on a Mac
+      (⌥B types "∫"), so event.code is the one name the chord keeps
+      everywhere -- and it is declared before ⌘B, whose filter refuses altKey,
+      so the two chords can never both answer.
+
+      TWO SPANS, not one, and that is the interesting part. The panel's own
+      fold button knows which way it is going because the dock re-renders with
+      it; a shortcut in the shell does not, because folding the dock swaps the
+      dock alone. So the direction is not rendered at all: each span asks the
+      button on screen which way it is pointing, and only the one that agrees
+      answers. Nothing here can go stale, because nothing here is remembered.
+    */}}
+    <span hx-post="/session/dock" hx-vals:append='{"open":"1","byHand":"1"}'
+          hx-trigger="keydown[event.code=='KeyB'&&(metaKey||ctrlKey)&&altKey&&!event.repeat&&{{template "kbd-editable"}}&&document.querySelector('#dock-fold')?.getAttribute('aria-expanded')=='false'] from:window prevent"></span>
+    <span hx-post="/session/dock" hx-vals:append='{"open":"0","byHand":"1"}'
+          hx-trigger="keydown[event.code=='KeyB'&&(metaKey||ctrlKey)&&altKey&&!event.repeat&&{{template "kbd-editable"}}&&document.querySelector('#dock-fold')?.getAttribute('aria-expanded')=='true'] from:window prevent"></span>
+    {{/*
+      ⌘B puts the index away. This one *can* render its direction, because the
+      sidebar's collapsed state is a class on the shell and the shell is what
+      a sidebar swap re-renders -- so the value below is rewritten with it.
+    */}}
     <span hx-post="/session/sidebar"
           hx-vals:append='{"open":"{{if .Session.Sidebar.Collapsed}}1{{else}}0{{end}}"}'
-          hx-trigger="keydown[(metaKey||ctrlKey)&&key=='b'] from:window"></span>
+          hx-trigger="keydown[(metaKey||ctrlKey)&&!altKey&&key.toLowerCase()=='b'&&!event.repeat&&{{template "kbd-editable"}}] from:window prevent"></span>
+    {{/*
+      G opens the grid and closes it. The reference hands the keyboard on as
+      well -- the field that takes a hash is focused on the way in, the map on
+      the way out, so "gm6" arrives at m6 -- and that half is focus rather
+      than state, so it belongs to the seam and is noted as owed there
+      (render/keys.ts).
+    */}}
+    <span hx-post="/session/grid" hx-vals:append='{"system":"toggle"}'
+          hx-trigger="keydown[key.toLowerCase()=='g'&&!metaKey&&!ctrlKey&&!altKey&&!event.repeat&&{{template "kbd-editable"}}] from:window prevent"></span>
+    {{/*
+      Space divides the chosen cell, or stops dividing it -- only while there
+      is a grid to divide, and never when the toggle itself is focused, which
+      answers its own space bar and would otherwise be pressed twice.
+    */}}
+    <span hx-post="/session/grid" hx-vals:append='{"subgrid":"flip"}'
+          hx-trigger="keydown[key==' '&&!event.repeat&&{{template "kbd-editable"}}&&document.querySelector('#atlas-grid-navigator')?.hidden===false&&event.target!==document.querySelector('#subgrid-toggle')] from:window prevent"></span>
+    {{/*
+      And the same key from inside the field, which the guard above shuts out
+      by design: no hash will ever spell a space, and clearing the mesh is
+      what is most wanted while typing one. It is heard on the field rather
+      than the window, so it needs no guard of its own.
+    */}}
+    <span hx-post="/session/grid" hx-vals:append='{"subgrid":"flip"}'
+          hx-trigger="keydown[key==' '&&!event.repeat] from:#grid-input prevent"></span>
+    {{/*
+      ESCAPE MEANS TWO THINGS AT ONCE, and both of them happen.
+
+      Heard on the map it closes the card; heard on the window it telescopes
+      the grid out one level, and out of the grid altogether once there is no
+      address left. A press with the map focused is heard by both -- the first
+      at its target, the second as it bubbles -- which is exactly what the
+      reference did with one handler and two function calls.
+
+      Two handlers means two requests, and hx-sync is what keeps that from
+      being a race: both queue on the shell, so the card closes and *then* the
+      grid ascends, and neither answer is computed from a record the other one
+      has already moved on from.
+
+      The third meaning is the field's, and it is a stopPropagation in the
+      seam rather than a route: the first Escape in the grid input only hands
+      the keyboard back to the map, and the second one gets here.
+    */}}
+    <span hx-post="/session/select" hx-vals:append='{"feature":""}'
+          hx-sync="#atlas-shell:queue all"
+          hx-trigger="keydown[key=='Escape'&&!event.repeat&&{{template "kbd-editable"}}] from:#map prevent"></span>
+    <span hx-post="/session/grid" hx-vals:append='{"ascend":"1"}'
+          hx-sync="#atlas-shell:queue all"
+          hx-trigger="keydown[key=='Escape'&&!event.repeat&&{{template "kbd-editable"}}&&document.querySelector('#atlas-grid-navigator')?.hidden===false] from:window prevent"></span>
   </div>
   {{/*
     The camera's way home.

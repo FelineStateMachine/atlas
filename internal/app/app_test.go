@@ -673,6 +673,143 @@ func TestSessionRefusals(t *testing.T) {
 	}
 }
 
+// The keyboard the shell declares, read back out of the page.
+//
+// These are string assertions on markup, which is usually a smell, and here it
+// is the whole point: an hx-trigger filter is executable code the server only
+// ever writes and never runs, so the one place a missing guard can be caught
+// before a reader finds it is the bytes. Each shortcut is checked for the
+// three things every one of them has to say -- whose keystroke it is, that the
+// key is answered, and that a held key is not a hundred keys -- and for the
+// two exceptions that are deliberate.
+func TestKeyboardShortcutsAreHardened(t *testing.T) {
+	handler, _ := newApp(t, volume("tunic", "TUNIC", tunicStamp))
+	page := get(t, handler, "/v/tunic/overworld", nil)
+	if page.Code != http.StatusOK {
+		t.Fatalf("the explorer answered %d", page.Code)
+	}
+	shell := page.Body.String()
+	opens := strings.Index(shell, `<div hidden id="atlas-shortcuts">`)
+	if opens < 0 {
+		t.Fatalf("the page declares no shortcuts:\n%s", shell)
+	}
+	closes := strings.Index(shell[opens:], "</div>")
+	if closes < 0 {
+		t.Fatalf("the shortcuts block is never closed:\n%s", shell[opens:])
+	}
+	block := shell[opens : opens+closes]
+
+	// The editable-target guard, spelled the one way every filter spells it. A
+	// select is in the list because the reference puts it there, and the
+	// `instanceof Element` is what lets a key dispatched straight at the
+	// window -- the parity tour's way of pressing one -- through as nobody's
+	// typing.
+	const guard = `!(event.target instanceof Element&&` +
+		`(/^(INPUT|TEXTAREA|SELECT)$/.test(event.target.tagName)||event.target.isContentEditable))`
+	if !strings.Contains(block, guard) {
+		t.Fatalf("no filter carries the editable-target guard:\n%s", block)
+	}
+
+	for _, want := range []struct {
+		name   string
+		filter string
+		guard  bool
+	}{
+		// ⌘G is the one shortcut deliberately above the guard: cycling the
+		// cell system is most wanted from inside the token field.
+		{"⌘G cycles the cell system",
+			`keydown[(metaKey||ctrlKey)&&key.toLowerCase()=='g'&&!event.repeat] from:window prevent`, false},
+		// ⌘⌥B by physical key, because Option rewrites event.key on a Mac. Two
+		// spans, each asking the fold button which way it is pointing, so
+		// neither can go stale while the shell is not re-rendered with it.
+		{"⌘⌥B unfolds the panel",
+			`keydown[event.code=='KeyB'&&(metaKey||ctrlKey)&&altKey&&!event.repeat&&` + guard +
+				`&&document.querySelector('#dock-fold')?.getAttribute('aria-expanded')=='false'] from:window prevent`, true},
+		{"⌘⌥B folds the panel",
+			`keydown[event.code=='KeyB'&&(metaKey||ctrlKey)&&altKey&&!event.repeat&&` + guard +
+				`&&document.querySelector('#dock-fold')?.getAttribute('aria-expanded')=='true'] from:window prevent`, true},
+		// ⌘B refuses altKey, so the two B chords can never both answer.
+		{"⌘B puts the index away",
+			`keydown[(metaKey||ctrlKey)&&!altKey&&key.toLowerCase()=='b'&&!event.repeat&&` + guard +
+				`] from:window prevent`, true},
+		{"G opens the grid",
+			`keydown[key.toLowerCase()=='g'&&!metaKey&&!ctrlKey&&!altKey&&!event.repeat&&` + guard +
+				`] from:window prevent`, true},
+		{"Space divides the chosen cell",
+			`keydown[key==' '&&!event.repeat&&` + guard +
+				`&&document.querySelector('#atlas-grid-navigator')?.hidden===false` +
+				`&&event.target!==document.querySelector('#subgrid-toggle')] from:window prevent`, true},
+		// The field's own space bar, which the guard above shuts out by
+		// design: it is heard on the field, so it needs no guard of its own.
+		{"Space divides it from the field too",
+			`keydown[key==' '&&!event.repeat] from:#grid-input prevent`, false},
+		{"Escape closes the card",
+			`keydown[key=='Escape'&&!event.repeat&&` + guard + `] from:#map prevent`, true},
+		{"Escape telescopes the grid out",
+			`keydown[key=='Escape'&&!event.repeat&&` + guard +
+				`&&document.querySelector('#atlas-grid-navigator')?.hidden===false] from:window prevent`, true},
+	} {
+		if !strings.Contains(block, `hx-trigger="`+want.filter+`"`) {
+			t.Errorf("%s is missing or unhardened; wanted the trigger\n  %s\nin\n%s",
+				want.name, want.filter, block)
+			continue
+		}
+		if want.guard && !strings.Contains(want.filter, guard) {
+			t.Errorf("%s does not carry the editable-target guard", want.name)
+		}
+	}
+
+	// The routes the shortcuts stand on, and the fold's two directions.
+	for _, want := range []string{
+		`hx-post="/session/grid" hx-vals:append='{"system":"cycle"}'`,
+		`hx-post="/session/grid" hx-vals:append='{"system":"toggle"}'`,
+		`hx-post="/session/grid" hx-vals:append='{"subgrid":"flip"}'`,
+		`hx-post="/session/grid" hx-vals:append='{"ascend":"1"}'`,
+		`hx-post="/session/dock" hx-vals:append='{"open":"1","byHand":"1"}'`,
+		`hx-post="/session/dock" hx-vals:append='{"open":"0","byHand":"1"}'`,
+		`hx-post="/session/select" hx-vals:append='{"feature":""}'`,
+		`hx-post="/session/sidebar"`,
+	} {
+		if !strings.Contains(block, want) {
+			t.Errorf("the shortcuts block posts no %s:\n%s", want, block)
+		}
+	}
+
+	// Escape means two things at once and both happen, so the two requests it
+	// raises are queued rather than raced: the card closes, and then the grid
+	// ascends against a record the first answer has already written.
+	if got := strings.Count(block, `hx-sync="#atlas-shell:queue all"`); got != 2 {
+		t.Errorf("%d of Escape's two routes queue on the shell; a press would race itself:\n%s",
+			got, block)
+	}
+
+	// Reload is the browser's. The session is restored on the way back, so the
+	// view returns as it was, and a page that swallowed ⌘R would only be
+	// taking a shortcut away.
+	if strings.Contains(block, "'r'") || strings.Contains(block, `'R'`) {
+		t.Errorf("a shortcut swallows the browser's own reload:\n%s", block)
+	}
+
+	// Every filter says the key was pressed rather than held. A key held down
+	// on a route that writes a file is sixty writes a second.
+	spans := strings.Count(block, "hx-trigger=")
+	if repeats := strings.Count(block, "!event.repeat"); repeats != spans {
+		t.Errorf("%d of %d shortcuts guard the autorepeat", repeats, spans)
+	}
+	// And every one of them answers the key it acts on, which is what stops
+	// the machine sounding its rejection tone at every press.
+	if prevented := strings.Count(block, ` prevent"`); prevented != spans {
+		t.Errorf("%d of %d shortcuts swallow the keystroke they answer", prevented, spans)
+	}
+	// The seam's half is not here, and must not be: none of it moves discrete
+	// state, and one of them cannot be a request at all.
+	for _, absent := range []string{"'z'", "'`'", "'k'", "contextmenu"} {
+		if strings.Contains(block, absent) {
+			t.Errorf("the shell declares %s, which belongs to the seam:\n%s", absent, block)
+		}
+	}
+}
+
 func TestDetailFragment(t *testing.T) {
 	handler, _ := newApp(t, volume("tunic", "TUNIC", tunicStamp))
 	got := get(t, handler, "/fragments/detail/1849?volume=tunic", nil)
