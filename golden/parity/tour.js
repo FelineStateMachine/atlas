@@ -512,7 +512,20 @@ async function tour(options = {}) {
     // beside it so that it is compared like everything else -- and it is
     // passed per step rather than added to `observe()` so that the steps the
     // reference captured keep the exact shape they were captured in.
-    const snapshot = { ...JSON.parse(window.render_game_to_text()), ...observe(), ...(extra ?? {}) };
+    //
+    // A VALUE IS READ BEFORE THE STEP, A FUNCTION AFTER IT, and the difference
+    // is not a convenience. A pick's aim is a *pre*-observation by
+    // construction -- what the pane said was under the pointer before it was
+    // clicked -- so it is worked out at the call and handed over as an object.
+    // Where the focus ends up is the opposite: some shortcuts move it in the
+    // keydown and some can only move it when the answer to the keydown lands,
+    // and an argument evaluated at the call reads the page as it was before
+    // the request was even made. That is a reading that can never see the
+    // second kind, which is exactly how `key-grid-open` came to report the
+    // focus the reader had *before* pressing G. So a thunk is read here,
+    // after the settle, where the page has finished answering.
+    const said = typeof extra === "function" ? extra() : extra;
+    const snapshot = { ...JSON.parse(window.render_game_to_text()), ...observe(), ...(said ?? {}) };
     steps.push({ name, snapshot });
     problems.push(...checkSync(name, snapshot));
     if (steps.length === 1) problems.push(...checkCanvas(name, snapshot));
@@ -1263,6 +1276,12 @@ function gridTarget(map, snapshot) {
  * half its job, and the half it skipped is the half the reader notices. The
  * ids are the page's own, so this reads as a sentence in the log:
  * `focus.active: "pin-search"`.
+ *
+ * HANDED TO `record` UNCALLED, always. Half of these shortcuts move the focus
+ * in the keydown and half can only move it once the answer to the keydown has
+ * landed; a reading taken at the call site is taken before the request has
+ * even been made, and would report the focus the reader had before they
+ * pressed the key. The note beside `record` says the rest.
  */
 function focusRecord() {
   const element = document.activeElement;
@@ -1281,7 +1300,7 @@ async function keySteps(record, complain) {
   type("#pin-search", "harbour");
   await record("key-search-primed");
   keydown("k", { metaKey: true });
-  const searching = await record("key-search-focus", focusRecord());
+  const searching = await record("key-search-focus", focusRecord);
   if (searching.focus.active !== "pin-search") {
     complain(`key-search-focus: ⌘K left the focus on ${searching.focus.active}`);
   } else if (!searching.focus.selected) {
@@ -1293,7 +1312,7 @@ async function keySteps(record, complain) {
   // G opens the grid; the field it opens is where the reader's next keystroke
   // is meant to go.
   keydown("g");
-  const grid = await record("key-grid-open", focusRecord());
+  const grid = await record("key-grid-open", focusRecord);
   if (!grid.grid.enabled) complain("key-grid-open: G did not turn the grid on");
   if (grid.focus.active !== "grid-input") {
     complain(`key-grid-open: G left the focus on ${grid.focus.active}`);
@@ -1308,9 +1327,21 @@ async function keySteps(record, complain) {
   // every ground divides into a cell called "m", and the question this step
   // asks is whether Escape *moved* it, whatever it was.
   const held = (await record("key-grid-descended")).grid.prefix;
+  // AT THE FIELD, not at the window, and this is the second of the two steps
+  // that has to be. The rule under test is the field's own: a control that
+  // answers Escape itself, so that one press leaves the field and the next
+  // leaves the level. A control answers the keys that pass *through* it, which
+  // is what a reader's own Escape does and what a key raised at the window
+  // never does -- and the recorded baselines are the proof rather than the
+  // theory: the reference's field listener is bound to the field
+  // (`frontend/src/events.js`), its window ladder asks only whose target this
+  // was, and `globe-grid-closed` is captured with the grid *shut* by two
+  // window Escapes taken while that same field held the focus. A step that
+  // asked for the field's behaviour from the window would be asking the two
+  // halves of one baseline to disagree.
   tourQuery("#grid-input")?.focus();
-  keydown("Escape");
-  const once = await record("key-escape-once", focusRecord());
+  keydownAt("#grid-input", "Escape");
+  const once = await record("key-escape-once", focusRecord);
   if (once.focus.active !== "map") {
     complain(`key-escape-once: the first Escape left the focus on ${once.focus.active}`);
   }
@@ -1319,18 +1350,38 @@ async function keySteps(record, complain) {
       ` "${once.grid.prefix}" while the reader was still in the field`);
   }
   keydown("Escape");
-  const twice = await record("key-escape-twice", focusRecord());
+  const twice = await record("key-escape-twice", focusRecord);
   if (twice.grid.prefix === once.grid.prefix && once.grid.prefix !== "") {
     complain("key-escape-twice: the second Escape ascended nothing");
   }
 
   // ⌘G cycles the cell system, and the cell the reader is holding is carried
   // across to the same ground in the system it lands in.
+  //
+  // WHERE THERE IS A SECOND SYSTEM TO CYCLE TO. Which systems divide a world is
+  // the world's answer and not the build's: geohash divides anything and S2
+  // wants a sphere with an invertible flattening, so a plane offers one system
+  // and cycling it correctly does nothing at all. The page says which case it
+  // is in, on the button the navigator hides when a cycle would lead nowhere
+  // (grid-navigator.tmpl), and that is what is asked here -- a build that
+  // *moved* the system on a world with one to move to would be answering a key
+  // the reader was never offered. The step is recorded either way: an unmoved
+  // system on a plane is a fact worth pinning, and a build that starts cycling
+  // there shows up as a changed field.
   type("#grid-input", "m");
   const before = await record("key-cell-system-before");
+  const cycleOffered = (() => {
+    const button = tourQuery("#grid-system");
+    return button !== null && !button.hidden;
+  })();
   keydown("g", { metaKey: true });
   const cycled = await record("key-cell-system-cycled");
-  if (cycled.grid.system === before.grid.system) {
+  if (!cycleOffered) {
+    if (cycled.grid.system !== before.grid.system) {
+      complain(`key-cell-system-cycled: ⌘G moved the system to ${cycled.grid.system}` +
+        " on a world that offers no second system");
+    }
+  } else if (cycled.grid.system === before.grid.system) {
     complain(`key-cell-system-cycled: ⌘G left the system at ${before.grid.system}`);
   } else if (!cycled.grid.prefix) {
     complain("key-cell-system-cycled: the cycle dropped the cell the reader was holding");
@@ -1342,10 +1393,10 @@ async function keySteps(record, complain) {
   // Z, held and let go. This one the tour already had and it is repeated here
   // beside the rest so that the keyboard's own group reads as one thing.
   keydown("z");
-  const raised = await record("key-labels-held", focusRecord());
+  const raised = await record("key-labels-held", focusRecord);
   if (!raised.labelsHeld) complain("key-labels-held: Z down did not raise the names");
   keyup("z");
-  const released = await record("key-labels-released", focusRecord());
+  const released = await record("key-labels-released", focusRecord);
   if (released.labelsHeld) complain("key-labels-released: Z up did not put the names down");
 
   // A reader typing is not pressing shortcuts. The key goes in AT the field,
@@ -1354,7 +1405,7 @@ async function keySteps(record, complain) {
   tourQuery("#pin-search")?.focus();
   type("#pin-search", "g");
   keydownAt("#pin-search", "g");
-  const typed = await record("key-typing-not-a-shortcut", focusRecord());
+  const typed = await record("key-typing-not-a-shortcut", focusRecord);
   if (typed.grid.enabled !== gridBefore) {
     complain("key-typing-not-a-shortcut: typing g into the search field turned the grid" +
       ` ${typed.grid.enabled ? "on" : "off"}`);
