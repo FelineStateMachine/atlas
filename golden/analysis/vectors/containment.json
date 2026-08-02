@@ -1,0 +1,495 @@
+{
+  "family": "containment",
+  "about": "Containment is boundary-INCLUSIVE, and descent agrees with it: the child under a point is a cell that contains the point. locate() is the same question asked for the pin card, in the system's own address.",
+  "cases": [
+    {
+      "name": "geohash-contains-top-right-corner",
+      "ground": "test/square-1024",
+      "system": "geohash",
+      "call": "contains",
+      "args": [
+        "m6",
+        [
+          704,
+          -672
+        ]
+      ],
+      "expect": true,
+      "note": "The maximum corner is inside: boundaries are inclusive on both sides.",
+      "handDerived": true
+    },
+    {
+      "name": "geohash-contains-bottom-left-corner",
+      "ground": "test/square-1024",
+      "system": "geohash",
+      "call": "contains",
+      "args": [
+        "m6",
+        [
+          672,
+          -704
+        ]
+      ],
+      "expect": true,
+      "handDerived": true
+    },
+    {
+      "name": "geohash-excludes-just-past-the-edge",
+      "ground": "test/square-1024",
+      "system": "geohash",
+      "call": "contains",
+      "args": [
+        "m6",
+        [
+          704.0001,
+          -672
+        ]
+      ],
+      "expect": false,
+      "handDerived": true
+    },
+    {
+      "name": "geohash-descend-root",
+      "ground": "test/square-1024",
+      "system": "geohash",
+      "call": "descendTarget",
+      "args": [
+        "",
+        [
+          688,
+          -688
+        ]
+      ],
+      "expect": "m",
+      "handDerived": true
+    },
+    {
+      "name": "geohash-descend-m",
+      "ground": "test/square-1024",
+      "system": "geohash",
+      "call": "descendTarget",
+      "args": [
+        "m",
+        [
+          688,
+          -688
+        ]
+      ],
+      "expect": "m6",
+      "handDerived": true
+    },
+    {
+      "name": "geohash-cell-at-depth-3",
+      "ground": "test/square-1024",
+      "call": "geohashCellAt",
+      "args": [
+        [
+          688,
+          -688
+        ],
+        3
+      ],
+      "expect": "m6s",
+      "handDerived": true
+    },
+    {
+      "name": "geohash-cell-at-off-the-surface",
+      "ground": "test/square-1024",
+      "call": "geohashCellAt",
+      "args": [
+        [
+          -1,
+          -1
+        ],
+        3
+      ],
+      "expect": "",
+      "note": "Off the surface names nothing.",
+      "handDerived": true
+    },
+    {
+      "name": "geohash-locate",
+      "ground": "test/square-1024",
+      "system": "geohash",
+      "call": "locate",
+      "args": [
+        [
+          688,
+          -688
+        ]
+      ],
+      "expect": {
+        "label": "Geohash",
+        "value": "m6s"
+      },
+      "handDerived": true
+    },
+    {
+      "name": "geohash-locate-off-the-surface",
+      "ground": "test/square-1024",
+      "system": "geohash",
+      "call": "locate",
+      "args": [
+        [
+          -1,
+          -1
+        ]
+      ],
+      "expect": null,
+      "handDerived": true
+    },
+    {
+      "name": "s2-locate",
+      "ground": "test/sphere-8192x4096",
+      "system": "s2",
+      "call": "locate",
+      "args": [
+        [
+          4363.848398961777,
+          -916.9692745045334
+        ]
+      ],
+      "expect": {
+        "label": "S2",
+        "value": "47a1cb"
+      },
+      "note": "The library's own vector: (49.703498679, 11.770681595) is leaf 0x47a1cbd595522b39, whose level-10 parent is 47a1cb. The point arrives in world pixels through the declared mapping.",
+      "handDerived": true
+    },
+    {
+      "name": "s2-descend-hop-0",
+      "ground": "test/sphere-8192x4096",
+      "system": "s2",
+      "call": "descendTarget",
+      "args": [
+        "",
+        [
+          4363.848398961777,
+          -916.9692745045334
+        ]
+      ],
+      "expect": "5"
+    },
+    {
+      "name": "s2-contains-hop-0",
+      "ground": "test/sphere-8192x4096",
+      "system": "s2",
+      "call": "contains",
+      "args": [
+        "5",
+        [
+          4363.848398961777,
+          -916.9692745045334
+        ]
+      ],
+      "expect": true,
+      "handDerived": true
+    },
+    {
+      "name": "s2-descend-hop-1",
+      "ground": "test/sphere-8192x4096",
+      "system": "s2",
+      "call": "descendTarget",
+      "args": [
+        "5",
+        [
+          4363.848398961777,
+          -916.9692745045334
+        ]
+      ],
+      "expect": "44"
+    },
+    {
+      "name": "s2-contains-hop-1",
+      "ground": "test/sphere-8192x4096",
+      "system": "s2",
+      "call": "contains",
+      "args": [
+        "44",
+        [
+          4363.848398961777,
+          -916.9692745045334
+        ]
+      ],
+      "expect": true,
+      "handDerived": true
+    },
+    {
+      "name": "s2-descend-hop-2",
+      "ground": "test/sphere-8192x4096",
+      "system": "s2",
+      "call": "descendTarget",
+      "args": [
+        "44",
+        [
+          4363.848398961777,
+          -916.9692745045334
+        ]
+      ],
+      "expect": "47"
+    },
+    {
+      "name": "s2-contains-hop-2",
+      "ground": "test/sphere-8192x4096",
+      "system": "s2",
+      "call": "contains",
+      "args": [
+        "47",
+        [
+          4363.848398961777,
+          -916.9692745045334
+        ]
+      ],
+      "expect": true,
+      "handDerived": true
+    },
+    {
+      "name": "s2-descend-hop-3",
+      "ground": "test/sphere-8192x4096",
+      "system": "s2",
+      "call": "descendTarget",
+      "args": [
+        "47",
+        [
+          4363.848398961777,
+          -916.9692745045334
+        ]
+      ],
+      "expect": "47c"
+    },
+    {
+      "name": "s2-contains-hop-3",
+      "ground": "test/sphere-8192x4096",
+      "system": "s2",
+      "call": "contains",
+      "args": [
+        "47c",
+        [
+          4363.848398961777,
+          -916.9692745045334
+        ]
+      ],
+      "expect": true,
+      "handDerived": true
+    },
+    {
+      "name": "s2-descend-hop-4",
+      "ground": "test/sphere-8192x4096",
+      "system": "s2",
+      "call": "descendTarget",
+      "args": [
+        "47c",
+        [
+          4363.848398961777,
+          -916.9692745045334
+        ]
+      ],
+      "expect": "47b"
+    },
+    {
+      "name": "s2-contains-hop-4",
+      "ground": "test/sphere-8192x4096",
+      "system": "s2",
+      "call": "contains",
+      "args": [
+        "47b",
+        [
+          4363.848398961777,
+          -916.9692745045334
+        ]
+      ],
+      "expect": true,
+      "handDerived": true
+    },
+    {
+      "name": "s2-descend-hop-5",
+      "ground": "test/sphere-8192x4096",
+      "system": "s2",
+      "call": "descendTarget",
+      "args": [
+        "47b",
+        [
+          4363.848398961777,
+          -916.9692745045334
+        ]
+      ],
+      "expect": "47a4"
+    },
+    {
+      "name": "s2-contains-hop-5",
+      "ground": "test/sphere-8192x4096",
+      "system": "s2",
+      "call": "contains",
+      "args": [
+        "47a4",
+        [
+          4363.848398961777,
+          -916.9692745045334
+        ]
+      ],
+      "expect": true,
+      "handDerived": true
+    },
+    {
+      "name": "s2-descend-hop-6",
+      "ground": "test/sphere-8192x4096",
+      "system": "s2",
+      "call": "descendTarget",
+      "args": [
+        "47a4",
+        [
+          4363.848398961777,
+          -916.9692745045334
+        ]
+      ],
+      "expect": "47a1"
+    },
+    {
+      "name": "s2-contains-hop-6",
+      "ground": "test/sphere-8192x4096",
+      "system": "s2",
+      "call": "contains",
+      "args": [
+        "47a1",
+        [
+          4363.848398961777,
+          -916.9692745045334
+        ]
+      ],
+      "expect": true,
+      "handDerived": true
+    },
+    {
+      "name": "s2-descend-hop-7",
+      "ground": "test/sphere-8192x4096",
+      "system": "s2",
+      "call": "descendTarget",
+      "args": [
+        "47a1",
+        [
+          4363.848398961777,
+          -916.9692745045334
+        ]
+      ],
+      "expect": "47a1c"
+    },
+    {
+      "name": "s2-contains-hop-7",
+      "ground": "test/sphere-8192x4096",
+      "system": "s2",
+      "call": "contains",
+      "args": [
+        "47a1c",
+        [
+          4363.848398961777,
+          -916.9692745045334
+        ]
+      ],
+      "expect": true,
+      "handDerived": true
+    },
+    {
+      "name": "s2-descend-hop-8",
+      "ground": "test/sphere-8192x4096",
+      "system": "s2",
+      "call": "descendTarget",
+      "args": [
+        "47a1c",
+        [
+          4363.848398961777,
+          -916.9692745045334
+        ]
+      ],
+      "expect": "47a1d"
+    },
+    {
+      "name": "s2-contains-hop-8",
+      "ground": "test/sphere-8192x4096",
+      "system": "s2",
+      "call": "contains",
+      "args": [
+        "47a1d",
+        [
+          4363.848398961777,
+          -916.9692745045334
+        ]
+      ],
+      "expect": true,
+      "handDerived": true
+    },
+    {
+      "name": "s2-descend-hop-9",
+      "ground": "test/sphere-8192x4096",
+      "system": "s2",
+      "call": "descendTarget",
+      "args": [
+        "47a1d",
+        [
+          4363.848398961777,
+          -916.9692745045334
+        ]
+      ],
+      "expect": "47a1cc"
+    },
+    {
+      "name": "s2-contains-hop-9",
+      "ground": "test/sphere-8192x4096",
+      "system": "s2",
+      "call": "contains",
+      "args": [
+        "47a1cc",
+        [
+          4363.848398961777,
+          -916.9692745045334
+        ]
+      ],
+      "expect": true,
+      "handDerived": true
+    },
+    {
+      "name": "s2-descend-hop-10",
+      "ground": "test/sphere-8192x4096",
+      "system": "s2",
+      "call": "descendTarget",
+      "args": [
+        "47a1cc",
+        [
+          4363.848398961777,
+          -916.9692745045334
+        ]
+      ],
+      "expect": "47a1cb"
+    },
+    {
+      "name": "s2-contains-hop-10",
+      "ground": "test/sphere-8192x4096",
+      "system": "s2",
+      "call": "contains",
+      "args": [
+        "47a1cb",
+        [
+          4363.848398961777,
+          -916.9692745045334
+        ]
+      ],
+      "expect": true,
+      "handDerived": true
+    },
+    {
+      "name": "s2-descent-has-a-floor",
+      "ground": "test/sphere-8192x4096",
+      "system": "s2",
+      "call": "descendTarget",
+      "args": [
+        "47a1cb",
+        [
+          4363.848398961777,
+          -916.9692745045334
+        ]
+      ],
+      "expect": "",
+      "note": "The telescope stops at S2 level 10.",
+      "handDerived": true
+    }
+  ]
+}
