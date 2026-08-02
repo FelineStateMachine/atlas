@@ -17,19 +17,81 @@
 // and a marker is rimmed with the colour that token names, never with the
 // word itself.
 //
-// The ladder is a pure function of a collection, a scene and a pin, so these
-// are table-driven over a synthetic world: no fixtures, no canvas, no map.
+// THE MARK. A marker is the collection's symbol carrying the collection's
+// colour, with an outset cut to the symbol's own shape: never a coloured
+// bubble with a symbol punched out of it, which is what this pane drew until
+// the reader said so. What that raster is made of is `markers.ts`'s and is
+// tested there; what is here is what the chart does with it — the size, the
+// stacking, and the initials it draws in the window before it exists.
+//
+// The ladder is a pure function of a collection, a scene and a pin, so those
+// cases are table-driven over a synthetic world: no fixtures, no map. The
+// mark needs a canvas and an image, and both are stubbed by hand below —
+// images are parked until a test hands them over, which is the only way to
+// say anything about that window.
 
 import test from "node:test";
 import { strict as assert } from "node:assert";
-import type Circle from "ol/style/Circle.js";
+import type Icon from "ol/style/Icon.js";
 import { EMPTY_SCENE } from "../scene/read.ts";
 import type { LabelPolicy, Scene } from "../scene/read.ts";
 import { WorldModel } from "../world/model.ts";
 import type { PointRecord } from "../world/model.ts";
 import { Visibility } from "../world/visibility.ts";
 import type { Collection, TileGrid } from "../data/payload.ts";
-import { OUTSET_COLORS, Styles, curatedPointPolicy, outsetColor } from "../chart/styles.ts";
+import { Styles, curatedPointPolicy } from "../chart/styles.ts";
+import { OUTSET_COLORS, forgetMarkerRasters, outsetColor } from "../chart/markers.ts";
+
+// ---- the page a raster is composed on --------------------------------
+
+/** One image the seam has asked for and not yet been given. */
+interface Parked {
+  readonly url: string;
+  readonly load: () => void;
+}
+
+const parked: Parked[] = [];
+
+const host = globalThis as unknown as Record<string, unknown>;
+host.document = {
+  createElement: () => ({
+    width: 0,
+    height: 0,
+    getContext: () => ({ drawImage: () => {}, fillRect: () => {} }),
+    toDataURL: () => "data:image/png;base64,raster",
+  }),
+};
+// OpenLayers asks whether an icon's image is an `HTMLImageElement` before it
+// decides how to size it, so the stub has to be one.
+host.HTMLImageElement = class {
+  // The raster this stands for is 64 square, which is what the sizes below
+  // are read against: an icon drawn at 31 is that raster at 31/64.
+  width = 64;
+  height = 64;
+};
+host.Image = class extends (host.HTMLImageElement as new () => object) {
+  onload: (() => void) | null = null;
+  onerror: (() => void) | null = null;
+  crossOrigin = "";
+  private asked = "";
+
+  get src(): string {
+    return this.asked;
+  }
+
+  set src(value: string) {
+    this.asked = value;
+    // A data URL is the composed raster coming back to be measured, not an
+    // asset being fetched: it is not something a test hands over.
+    if (value.startsWith("data:")) return;
+    parked.push({ url: value, load: () => this.onload?.() });
+  }
+};
+
+/** Let the microtasks behind a delivered image run. */
+function settle(): Promise<void> {
+  return new Promise((resolve) => { setTimeout(resolve, 0); });
+}
 
 const grid: TileGrid = { sourceZoom: 5, firstTile: 0, tileSize: 256, size: 8192 };
 
@@ -47,7 +109,22 @@ const TEXT: Collection = {
   id: 4, title: "Regions", kind: "point", visible: true,
   attrs: { "atlas.render.as": "text" },
 };
-const COLLECTIONS = [PLAIN, SPOKEN, QUIETED, TEXT];
+
+/**
+ * Two collections drawn the same way, which is one raster.
+ *
+ * Shrine and Daedric Shrine: one asset in one colour, so the symbol is
+ * composed once and only one of them ever asked for it.
+ */
+const SHRINES: Collection = {
+  id: 5, title: "Shrines", kind: "point", visible: true,
+  iconAsset: "shrine.svg", color: "#4fb3d5",
+};
+const DAEDRIC: Collection = {
+  id: 6, title: "Daedric Shrines", kind: "point", visible: true,
+  iconAsset: "shrine.svg", color: "#4fb3d5",
+};
+const COLLECTIONS = [PLAIN, SPOKEN, QUIETED, TEXT, SHRINES, DAEDRIC];
 
 /** One pin, standing wherever; only its title, id and collection matter here. */
 function pin(collection: Collection, id = "7", title = "Goodsprings"): PointRecord {
@@ -69,6 +146,7 @@ function styles(
   labelsHeld = false,
   hovered: string | null = null,
   outset = "dark",
+  repaint?: () => void,
 ): Styles {
   const model = new WorldModel(
     "world", { lenses: [], collections: COLLECTIONS }, grid, null);
@@ -79,10 +157,20 @@ function styles(
     labelsHeld,
     hovered,
     outset,
-    iconURL: (asset: string) => asset,
+    iconURL: (asset: string) => `/icons/${asset}`,
+    ...(repaint ? { repaint } : {}),
   });
   built.learn(COLLECTIONS);
   return built;
+}
+
+/** A world whose symbols have not arrived, and the ask that stands parked. */
+function waiting(
+  scene: Partial<Scene> = {}, outset = "dark", repaint?: () => void,
+): Styles {
+  forgetMarkerRasters();
+  parked.length = 0;
+  return styles(scene, false, null, outset, repaint);
 }
 
 // ---- the ladder -------------------------------------------------------
@@ -204,9 +292,9 @@ test("promotion still decides where a label is drawn and whether it declutters",
 test("a collection curated as text draws an ordinary marker", () => {
   // `atlas.render.as` survives only as the default its policy falls back to:
   // the text-only symbol it used to name was never drawn.
-  const built = styles({});
+  const built = waiting();
   assert.equal(built.pin(pin(TEXT), false).length, built.pin(pin(PLAIN), false).length);
-  assert.ok(built.pin(pin(TEXT), false)[0]?.getImage());
+  assert.ok(built.pin(pin(TEXT), false)[0]?.getText(), "which is a mark like any other");
 });
 
 test("the curated default of a point collection is silence unless it is text", () => {
@@ -228,8 +316,136 @@ test("an outset token names a colour, and anything but dark reads light", () => 
 test("a marker is rimmed with the outset's colour, never with its token", () => {
   for (const [token, color] of [["dark", OUTSET_COLORS.dark], ["light", OUTSET_COLORS.light],
     ["", OUTSET_COLORS.light]] as const) {
-    const built = styles({}, false, null, token);
-    const image = built.pin(pin(PLAIN), false)[0]?.getImage() as Circle | undefined;
-    assert.equal(image?.getStroke()?.getColor(), color);
+    const built = waiting({}, token);
+    const text = built.pin(pin(PLAIN), false)[0]?.getText();
+    assert.equal(text?.getStroke()?.getColor(), color);
   }
+});
+
+// ---- the mark ---------------------------------------------------------
+
+test("a marker is the symbol itself: no disc, no second style", async () => {
+  // THE DEFECT, as the reader saw it: "icons are rendered as coloured bubbles
+  // with an outset and a black symbol inside the bubble". A pin was a filled
+  // circle plus an untinted 15px icon over it; it is one style now, and that
+  // style is the symbol.
+  const built = waiting();
+  parked[0]?.load();
+  await settle();
+  const marks = built.pin(pin(SHRINES), false);
+  assert.equal(marks.length, 1, "one style, not a disc and a glyph over it");
+  const icon = marks[0]?.getImage() as Icon | undefined;
+  assert.ok(icon, "and the style's image is the composed raster");
+  assert.equal(icon?.getSrc(), "data:image/png;base64,raster");
+  assert.equal(marks[0]?.getText(), null, "with no separate glyph beside it");
+});
+
+test("one symbol is composed for every collection drawn that way", async () => {
+  const built = waiting();
+  assert.equal(parked.length, 1,
+    "Shrine and Daedric Shrine are one asset in one colour, so one raster");
+  parked[0]?.load();
+  await settle();
+  const shrine = built.pin(pin(SHRINES), false)[0]?.getImage() as Icon | undefined;
+  const daedric = built.pin(pin(DAEDRIC), false)[0]?.getImage() as Icon | undefined;
+  assert.equal(shrine?.getSrc(), daedric?.getSrc());
+});
+
+test("the chosen pin is the larger mark, and the one drawn over the rest", async () => {
+  const built = waiting({ selected: "7" });
+  parked[0]?.load();
+  await settle();
+  const chosen = built.pin(pin(SHRINES, "7"), true)[0];
+  const beside = built.pin(pin(SHRINES, "8"), false)[0];
+  // The raster is 64 square, so an icon drawn at 31 is that raster scaled by
+  // 31/64: the scale is the size, said the way OpenLayers says it before the
+  // image it will measure has loaded.
+  assert.deepEqual((chosen?.getImage() as Icon).getScale(), [36 / 64, 36 / 64]);
+  assert.deepEqual((beside?.getImage() as Icon).getScale(), [31 / 64, 31 / 64]);
+  assert.equal(chosen?.getZIndex(), 20_000_000, "the open card's pin is over everything");
+  assert.equal(beside?.getZIndex(), 42, "and every other pin keeps its place in the crowd");
+});
+
+test("a promoted pin that is not the chosen one is not grown", async () => {
+  // A search promotes every pin it matched so the declutterer cannot drop
+  // one; growing all of those would say a hundred places had been chosen.
+  const built = waiting({ selected: "7" });
+  parked[0]?.load();
+  await settle();
+  const promoted = built.pin(pin(SHRINES, "9"), true)[0];
+  assert.deepEqual((promoted?.getImage() as Icon).getScale(), [31 / 64, 31 / 64]);
+  assert.equal(promoted?.getZIndex(), 42);
+});
+
+test("until the symbol arrives the pin wears its collection's initials", () => {
+  const built = waiting();
+  const text = built.pin(pin(SHRINES), false)[0]?.getText();
+  assert.equal(text?.getText(), "S", "the first letters of the first two words");
+  assert.equal(text?.getFont(), "900 13px Inter, ui-sans-serif, system-ui, sans-serif");
+  assert.equal(text?.getFill()?.getColor(), "#4fb3d5", "in the collection's own colour");
+  assert.equal(text?.getStroke()?.getColor(), OUTSET_COLORS.dark);
+  assert.equal(text?.getStroke()?.getWidth(), 3);
+  assert.equal(built.pin(pin(SHRINES), false)[0]?.getImage(), null, "and no disc under it");
+});
+
+test("the chosen pin's initials are the larger of the two as well", () => {
+  const built = waiting({ selected: "7" });
+  const text = built.pin(pin(SHRINES, "7"), true)[0]?.getText();
+  assert.equal(text?.getFont(), "900 15px Inter, ui-sans-serif, system-ui, sans-serif");
+  assert.equal(text?.getStroke()?.getWidth(), 4);
+});
+
+test("a collection with no artwork wears its initials for good", async () => {
+  const built = waiting();
+  parked[0]?.load();
+  await settle();
+  const text = built.pin(pin(PLAIN), false)[0]?.getText();
+  assert.equal(text?.getText(), "S", "Settlements");
+  assert.equal(built.pin(pin(TEXT), false)[0]?.getText()?.getText(), "R", "Regions");
+});
+
+test("a colour that would vanish into the rim is taken off it", () => {
+  // The ladder is `markers.ts`'s and is tested there; what is checked here is
+  // that the chart climbs it — a near-black collection on a world with dark
+  // rims is drawn in a lifted shade of itself rather than in the dark.
+  const DIM: Collection = {
+    id: 9, title: "Caverns", kind: "point", visible: true, color: "#0d1014",
+  };
+  const model = new WorldModel(
+    "world", { lenses: [], collections: [DIM] }, grid, null);
+  const scene: Scene = { ...EMPTY_SCENE };
+  const built = new Styles({
+    visibility: new Visibility(model, scene, 0, null, null),
+    scene,
+    labelsHeld: false,
+    hovered: null,
+    outset: "dark",
+    iconURL: (asset: string) => asset,
+  });
+  built.learn([DIM]);
+  assert.notEqual(built.pin(pin(DIM), false)[0]?.getText()?.getFill()?.getColor(), "#0d1014");
+  assert.equal(built.color(DIM), "#0d1014",
+    "and everything else the collection draws keeps the colour it declared");
+});
+
+test("a symbol arriving drops every mark and asks the pane to draw again", async () => {
+  let pokes = 0;
+  const built = waiting({}, "dark", () => { pokes++; });
+  const shrine = built.pin(pin(SHRINES), false)[0];
+  const daedric = built.pin(pin(DAEDRIC), false)[0];
+  assert.ok(shrine?.getText() && daedric?.getText(), "both cached their initials");
+  parked[0]?.load();
+  await settle();
+  assert.equal(pokes, 1, "once per raster, not once per collection wearing it");
+  assert.ok(built.pin(pin(SHRINES), false)[0]?.getImage(), "the collection that asked is redrawn");
+  assert.ok(built.pin(pin(DAEDRIC), false)[0]?.getImage(),
+    "and so is the one that cached its initials while the raster was loading");
+});
+
+test("a mark is built once per collection and state, not once per pin", () => {
+  const built = waiting();
+  const first = built.pin(pin(SHRINES, "1"), false)[0];
+  assert.equal(built.pin(pin(SHRINES, "2"), false)[0], first,
+    "two thousand pins of twenty collections are forty styles");
+  assert.notEqual(built.pin(pin(PLAIN, "3"), false)[0], first);
 });

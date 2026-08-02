@@ -625,6 +625,11 @@ export class AtlasChart extends HTMLElement {
       hovered: context.hovered,
       outset: context.outset,
       iconURL: (asset) => this.plane?.iconURL(context.base, asset) ?? "",
+      // A marker raster finishes composing after the first frame, and a style
+      // function is evaluated once per layer revision rather than once per
+      // frame: the pin layers have to be asked again or the symbol that just
+      // arrived is not drawn until something else moves.
+      repaint: () => this.restyle(),
     };
     this.styles = new Styles(styleContext);
     this.styles.learn(context.model.collections);

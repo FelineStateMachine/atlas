@@ -74,6 +74,7 @@ function stubCanvas(): StubCanvas {
   return {
     width: 0, height: 0, ops,
     getContext: () => paper,
+    toDataURL: () => "data:image/png;base64,raster",
     style: {}, classList: { add: () => {} },
     appendChild: () => {}, insertBefore: () => {},
     setAttribute: () => {}, addEventListener: () => {},
@@ -85,7 +86,24 @@ host.HTMLElement = class {};
 host.window = globalThis;
 host.requestAnimationFrame = (): number => 0;
 host.cancelAnimationFrame = (): void => {};
-host.Image = class { src = ""; crossOrigin = ""; };
+// Images arrive of their own accord here: what the sphere's tests are about
+// is what it does with a raster once it has one, and the window before that
+// is `markers.test.ts`'s.
+host.Image = class {
+  crossOrigin = "";
+  onload: (() => void) | null = null;
+  onerror: (() => void) | null = null;
+  private asked = "";
+
+  get src(): string {
+    return this.asked;
+  }
+
+  set src(value: string) {
+    this.asked = value;
+    setTimeout(() => this.onload?.(), 0);
+  }
+};
 host.document = {
   createElement: stubCanvas,
   createElementNS: stubCanvas,
@@ -264,9 +282,14 @@ test("the sphere's skin is hung on a material that does not tint it away", () =>
 // ---- a material is shared --------------------------------------------
 
 const mark = {
-  icon: "", picture: false, color: "#4fb3d5",
+  asset: "", url: "", picture: false, color: "#4fb3d5",
   outset: "rgba(7, 9, 7, 0.98)", title: "Impact Craters",
 };
+
+/** Let the microtasks behind a delivered image run. */
+function settle(): Promise<void> {
+  return new Promise((resolve) => { setTimeout(resolve, 0); });
+}
 
 test("a collection's marker is built once and shared by every pin wearing it", () => {
   const first = markerMaterial(mark, false);
@@ -298,6 +321,25 @@ test("the chosen variant is a second entry in the cache, and it is the ringed on
   const ring = canvas.ops.find((op) => op.name === "arc");
   assert.deepEqual(ring?.args, [40, 40, 36, 0, Math.PI * 2], "a ring around the whole marker");
   assert.equal(canvas.ops.some((op) => op.name === "stroke"), true);
+});
+
+test("the sphere wears the chart's raster rather than composing one of its own", async () => {
+  const material = markerMaterial(
+    { ...mark, asset: "shrine.svg", url: "/icons/shrine.svg", color: "#123456" }, false);
+  await settle();
+  await settle();
+  const canvas = (material.map as THREE.Texture).image as StubCanvas;
+  assert.equal(canvas.width, 80, "the sphere's own canvas is still 80 square");
+  const drawn = canvas.ops.filter((op) => op.name === "drawImage");
+  assert.equal(drawn.length, 1, "one image: the finished symbol");
+  assert.deepEqual(drawn[0]?.args.slice(1), [8, 8, 64, 64],
+    "the 64-square raster, inset by eight so the ring has somewhere to go");
+  // The tint and the halo are composed into the raster the chart hands over,
+  // and a sphere that tinted it a second time would be deciding for itself
+  // what a Shrine looks like -- which is how the two panes drifted apart.
+  assert.equal(canvas.ops.some((op) => op.name === "fillRect"), false);
+  assert.equal(canvas.ops.some((op) => op.name === "fillText"), false,
+    "and it is a symbol, not initials");
 });
 
 test("a collection's initials are its first two words' first letters", () => {

@@ -6,13 +6,21 @@
 // again in a layer above. Splitting them across files would split decisions
 // that have to agree.
 //
-// The grid is the one thing here that is NOT decided here. Its colours,
-// weights, alphas and chip are `gridCellVisual`'s, from the analysis lane,
-// and this module adapts those tokens into `ol/style` without adding one of
-// its own — which is what lets the chart and the globe read as one instrument
-// (issue #5 §5.4: renderers adapt tokens; no renderer owns a cell rule).
+// Two things here are NOT decided here.
+//
+// The grid: its colours, weights, alphas and chip are `gridCellVisual`'s,
+// from the analysis lane, and this module adapts those tokens into `ol/style`
+// without adding one of its own — which is what lets the chart and the globe
+// read as one instrument (issue #5 §5.4: renderers adapt tokens; no renderer
+// owns a cell rule).
+//
+// The marker: what a pin looks like is `markers.ts`'s, because the sphere
+// draws the same mark and the two panes must not compose it twice. A marker
+// is a symbol carrying its collection's colour with an outset cut to its own
+// shape — never a coloured disc with a symbol punched out of it — and while
+// its raster is still being composed the pin wears its collection's initials
+// in the same colour, rimmed the same way.
 
-import Circle from "ol/style/Circle.js";
 import Fill from "ol/style/Fill.js";
 import Icon from "ol/style/Icon.js";
 import Stroke from "ol/style/Stroke.js";
@@ -20,9 +28,7 @@ import Style from "ol/style/Style.js";
 import Text from "ol/style/Text.js";
 import Point from "ol/geom/Point.js";
 import type { FeatureLike } from "ol/Feature.js";
-import {
-  KEY_ICON_KIND, KEY_LABEL_POLICY, KEY_STROKE_WIDTH_PX,
-} from "@atlas/analysis/semconv/keys";
+import { KEY_LABEL_POLICY, KEY_STROKE_WIDTH_PX } from "@atlas/analysis/semconv/keys";
 import { gridTheme, paletteColor } from "@atlas/analysis";
 import type { CellVisual } from "@atlas/analysis";
 import type { Collection } from "../data/payload.ts";
@@ -30,27 +36,19 @@ import { labelPolicy, renderAs } from "../data/payload.ts";
 import type { PointRecord, ShapeRecord } from "../world/model.ts";
 import type { Visibility } from "../world/visibility.ts";
 import type { Scene } from "../scene/read.ts";
+import {
+  iconIsPicture, initialsOf, legibleIconColor, markerKey, markerRaster, markerRasterReady,
+  outsetColor,
+} from "./markers.ts";
+import type { MarkerFace } from "./markers.ts";
 
-const LIGHT_OUTSET = "rgba(255, 255, 255, 0.96)";
+/** The mark's size on screen: the chosen pin is the larger of the two. */
+const MARK_SIZE = 31;
+const MARK_SELECTED_SIZE = 36;
 
-/** The rim a world's markers wear to stay legible against its art. */
-export const OUTSET_COLORS: Readonly<Record<string, string>> = {
-  light: LIGHT_OUTSET,
-  dark: "rgba(7, 9, 7, 0.98)",
-};
-
-/**
- * The colour a declared outset names.
- *
- * `atlas.icon.outset` is curation's word about the art a world is drawn on —
- * a dark rim on a pale map, a pale rim on a dark one — and it arrives as the
- * token, not the colour. Anything that is not exactly `dark` reads as light,
- * which is the reference's own rule and the reason an unset or misspelled
- * outset still draws a legible marker rather than none.
- */
-export function outsetColor(outset: string): string {
-  return OUTSET_COLORS[outset] ?? LIGHT_OUTSET;
-}
+/** The font the initials fall back to while a raster is still on its way. */
+const INITIALS_FONT = (selected: boolean): string =>
+  `900 ${selected ? 15 : 13}px Inter, ui-sans-serif, system-ui, sans-serif`;
 
 const LABEL_FONT = "600 11px ui-sans-serif, system-ui, -apple-system, Segoe UI, sans-serif";
 const TITLE_FONT = "600 12px ui-sans-serif, system-ui, -apple-system, Segoe UI, sans-serif";
@@ -63,6 +61,16 @@ export interface StyleContext {
   hovered: string | null;
   outset: string;
   iconURL(asset: string): string;
+  /**
+   * Ask the pane to draw its pins again.
+   *
+   * A style function is evaluated once per layer revision, not once per
+   * frame, so a marker raster that finishes composing after the first frame
+   * is not drawn until something asks the pin layers for their styles again.
+   * The host owns that poke because the host owns the layers; a host that
+   * hands none down draws the initials until the next filter, hover or move.
+   */
+  repaint?: () => void;
 }
 
 /** The colour a collection wears everywhere it is drawn. */
@@ -92,8 +100,11 @@ export function curatedPointPolicy(collection: Collection): string {
  * to marks already handed to OpenLayers.
  */
 export class Styles {
-  private readonly icons = new Map<number, Icon | null>();
+  private readonly faces = new Map<number, MarkerFace>();
+  private readonly marks = new Map<string, Style>();
   private readonly colors = new Map<number, string>();
+  /** The rasters this world has already asked to be told about. */
+  private readonly waiting = new Set<string>();
 
   readonly context: StyleContext;
 
@@ -101,70 +112,120 @@ export class Styles {
     this.context = context;
   }
 
-  /** Remember the palette ordinal of every collection, in payload order. */
+  /**
+   * Remember the palette ordinal of every collection, in payload order, and
+   * start composing the marks.
+   *
+   * The rasters are asked for here rather than at the first paint because
+   * this runs while the map is still being built: a symbol that is on its way
+   * before there is a frame to draw it in is usually there for the first one.
+   */
   learn(collections: readonly Collection[]): void {
-    this.icons.clear();
+    this.faces.clear();
+    this.marks.clear();
     this.colors.clear();
+    this.waiting.clear();
     collections.forEach((collection, ordinal) => {
       this.colors.set(collection.id, collectionColor(collection, ordinal));
     });
+    for (const collection of collections) {
+      if (collection.kind === "point") this.face(collection);
+    }
   }
 
   color(collection: Collection): string {
     return this.colors.get(collection.id) ?? paletteColor(collection.id);
   }
 
-  private icon(collection: Collection): Icon | null {
-    const held = this.icons.get(collection.id);
-    if (held !== undefined) return held;
-    let built: Icon | null = null;
-    const src = collection.iconAsset ? this.context.iconURL(collection.iconAsset) : "";
-    // A style function runs inside a render, and a render that throws takes
-    // the map down with it. There is a moment during a navigation when the
-    // world the styles were built for is not the world the base names any
-    // more, and asking OpenLayers for an image with no source is fatal rather
-    // than blank. A collection with no picture draws as a plain mark, which
-    // is what it does on a build with no icons at all.
-    if (collection.iconAsset && src) {
-      // A glyph is a monochrome mark the reader tints; a picture is drawn as
-      // it was authored. `atlas.icon.kind` names what a file suffix used to
-      // imply, and `iconPicture` is the manifest's own copy of the same fact.
-      const picture = collection.iconPicture ||
-        collection.attrs?.[KEY_ICON_KIND] === "picture";
-      built = new Icon({
-        src,
-        ...(picture ? {} : { color: this.color(collection) }),
-        width: 15,
-        height: 15,
-        declutterMode: "none",
-      });
+  /**
+   * What a collection's mark is made of, and the ask that composes it.
+   *
+   * A style function runs inside a render, and a render that throws takes the
+   * map down with it: there is a moment during a navigation when the world
+   * the styles were built for is not the world the base names any more, so a
+   * collection whose asset resolves to nothing is a collection with no
+   * artwork, which draws its initials rather than throwing.
+   */
+  private face(collection: Collection): MarkerFace {
+    const held = this.faces.get(collection.id);
+    if (held) return held;
+    const asset = collection.iconAsset ?? "";
+    const url = asset ? this.context.iconURL(asset) : "";
+    const face: MarkerFace = {
+      asset: url ? asset : "",
+      url,
+      picture: iconIsPicture(collection),
+      color: legibleIconColor(this.color(collection), this.context.outset),
+      outset: outsetColor(this.context.outset),
+    };
+    this.faces.set(collection.id, face);
+    // Once per raster, not once per collection: a world whose forty
+    // collections share five symbols asks five times and is woken five times,
+    // rather than forty repaints of the same five arrivals.
+    const key = markerKey(face);
+    if (face.asset && !this.waiting.has(key)) {
+      this.waiting.add(key);
+      void markerRasterReady(face).then((raster) => { if (raster) this.wake(); });
     }
-    this.icons.set(collection.id, built);
-    return built;
+    return face;
   }
 
-  /** The pin itself: a rim, a disc, and the collection's mark over it. */
+  /**
+   * A raster arrived: every mark is dropped, not that collection's.
+   *
+   * A raster is keyed by asset, colour and rim, so it stands in for every
+   * collection drawn that way — Shrine and Daedric Shrine, House and House
+   * (Ownable) — and only one of them asked for it. The others cached their
+   * initials while it was loading and have nothing to tell them the symbol
+   * has arrived.
+   */
+  private wake(): void {
+    this.marks.clear();
+    this.context.repaint?.();
+  }
+
+  /**
+   * The pin itself: the collection's symbol, in the collection's colour,
+   * wearing the world's outset.
+   *
+   * There is no disc. The colour is carried by the symbol, and what makes it
+   * legible over the art beneath is a halo cut to the symbol's own shape —
+   * composed into the raster, not drawn here. Until that raster exists the
+   * pin wears the collection's initials in the same colour and the same rim,
+   * which is also what a collection with no artwork wears for good.
+   *
+   * `selected` is the pin whose card is open and nothing else: a search
+   * promotes every pin it matched so the declutterer cannot drop one, and
+   * growing all of those would say that a hundred places were chosen.
+   */
   pin(point: PointRecord, promoted: boolean): Style[] {
-    const color = this.color(point.collection);
-    const selected = point.id === this.context.scene.selected;
-    const hovered = point.id === this.context.hovered;
-    const radius = selected ? 9 : hovered ? 8 : 7;
-    const marks: Style[] = [
-      new Style({
-        image: new Circle({
-          radius,
-          fill: new Fill({ color }),
-          stroke: new Stroke({
-            color: outsetColor(this.context.outset),
-            width: selected ? 2.5 : 1.5,
-          }),
+    const selected = promoted && point.id === this.context.scene.selected;
+    const face = this.face(point.collection);
+    // One mark per collection and state, shared by every pin wearing it: two
+    // thousand pins of twenty collections are forty styles. The zIndex is the
+    // priority of whichever pin asked first, which is the collection's own
+    // rarity give or take the tie-break — so the crowd is still drawn rarest
+    // last, and two pins of one collection are drawn in the order they stand
+    // in the source rather than by their hash.
+    const key = `${point.collection.id}:${selected ? 1 : 0}`;
+    const held = this.marks.get(key);
+    if (held) return [held];
+    const zIndex = selected ? 20_000_000 : point.priority;
+    const raster = markerRaster(face);
+    const size = selected ? MARK_SELECTED_SIZE : MARK_SIZE;
+    const mark = raster
+      ? new Style({ image: new Icon({ src: raster, width: size, height: size }), zIndex })
+      : new Style({
+        text: new Text({
+          text: initialsOf(point.collection.title),
+          font: INITIALS_FONT(selected),
+          fill: new Fill({ color: face.color }),
+          stroke: new Stroke({ color: face.outset, width: selected ? 4 : 3 }),
         }),
-        zIndex: promoted ? 20_000_000 : point.priority,
-      }),
-    ];
-    const icon = this.icon(point.collection);
-    if (icon) marks.push(new Style({ image: icon, zIndex: promoted ? 20_000_001 : point.priority }));
-    return marks;
+        zIndex,
+      });
+    this.marks.set(key, mark);
+    return [mark];
   }
 
   /**

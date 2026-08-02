@@ -163,7 +163,7 @@ function watch(
 const somewhere = { x: 0, y: 0, z: 101 };
 
 const mark = {
-  icon: "", picture: false, color: "#4fb3d5",
+  asset: "", url: "", picture: false, color: "#4fb3d5",
   outset: "rgba(7, 9, 7, 0.98)", title: "Impact Craters",
 };
 
