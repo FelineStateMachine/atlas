@@ -49,16 +49,42 @@ export class Skin {
   /** The pyramid the neighbourhood is drawn from. */
   lens = "";
   private readonly paper: CanvasRenderingContext2D | null;
+  /**
+   * What the texture is known to hold, per pass, and what a live pass is in
+   * the middle of laying down.
+   *
+   * A key is committed only when its paint finishes un-superseded, because a
+   * paint that was abandoned half way left the texture holding neither the
+   * composite it was replacing nor the one it was drawing. Committing on
+   * entry -- which is what the first cut of this file did -- makes an
+   * abandoned pass permanent: the key says the skin is there, so nobody ever
+   * asks for it again, and the sphere stays black.
+   */
   private baseKey = "";
+  private basePainting = "";
   private detailKey = "";
+  private detailPainting = "";
   /**
    * Which composite is current. A paint walks tiles one image at a time and
    * awaits each, so a camera that moved -- or a sphere that was put away --
    * while it was walking would otherwise go on adding tiles to a
    * neighbourhood nobody is over any more. The tour asserts exactly this: a
    * put-away globe keeps no pyramid tiles.
+   *
+   * THERE IS ONE COUNTER PER PASS, and that is the point of them. The two
+   * passes are independent -- the base skin is composited once per lens and
+   * never changes, the neighbourhood is recomposited every time the camera
+   * moves -- so a counter they shared let the cheap, frequent pass cancel the
+   * expensive, once-per-lens one. `openLens` drops the neighbourhood and then
+   * starts the base skin without waiting for it; the first `refreshDetail` of
+   * an entry, seen from far enough out to want no detail at all, drops the
+   * neighbourhood again while the base skin is suspended on its first tile.
+   * With one counter that second drop cancelled the base skin, and with the
+   * key already committed nothing retried it. Each pass now answers only to
+   * its own counter.
    */
-  private generation = 0;
+  private baseGeneration = 0;
+  private detailGeneration = 0;
 
   private readonly window: Window;
   private readonly grid: TileGrid;
@@ -72,19 +98,36 @@ export class Skin {
     this.paper = this.canvas.getContext("2d", { willReadFrequently: false });
   }
 
-  /** Put the pyramid tiles away. A globe nobody is looking at holds none. */
+  /**
+   * Put the pyramid tiles away. A globe nobody is looking at holds none.
+   *
+   * This is the whole-skin form: both passes are cancelled, including a base
+   * skin still arriving. The texture's pixels are left alone -- what was
+   * painted stays painted -- but nothing is claimed as current any more, so
+   * whatever comes back asks for its composite again.
+   */
   clear(): void {
-    this.generation++;
+    this.baseGeneration++;
+    this.detailGeneration++;
+    this.basePainting = "";
     this.tiles.clear();
     this.detailKey = "";
+    this.detailPainting = "";
     this.lens = "";
   }
 
-  /** Forget the neighbourhood without forgetting the skin under it. */
+  /**
+   * Forget the neighbourhood without forgetting the skin under it.
+   *
+   * Only the detail pass is cancelled. A base skin arriving underneath is
+   * none of this call's business, and cancelling it here is what left the
+   * sphere black on first entry.
+   */
   clearDetail(): void {
-    this.generation++;
+    this.detailGeneration++;
     this.tiles.clear();
     this.detailKey = "";
+    this.detailPainting = "";
   }
 
   /** Where a world pixel lands on the texture. */
@@ -103,7 +146,18 @@ export class Skin {
     return z;
   }
 
-  /** Composite the base skin, once per lens. Returns whether anything moved. */
+  /**
+   * Composite the base skin, once per lens.
+   *
+   * The two passes can now be in flight at once, because neither cancels the
+   * other any more, and they share one texture: a base skin still arriving
+   * wipes and repaints over a neighbourhood that got there first. That costs
+   * a patch of shallower tiles until the camera next moves, and it is only
+   * reachable by zooming past the skin's own depth inside the few hundred
+   * milliseconds the skin takes to arrive — which is a far better trade than
+   * what the shared counter bought, where the neighbourhood cancelled the
+   * skin outright and the sphere stayed black.
+   */
   async base(
     base: string,
     lens: Lens,
@@ -111,12 +165,19 @@ export class Skin {
     changed: () => void,
   ): Promise<void> {
     const key = `${base}/${lens.tiles}`;
-    if (key === this.baseKey) return;
-    this.baseKey = key;
+    if (key === this.baseKey || key === this.basePainting) return;
+    // A newer base skin supersedes an older one: the texture is about to be
+    // wiped, so what it held is no longer what `baseKey` says it held, and
+    // the key goes back to naming nothing until this paint earns it.
+    const mine = ++this.baseGeneration;
+    this.basePainting = key;
+    this.baseKey = "";
     this.lens = lens.tiles;
     this.paper?.clearRect(0, 0, TEXTURE_WIDTH, TEXTURE_HEIGHT);
     const z = this.baseLevel(lens);
-    await this.paint(z, lens, url, changed, null);
+    if (!await this.paint(mine, z, lens, url, changed, null)) return;
+    this.baseKey = key;
+    this.basePainting = "";
     log.info("the sphere has its skin", { op: "render", lens: lens.name, z });
   }
 
@@ -139,24 +200,40 @@ export class Skin {
   ): Promise<void> {
     const key = `${lens.tiles}/${z}/` +
       wanted.map(([x, y]) => `${x},${y}`).sort().join(" ");
-    if (key === this.detailKey) return;
-    this.generation++;
-    this.detailKey = key;
+    if (key === this.detailKey || key === this.detailPainting) return;
+    // Same bargain as the base pass, and the same latent bug avoided: the
+    // neighbourhood is only this one once its tiles are actually on the
+    // texture, so a camera that keeps moving retries rather than settling for
+    // a block that was abandoned half drawn.
+    const mine = ++this.detailGeneration;
+    this.detailPainting = key;
+    this.detailKey = "";
     this.tiles.clear();
     this.lens = lens.tiles;
-    await this.paint(z, lens, url, changed, wanted);
+    if (!await this.paint(mine, z, lens, url, changed, wanted)) return;
+    this.detailKey = key;
+    this.detailPainting = "";
   }
 
+  /**
+   * Walk the tiles of one pass, drawing each as it arrives.
+   *
+   * Returns whether the walk finished as itself. `false` means a newer pass
+   * of the same kind -- or a clear -- came through while this one was waiting
+   * on an image, and the caller must not claim the texture holds what it was
+   * drawing. The counter it answers to is its own pass's: `only` is the
+   * neighbourhood's tile list, and so also the answer to which pass this is.
+   */
   private async paint(
+    mine: number,
     z: number,
     lens: Lens,
     url: (z: number, x: number, y: number) => string | null,
     changed: () => void,
     only: readonly (readonly [number, number])[] | null,
-  ): Promise<void> {
+  ): Promise<boolean> {
     const paper = this.paper;
-    if (!paper) return;
-    const mine = this.generation;
+    if (!paper) return false;
     paper.imageSmoothingEnabled = lens.interpolate;
     const coverage = new LensCoverage(lens);
     const edge = this.grid.size / 2 ** z;
@@ -167,13 +244,14 @@ export class Skin {
       const at = url(z, x, y);
       if (!at) continue;
       const image = await load(at);
-      if (mine !== this.generation) return;
+      if (mine !== (only ? this.detailGeneration : this.baseGeneration)) return false;
       if (!image) continue;
       const [px, py] = this.place(x * edge, y * edge);
       paper.drawImage(image, px, py, scale, scaleY);
       if (only) this.tiles.set(`${z}/${x}/${y}`, true);
       changed();
     }
+    return true;
   }
 
   /** Every tile of one level the declared window covers, column by column. */
