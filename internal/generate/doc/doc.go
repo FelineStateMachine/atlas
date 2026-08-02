@@ -96,6 +96,14 @@ type Provenance struct {
 	// Name is the source's registry name -- the slug a ledger line and a
 	// workbench card agree on.
 	Name string `json:"name"`
+	// ArchivedAs is the name the legacy capture archive files this source's
+	// captures under, where that is not Name. It is layout rather than
+	// vocabulary: the archive on disk predates Atlas's own naming and is kept
+	// verbatim as input data (issue #5 Section 5.1), so a source that Atlas
+	// calls one thing may find its captures filed under another. It never
+	// rides a document -- nothing downstream of a translator may learn an
+	// archive's spelling of anything.
+	ArchivedAs string `json:"-"`
 	// Label is the same source spelled for a person.
 	Label string `json:"label"`
 	// License and Attribution are what a volume owes the people whose work it

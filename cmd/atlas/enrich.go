@@ -125,6 +125,11 @@ func runEnrich(args []string) error {
 		if len(wanted) > 0 && !wanted[slug] {
 			continue
 		}
+		// Curation speaks over the reading before anything folds it into
+		// another: a merge meets two collections under the name they share, and
+		// the name they share is a curated equivalence. Composition declares the
+		// same thing later for a document that never passed through here.
+		tables.Declare(&document)
 		if _, seen := readings[slug]; !seen {
 			order = append(order, slug)
 		}

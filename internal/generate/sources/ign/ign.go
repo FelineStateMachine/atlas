@@ -76,8 +76,11 @@ func New() Source { return Source{} }
 // Describe is the source's account of itself.
 func (Source) Describe() doc.Provenance {
 	return doc.Provenance{
-		Name:  "ign",
-		Label: "IGN Wiki",
+		Name: "ign-wiki",
+		// The archive files these captures under the publisher's own
+		// abbreviation; Atlas names the source for the thing it publishes.
+		ArchivedAs: "ign",
+		Label:      "IGN Wiki",
 		License: "All rights reserved. IGN's wikimaps are editorial work published " +
 			"under ign.com's terms; a volume carrying them is for personal use.",
 		Attribution: "Map imagery and marker data by IGN and its wiki contributors, " +
