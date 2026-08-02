@@ -3,7 +3,7 @@ import { state } from "./state.js";
 import { saveSession } from "./session.js";
 import { applyPinFilters } from "./features.js";
 import { renderSearchResults } from "./search.js";
-import { curatedLabelPolicy, labelPolicy } from "./semconv.js";
+import { curatedLabelPolicy, labelPolicy, renderAs } from "./semconv.js";
 import { recountZoneTitles, syncZoneLayers } from "./areas.js";
 import { applyCategoryVisual, applyCategoryGlyph, initials } from "./theme.js";
 import { formatNumber } from "./util.js";
@@ -199,7 +199,10 @@ export function collectionRow(collection) {
     labels.innerHTML =
       '<svg viewBox="0 0 16 16" aria-hidden="true"><path d="M3.5 3.5h9M8 3.5v9"/></svg>';
     syncLabelToggle(labels, collection);
-  } else if (kind === "point") {
+  } else if (kind === "point" && renderAs(collection) === "text") {
+    // Only a collection whose curation granted it names has names to offer:
+    // the toggle appears where the capability does, and a plain pin row
+    // simply has no button to press.
     labels = document.createElement("button");
     labels.type = "button";
     labels.className = "label-toggle render-toggle";
