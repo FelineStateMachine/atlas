@@ -27,7 +27,8 @@ import View from "ol/View.js";
 import Feature from "ol/Feature.js";
 import Point from "ol/geom/Point.js";
 import Polygon from "ol/geom/Polygon.js";
-import LineString from "ol/geom/LineString.js";
+import MultiPolygon from "ol/geom/MultiPolygon.js";
+import MultiLineString from "ol/geom/MultiLineString.js";
 import VectorLayer from "ol/layer/Vector.js";
 import VectorSource from "ol/source/Vector.js";
 import Style from "ol/style/Style.js";
@@ -685,10 +686,9 @@ export class AtlasChart extends HTMLElement {
       }));
     }
     for (const shape of context.model.shapes) {
-      const geometry = shape.kind === "area"
-        ? new Polygon(rings(shape))
-        : new LineString(shape.lines[0] ?? []);
-      this.sources.zones.addFeature(new Feature({ geometry, record: shape }));
+      this.sources.zones.addFeature(new Feature({
+        geometry: shapeGeometry(shape), record: shape,
+      }));
       const centre = shape.center ?? centreOf(shape);
       if (centre) {
         this.sources.zoneTitles.addFeature(new Feature({
@@ -712,9 +712,13 @@ export class AtlasChart extends HTMLElement {
    * The scrim: one polygon over the whole world with the highlighted shapes
    * cut out of it, even-odd.
    *
-   * The cut-outs are wound against the outer ring so the fill rule leaves a
-   * hole rather than a second layer of dimming — a ring's winding in a
-   * payload is nobody's promise, so it is normalised here.
+   * Rings alternate direction with their depth so the fill counts its way in
+   * and out: the world, then each piece of the shape as a hole, then any hole
+   * of that piece's own back to solid. A ring's winding in a payload is
+   * nobody's promise, so it is normalised here — and the depth that decides
+   * it is the ring's place *within its own part*, which is why the parts
+   * cannot be flattened first. A path zone has no ring to cut and is skipped:
+   * the highlighted line draws above the dimming at its own weight.
    */
   private fillScrim(context: WorldContext): void {
     this.sources.zoneScrim.clear();
@@ -723,9 +727,8 @@ export class AtlasChart extends HTMLElement {
     if (!highlighted.length) return;
     const size = context.grid.size;
     const outer: [number, number][] = [[0, 0], [size, 0], [size, -size], [0, -size], [0, 0]];
-    const holes = highlighted.flatMap((shape) => shape.lines.map((line) => wind(line, false)));
     this.sources.zoneScrim.addFeature(new Feature({
-      geometry: new Polygon([wind(outer, true), ...holes]),
+      geometry: scrimGeometry(outer, highlighted),
     }));
   }
 
@@ -922,18 +925,70 @@ export class AtlasChart extends HTMLElement {
   }
 }
 
-function rings(shape: ShapeRecord): [number, number][][] {
-  const out: [number, number][][] = [];
-  shape.lines.forEach((line, index) => {
-    out.push(line.map((point) => [point[0], point[1]] as [number, number]));
-    for (const hole of shape.holes[index] ?? []) {
-      out.push(hole.map((point) => [point[0], point[1]] as [number, number]));
-    }
-  });
-  return out;
+/** A ring or a run, copied out of the model so nothing downstream edits it. */
+function copyLine(line: readonly (readonly [number, number])[]): [number, number][] {
+  return line.map((point) => [point[0], point[1]] as [number, number]);
 }
 
-function centreOf(shape: ShapeRecord): [number, number] | null {
+/**
+ * One shape's drawn geometry: every part, kept apart.
+ *
+ * A district is one feature and may be a dozen separate pieces of ground; a
+ * trail is one feature and may be fifty runs of it. Both are multi-part by
+ * nature, so both are drawn by a multi-part geometry — a single `Polygon`
+ * reads its first ring as the exterior and every later one as a hole, so the
+ * second piece of ground would be punched out of the first, and a single
+ * `LineString` has room for one run and silently drops the other forty-nine.
+ */
+export function shapeGeometry(shape: ShapeRecord): MultiPolygon | MultiLineString {
+  return shape.kind === "area"
+    ? new MultiPolygon(parts(shape))
+    : new MultiLineString(shape.lines.map(copyLine));
+}
+
+/**
+ * An area's parts, nested the way a polygon is: each part its own exterior
+ * followed by that part's own interior rings, and nobody else's.
+ *
+ * The model already keeps them apart — `holes[i]` belongs to `lines[i]` — and
+ * this is where that survives into the drawing. Flattened into one ring list,
+ * a two-piece district reads as one piece with the other punched out of it.
+ */
+export function parts(shape: ShapeRecord): [number, number][][][] {
+  return shape.lines.map((line, index) => [
+    copyLine(line),
+    ...(shape.holes[index] ?? []).map(copyLine),
+  ]);
+}
+
+/**
+ * The scrim: the world, then every highlighted area's parts cut out of it,
+ * each part's interior rings wound back to solid.
+ */
+export function scrimGeometry(
+  world: readonly (readonly [number, number])[],
+  highlighted: readonly ShapeRecord[],
+): Polygon {
+  const rings: [number, number][][] = [wind(world, true)];
+  for (const shape of highlighted) {
+    // A path zone has no ring to cut from the dimming.
+    if (shape.kind !== "area") continue;
+    for (const part of parts(shape)) {
+      part.forEach((ring, index) => rings.push(wind(ring, index > 0)));
+    }
+  }
+  return new Polygon(rings);
+}
+
+/**
+ * Where a shape's name is anchored when the payload did not say.
+ *
+ * The middle of the union of every part's extent — outer rings are enough,
+ * because a hole is inside its own ring and cannot widen the box. It is a
+ * question about the model rather than about the drawing, so splitting the
+ * drawn geometry into parts does not move it by a bit.
+ */
+export function centreOf(shape: ShapeRecord): [number, number] | null {
   let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
   for (const line of shape.lines) {
     for (const [x, y] of line) {
