@@ -647,6 +647,12 @@ export class AtlasChart extends HTMLElement {
     });
     map.on("moveend", () => {
       this.report();
+      // The corner locator answers two questions about the camera -- where it
+      // is, and whether it can see the whole map at once -- and both of them
+      // are this event's. Redrawing it only when a filter moved left the
+      // shelf put away across a whole zoom: the map no longer fitted, and
+      // nothing had told the corner so.
+      this.overview?.draw();
       // The window moved, so how much of what is drawn it is over has moved
       // with it. The count is the camera's answer and belongs to the camera's
       // own event, not to a filter's.

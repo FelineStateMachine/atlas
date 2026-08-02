@@ -448,3 +448,10 @@ one defect standing in front of several others.
   so the centre stays where it was.
 - **`fitZoom` after a volume is reopened.** The reference kept the zoom its
   last fit produced; this build recomputes the fit for the lens.
+- **The globe's entry, and its detail neighbourhood.** `globe-entered` reports
+  the toggle pressed while the panes read as though they had not swapped, and
+  `globe-zoomed-deep` finds no pyramid tiles under a camera past the base
+  skin's depth. The pairing and the locator's mark are calibrated and
+  reproduce the recording exactly at every step where the sphere is up (§7 of
+  `docs/render-seam.md`); what is left is the entry itself and the level rule
+  that decides when a neighbourhood is worth fetching.
