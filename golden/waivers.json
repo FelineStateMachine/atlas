@@ -1,1 +1,16 @@
-[]
+[
+  {
+    "id": "app-shell-page",
+    "suite": "http-replay",
+    "fixture": "GET /",
+    "reason": "The reference implementation served one hash-routed shell document at /. The rewrite serves a page per world at a real URL and sends / to the volume the reader was last in (issue #5 §4.2), so a client following the redirect lands on a different document of the same kind. The replay still holds the exchange to the recorded status and content type; the 8,864 recorded bytes are the old frontend and are not reproducible by design.",
+    "added": "2026-08-02"
+  },
+  {
+    "id": "seam-assets",
+    "suite": "http-replay",
+    "fixture": "GET /static/app.css, GET /static/app.js",
+    "reason": "The recorded bodies are the reference implementation's built frontend bundle and stylesheet. The seam is a separate lane that lands in M6, and the application must build and serve without its assets present (issue #5 §3.2), so a host that mounted no static tree answers 404. The replay asserts exactly that, which makes this waiver a check of the deletability principle rather than an unchecked difference.",
+    "added": "2026-08-02"
+  }
+]

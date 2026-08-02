@@ -26,16 +26,25 @@ A run prints one line per gate, then the waiver file, then a count:
 
 ```
   SKIP  format-roundtrip  awaiting M1 — format/bundle and the bundle fixtures: …
+  PASS  http-replay       ok  github.com/FelineStateMachine/atlas/golden/http
   PASS  depcheck          depcheck: 5 rules over …
 
-waivers: none (golden/waivers.json is empty)
+waivers: 2 accepted divergences from the goldens (golden/waivers.json)
+  WAIVED  app-shell-page   http-replay/GET /: …
+  WAIVED  seam-assets      http-replay/GET /static/app.css, …
 
-6 suites: 1 passed, 5 skipped, 0 failed
+6 suites: 2 passed, 4 skipped, 0 failed
 ```
 
 A run where everything skips is green. That is deliberate: the harness lands
 before the lanes it judges, and its skip lines are the running list of what
 nobody has proven yet.
+
+**Where it stands:** `depcheck` and `http-replay` judge; the other four wait
+for their lanes. `http-replay` runs at whatever depth the machine allows —
+catalog composition and every refusal on any machine, the recorded bodies too
+when `ATLAS_REGISTRY_DIR` names a bundles directory holding the fixture
+builds. See `golden/http/NOTES.md`.
 
 ## The gates
 
@@ -48,7 +57,7 @@ seam — and the order the harness runs.
 | `generate-enrich` | M2+M3 | `generate ⊕ enrich` reproduces the composed bundle fixtures. Correctness is defined at the composed-bundle level, which is why the internal interchange shape is free to differ from the old tree's (§5.1). |
 | `analysis-vectors` | M6 | The hand-derived geohash and S2 goldens and every recorded cell plan, byte-exact, compared **positionally** — plan emission order is frozen (§5.4). |
 | `parity-compare` | M5+M6 | The ~45-step tour, extended into its blind spots, re-pointed at the new app. Diagnostics are emitted jointly: server session state as a JSON island plus seam state, under the golden key names. |
-| `http-replay` | M5 | Recorded catalog and sampled `/data` responses, replayed with their headers. The data plane is byte-compatible with today because the seam and the goldens both consume it (§4.2). |
+| `http-replay` | M5 | Recorded catalog and sampled `/data` responses, replayed with their headers. The data plane is byte-compatible with today because the seam and the goldens both consume it (§4.2). Runs today, in two modes; the app plane's three exchanges are waived and reduced, not skipped. |
 | `depcheck` | M0 | The lane boundaries, as static analysis. Runs today. |
 
 Each unready gate declares the file that will run it (`golden/parity/compare.mjs`,
@@ -89,7 +98,7 @@ best boundary feedback is an immediate mechanical "we don't do that here".
 
 **Scope.** With no argument, depcheck analyzes only the clean-room roots of
 §3.1 that exist on disk (`format`, `internal/{generate,enrich,app,workbench}`,
-`cmd/atlas`, `golden`). The old tree is neither loaded nor judged, and a rule
+`internal/logging`, `cmd/atlas`, `golden`). The old tree is neither loaded nor judged, and a rule
 about a lane nobody has written yet passes by having nothing to say. Pass a
 pattern to override: `go run ./golden/depcheck ./format/...`.
 
