@@ -42,6 +42,7 @@ const (
 // trivially rather than erroring.
 var cleanRoomRoots = []string{
 	"format",
+	"internal/logging",
 	"internal/generate",
 	"internal/enrich",
 	"internal/app",
@@ -58,6 +59,7 @@ var lanePrefixes = []struct {
 	prefix string
 }{
 	{LaneFormat, "format"},
+	{LaneLogging, "internal/logging"},
 	{LaneGenerate, "internal/generate"},
 	{LaneEnrich, "internal/enrich"},
 	{LaneApp, "internal/app"},

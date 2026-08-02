@@ -15,7 +15,8 @@ var laneImports = &analysis.Analyzer{
 format/ depends on the standard library only. generate/ and enrich/ depend on
 format/ and never on each other, app/, workbench/, render/, or analysis/.
 app/ depends on format/ and its own packages. workbench/ depends on format/
-plus enrich/maturity. Nothing imports render/.`,
+plus enrich/maturity. Nothing imports render/. Every lane may import
+internal/logging, and internal/logging imports no lane back.`,
 	Requires: []*analysis.Analyzer{inspect.Analyzer},
 	Run:      runImportRule(laneImportEdge),
 }

@@ -46,6 +46,9 @@ func TestLaneImportEdge(t *testing.T) {
 		{"including the CLI that sets the stream up", "cmd/atlas", mod + "internal/logging", ""},
 		{"format narrates nothing", "format/bundle", mod + "internal/logging", "standard library only"},
 		{"logging depends on nothing of ours", "internal/logging", mod + "internal/app/hostenv", "logging must not import app"},
+		{"every lane may speak the event stream", "internal/generate/compose", mod + "internal/logging", ""},
+		{"logging may use the center", "internal/logging", mod + "format/bundle", ""},
+		{"logging may not use a lane", "internal/logging", mod + "internal/generate/doc", "logging must not import generate"},
 
 		{"the CLI wires every lane", "cmd/atlas", mod + "internal/enrich/merge", ""},
 		{"the harness may read a lane", "golden/depcheck", mod + "internal/generate/doc", ""},
@@ -178,6 +181,7 @@ func TestLaneOf(t *testing.T) {
 		{"cmd/atlas", LaneCLI},
 		{"cmd/cartograph", LaneOutside},
 		{"golden/depcheck", LaneGolden},
+		{"internal/logging", LaneLogging},
 		{"internal/bundle", LaneOutside},
 		{"tools/tiles", LaneOutside},
 	}
