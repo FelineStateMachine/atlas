@@ -8,9 +8,9 @@
 */}}
 {{define "grid-navigator"}}<div id="atlas-grid-navigator" class="grid-navigator"{{if not .Grid.Enabled}} hidden{{end}}>
   <button type="button" class="grid-system" id="grid-system" aria-label="Cell system"
-          hx-post="/session/grid" hx-vals='{"system":"cycle"}'>{{.Grid.Name}}</button>
+          hx-post="/session/grid" hx-vals:append='{"system":"cycle"}'>{{.Grid.Name}}</button>
   <button type="button" id="grid-back" aria-label="Back one cell level"
-          hx-post="/session/grid" hx-vals='{"cell":"{{.Grid.Cell}}","ascend":"1"}'>←</button>
+          hx-post="/session/grid" hx-vals:append='{"cell":"{{.Grid.Cell}}","ascend":"1"}'>←</button>
   <label>
     <span id="grid-system-name">{{.Grid.Name}}</span>
     <input type="text" id="grid-input" name="cell" value="{{.Grid.Cell}}"
@@ -22,7 +22,7 @@
           aria-pressed="{{.Grid.Subgrid}}"
           aria-label="{{if .Grid.Subgrid}}Hide the subgrid{{else}}Show the subgrid{{end}}"
           title="Space · show or hide the subgrid"
-          hx-post="/session/grid" hx-vals='{"subgrid":"{{if .Grid.Subgrid}}0{{else}}1{{end}}"}'>
+          hx-post="/session/grid" hx-vals:append='{"subgrid":"{{if .Grid.Subgrid}}0{{else}}1{{end}}"}'>
     <svg viewBox="0 0 16 16" aria-hidden="true">
       <path d="M2.5 2.5h11v11h-11z"/>
       <path d="M6.2 2.5v11M9.8 2.5v11M2.5 6.2h11M2.5 9.8h11"/>

@@ -381,6 +381,13 @@ func (a *App) arrange(volume hostenv.Volume, s *Session) {
 	s.Hidden = defaultHidden(model)
 	s.Collapsed = defaultCollapsed()
 	s.Expanded = defaultExpanded(model)
+	// The subdivision is shown by default: a grid the reader opens is a grid
+	// with its next level drawn, and the baselines record `subgridVisible`
+	// true from the first step of every volume -- before any grid is open at
+	// all, because the setting outlives the grid being closed.
+	if s.Grid.Subgrid == 0 {
+		s.Grid.Subgrid = 1
+	}
 	s.Arranged = true
 }
 
@@ -611,17 +618,58 @@ func applySelect(c *concernContext, form formValues) error {
 	return nil
 }
 
+// defaultCellSystem is the system a grid opens on. Which systems exist and
+// what they divide is the analysis lane's (issue #5 §5.4); which one is chosen
+// is the session's, and this is the session's half saying "the first one".
+const defaultCellSystem = "geohash"
+
 func applyGrid(c *concernContext, form formValues) error {
 	s := c.session
 	if system, sent := form.values["system"]; sent {
-		s.Grid.System = strings.TrimSpace(first(system))
-		if s.Grid.System == "" {
+		switch value := strings.TrimSpace(first(system)); value {
+		case "":
+			s.Grid = Grid{}
+			return nil
+		case "toggle":
+			// The G key: a grid on a map that has none, and no grid on a map
+			// that has one. Closing it takes the held cell with it, because a
+			// cell nobody can see is not a place anybody is standing.
+			if s.Grid.System != "" {
+				s.Grid = Grid{}
+				return nil
+			}
+			s.Grid = Grid{System: defaultCellSystem}
+		case "cycle":
+			// One system, for now. Cycling is written as a move rather than a
+			// destination so the day a second system is registered the control
+			// does not have to be rewritten -- only this switch.
+			s.Grid.System = defaultCellSystem
+		default:
+			s.Grid.System = value
+		}
+	}
+	if form.on("ascend") {
+		// Escape telescopes out: one character of the address at a time, and
+		// out of the grid altogether once there is no address left. The two
+		// presses the tours record are exactly these two answers.
+		if s.Grid.Cell == "" {
 			s.Grid = Grid{}
 			return nil
 		}
+		runes := []rune(s.Grid.Cell)
+		s.Grid.Cell = string(runes[:len(runes)-1])
+		return nil
 	}
 	if cell, sent := form.values["cell"]; sent {
 		s.Grid.Cell = strings.TrimSpace(first(cell))
+	}
+	if form.get("subgrid") == "flip" {
+		if s.Grid.Subgrid > 0 {
+			s.Grid.Subgrid = 0
+		} else {
+			s.Grid.Subgrid = 1
+		}
+		return nil
 	}
 	if depth, ok := form.number("subgrid"); ok {
 		s.Grid.Subgrid = int(depth)

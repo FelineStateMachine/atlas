@@ -12,7 +12,7 @@
           aria-expanded="{{if .Overview.Docked}}false{{else}}true{{end}}"
           aria-label="{{.Overview.Label}}" title="{{.Overview.Label}}"
           hx-post="/session/overview"
-          hx-vals='{"docked":"{{if .Overview.Docked}}0{{else}}1{{end}}"}'>
+          hx-vals:append='{"docked":"{{if .Overview.Docked}}0{{else}}1{{end}}"}'>
     <svg viewBox="0 0 16 16" aria-hidden="true"><path d="m6 3 5 5-5 5"/></svg>
   </button>
   <div class="overview" id="overview" aria-label="Map overview" hx-morph-skip-children>
