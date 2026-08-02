@@ -894,6 +894,17 @@ export class AtlasChart extends HTMLElement {
       // middle of the ground. Refusing to fit at all would leave the camera
       // somewhere the reference never left it.
       if (this.gridExtent && this.view && context.lens) {
+        // THE LATEST ASK WINS, and saying so costs a line because OpenLayers
+        // says the opposite. Concurrent animation series are applied oldest
+        // *last* every frame (View.updateAnimations_ walks them backwards), so
+        // two fits begun inside one animation's 180 ms resolve to the earlier
+        // one's target and the later ask is overwritten frame by frame until
+        // both finish. Two Escapes in quick succession are exactly that: the
+        // camera ascended to the parent and stopped there, holding ground the
+        // reader had already left. Cancelling first makes the fit mean what a
+        // reader means by it -- go where I have just asked for -- whatever is
+        // still in the air.
+        this.view.cancelAnimations();
         this.view.fit(this.gridExtent as [number, number, number, number], {
           size: this.map?.getSize(),
           padding: [GRID_FIT_PADDING, GRID_FIT_PADDING, GRID_FIT_PADDING, GRID_FIT_PADDING],
