@@ -1,8 +1,8 @@
 {
   "about": "The golden fixture volume set for the clean-room rewrite (issue #5, section 6.1). One volume per shape the format can take, so a baseline that passes across this set has been through every structural case the reader can meet. Each entry names the exact bundle file the registry serves for that slug -- the newest-wins fold picks it out of the many builds installed -- pinned by its manifest stamp and by the sha256 of the file itself. Classifications were verified by reading the manifests and world payloads out of the zips, not by reputation.",
   "capturedAt": "2026-08-02",
-  "capturedFrom": "~/Library/Application Support/dev.felinestatemachine.atlas/bundles",
-  "goldenTree": "the current tree at branch m0/parity",
+  "capturedFrom": "~/Library/Application Support/dev.felinestatemachine.atlas/bundles, except the city, which is built rather than installed and is read from its builtInto directory (ATLAS_GOLDEN_CITY_DIR overrides, as in golden/capture/capture.sh)",
+  "goldenTree": "the current tree at branch m0/recapture",
   "formatVersion": 3,
   "conventions": 2,
   "volumes": [
@@ -190,16 +190,52 @@
       "projection": "equirect",
       "grid": true,
       "labelToggles": false
-    }
-  ],
-  "pendingSlots": [
+    },
     {
+      "slug": "bend-or",
+      "title": "Bend, Oregon",
       "classification": "city",
-      "wanted": "One public city volume: a basemap lens under the national hydrography enrichment, carrying all three geometries at once and a curated atlas.label.policy. It is the only fixture that exercises the path and area legend and the label-policy ladder end to end.",
-      "status": "captured privately, pending public rebuild (bend-or)",
-      "note": "A city volume filling this slot exists on this machine but may not be named in the repository, so it is described in the ignored FIXTURES.private.json and its baseline is written to the ignored golden/parity/private/. The public proof city bend-or takes the slot over as soon as it has a bundle; landing it changes the fixture library from five volumes to six, which moves library.volumes and the game-second target in every baseline, so it is a full re-capture rather than an addition."
+      "why": "The only volume carrying all three geometries at once, and the only one with more than one shape-collection feature index: nine shape collections -- seven areas and two paths -- beside one point collection, 104 paths and 44 areas with their geometry inline. Three of the four national hydrography layers declare atlas.label.policy=quiet (Watersheds, Subwatersheds, Waterbodies; Streams declares none), which is the curation the label-policy ladder reads and the only real one in the set. Verified by reading atlas.json and worlds/2026-08-02.json out of the zip: one world, one lens, no shard, no split sheet -- the survey calls it plain, and what makes it the city fixture is its collections rather than its traits.",
+      "covers": "the AND-highlight steps (and-highlighted, labels-held-highlighted, and-cleared), which need two feature indexes and had none in the public set, and the label ladder against declared policy rather than an empty ladder.",
+      "file": "bend-or-20260802-f0feba1cd00c.atlas",
+      "stamp": "f0feba1cd00c2ad4a393e567acc8751f21371710231bc3562a23bfd7eac5936d",
+      "shortStamp": "f0feba1cd00c",
+      "servingBase": "/data/v/bend-or/f0feba1cd00c",
+      "sha256": "18a60d5c9893893a68a7610bf50b9b50fa52f3e7ffadbf78c9d2c2e6e9af2ca6",
+      "bytes": 13642843,
+      "createdAt": "2026-08-02T09:09:17.410769Z",
+      "revision": 9,
+      "builtInto": "dist/bundles",
+      "builtFor": "the fixture set, not the library: the only city installed on this machine is a personal location whose name stays out of the repository, so this one was built from the public proof city by the reference tree's own pipeline (tools/crawl, tools/tiles, tools/generate -- golden/fixtures/README.md, 'The city fixture') into a directory outside the library, and is captured from there. The capture day is part of the identity: 2026-08-02 is the world's slug, the tile-set path and the bundle's version, so a re-crawl makes another world rather than this fixture.",
+      "worlds": 1,
+      "childWorlds": 0,
+      "lenses": 1,
+      "lensShards": [
+        0
+      ],
+      "features": {
+        "points": 65,
+        "paths": 104,
+        "areas": 44
+      },
+      "sources": [
+        {
+          "source": "ArcGIS Open Data",
+          "origin": true
+        }
+      ],
+      "surface": "plane",
+      "projection": null,
+      "grid": false,
+      "gridNote": "It declares a real-world window -- atlas.geometry.mercator.px and .deg -- but no atlas.geometry.projection, so the viewer reads no mapping over it and offers no cell grid: grid.enabled is false on every step, as on tunic. A rewrite that starts inferring the projection from the window would show up here as a changed field rather than as a changed step list.",
+      "labelToggles": true
     }
   ],
+  "privateVolumes": {
+    "how": "A volume that may not be named in the repository is described in the ignored FIXTURES.private.json and captured under --private, whose baselines go to the ignored golden/parity/private/.",
+    "library": "The private pass is additive: its volumes join the six public ones rather than standing in for the city, so it runs over a seven-volume library and its snapshots say so. A private baseline is a private record of the same tour, never diffed against a committed one, so it does not need the public library -- and a machine holding the private city really does have seven volumes on its select.",
+    "wasTheCity": "Before bend-or was built this file's city slot stood empty and the private city was the only volume filling that shape. The slot is now filled publicly; the private pass is extra coverage rather than a stand-in."
+  },
   "notChosen": [
     {
       "slug": "ghost-of-tsushima",
