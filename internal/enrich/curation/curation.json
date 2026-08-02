@@ -1,0 +1,44 @@
+{
+  "schema": 1,
+  "queue": {
+    "what": "the order the enrichers run in. Ordering is a decision, not folklore: every enricher sees the volume as the ones before it left it, so what is written here is what a reader has to know to predict a build. A name here that no enricher answers to fails the build, and so does an enricher the binary offers that is not named here.",
+    "why": {
+      "merge": "first, because everything after it should see the whole volume: a collection folded in from another reading is a collection that wants an icon and a score like any other.",
+      "national": "after merge, so a feature contributed by another reading can also learn which subwatershed its ground lies in.",
+      "stdicons": "after merge, which is the whole reason it is post-composition: a merged-in collection that declares a standard icon resolves it too.",
+      "lenses": "last, because a picture attaches to a ground, and the grounds are not all known until everything that could contribute one has run."
+    },
+    "order": [
+      "merge",
+      "national",
+      "stdicons",
+      "lenses"
+    ]
+  },
+  "merge": {
+    "what": "the resolution distances, in world pixels of the 8192-pixel square, and the per-key attribute policy. A confirmed match needs the same name near where the alignment predicts; beyond twice the radius the same name is a different place bearing it; between the two the resolution declines to decide.",
+    "matchRadiusPx": 160,
+    "separateRadiusPx": 320,
+    "nearbyFloorPx": 48,
+    "attributes": {
+      "what": "which side of a matched feature wins, key by key. Anything unlisted is serving-wins: what the serving reading says stands. donor-fills-empty is the enrichment rule the description pioneered -- the serving side keeps what it has and takes only what it lacks -- and every take is ledgered by key.",
+      "donorFillsEmpty": [
+        "atlas.note.text",
+        "atlas.geo.lat",
+        "atlas.geo.lon",
+        "atlas.icon.std"
+      ]
+    }
+  },
+  "national": {
+    "what": "which collections a national evidence base contributed to a volume. The membership join never makes a claim about a feature of one of these: the hydrography is the evidence, and a subwatershed does not need a sentence telling it which subwatershed it lies in.",
+    "evidenceCollections": {
+      "bend-or": [
+        "Watersheds",
+        "Subwatersheds",
+        "Streams",
+        "Waterbodies"
+      ]
+    }
+  }
+}
