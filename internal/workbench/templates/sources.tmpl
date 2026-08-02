@@ -1,0 +1,38 @@
+{{/*
+  sources — the capture sources, as their own registry entries describe them.
+
+  A card is what a volume owes the people whose work it carries: the licence,
+  the attribution, and the id space its numbers live in. The facts come from
+  the generate lane's registry, handed to this handler as data; nothing here
+  is restated by hand, so a card cannot disagree with the document a source
+  emits.
+*/}}
+{{define "title"}}Sources{{end}}
+{{define "content"}}
+<section class="page-head">
+  <h1>Sources</h1>
+  <p class="dim">Every source contributes a reading of a volume; the enrich lane folds the readings
+    together and ledgers every contribution. Re-reading unchanged captures is a no-op end to end.</p>
+</section>
+
+{{if .Sources}}
+<div class="columns">
+{{range .Sources}}
+<section class="card source">
+  <h2>{{.Label}} <span class="dim">{{.Name}}</span></h2>
+  <p>
+    <span class="badge">{{.IDSpace}} ids</span>
+    {{if .Crawlable}}<span class="badge">crawlable</span>{{else}}<span class="badge dim">archived captures only</span>{{end}}
+  </p>
+  <dl class="terms">
+    <div><dt>licence</dt><dd>{{if .License}}{{.License}}{{else}}<span class="dim">none stated by the source</span>{{end}}</dd></div>
+    <div><dt>attribution</dt><dd>{{if .Attribution}}{{.Attribution}}{{else}}<span class="dim">none stated by the source</span>{{end}}</dd></div>
+    {{if .Crawlable}}<div><dt>target</dt><dd class="dim">{{.TargetHint}}</dd></div>{{end}}
+  </dl>
+</section>
+{{end}}
+</div>
+{{else}}
+<p class="empty">No sources were handed to this workbench.</p>
+{{end}}
+{{end}}
