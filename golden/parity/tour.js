@@ -741,10 +741,13 @@ function rightClick(element) {
 // The globe pane.
 async function globePane(record, complain) {
   const before = await record("globe-offered");
-  const toggle = tourQuery("#globe-toggle");
-  if (!before.pane.globeOffered || !toggle) return;
+  if (!before.pane.globeOffered || !tourQuery("#globe-toggle")) return;
+  // Re-queried at every press rather than held: a control on this page can be
+  // carried across a swap or replaced by one, and a reference taken before a
+  // step is a reference to whatever the page used to be.
+  const toggle = () => tourQuery("#globe-toggle");
 
-  toggle.click();
+  toggle().click();
   const entered = await record("globe-entered");
   if (!entered.pane.globeActive || entered.pane.globeHidden || !entered.pane.chartHidden) {
     complain("globe-entered: the toggle reads pressed but the panes did not swap");
@@ -807,7 +810,7 @@ async function globePane(record, complain) {
   tourQuery("#zoom-out").click();
   tourQuery("#zoom-out").click();
   await record("globe-zoomed-out");
-  tourQuery("#globe-toggle").click();
+  toggle().click();
   const left = await record("globe-left");
   if (left.pane.globeActive || !left.pane.globeHidden || left.pane.chartHidden) {
     complain("globe-left: the toggle reads unpressed but the panes did not swap back");
@@ -816,9 +819,9 @@ async function globePane(record, complain) {
     complain("globe-left: a put-away globe kept the neighborhood of tiles under its camera");
   }
   const parked = await record("globe-parked");
-  tourQuery("#globe-toggle").click();
+  toggle().click();
   await record("globe-reentered");
-  tourQuery("#globe-toggle").click();
+  toggle().click();
   const returned = await record("globe-returned");
   if (!sameCamera(parked, returned)) {
     complain("globe-returned: a flip to the sphere and back moved the chart's camera");

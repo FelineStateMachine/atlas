@@ -66,6 +66,7 @@ const FOCUS_ZOOM = 4;
  */
 const GRID_FIT_PADDING = 52;
 
+
 /** What the chart publishes about itself, in the golden key names. */
 export interface ChartDiagnostics {
   coordinateSystem: string;
@@ -378,14 +379,7 @@ export class AtlasChart extends HTMLElement {
     this.styles = new Styles(styleContext);
     this.styles.learn(context.model.collections);
 
-    this.view = new View({
-      projection: this.projection,
-      center: [context.grid.size / 2, -context.grid.size / 2],
-      zoom: 0,
-      maxZoom: viewMaxZoom(context.lens),
-      constrainResolution: false,
-      enableRotation: false,
-    });
+    this.view = this.viewFor(context);
     this.map = new OLMap({
       target: this,
       view: this.view,
@@ -430,6 +424,47 @@ export class AtlasChart extends HTMLElement {
     ];
   }
 
+  /**
+   * The camera, built for one lens.
+   *
+   * Three of these options are not decoration and were the source of a long
+   * hunt. **`resolutions`** is the ladder the pyramid actually has -- the
+   * world square over the tile size, halved per level -- and a view given the
+   * ladder converts between a zoom and a resolution by walking it, where a
+   * view left to derive one from a maximum and a factor arrives at answers
+   * that differ in their last bit. The baselines compare a camera exactly, so
+   * the last bit is the difference between agreeing and not. **`extent`** and
+   * **`showFullExtent`** hold the camera over the ground the lens drew: widen
+   * the window -- fold the sidebar away -- and the view slides back inside
+   * its own picture rather than panning off the edge of it, which is what
+   * `sidebar-collapsed` records. And **`smoothResolutionConstraint: false`**
+   * is what makes the two ends of the ladder ends rather than springs.
+   *
+   * It is rebuilt per lens because none of the three can be changed
+   * afterwards, and a lens is a different picture of the ground.
+   */
+  private viewFor(context: WorldContext): View {
+    const extent = lensExtent(context.lens, context.grid);
+    const maxZoom = viewMaxZoom(context.lens);
+    const base = context.grid.size / context.grid.tileSize;
+    return new View({
+      projection: this.projection ?? undefined,
+      center: [
+        ((extent[0] ?? 0) + (extent[2] ?? 0)) / 2,
+        ((extent[1] ?? 0) + (extent[3] ?? 0)) / 2,
+      ],
+      resolutions: Array.from({ length: maxZoom + 1 }, (_, zoom) => base / 2 ** zoom),
+      minZoom: 0,
+      maxZoom,
+      extent: extent as [number, number, number, number],
+      constrainResolution: false,
+      smoothResolutionConstraint: false,
+      showFullExtent: true,
+      zoom: 0,
+      enableRotation: false,
+    });
+  }
+
   private openLens(context: WorldContext, fresh: boolean): void {
     if (!this.map || !this.view || !this.projection || !this.plane || !context.lens) return;
     if (this.raster) {
@@ -441,12 +476,18 @@ export class AtlasChart extends HTMLElement {
       this.plane, context.base, context.lens, context.grid, this.projection, this.counter);
     this.map.addLayer(this.raster.base);
     this.map.addLayer(this.raster.detail);
-    this.view.setMaxZoom(viewMaxZoom(context.lens));
+    // A lens is a different picture of the ground, and three of the camera's
+    // options cannot be changed after it is built, so it is rebuilt. The
+    // camera itself is carried across by hand below.
+    const standing = this.camera();
+    this.view = this.viewFor(context);
+    this.map.setView(this.view);
+    if (!fresh && standing) {
+      this.goTo(standing.x, standing.y, standing.zoom, standing.rotation);
+    }
 
     const extent = lensExtent(context.lens, context.grid);
     const size = this.map.getSize() ?? [1, 1];
-    this.fitZoom = this.view.getZoomForResolution(
-      fitResolution(extent, size[0] ?? 1, size[1] ?? 1)) ?? null;
     // Shard crossing: swapping to a lens that draws another layer of the same
     // split world keeps the camera exactly where it was. The reader stepped
     // between floors of one building, not into another world, and a refit
@@ -455,6 +496,12 @@ export class AtlasChart extends HTMLElement {
       const camera = context.scene.camera;
       if (camera) this.goTo(camera.x, camera.y, camera.zoom, camera.rotation);
       else this.view.fit(extent, { size, nearest: false });
+      // `fitZoom` is what "the whole map fits" is measured against, and it is
+      // decided once, when the world opens: the zoom the reader arrived at,
+      // whether that came from a fit or from the camera they left behind.
+      // Recomputing it later is what left the corner locator arguing with a
+      // camera that had moved on.
+      this.fitZoom = this.view.getZoom() ?? null;
     }
     this.overview?.forget();
   }

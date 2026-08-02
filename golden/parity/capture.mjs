@@ -40,6 +40,14 @@
 // set is half a gigabyte -- and worth it when a baseline is about to be
 // committed.
 //
+// THIS SCRIPT RUNS AGAINST THE GOLDEN REFERENCE, WHICH IS NO LONGER HERE. It
+// drives `frontend/parity/run.mjs`, and `frontend/` was archived with the rest
+// of the old tree when the rewrite landed -- the `golden-reference` tag keeps
+// it checkout-able. So this is re-capture equipment: check that tag out, run
+// it there, and commit the baselines it writes. What runs against the *new*
+// build is `compare.mjs` beside it, which shares this script's library farm
+// through `library.mjs` and nothing else.
+//
 // The registry is read-only to this script: it reads and links, never
 // writes. macOS paths, like the dev loop itself.
 
