@@ -1,0 +1,8 @@
+{
+  "count": 1,
+  "rollup": "63dd8e81ef5026749d314a2622532205e443ecbbbf384df646430d10db8a239a",
+  "volume": "bend-or",
+  "icons": [
+    {"name":"icons/std--maki-monument.svg","bytes":264,"sha256":"4ab7dc4bfa395e37782e7b589fcec05ccfa27bcb96a286ff6285508cd1990095"}
+  ]
+}

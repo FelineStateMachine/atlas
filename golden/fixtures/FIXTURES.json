@@ -8,7 +8,8 @@
   },
   "registry": {
     "read": "the application's own library, folded newest-per-slug exactly as internal/bundle.Registry folds it",
-    "note": "the library holds many builds per volume; the fixture is the build that would serve, and its stamp is recorded here so a re-capture that picks a different build is visible immediately"
+    "note": "the library holds many builds per volume; the fixture is the build that would serve, and its stamp is recorded here so a re-capture that picks a different build is visible immediately",
+    "exception": "bend-or is the one volume not read from the library. It was built for this fixture by the reference tree's own pipeline -- tools/crawl, tools/tiles, tools/generate, unchanged since the golden-reference tag -- into a directory outside the library, and captured from there through the same internal/bundle fold. Its provenance is under the volume's builtFor."
   },
   "volumes": [
     {
@@ -150,32 +151,50 @@
         "areas": 0
       },
       "fixture": "bundles/mars"
+    },
+    {
+      "slug": "bend-or",
+      "title": "Bend, Oregon",
+      "classification": "public city: a rendered basemap lens, curated municipal layers, and the national hydrography enrichment with HUC12 membership",
+      "verifiedBy": "one world -- the capture day, which is how a city versions -- over one basemap lens rendered offline from the city's own vector data, and ten collections that no other fixture has between them: 104 paths and 44 areas carrying inline geometry, 88 of those shape features carrying atlas.hydro.huc12 from the subwatershed join, the four USGS national layers declaring atlas.label.policy=quiet, and 65 pins under a standard icon resolved by convention (atlas.icon.std=maki/monument). The survey still classifies it plain -- one world, one lens, no shard, no split sheet -- because what makes it a city fixture is its collections, not its traits.",
+      "traits": [
+        "plain"
+      ],
+      "file": "bend-or-20260802-f0feba1cd00c.atlas",
+      "fileBytes": 13642843,
+      "fileSha256": "18a60d5c9893893a68a7610bf50b9b50fa52f3e7ffadbf78c9d2c2e6e9af2ca6",
+      "stamp": "f0feba1cd00c2ad4a393e567acc8751f21371710231bc3562a23bfd7eac5936d",
+      "stamp12": "f0feba1cd00c",
+      "createdAt": "2026-08-02T09:09:17.410769Z",
+      "revision": 9,
+      "formatVersion": 3,
+      "conventions": 2,
+      "counts": {
+        "entries": 2321,
+        "worlds": 1,
+        "tiles": 2316,
+        "icons": 1,
+        "points": 65,
+        "paths": 104,
+        "areas": 44
+      },
+      "builtFor": {
+        "why": "the city slot could not be filled from the library: the only city installed there is a personal location whose name stays out of the repository. This volume was built for the fixture from the public proof city in internal/arcgismap's own table, by the same pipeline that fills the library, and captured from where it was built rather than from the library.",
+        "crawl": "go run ./tools/crawl -arcgis bend-or -archive <archive>",
+        "tiles": "go run ./tools/tiles -source <archive> -output <tiles>",
+        "generate": "go run ./tools/generate -source <archive-parent> -tiles <tiles>/index.json -bundles <dir>",
+        "captured": "go run ./golden/capture/bundles -dir <dir> -out golden/fixtures bend-or",
+        "captureDay": "2026-08-02",
+        "endpoints": [
+          "https://data.bendoregon.gov/api/download/v1/items/<item>/geojson?layers=<n>&spatialRefId=4326",
+          "https://hydro.nationalmap.gov/arcgis/rest/services/wbd/MapServer",
+          "https://hydro.nationalmap.gov/arcgis/rest/services/nhd/MapServer"
+        ],
+        "note": "the capture day is part of the identity: the day is the world slug, the basemap tile-set path, and the bundle's version. A re-crawl on another day is another world, not this fixture."
+      },
+      "fixture": "bundles/bend-or"
     }
   ],
-  "withheld": {
-    "count": 1,
-    "classification": "city: basemap lens, curated municipal layers, and the national hydrography enrichment with HUC12 membership",
-    "counts": {
-      "entries": 5469,
-      "worlds": 1,
-      "tiles": 5461,
-      "icons": 4,
-      "points": 45,
-      "paths": 36,
-      "areas": 82
-    },
-    "worlds": [
-      {
-        "points": 45,
-        "paths": 36,
-        "areas": 82,
-        "collections": 12,
-        "lenses": 1
-      }
-    ],
-    "whyWithheld": "the only city curated on the capturing machine is registered from internal/arcgismap/cities_local.go, which git ignores on purpose: it is a personal location. Its fixtures are written to golden/fixtures/private, which git also ignores, and its name appears in no committed file. Re-capture the city fixture from a publicly curated city -- bend-or or redondo-beach-ca -- once a bundle for one exists, and commit it then.",
-    "consequence": "no committed fixture exercises path or area collections, inline geometry, label policy, standard-icon resolution by convention, or the >100% DescribedPct defect. golden/fixtures/measure/NOTES.md records what the withheld fixture shows."
-  },
   "translators": {
     "aligned": "one archived capture per source, chosen to be the capture the fixture volumes were composed from",
     "captured": [
@@ -202,15 +221,16 @@
         "kind": "trek-map",
         "volume": "mars",
         "passthrough": false
-      }
-    ],
-    "skipped": [
+      },
       {
         "source": "arcgis-hub",
         "kind": "arcgis-map",
-        "reason": "the archived capture is present, but arcgismap.Translate refuses a city it is not curated for, and the only curated city on this machine is the withheld one. The fixture is capturable only where cities_local.go is present, and its output would be withheld for the same reason as the city bundle."
+        "volume": "bend-or",
+        "passthrough": false,
+        "note": "captured from the city archive the bend-or volume was built from, not from the library's archive: arcgismap.Translate refuses a city it is not curated for, and the archive beside the library holds only the personal city. The command is `go run ./golden/capture/translators -archive <archive> -out golden/fixtures` against that same archive."
       }
-    ]
+    ],
+    "skipped": []
   },
   "measure": {
     "verbatim": "measure/maturity.txt, the report tools/maturity prints over a registry holding exactly the committed fixture set",
@@ -218,7 +238,8 @@
     "defects": "measure/NOTES.md -- annotated there, never corrected in the output"
   },
   "http": {
-    "recorded": "the headless application (ATLAS_HEADLESS=1) serving a registry holding exactly the committed fixture set",
+    "recorded": "the headless application (ATLAS_HEADLESS=1) serving a registry holding exactly the five game and planet volumes -- the set as it stood before the city joined it",
+    "cityGap": "the transcript predates bundles/bend-or and does not sample it. Re-recording the six-volume registry is one run of golden/capture/http, and it moves the range request and the eight refusals onto bend-or, which sorts first: additional coverage at the cost of re-spelling exchanges already pinned, so it is left for whoever owns the HTTP replay gate to decide.",
     "files": [
       "http/transcript.json",
       "http/catalog.json"

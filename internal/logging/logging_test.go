@@ -84,7 +84,7 @@ func TestAnUnreadableLevelIsAUsageError(t *testing.T) {
 func TestHandlersCarryTheVocabulary(t *testing.T) {
 	attrs := []any{
 		logging.Op("install"),
-		logging.Volume("westminster-co"),
+		logging.Volume("bend-or"),
 		logging.World("2026-08-01"),
 		logging.Lens("basemap"),
 		logging.Stamp("ec3fe8c21cfe"),

@@ -14,14 +14,20 @@ world's *point* features. Path and area features defer their prose into the
 same `.text` file, so a world whose shapes are described divides a whole by a
 part:
 
-    annotation      45 pins · 48 described (106%) · median 46 chars
+    annotation      65 pins · 153 described (235%) · median 63 chars
 
-That line is from the withheld city fixture (see `FIXTURES.json`), the only
-volume in reach whose shapes carry descriptions. **No committed fixture
-exhibits the defect**, which is exactly why it is written down here: a
-rewrite that quietly fixes the arithmetic would pass every committed golden
-and still be a behavior change. Either carry the defect or waive it in
-`golden/waivers.json` with a reason.
+That line is `bend-or`, the city fixture: 65 described historic sites, and 88
+zones each carrying the sentence the subwatershed membership join earned it.
+It is the only volume in the set whose shapes are described, and since it
+joined the set the defect is **committed rather than merely recorded** — a
+rewrite that quietly fixes the arithmetic now fails a golden instead of
+passing every one of them and still changing behavior. Either carry the
+defect or waive it in `golden/waivers.json` with a reason.
+
+The withheld city that stood in this slot before read `45 pins · 48 described
+(106%)`. Same defect, milder ratio, and worth keeping in view: the number
+does not merely round past 100%, it scales with how much of a volume is
+shape rather than point.
 
 `Percent` also truncates rather than rounds — `part*100/whole` in integer
 arithmetic — so 2592 of 2635 prints as 98%, not 98.4% and not 99%.
@@ -61,7 +67,17 @@ reads `sphere`.
 
 ## What the fixture set does not measure
 
-No committed fixture has a path or area collection, an inline geometry, a
-label policy, or a standard icon resolved through the conventions — those
-live in the withheld city volume. Anything the rewrite changes in that ground
-is invisible to these goldens until a publicly curated city is captured.
+Path and area collections, inline geometry, label policy and standard icons
+resolved through the conventions used to be invisible here; the `bend-or`
+city fixture measures all four now, and `zelda-tears-of-the-kingdom` has 23
+areas beside it.
+
+Worth not mistaking the city for: the packed `member` column — the id of the
+area feature a pin lies in — reads zero for all 65 of its pins. `member` is
+filled from a translator's `region_id`, which the ArcGIS translator never
+assigns, so the city's pins are unowned however many zones surround them.
+The column is exercised elsewhere in the set (`zelda-tears-of-the-kingdom`
+fills it for every pin, `fallout-new-vegas` for ten of its thirteen worlds).
+The city's own membership claim — which subwatershed a zone drains through —
+is not carried there: it rides on the shape features as
+`atlas.hydro.huc12` and as a sentence in the `.text` payload.

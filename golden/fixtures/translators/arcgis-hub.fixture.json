@@ -1,0 +1,33 @@
+{
+  "source": "arcgis-hub",
+  "kind": "arcgis-map",
+  "passthrough": false,
+  "mapSlug": "2026-08-02",
+  "capture": {
+    "capturedAt": "2026-08-02T09:09:17.410769Z",
+    "contentHash": "d5a44d689a1fde4200a1559146c4e6f659664ece2ab5b7a2d381449d15e4e04e",
+    "sourceId": 35604576620,
+    "sourceUrl": "https://data.bendoregon.gov/api/feed/dcat-us/1.1.json",
+    "bytes": 20684827
+  },
+  "output": {
+    "bytes": 3502373,
+    "sha256": "9da5dd4e6fbc5e73cc4d47da200309d4f54a873eb4bbbfe39eeb0ddb8862bba3",
+    "file": "arcgis-hub.doc.json"
+  },
+  "document": {
+    "mapId": 1271418892,
+    "mapSlug": "2026-08-02",
+    "mapTitle": "2026-08-02",
+    "gameId": 1727297313,
+    "gameSlug": "bend-or",
+    "gameTitle": "Bend, Oregon",
+    "tileSets": 1,
+    "groups": 1,
+    "categories": 1,
+    "locations": 65,
+    "regions": 148,
+    "collections": 9,
+    "attrs": 4
+  }
+}

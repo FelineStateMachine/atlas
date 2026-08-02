@@ -1,0 +1,34 @@
+{
+  "conventions": 2,
+  "format": "atlas-bundle",
+  "formatVersion": 3,
+  "tileGrid": {
+    "firstTile": 4064,
+    "size": 8192,
+    "sourceZoom": 13,
+    "tileSize": 256
+  },
+  "version": {
+    "createdAt": "2026-08-02T09:09:17.410769Z",
+    "revision": 9,
+    "stamp": "f0feba1cd00c2ad4a393e567acc8751f21371710231bc3562a23bfd7eac5936d"
+  },
+  "volume": {
+    "slug": "bend-or",
+    "title": "Bend, Oregon"
+  },
+  "worlds": [
+    {
+      "areas": 44,
+      "center": {
+        "lat": 0,
+        "lng": 0
+      },
+      "paths": 104,
+      "points": 65,
+      "slug": "2026-08-02",
+      "title": "2026-08-02",
+      "updatedAt": "2026-08-02T09:09:17.410769Z"
+    }
+  ]
+}

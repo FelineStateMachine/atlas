@@ -137,7 +137,7 @@ MiB, on the grounds that a manifest lists worlds and nothing per feature.
   "format": "atlas-bundle",
   "formatVersion": 3,
   "conventions": 2,
-  "volume": { "slug": "westminster-co", "title": "Westminster, Colorado" },
+  "volume": { "slug": "bend-or", "title": "Bend, Oregon" },
   "version": {
     "stamp": "ec3fe8c21cfec928d43a616eca97ebda08dc0ad7a970f531c677241bb5c70788",
     "createdAt": "2026-08-01T20:13:08.883648Z",
