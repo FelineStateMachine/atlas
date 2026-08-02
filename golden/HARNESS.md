@@ -25,17 +25,28 @@ go test ./golden/... # the harness's own tests
 A run prints one line per gate, then the waiver file, then a count:
 
 ```
-  SKIP  format-roundtrip  awaiting M1 — format/bundle and the bundle fixtures: …
+  PASS  format-roundtrip  ok  github.com/FelineStateMachine/atlas/golden/format  0.35s
+  SKIP  generate-enrich   awaiting M2+M3 — the pipeline lanes: …
   PASS  depcheck          depcheck: 5 rules over …
 
 waivers: none (golden/waivers.json is empty)
 
-6 suites: 1 passed, 5 skipped, 0 failed
+6 suites: 2 passed, 4 skipped, 0 failed
 ```
 
 A run where everything skips is green. That is deliberate: the harness lands
 before the lanes it judges, and its skip lines are the running list of what
 nobody has proven yet.
+
+One environment variable deepens a run rather than changing it:
+
+```sh
+ATLAS_REGISTRY_DIR=~/Library/Application\ Support/dev.felinestatemachine.atlas/bundles make golden
+```
+
+`format-roundtrip` then opens the real `.atlas` files the fixtures were
+extracted from and checks the extractions against them, instead of standing on
+the committed extractions alone. Both modes must pass; CI runs the first.
 
 ## The gates
 
@@ -44,7 +55,7 @@ seam — and the order the harness runs.
 
 | Gate | Milestone | What it checks |
 | --- | --- | --- |
-| `format-roundtrip` | M1 | A fixture bundle read and rewritten by `format/bundle` is canonically identical. Canonical-content equality is mandatory; stamp identity is tracked per fixture as an aspiration (issue #5 §6). |
+| `format-roundtrip` | M1 | A fixture bundle read and rewritten by `format/bundle` is canonically identical. Canonical-content equality is mandatory; stamp identity is tracked per fixture as an aspiration (issue #5 §6). Runs today. |
 | `generate-enrich` | M2+M3 | `generate ⊕ enrich` reproduces the composed bundle fixtures. Correctness is defined at the composed-bundle level, which is why the internal interchange shape is free to differ from the old tree's (§5.1). |
 | `analysis-vectors` | M6 | The hand-derived geohash and S2 goldens and every recorded cell plan, byte-exact, compared **positionally** — plan emission order is frozen (§5.4). |
 | `parity-compare` | M5+M6 | The ~45-step tour, extended into its blind spots, re-pointed at the new app. Diagnostics are emitted jointly: server session state as a JSON island plus seam state, under the golden key names. |
@@ -52,10 +63,43 @@ seam — and the order the harness runs.
 | `depcheck` | M0 | The lane boundaries, as static analysis. Runs today. |
 
 Each unready gate declares the file that will run it (`golden/parity/compare.mjs`,
-`golden/format/roundtrip_test.go`, …). The milestone that lands a lane flips
+`golden/pipeline/reproduce_test.go`, …). The milestone that lands a lane flips
 its gate on by writing that file; nothing about the harness needs editing but
 the `ready` flag. `make golden-all` attempts them regardless, which is the way
 to watch a new gate go red before you make it green.
+
+## format-roundtrip
+
+`golden/format` runs in two modes, and the split is what makes the gate both
+enforceable in CI and honest about what CI can see.
+
+**Always-on**, with no library present, it stands on the committed extractions
+alone. Each canonicalized manifest parses into `format/bundle` types and
+re-encodes to the same canonical bytes; the identity derived from it names the
+file `FIXTURES.json` says the build carries; each world's unpacked locations
+pack again to the byte count and SHA-256 the extraction recorded; the
+extractions reassemble into an archive that `Reader.Validate` accepts, which is
+how the offline scan, the per-kind counts, the geometry rules and every
+`format/semconv` rule get run against real captured payloads with no `.atlas`
+in sight; and the five manifests fold as a library whose derived index still
+speaks the legacy `games`/`maps` wire keys.
+
+**Registry mode**, with `ATLAS_REGISTRY_DIR` set, opens each fixture build by
+name and holds this package to the bytes on disk: the manifest re-encodes byte
+for byte (those bytes are a stamped part), every recorded part hash still
+matches, every payload canonicalizes to its committed extraction, the packed
+payloads unpack to the committed locations, the icon and tile inventories match
+name for name and hash for hash, every tile is stored uncompressed, and the
+whole bundle validates. A directory holding none of the fixture builds skips —
+it is not the library they came from. A directory holding some of them fails on
+the rest, because a partial library is a broken oracle rather than a smaller
+one.
+
+**Stamps are not asserted.** One class of stamped part — a tile pyramid's
+derivation stamp — is not recoverable from a finished bundle, so the sum cannot
+be recomputed by a reader. `golden/format/STAMPS.md` tracks the aspiration per
+fixture, names the proxies that are enforced instead, and says what in M2 would
+close it.
 
 ## depcheck
 
