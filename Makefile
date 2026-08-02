@@ -3,7 +3,7 @@
 # These targets are the clean-room rewrite's enforcement surface; the existing
 # build recipes are untouched and still live where they always did.
 
-.PHONY: golden golden-all spec depcheck lint-lanes analysis-lane render-lane seam seam-watch static serve-static
+.PHONY: golden golden-all spec depcheck lint-lanes analysis-lane render-lane seam seam-watch static serve-static desktop
 
 # The one entrypoint. Runs every gate of §6 in order; gates whose lane does not
 # exist yet report SKIP with the milestone they wait on, so a green run doubles
@@ -54,16 +54,52 @@ seam:
 seam-watch:
 	npm run --silent watch --workspace @atlas/render
 
-# The tree an `atlas serve -static` mount wants: the seam's bundle as
-# `app.js`, which is the one file the shell's script tag asks for. The
-# stylesheet system is NOT here -- it is the application's own asset, served
-# from /assets by the application itself, which is what makes deleting this
-# lane cost a page one script tag rather than its chrome.
+# The tree a host mounts at /static: the seam's bundle as `app.js`, which is
+# the one file the shell's script tag asks for. The stylesheet system is NOT
+# here -- it is the application's own asset, served from /assets by the
+# application itself, which is what makes deleting this lane cost a page one
+# script tag rather than its chrome.
+#
+# It is installed in two places because two hosts want it in two shapes.
+# dist/static is the build output a `-static` mount is pointed at, and is what
+# the parity harness looks for by default (golden/parity/run.mjs). static/ is
+# the tree the desktop shell embeds (`//go:embed static` in main.go), so that
+# the shipped application is one file; see static/README.md. Same bytes, one
+# build.
 static: seam
 	mkdir -p dist/static
 	cp render/dist/app.js dist/static/app.js
+	cp render/dist/app.js static/app.js
 
 # The smoke run: the real application, the real registry, and the seam mounted
 # where the page looks for it. Read-only against the library.
 serve-static: static
 	go run ./cmd/atlas serve -static dist/static
+
+# The desktop shell (issue #5 §3.4): the application in a window, one file,
+# seam embedded. This is the macOS recipe -- the same `go build` .github/
+# workflows/release.yml runs, plus the bundle directory macOS wants before it
+# will treat a binary as an application. Linux and Windows need no bundle and
+# only the `go build` line, with the tags the release workflow spells.
+#
+# It is `go build`, not `wails build`: the Wails CLI scaffolds and drives a
+# Vite frontend, and this tree serves its own pages. There is no wails.json
+# for the same reason.
+desktop: static
+	go build -tags "desktop,production" -ldflags "-s -w" -o Atlas .
+	mkdir -p Atlas.app/Contents/MacOS
+	cp Atlas Atlas.app/Contents/MacOS/Atlas
+	printf '%s\n' \
+	  '<?xml version="1.0" encoding="UTF-8"?>' \
+	  '<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">' \
+	  '<plist version="1.0">' \
+	  '<dict>' \
+	  '  <key>CFBundleExecutable</key><string>Atlas</string>' \
+	  '  <key>CFBundleIdentifier</key><string>dev.felinestatemachine.atlas</string>' \
+	  '  <key>CFBundleName</key><string>Atlas</string>' \
+	  '  <key>CFBundlePackageType</key><string>APPL</string>' \
+	  '  <key>CFBundleInfoDictionaryVersion</key><string>6.0</string>' \
+	  '  <key>LSMinimumSystemVersion</key><string>12.0</string>' \
+	  '  <key>NSHighResolutionCapable</key><true/>' \
+	  '</dict>' \
+	  '</plist>' > Atlas.app/Contents/Info.plist

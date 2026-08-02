@@ -25,3 +25,13 @@ go.work.sum
 # render's built output, never its source).
 render/dist/
 .playwright-cli/
+
+# The tree the hosts mount at /static: `make static` copies the seam's bundle
+# in, the desktop shell embeds the directory, and only static/README.md is
+# committed.
+/static/*.js
+
+# The desktop shell's own build products (`make desktop`).
+/Atlas
+/Atlas.exe
+/Atlas.app/

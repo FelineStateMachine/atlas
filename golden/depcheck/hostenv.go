@@ -17,7 +17,13 @@ var hostenvPurity = &analysis.Analyzer{
 
 The handler never touches os, file paths, or dialogs directly: it reaches them
 through Hostenv's VolumeStore, SessionStore and PickFile. Implementations of
-those interfaces — including the Wails host — live under internal/app/hostenv.`,
+those interfaces — including the Wails host — live under internal/app/hostenv.
+
+The rule is about the handler, so it is scoped to the app lane. The two host
+entries, cmd/atlas and the desktop shell at the module root, are where the OS
+is supposed to be reached: theirs is the wiring that decides which directories
+and which window the handler is mounted over, and they are exempt by being
+outside the lane the rule is written about.`,
 	Requires: []*analysis.Analyzer{inspect.Analyzer},
 	Run:      runImportRule(hostenvEdge),
 }

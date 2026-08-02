@@ -52,7 +52,12 @@ func TestLaneImportEdge(t *testing.T) {
 
 		{"the CLI wires every lane", "cmd/atlas", mod + "internal/enrich/merge", ""},
 		{"the harness may read a lane", "golden/depcheck", mod + "internal/generate/doc", ""},
-		{"the old tree is not judged", "internal/measure", mod + "internal/bundle", ""},
+		{"a path the clean room never heard of is not judged", "internal/measure", mod + "internal/bundle", ""},
+
+		{"the shell mounts the app", "", mod + "internal/app", ""},
+		{"and the host it mounts it over", "", mod + "internal/app/hostenv/wailshost", ""},
+		{"and narrates itself", "", mod + "internal/logging", ""},
+		{"but does not import the seam either", "", mod + "render/scene", "nothing imports render"},
 	}
 
 	for _, tt := range tests {
@@ -100,9 +105,14 @@ func TestHostenvEdge(t *testing.T) {
 		{"nor build paths", "internal/app/handler", "path/filepath", "must not import \"path/filepath\""},
 		{"nor know its window system", "internal/app/handler", "github.com/wailsapp/wails/v2", "host toolkit"},
 		{"hostenv implementations may do all three", "internal/app/hostenv", "os", ""},
-		{"including the Wails host", "internal/app/hostenv/wails", "github.com/wailsapp/wails/v2", ""},
+		{"including the Wails host", "internal/app/hostenv/wailshost", "github.com/wailsapp/wails/v2/pkg/runtime", ""},
 		{"io/fs is the portable shape", "internal/app/handler", "io/fs", ""},
 		{"the rule is about the app", "internal/generate/crawl", "os", ""},
+		// A host entry is where the machine is reached: which directories the
+		// library and the session records live in, and which window the
+		// handler is drawn in, are exactly the decisions it exists to make.
+		{"the desktop shell is a host entry", "", "os", ""},
+		{"and opens the window itself", "", "github.com/wailsapp/wails/v2", ""},
 		// The workbench is a developer's tool on a developer's machine, and it
 		// exists to run the lane CLIs (issue #5 §3.1, §5.6): shelling out is
 		// its contract, not a leak. The portability amendment is about the
@@ -177,6 +187,8 @@ func TestLaneOf(t *testing.T) {
 		path string
 		want Lane
 	}{
+		{"", LaneShell},
+		{".", LaneShell},
 		{"format", LaneFormat},
 		{"format/bundle", LaneFormat},
 		{"formatting", LaneOutside},

@@ -136,6 +136,14 @@ func laneImportEdge(from Lane, fromRel, importPath string) string {
 	case LaneCLI:
 		return "" // the one binary is allowed to wire every lane's subcommands
 
+	case LaneShell:
+		// The desktop shell is host wiring and nothing else: it mounts the
+		// app over an OS host and hands it to a window. The rules that
+		// matter to it are the ones above this switch — nothing imports
+		// render, the two TypeScript lanes are unimportable — and they have
+		// already had their say.
+		return ""
+
 	case LaneGolden:
 		return "" // the harness may read anything it measures
 	}
