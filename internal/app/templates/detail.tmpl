@@ -1,14 +1,15 @@
 {{/*
   detail — one feature's card.
 
-  The card is an innerMorph region, so its element stands whether or not
-  anything is open and its content says which. An empty card is a closed card,
-  which is the rule assets/css/chrome.css keys the results list off: a swap
-  cannot set an attribute on a container it renders the inside of, and stating
-  the fact in the shape a morph can actually produce is better than inventing
-  a second way to say it.
+  The card is an outerMorph region (internal/app/partials.go): a swap replaces
+  the element itself, attributes and all, so the element can carry the `hidden`
+  the carried assets/css/pin-detail.css keys the results list off — and it
+  carries it on every swap, not only on the first paint. A closed card is a
+  hidden card, which is the same fact the reference implementation's script set
+  by hand after each render; here the server says it, out of the session, and
+  there is nothing left to fall out of step with.
 */}}
-{{define "detail"}}<article id="atlas-detail" class="pin-detail">{{with .Detail}}{{if .Open}}
+{{define "detail"}}<article id="atlas-detail" class="pin-detail"{{if not .Detail.Open}} hidden{{end}}>{{with .Detail}}{{if .Open}}
   <button type="button" class="detail-back" id="close-detail" aria-label="Back to results"
           hx-post="/session/select" hx-vals:append='{"feature":""}'>
     <svg viewBox="0 0 16 16" aria-hidden="true"><path d="M10 3 5 8l5 5"/></svg>

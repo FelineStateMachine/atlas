@@ -4,9 +4,15 @@
 
   Every other file in this directory is the reference implementation's own,
   unedited (issue #5 §9: the CSS system is carried as an asset, and the visual
-  identity is unchanged). Two things about the new DOM demand a selector the
-  carried files cannot know about, and they are both here rather than smeared
-  through the files they belong to, so the delta stays one file long.
+  identity is unchanged). What the new DOM has that the carried files cannot
+  know about is collected here rather than smeared through the files it would
+  belong to, so the delta stays one file long.
+
+  The list is short on purpose. A difference the markup can spell instead is
+  not a difference: the detail card used to be patched here, keyed off
+  `:empty`, because a region rendered inside-out could not be given an
+  attribute; it is an outerMorph region now and renders its own `hidden`, so
+  the carried pin-detail.css works verbatim and there is nothing to say.
 */
 
 /*
@@ -21,19 +27,7 @@
 #atlas-legend .legend .layer-section:last-child { border-bottom: 0; }
 
 /*
-  2. The card says whether it is open by having content, not by an attribute.
-
-  `detail` is an innerMorph region: a swap replaces what is inside
-  `#atlas-detail` and never the element itself, so the element cannot carry
-  the `hidden` attribute the carried rule keyed off. An empty card is a closed
-  card, which is the same fact stated in the shape a morph can actually
-  produce.
-*/
-.pin-detail:empty { display: none; }
-.dock-body:has(.pin-detail:not(:empty)) .dock-results { display: none; }
-
-/*
-  3. The seam's surfaces are the seam's, including while a swap is happening.
+  2. The seam's surfaces are the seam's, including while a swap is happening.
 
   `<atlas-viewport>` and the overview's canvas holder carry
   hx-morph-skip-children: a swap may touch their attributes and never their
@@ -55,7 +49,7 @@ atlas-globe {
 atlas-globe[hidden] { display: none; }
 
 /*
-  4. The import region.
+  3. The import region.
 
   The reference implementation had no import panel: choosing a file was a
   native dialog and the only sign of it was the button. An import is a
@@ -87,7 +81,7 @@ atlas-globe[hidden] { display: none; }
 .import-row[data-state="installing"] { color: var(--text); }
 
 /*
-  5. A feature index row is two elements.
+  4. A feature index row is two elements.
 
   One element carries one request, and a row of a feature index answers two:
   the left button goes to the ground, the right button highlights it
@@ -99,7 +93,7 @@ atlas-globe[hidden] { display: none; }
 }
 
 /*
-  6. A pane put away is put away.
+  5. A pane put away is put away.
 
   Both panes are absolutely positioned and `display: block`, which is stronger
   than the `[hidden]` the browser's own sheet carries — so without this the
