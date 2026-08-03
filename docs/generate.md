@@ -282,7 +282,41 @@ Nomenclature's feature list for the same body.
 - `idSpace: "derived"`: nothing in either publication numbers a mosaic or a
   feature type, so every identity is minted from a stable name.
 
-### 2.4 The IGN reader
+### 2.4 The Blue Marble reader
+
+`internal/generate/sources/nasabluemarble` reads the included Earth volume's
+one capture: NASA Earth Observatory's Blue Marble Next Generation base map, a
+single pinned publication rather than a live endpoint.
+
+- Capture kind `blue-marble-map`, one per capture of the pinned image.
+- The volume is its picture. One world (`earth`), one lens (`Blue Marble`), no
+  collections and no features: pins, layers and enrichment are later sources'
+  work, folded in by the enrich lane.
+- The coordinate design is the shared whole-sphere window NASA Trek also rides
+  (`doc.EquirectPx` and friends): a 2:1 global image filling the top half of
+  the world square, declared as registered conventions — surface, projection,
+  the equirect px/deg pair, the body, and the body's mean radius — so the cell
+  systems recognise the ground through the same declarations every spherical
+  world makes.
+- The capture body records the product's identity — its title, NASA's credit
+  line, the source digest and size — and the derivation policy its tiles were
+  cut under, so a policy change reads as a new capture rather than the same
+  one wearing new bytes.
+- The gates: another kind's capture, another source's name, another body, a
+  missing digest, a missing size, or a capture declaring no pyramid are
+  refused by name.
+- `idSpace: "derived"`: nothing in the publication numbers a base map.
+
+The crawler half (`internal/generate/crawl/bluemarble.go`) is the one place
+the pinned URL, digest and capture time are spelled. It fetches the source
+image exactly once into the staged archive, refuses any digest but the pinned
+one, cuts the reference level through the deterministic fixed-point
+Catmull-Rom resampler beside it, and records the capture under the pinned
+time, so the archive — and everything stamped downstream of it — reproduces on
+any machine. `included/README.md` is the recipe and the provenance, and
+`make included-earth` is the whole run.
+
+### 2.5 The IGN reader
 
 `internal/generate/sources/ign` reads a community wikimap: a flat image tiled
 like a world, markers placed on it in image-relative coordinates, and a flat list
@@ -307,7 +341,7 @@ of marker types that names a parent to make two levels of legend.
   the evidence has been thrown away.
 - `idSpace: "derived"`: markers are opaque strings and types are slugs.
 
-### 2.5 The Piggyback reader
+### 2.6 The Piggyback reader
 
 `internal/generate/sources/piggyback` reads the official guide house's maps,
 which carry what a community wikimap does not: prose. Pins arrive with names and
@@ -335,7 +369,7 @@ descriptions and both survive into a volume.
   against the published map; a capture whose numbers are not in it fails.
 - `idSpace: "derived"`: pins, categories and types are opaque string ids.
 
-### 2.6 The ArcGIS Hub reader
+### 2.7 The ArcGIS Hub reader
 
 `internal/generate/sources/arcgishub` reads a city. It is the only source whose
 subject is a real place, and the only one where **a world is a date**: each crawl
@@ -376,7 +410,7 @@ difference in the city.
 - `idSpace: "derived"`: a hub's object ids are load artifacts that churn between
   refreshes, and nothing above a row is numbered at all.
 
-### 2.7 Adding a source
+### 2.8 Adding a source
 
 A source is one directory, one constructor, and one line in
 `internal/generate/sources/registry.go`. The walkthrough:
@@ -541,6 +575,7 @@ somebody else's server is having a bad afternoon.
 | crawler | target | runnable here |
 | --- | --- | --- |
 | `ign` | `<objectSlug>/<mapSlug>` | code-complete, not run — the captures are archived |
+| `nasa-blue-marble` | `earth` | runnable — one pinned image, digest-verified, fetched once (§2.4) |
 
 The game sources' captures are archived and their endpoints are somebody else's
 editorial work, so their crawlers are kept complete and are not run against live
@@ -1072,6 +1107,7 @@ points at:
 | --- | --- | --- |
 | the games corpus archive | `crawl/fmg-archive` | `ATLAS_ARCHIVE_DIR` |
 | the proof city's archive | `crawl/bend-or/fmg-archive` | `ATLAS_CITY_ARCHIVE_DIR` |
+| the included Earth's archive | `crawl/blue-marble/fmg-archive` | none — `make included-earth` names it |
 | the derived tile sets | `tiles/`, register at `tiles/index.json` | `ATLAS_TILES_INDEX` |
 
 So the whole lane, over one volume, is three commands:

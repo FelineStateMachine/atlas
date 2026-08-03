@@ -4,6 +4,7 @@ import (
 	"github.com/FelineStateMachine/atlas/internal/generate/sources/arcgishub"
 	"github.com/FelineStateMachine/atlas/internal/generate/sources/ign"
 	"github.com/FelineStateMachine/atlas/internal/generate/sources/mapgenie"
+	"github.com/FelineStateMachine/atlas/internal/generate/sources/nasabluemarble"
 	"github.com/FelineStateMachine/atlas/internal/generate/sources/nasatrek"
 	"github.com/FelineStateMachine/atlas/internal/generate/sources/piggyback"
 )
@@ -24,6 +25,7 @@ func All() []Source {
 		ign.New(),
 		piggyback.New(),
 		nasatrek.New(),
+		nasabluemarble.New(),
 		arcgishub.New(),
 	}
 }
