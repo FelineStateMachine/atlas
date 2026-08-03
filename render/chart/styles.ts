@@ -107,6 +107,23 @@ export function collectionColor(collection: Collection, ordinal: number): string
 }
 
 /**
+ * The colour one feature wears wherever it is drawn.
+ *
+ * The application's own hash (internal/app/legend.go, colorFor), spelled in
+ * this lane so a zone on the map cannot disagree with its row in the index,
+ * the filter and the detail card the server rendered beside it. The
+ * arithmetic is 32-bit on purpose -- Knuth's multiplicative hash over the
+ * feature id -- and an id that is not a number wears the wheel's first
+ * colour, exactly as it does there.
+ */
+export function featureColor(id: string): string {
+  const value = Number(id);
+  if (!Number.isFinite(value) || !Number.isInteger(value)) return paletteColor(0);
+  const magnitude = Math.abs(value) % 4294967296;
+  return paletteColor(Math.imul(magnitude, 2654435761) >>> 0);
+}
+
+/**
  * The producer's word on a point collection's names, before the reader's.
  *
  * `payload.labelPolicy` answers for a shape collection, where saying nothing
@@ -374,7 +391,7 @@ export class Styles {
 
   /** A path drawn at its declared ground width, never thinner than a hair. */
   path(shape: ShapeRecord, resolution: number, highlighted: boolean): Style[] {
-    const color = this.color(shape.collection);
+    const color = featureColor(shape.id);
     const ground = Number(shape.collection.attrs?.[KEY_STROKE_WIDTH_PX] ?? 0);
     const width = Math.max(1.4, ground > 0 ? ground / resolution : 2);
     return [
@@ -389,9 +406,12 @@ export class Styles {
     ];
   }
 
-  /** An area: its own accent, faintly filled, brighter when it is highlighted. */
+  /** An area: its own accent, faintly filled, brighter when it is highlighted.
+   * The accent is the feature's, not its collection's: a zoning collection is
+   * one row, but B-1 and O-1 are different grounds and wear different colours
+   * -- the same ones their index rows wear. */
   area(shape: ShapeRecord, highlighted: boolean): Style {
-    const color = this.color(shape.collection);
+    const color = featureColor(shape.id);
     return new Style({
       fill: new Fill({ color: withAlpha(color, highlighted ? 0.28 : 0.1) }),
       stroke: new Stroke({ color, width: highlighted ? 2.4 : 1.4 }),

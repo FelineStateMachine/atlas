@@ -49,7 +49,8 @@ import { WorldModel } from "../world/model.ts";
 import type { PointRecord } from "../world/model.ts";
 import { Visibility } from "../world/visibility.ts";
 import type { Collection, TileGrid } from "../data/payload.ts";
-import { Styles, curatedPointPolicy } from "../chart/styles.ts";
+import { Styles, curatedPointPolicy, featureColor } from "../chart/styles.ts";
+import type { ShapeRecord } from "../world/model.ts";
 import {
   OUTSET_COLORS, forgetMarkerRasters, legibleIconColor, outsetColor,
 } from "../chart/markers.ts";
@@ -590,4 +591,43 @@ test("everything else keeps the mark it had", async () => {
   assert.ok(built.pin(pin(SHRINES), false)[0]?.getImage(), "artwork collections are unchanged");
   assert.equal(built.pin(pin(PLAIN), false).length, 1);
   assert.equal(built.pin(pin(SPOKEN), false)[0]?.getText()?.getText(), "C", "Cities");
+});
+
+// ---- the shapes' own colours ------------------------------------------
+
+/** One zone, standing wherever; only its id and collection matter here. */
+function zone(collection: Collection, id: string): ShapeRecord {
+  return {
+    id, title: "", subtitle: "", collection, kind: "area", shard: 0,
+    lines: [], holes: [], center: null, feature: { id } as never,
+  };
+}
+
+test("a shape wears its feature's colour, which is the index's own", () => {
+  // The server's colorFor (internal/app/legend.go): Knuth's multiplicative
+  // hash over the id, mod the ten-colour wheel. By hand: 1496244488 ·
+  // 2654435761 mod 2^32 mod 10 = 2, and 39191589 lands on 1 -- so the two
+  // zones wear the wheel's third and second colours, exactly as their index
+  // rows do, and an id that is not a number wears the wheel's first.
+  assert.equal(featureColor("1496244488"), "#82b56a");
+  assert.equal(featureColor("39191589"), "#c9924b");
+  assert.equal(featureColor("zoning-b1"), "#4fb3d5");
+
+  // A zoning collection is one row with one declared colour, but B-1 and
+  // O-1 are different grounds: the map draws each in its feature's colour,
+  // never the collection's.
+  const zoning: Collection = {
+    id: 9, title: "Zoning", kind: "area", visible: true, color: "#00ff00",
+  };
+  const built = styles({});
+  const first = built.area(zone(zoning, "1496244488"), false);
+  const second = built.area(zone(zoning, "39191589"), false);
+  assert.equal(first.getStroke()?.getColor(), "#82b56a");
+  assert.equal(second.getStroke()?.getColor(), "#c9924b");
+  assert.notEqual(first.getStroke()?.getColor(), zoning.color);
+
+  // A path is the same rule at a different width.
+  const trails: Collection = { id: 4, title: "Trails", kind: "path", visible: true };
+  const [, ink] = built.path({ ...zone(trails, "1496244488"), kind: "path" }, 2, false);
+  assert.equal(ink?.getStroke()?.getColor(), "#82b56a");
 });
