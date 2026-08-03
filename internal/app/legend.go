@@ -414,10 +414,12 @@ func sections(model *worldModel) []legendGroup {
 // folds what they are not using; a world does not guess for them.
 func defaultCollapsed() []string { return nil }
 
-// defaultExpanded is the collection set a world opens with unfolded: the
-// ungrouped shape collections, so their feature indexes are there the moment
-// the section is opened.
-func defaultExpanded(model *worldModel) []string {
+// unfoldableCollections is the set the unfold-all control opens: the
+// ungrouped shape collections, whose feature indexes are the legend's long
+// lists. It is not the set a world opens with -- a world opens with every
+// index folded, because a category is a fact about the world and its hundred
+// members are a request the reader makes.
+func unfoldableCollections(model *worldModel) []string {
 	var out []string
 	if model == nil {
 		return out

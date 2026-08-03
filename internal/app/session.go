@@ -60,10 +60,9 @@ type Session struct {
 	// four are kept sorted so a record is stable to diff and two paths to
 	// the same state produce the same bytes.
 	//
-	// Arranged is what tells a fresh record from an arranged one. Three of
-	// these sets have non-empty defaults that a world's own curation
-	// supplies -- the payload's hidden collections, the folded Zones
-	// section, the unfolded shape rows -- and an empty set is a reader's
+	// Arranged is what tells a fresh record from an arranged one. The hide
+	// set has a non-empty default that a world's own curation supplies --
+	// the payload's hidden collections -- and an empty set is a reader's
 	// deliberate "show everything", not an absence. Without this flag the
 	// two are the same bytes.
 	Hidden      []string `json:"hidden,omitempty"`
@@ -490,7 +489,10 @@ func (a *App) arrange(volume hostenv.Volume, s *Session) {
 	}
 	s.Hidden = defaultHidden(model)
 	s.Collapsed = defaultCollapsed()
-	s.Expanded = defaultExpanded(model)
+	// Every feature index arrives folded. The sections stand open -- the
+	// categories are the world's summary -- but a category's members are a
+	// list the reader asks for, one press here or one on unfold-all.
+	s.Expanded = nil
 	// The subdivision is shown by default: a grid the reader opens is a grid
 	// with its next level drawn, and the baselines record `subgridVisible`
 	// true from the first step of every volume -- before any grid is open at
@@ -613,7 +615,7 @@ func applyExpand(c *concernContext, form formValues) error {
 		s.Expanded = nil
 		return nil
 	case "unfold":
-		s.Expanded = defaultExpanded(c.world)
+		s.Expanded = unfoldableCollections(c.world)
 		return nil
 	}
 	id := form.get("collection")

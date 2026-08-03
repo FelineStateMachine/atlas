@@ -101,14 +101,13 @@ func arrange(t *testing.T, handler http.Handler, slug, concern string, pairs ...
 // TestTheIslandOpensWithTheWorldsOwnArrangement holds the opening
 // arrangement: a world nobody has arranged publishes exactly the twelve
 // keys, and every value is the one the world itself supplies -- nothing
-// hidden or folded, the ungrouped shape collections unfolded, the first lens,
-// a camera nobody has reported, and the furniture in its opening positions.
+// hidden, folded or unfolded, the first lens, a camera nobody has reported,
+// and the furniture in its opening positions.
 func TestTheIslandOpensWithTheWorldsOwnArrangement(t *testing.T) {
 	for _, slug := range []string{"bend-or", "mars"} {
 		t.Run(slug, func(t *testing.T) {
 			volume := corpusVolume(t, slug)
 			world := firstWorld(t, volume)
-			payload := readCorpusWorld(t, slug, world)
 			handler := newApp(t, volume)
 
 			page := openExplorer(t, handler, slug, world)
@@ -145,17 +144,11 @@ func TestTheIslandOpensWithTheWorldsOwnArrangement(t *testing.T) {
 			if got := idStrings(t, entry["labels"]); len(got) != 0 {
 				t.Errorf("the label ledger opens holding %v", got)
 			}
-			// The ungrouped shape collections open unfolded, so their feature
-			// indexes are there the moment the section is opened.
-			want := []string{}
-			for _, collection := range payload.Collections {
-				if collection.Kind != "point" && collection.Group == "" {
-					want = append(want, collection.ID.String())
-				}
-			}
-			sort.Strings(want)
-			if got := idStrings(t, entry["expanded"]); !reflect.DeepEqual(got, want) {
-				t.Errorf("expanded = %v, want the ungrouped shape collections %v", got, want)
+			// Every feature index arrives folded: a category is a fact about
+			// the world, its hundred members are a request the reader makes
+			// (one press on the row, or one on unfold-all).
+			if got := idStrings(t, entry["expanded"]); len(got) != 0 {
+				t.Errorf("expanded opens as %v; every index arrives folded", got)
 			}
 			if entry["overviewDocked"] != false {
 				t.Errorf("overviewDocked opens %v", entry["overviewDocked"])
