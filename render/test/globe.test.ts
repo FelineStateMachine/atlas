@@ -586,15 +586,17 @@ test("a ring that carried its longitudes past the antimeridian is left alone", (
 
 // ---- the pyramid under the camera --------------------------------------
 //
-// `globe-zoomed-deep` in golden/parity/mars/tour.json is the recorded reading
-// of this: the camera at 0.68 over 0,0 draws 81 tiles of level 5. Both numbers
-// fall out of the two functions below and nothing else.
+// The worked case both tests below share: the camera at altitude 0.68 over
+// 0,0 draws 81 tiles of level 5. Both numbers fall out of the two functions
+// below and nothing else — the altitude reads as zoom 3.878, rounds to 4,
+// and one deeper is 5; and at level 5 a nine-by-nine block is the widest
+// reach that stays inside a 96-tile budget.
 
 test("the level is one deeper than the distance reads as, capped by the capture", () => {
   const ceiling = 8;
   const table: [number, number][] = [
     [2.5, 3], // the whole disc reads as zoom 2
-    [0.68, 5], // the recorded step: 3.878 rounds to 4, and one deeper is 5
+    [0.68, 5], // the worked case: 3.878 rounds to 4, and one deeper is 5
     [0.08, 8], // pressed against the nearest altitude
   ];
   for (const [altitude, wanted] of table) {
@@ -609,7 +611,7 @@ test("the level is one deeper than the distance reads as, capped by the capture"
 test("the neighbourhood is the block the horizon asks for, pulled into its budget", () => {
   const wanted = detailBlock({ lat: 0, lng: 0, altitude: 0.68 }, 5, 96);
   assert.equal(wanted.length, 81,
-    "which is exactly what globe-zoomed-deep recorded: reach 6 is 169 tiles, 5 is 121, 4 is 81");
+    "the widest block under the budget: reach 6 is 169 tiles, 5 is 121, and 4 is 81 ≤ 96");
   const columns = new Set(wanted.map(([x]) => x));
   const rows = new Set(wanted.map(([, y]) => y));
   assert.equal(columns.size, 9, "nine columns");

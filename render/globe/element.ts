@@ -87,11 +87,12 @@ const log = logger("globe");
 // a field-of-view calculation -- an earlier draft of this seam derived the
 // altitude from the resolution, the viewport height and the declared degree
 // span, which is defensible arithmetic and reproduces none of the recorded
-// numbers. `golden/parity/mars/tour.json` settles it: `globe-left` records a
-// chart zoom of 1.3219 = 2 + log2(2.5 / 4) after the camera has been pushed
-// out to the farthest distance, and `globe-labels-held` records an altitude
-// of 0.68 = 2.5 / 2^(1.8826 - 2) / 4 after the zoom buttons have halved it
-// twice. Both fall out of the four constants below and nothing else does.
+// numbers. The retired mars parity baseline settled it: its `globe-left`
+// step recorded a chart zoom of 1.3219 = 2 + log2(2.5 / 4) after the camera
+// had been pushed out to the farthest distance, and `globe-labels-held` an
+// altitude of 0.68 = 2.5 / 2^(1.8826 - 2) / 4 after the zoom buttons had
+// halved it twice. Both fall out of the four constants below and nothing
+// else does.
 const WHOLE_DISC_ALTITUDE = 2.5;
 const WHOLE_CHART_ZOOM = 2;
 

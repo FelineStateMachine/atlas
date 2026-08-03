@@ -74,7 +74,7 @@ type Camera = import("../chart/element.ts").Camera;
 
 // ---- the world these tests are about ---------------------------------
 //
-// Mars, as `golden/fixtures/bundles/mars` declares it: one 8192-pixel square,
+// Mars, as `testdata/corpus/bundles/mars` declares it: one 8192-pixel square,
 // two lenses of six native levels each, so the view's ceiling is 8.
 
 const GRID: TileGrid = { sourceZoom: 13, firstTile: 4064, tileSize: 256, size: 8192 };

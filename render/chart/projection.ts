@@ -81,9 +81,9 @@ export function tileGridFor(grid: GridSpec, deepest: number): TileGrid {
  * reader opening a split sheet is shown everything the lens drew, title
  * included. `surface` is what anything *dividing* the world measures, so no
  * cell lands on margin — and that reading belongs to the analysis lane's
- * Ground descriptor, which is handed both and prefers the other one. Tunic
- * is the volume that tells them apart: it declares a surface and no bounds,
- * and the recorded baseline opens on the whole square.
+ * Ground descriptor, which is handed both and prefers the other one. A lens
+ * that declares a surface and no bounds is the case that tells them apart:
+ * the camera opens on the whole square regardless.
  */
 export function lensExtent(lens: Lens | null, grid: GridSpec): Extent {
   const rect = lens?.bounds;

@@ -1,13 +1,13 @@
-// The packed locations, judged against the goldens.
+// The packed locations, judged against the corpus.
 //
-// The fixture carries three things that make this a real test rather than a
+// The corpus carries three things that make this a real test rather than a
 // round trip against my own opinion: the record list, the packed byte length,
 // and the SHA-256 of the packed bytes as the reference implementation wrote
-// them. So the test PACKS the golden records per `docs/format.md` §7, checks
+// them. So the test PACKS the corpus records per `docs/format.md` §7, checks
 // the bytes it produced against the recorded digest — which pins the layout,
 // the alignment, the offsets and the encoding all at once — and only then
 // reads them back with the seam's reader and holds every column to the
-// golden.
+// record.
 //
 // If the layout were misread in any way that mattered, the digest would move
 // before the reader ever ran.
@@ -19,7 +19,7 @@ import { LocationTable } from "../data/atlasloc.ts";
 import { locations, payloads, volumes } from "./fixtures.ts";
 import type { LocationsFixture } from "./fixtures.ts";
 
-/** Pack golden records exactly as format.md §7 lays the bytes out. */
+/** Pack corpus records exactly as format.md §7 lays the bytes out. */
 function pack(fixture: LocationsFixture): ArrayBuffer {
   const n = fixture.locations.length;
   const encoder = new TextEncoder();
@@ -56,7 +56,7 @@ function pack(fixture: LocationsFixture): ArrayBuffer {
   return buffer;
 }
 
-test("the packed layout is the one the goldens were written with", () => {
+test("the packed layout is the one the corpus was written with", () => {
   let checked = 0;
   for (const slug of volumes()) {
     for (const world of payloads(slug).keys()) {
@@ -69,10 +69,10 @@ test("the packed layout is the one the goldens were written with", () => {
       checked++;
     }
   }
-  assert.ok(checked >= 6, "every fixture world was checked");
+  assert.equal(checked, 2, "the city and the planet: every corpus world was checked");
 });
 
-test("the reader answers every column the goldens record", () => {
+test("the reader answers every column the corpus records", () => {
   for (const slug of volumes()) {
     for (const world of payloads(slug).keys()) {
       const fixture = locations(slug, world);

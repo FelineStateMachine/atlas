@@ -127,9 +127,9 @@ test("the camera fills all five fields and says so", () => {
     "#atlas-camera-zoom", "#atlas-camera-rotation",
   ]);
   reportCamera({
-    volume: "tunic", world: "overworld", x: 120.5, y: -40, zoom: 6.25, rotation: 0.5,
+    volume: "neon-harbor", world: "old-quarter", x: 120.5, y: -40, zoom: 6.25, rotation: 0.5,
   });
-  assert.equal(page.fields.get("#atlas-camera-world")?.value, "overworld");
+  assert.equal(page.fields.get("#atlas-camera-world")?.value, "old-quarter");
   assert.equal(page.fields.get("#atlas-camera-zoom")?.value, "6.25");
   assert.equal(page.fields.get("#atlas-camera-rotation")?.value, "0.5");
   assert.equal(page.events[0]?.type, "atlas:camera");
@@ -138,7 +138,7 @@ test("the camera fills all five fields and says so", () => {
 test("a page that renders no camera form loses the report and nothing else", () => {
   const page = mount([]);
   assert.doesNotThrow(() => reportCamera({
-    volume: "tunic", world: "overworld", x: 0, y: 0, zoom: 1, rotation: 0,
+    volume: "neon-harbor", world: "old-quarter", x: 0, y: 0, zoom: 1, rotation: 0,
   }));
   assert.equal(page.events.length, 0);
 });

@@ -10,7 +10,7 @@
 //
 //   BOUNDS. A lens fills a window of the square, not always the square. Mars
 //   is 8192 × 4096 of an 8192 square, so its level 6 holds 64 × 32 tiles and
-//   not 64 × 64 — and the 2,048 the golden inventory records are exactly the
+//   not 64 × 64 — and the 2,048 the corpus inventory records are exactly the
 //   ones inside the window.
 //
 //   COVERAGE. Past `fullZoom` a pyramid holds only what the capture reached,
@@ -131,7 +131,7 @@ export function tilePath(lens: Lens, z: number, x: number, y: number): string | 
  * Every tile a lens holds, as inventory names (`<z>/<x>/<y>.<ext>`), in the
  * inventory's own order: z, then x, then y, numerically.
  *
- * This exists for the tests — the golden per-lens inventories are the record
+ * This exists for the tests — the corpus per-lens inventories are the record
  * of what a pyramid holds, and a reader that agrees with them agrees about
  * bounds, about coverage, and about the format per level all at once.
  */

@@ -139,12 +139,12 @@ const DAEDRIC: Collection = {
 };
 
 /**
- * A text collection that was given artwork anyway, which is the real case.
+ * A text collection that was given artwork anyway, which really happens.
  *
- * Zelda's Areas and Provinces both carry a glyph — `area.svg`, `province.svg`
- * — and both are curated as text: the curation's word about the form wins
- * over the artwork it happens to have, or the change would do nothing at all
- * on the one volume that asked for it.
+ * The captured game volumes shipped region collections carrying a glyph
+ * (`province.svg` and the like) *and* a text curation: the curation's word
+ * about the form wins over the artwork it happens to have, or the change
+ * would do nothing at all on the volumes that asked for it.
  */
 const LETTERED: Collection = {
   id: 7, title: "Provinces", kind: "point", visible: true,
@@ -488,10 +488,10 @@ test("a collection curated as text draws its name and nothing else", () => {
 });
 
 test("artwork does not buy a text collection a marker back", async () => {
-  // Zelda's Areas and Provinces carry glyphs and are curated as text: the
-  // curation decides the form, or the rule changes nothing where it was asked
-  // for. The raster still composes -- the reader may yet ask for markers --
-  // and it is still not drawn.
+  // A region collection carrying a glyph and curated as text: the curation
+  // decides the form, or the rule changes nothing where it was asked for.
+  // The raster still composes -- the reader may yet ask for markers -- and
+  // it is still not drawn.
   const built = waiting();
   for (const one of parked) one.load();
   await settle();

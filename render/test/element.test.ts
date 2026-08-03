@@ -23,10 +23,11 @@
 //
 // The first cases are synthetic, because a two-piece square with a hole in
 // each piece says in six coordinates what a real district says in six
-// thousand. The last three are real features read out of
-// `golden/fixtures/bundles`, so the counts are a real producer's — two of the
-// city's own, named, and then every shape of every fixture volume held
-// against the part structure its payload declares.
+// thousand. The last three are features read out of
+// `testdata/corpus/bundles`, so the counts are a real producer's — two of
+// the city's own, named, and then every shape of every corpus volume, plus
+// the invented game plane's, held against the part structure its payload
+// declares.
 
 import test from "node:test";
 import { strict as assert } from "node:assert";
@@ -37,6 +38,7 @@ import type { Coordinate, Line, ShapeRecord } from "../world/model.ts";
 import { shapeContains } from "../world/visibility.ts";
 import type { Collection } from "../data/payload.ts";
 import { payloads, tileGrid, volumes } from "./fixtures.ts";
+import { gamePlane } from "./models.ts";
 
 // The seam's chart element extends `HTMLElement` at the moment it is defined,
 // which is one browser global too many for `node --test`. Nothing else in the
@@ -245,28 +247,39 @@ test("the city's longest trail draws all hundred and forty-seven of its runs", (
   assert.equal(drawn.length, 147, "not one run of it, and not one run short");
 });
 
-test("no shape in any fixture volume loses a part", () => {
-  let multipart = 0;
+test("no shape in any volume, corpus or invented, loses a part", () => {
+  // The corpus's two volumes, and the invented game plane beside them: mars
+  // carries no shapes at all, so the multipart weight is the city's — its
+  // zoning and trails alone are ninety-eight multipart features.
+  const worlds: [string, WorldModel][] = [];
   for (const slug of volumes()) {
     for (const [name, payload] of payloads(slug)) {
-      const world = new WorldModel(
-        name, payload, worldGrid(tileGrid(slug), payload), null);
-      for (const record of world.shapes) {
-        const declared = payloadParts(record);
-        if (declared.length > 1) multipart++;
-        const where = `${slug}/${name}: ${record.title} (${record.id})`;
-        if (record.kind === "area") {
-          const geometry = shapeGeometry(record) as MultiPolygon;
-          assert.deepEqual(geometry.getPolygons().map(
-            (polygon) => polygon.getLinearRings().map((ring) => ring.getCoordinates().length)),
-          declared, where);
-        } else {
-          const geometry = shapeGeometry(record) as MultiLineString;
-          assert.deepEqual(geometry.getLineStrings().map(
-            (line) => [line.getCoordinates().length]), declared, where);
-        }
+      worlds.push(
+        [`${slug}/${name}`, new WorldModel(name, payload, worldGrid(tileGrid(slug), payload), null)]);
+    }
+  }
+  const city = gamePlane();
+  for (const [name, payload] of city.worlds) {
+    worlds.push(
+      [`${city.slug}/${name}`, new WorldModel(name, payload, city.tileGrid, null)]);
+  }
+  let multipart = 0;
+  for (const [label, world] of worlds) {
+    for (const record of world.shapes) {
+      const declared = payloadParts(record);
+      if (declared.length > 1) multipart++;
+      const where = `${label}: ${record.title} (${record.id})`;
+      if (record.kind === "area") {
+        const geometry = shapeGeometry(record) as MultiPolygon;
+        assert.deepEqual(geometry.getPolygons().map(
+          (polygon) => polygon.getLinearRings().map((ring) => ring.getCoordinates().length)),
+        declared, where);
+      } else {
+        const geometry = shapeGeometry(record) as MultiLineString;
+        assert.deepEqual(geometry.getLineStrings().map(
+          (line) => [line.getCoordinates().length]), declared, where);
       }
     }
   }
-  assert.ok(multipart > 90, `the fixtures are multi-part enough to be a test (${multipart})`);
+  assert.ok(multipart > 90, `the volumes are multi-part enough to be a test (${multipart})`);
 });

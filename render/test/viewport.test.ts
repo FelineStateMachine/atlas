@@ -454,7 +454,7 @@ function standing(): {
 }
 
 function scene(surface: "plane" | "sphere"): Record<string, unknown> {
-  return { volume: "cyberpunk-2077", base: "/data/cyberpunk", world: "night-city", surface };
+  return { volume: "neon-harbor", base: "/data/neon-harbor", world: "old-quarter", surface };
 }
 
 const swapped = { volume: true, world: true, lens: true, filters: false,

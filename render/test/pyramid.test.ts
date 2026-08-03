@@ -1,22 +1,27 @@
-// What a lens holds, judged against the golden tile inventories.
+// What a lens holds, judged against the corpus tile inventories — and
+// against a split sheet small enough to inventory by hand.
 //
-// The inventories are the record of every tile in every fixture pyramid,
-// taken from the archives themselves. A reader that agrees with them agrees
-// about three separate things at once: the bounds a lens fills, the coverage
-// bitsets past `fullZoom` (and, as Mars shows, at every level a lens chooses
-// to declare one), and the per-level format table. Disagree about any of
-// them and this test names the tiles you invented and the ones you lost.
+// The corpus inventories are the record of every tile in every corpus
+// pyramid, taken from the archives themselves. A reader that agrees with
+// them agrees about three separate things at once: the bounds a lens fills,
+// the coverage bitsets past `fullZoom` (and, as Mars shows, at every level a
+// lens chooses to declare one), and the per-level format table. Disagree
+// about any of them and this test names the tiles you invented and the ones
+// you lost.
 //
-// Several lenses may name one pyramid — Tears of the Kingdom has three, one
-// per layer of a split sheet — so the derivation is compared as the union
-// over the lenses that name it, which is what a pyramid on disk actually is.
+// Several lenses may name one pyramid — a split sheet keeps one archive and
+// windows it three ways — so the derivation is compared as the union over
+// the lenses that name it, which is what a pyramid on disk actually is. No
+// corpus volume is split any more, so the invented sheet below carries that
+// case, with every expected tile written out longhand.
 
 import test from "node:test";
 import { strict as assert } from "node:assert";
 import { Coverage, inventoryNames, tileWindowAt } from "../data/pyramid.ts";
 import { inventories, payloads, tileGrid, volumes } from "./fixtures.ts";
+import { splitSheet } from "./models.ts";
 
-test("every golden pyramid is exactly the tiles the seam would ask for", () => {
+test("every corpus pyramid is exactly the tiles the seam would ask for", () => {
   let pyramids = 0;
   for (const slug of volumes()) {
     const grid = tileGrid(slug);
@@ -41,7 +46,41 @@ test("every golden pyramid is exactly the tiles the seam would ask for", () => {
       pyramids++;
     }
   }
-  assert.ok(pyramids >= 12, "every fixture pyramid was checked");
+  assert.equal(pyramids, 3, "bend-or's basemap and both mars captures were checked");
+});
+
+test("a split sheet's lenses share one pyramid, and the pyramid is their union", () => {
+  // The whole inventory, worked out by hand from the three bands. Level 0 is
+  // the square in one tile and every band touches it. At level 1 the 4096
+  // tiles split Sky and Land across row 0 and Depths onto row 1; at level 2
+  // each band owns its own row of four, and the square's bottom row belongs
+  // to nobody. Level 3 is Depths alone, past its `fullZoom`, and its bitset
+  // admits exactly three of the sixteen tiles its window touches.
+  const expected = [
+    "0/0/0.webp",
+    "1/0/0.webp", "1/0/1.webp", "1/1/0.webp", "1/1/1.webp",
+    "2/0/0.webp", "2/0/1.webp", "2/0/2.webp",
+    "2/1/0.webp", "2/1/1.webp", "2/1/2.webp",
+    "2/2/0.webp", "2/2/1.webp", "2/2/2.webp",
+    "2/3/0.webp", "2/3/1.webp", "2/3/2.webp",
+    "3/0/4.webp", "3/4/4.webp", "3/7/5.webp",
+  ];
+  const sheet = splitSheet();
+  const lenses = sheet.worlds.get("aloft")?.lenses ?? [];
+  assert.equal(new Set(lenses.map((lens) => lens.tiles)).size, 1, "one archive, three windows");
+
+  const union = new Set<string>();
+  for (const lens of lenses) {
+    for (const name of inventoryNames(lens, sheet.tileGrid)) union.add(name);
+  }
+  assert.deepEqual([...union].sort(), expected, "the pyramid on disk, tile for tile");
+
+  // And each band asks only for its own window: the level-0 tile is the one
+  // tile every lens shares, so the union is smaller than the sum.
+  const counts = lenses.map((lens) => inventoryNames(lens, sheet.tileGrid).length);
+  assert.deepEqual(counts, [7, 7, 10], "Sky, Land, and Depths with its three deep tiles");
+  assert.ok(counts.reduce((held, count) => held + count, 0) > union.size,
+    "the shared root tile is derived by every lens and stored once");
 });
 
 test("a coverage bitset is read least significant bit first, row major", () => {

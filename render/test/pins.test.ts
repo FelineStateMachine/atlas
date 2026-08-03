@@ -247,10 +247,10 @@ test("the planet turning brings the far side back, and nothing else moves", () =
 // ---- the standing count is the filters' answer ------------------------
 
 test("what is standing is what the legend left, wherever the camera points", () => {
-  // What the harness reads (`golden/parity/tour.js`, `paneOf`): the size of
-  // the map, and how many of the sprites in it are `visible`. On Mars the
-  // baselines record 2048 and 2048 -- the whole registry, nothing filtered --
-  // at steps where half the planet is turned away.
+  // What a diagnostics reading of the pane is: the size of the map, and how
+  // many of the sprites in it are `visible`. On Mars both numbers are 2048
+  // -- the whole registry, nothing filtered -- even with the camera pointed
+  // so that half the planet is turned away.
   const both = showing(world("mars", [NEAR, FAR], nothing));
   const standing = (element: InstanceType<typeof AtlasGlobe>): number =>
     [...element.seam.sprites.values()].filter((sprite) => sprite.visible).length;

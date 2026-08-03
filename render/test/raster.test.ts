@@ -1,8 +1,8 @@
 // What the two raster layers are configured with, judged against the lens.
 //
 // The tile *inventory* tests next door ask what the pair requests; these ask
-// what it draws, which is the other half of the same contract. Two of the
-// layer options are the lens's own declarations and were being dropped:
+// what it draws, which is the other half of the same contract. Three of the
+// layer options are the lens's own declarations and two were being dropped:
 //
 //   `background`  the colour the sheet was drawn on. The corner locator has
 //                 always painted it under its thumbnail, so a map that
@@ -16,11 +16,16 @@
 //                 still draws out there — a hole, or a neighbour's ground, in
 //                 the margin of a sparse pyramid or a piece of a split sheet.
 //
-// The fixtures carry all three cases: a lens with a background and no bounds
-// (bend-or's Basemap, on the whole world square), one with both (Fallout New
-// Vegas's Pip-Boy over the Mojave, whose window is a rectangle well inside
-// the square), and one with neither declaration (Cyberpunk's Default, which
-// bounds but does not colour).
+//   `interpolate` how an overzoomed tile is stretched: smooth for a
+//                 photograph, nearest-neighbour for pixel art. The seam only
+//                 ever repeats what the lens declares.
+//
+// The cases: a lens with a background and no bounds (bend-or's Basemap, on
+// the whole world square), one with bounds and no background (mars, whose
+// window is the top half of the square), one bounded well inside the square
+// with margin on every side (the invented city's Streets), and one with a
+// surface, no bounds and `interpolate: false` (its Hand-Drawn sheet) — the
+// nearest-neighbour declaration no corpus lens carries.
 
 import test from "node:test";
 import { strict as assert } from "node:assert";
@@ -29,11 +34,18 @@ import { DataPlane } from "../data/plane.ts";
 import type { Lens, TileGrid as GridSpec } from "../data/payload.ts";
 import { atlasProjection, lensExtent } from "../chart/projection.ts";
 import { TileCounter, buildRaster } from "../chart/raster.ts";
-import { payloads, tileGrid } from "./fixtures.ts";
+import { payloads, tileGrid, volumes } from "./fixtures.ts";
+import { gamePlane, splitSheet } from "./models.ts";
 
 function lensOf(slug: string, world: string, name: string): Lens {
   const found = payloads(slug).get(world)?.lenses.find((lens) => lens.name === name);
   assert.ok(found, `${slug}/${world} carries the ${name} lens`);
+  return found;
+}
+
+function invented(volume: ReturnType<typeof gamePlane>, world: string, name: string): Lens {
+  const found = volume.worlds.get(world)?.lenses.find((lens) => lens.name === name);
+  assert.ok(found, `${volume.slug}/${world} carries the ${name} lens`);
   return found;
 }
 
@@ -64,7 +76,7 @@ function backdrop(layer: { getBackground(): unknown }): unknown {
 test("the base layer carries the backdrop the lens declares, and the detail layer never does", () => {
   const grid = tileGrid("bend-or");
   const lens = lensOf("bend-or", "2026-08-02", "Basemap");
-  assert.equal(lens.background, "#14181d", "the fixture declares a backdrop");
+  assert.equal(lens.background, "#14181d", "the corpus declares a backdrop");
 
   const pair = raster(lens, grid);
   assert.equal(backdrop(pair.base), "#14181d", "the map paints what the shelf paints");
@@ -72,9 +84,9 @@ test("the base layer carries the backdrop the lens declares, and the detail laye
 });
 
 test("a lens with no backdrop leaves the layer with none", () => {
-  const grid = tileGrid("cyberpunk-2077");
-  const lens = lensOf("cyberpunk-2077", "night-city", "Default");
-  assert.equal(lens.background, undefined, "the fixture declares no backdrop");
+  const grid = tileGrid("mars");
+  const lens = lensOf("mars", "global", "Viking MDIM 2.1");
+  assert.equal(lens.background, undefined, "the corpus declares no backdrop");
 
   const pair = raster(lens, grid);
   assert.equal(backdrop(pair.base), undefined, "and nothing is invented for it");
@@ -82,49 +94,82 @@ test("a lens with no backdrop leaves the layer with none", () => {
 });
 
 test("both layers are clipped to the window a bounded lens fills", () => {
-  // The Pip-Boy pyramid over the Mojave is a 4,159 x 4,378 rectangle anchored
-  // at (2016, 2020) of an 8,192 square: a quarter of the world, with real
-  // margin on every side for an unclipped layer to draw into.
-  const grid = tileGrid("fallout-new-vegas");
-  const lens = lensOf("fallout-new-vegas", "mojave-wasteland", "Pip-Boy");
-  const rect = lens.bounds;
-  assert.ok(rect, "the fixture declares a window");
+  // The invented Streets pyramid is a 4,159 × 4,378 rectangle anchored at
+  // (2016, 2020) of an 8,192 square: a quarter of the world, with real
+  // margin on every side for an unclipped layer to draw into. By hand:
+  // [2016, −(2020 + 4378), 2016 + 4159, −2020].
+  const city = gamePlane();
+  const lens = invented(city, "old-quarter", "Streets");
+  assert.ok(lens.bounds, "the lens declares a window");
 
-  const window = [rect.x, -(rect.y + rect.height), rect.x + rect.width, -rect.y];
-  assert.deepEqual([...lensExtent(lens, grid)], window, "the camera's window and the layers' agree");
+  const window = [2016, -6398, 6175, -2020];
+  assert.deepEqual([...lensExtent(lens, city.tileGrid)], window,
+    "the camera's window and the layers' agree");
 
-  const pair = raster(lens, grid);
+  const pair = raster(lens, city.tileGrid);
   assert.deepEqual(extent(pair.base.getExtent()), window);
   assert.deepEqual(extent(pair.detail.getExtent()), window);
-  assert.notDeepEqual(window, [0, -grid.size, grid.size, 0], "and it is not the whole square");
+  assert.notDeepEqual(window, [0, -city.tileGrid.size, city.tileGrid.size, 0],
+    "and it is not the whole square");
 });
 
 test("a lens with no bounds is clipped to the whole world square", () => {
-  const grid = tileGrid("tunic");
-  const lens = lensOf("tunic", "world", "Default");
-  assert.equal(lens.bounds, undefined, "the fixture declares a surface and no window");
+  const city = gamePlane();
+  const drawn = invented(city, "old-quarter", "Hand-Drawn");
+  assert.equal(drawn.bounds, undefined, "the lens declares a surface and no window");
+  const pair = raster(drawn, city.tileGrid);
+  assert.deepEqual(extent(pair.base.getExtent()), [0, -8192, 8192, 0]);
+  assert.deepEqual(extent(pair.detail.getExtent()), [0, -8192, 8192, 0]);
 
-  const pair = raster(lens, grid);
-  assert.deepEqual(extent(pair.base.getExtent()), [0, -grid.size, grid.size, 0]);
-  assert.deepEqual(extent(pair.detail.getExtent()), [0, -grid.size, grid.size, 0]);
+  // And the real city agrees: bend-or's Basemap declares a surface — the
+  // whole square, as it happens — and no bounds.
+  const grid = tileGrid("bend-or");
+  const basemap = raster(lensOf("bend-or", "2026-08-02", "Basemap"), grid);
+  assert.deepEqual(extent(basemap.base.getExtent()), [0, -grid.size, grid.size, 0]);
 });
 
-test("every fixture lens gets the extent its own camera fits, on both layers", () => {
-  let checked = 0;
-  for (const slug of ["bend-or", "cyberpunk-2077", "fallout-new-vegas", "mars", "tunic",
-    "zelda-tears-of-the-kingdom"]) {
+test("the resampling a lens declares is the resampling both sources are built with", () => {
+  // Nearest-neighbour for pixel art, smooth for photographs — the lens says
+  // which, and the seam only ever repeats it. Every corpus lens declares
+  // `interpolate: true`, so the nearest-neighbour branch is exercised by the
+  // invented hand-drawn sheet and by nothing real; that hole is the corpus's,
+  // named in docs/render-seam.md, not the seam's.
+  const mars = raster(lensOf("mars", "global", "MOLA Elevation"), tileGrid("mars"));
+  assert.equal(mars.base.getSource()?.getInterpolate(), true, "a photograph, smoothly");
+  assert.equal(mars.detail.getSource()?.getInterpolate(), true);
+
+  const city = gamePlane();
+  const drawn = invented(city, "old-quarter", "Hand-Drawn");
+  assert.equal(drawn.interpolate, false, "the invented sheet is pixel art");
+  const pair = raster(drawn, city.tileGrid);
+  assert.equal(pair.base.getSource()?.getInterpolate(), false,
+    "magnified with bilinear smoothing, a drawing stops being a drawing");
+  assert.equal(pair.detail.getSource()?.getInterpolate(), false);
+});
+
+test("every lens, corpus and invented, gets the extent its own camera fits, on both layers", () => {
+  const cases: [string, Lens, GridSpec][] = [];
+  for (const slug of volumes()) {
     const grid = tileGrid(slug);
     for (const payload of payloads(slug).values()) {
+      for (const lens of payload.lenses) cases.push([`${slug}/${lens.name}`, lens, grid]);
+    }
+  }
+  for (const volume of [splitSheet(), gamePlane()]) {
+    for (const [world, payload] of volume.worlds) {
       for (const lens of payload.lenses) {
-        const pair = raster(lens, grid);
-        const window = [...lensExtent(lens, grid)];
-        assert.deepEqual(extent(pair.base.getExtent()), window, `${slug}/${lens.name}`);
-        assert.deepEqual(extent(pair.detail.getExtent()), window, `${slug}/${lens.name}`);
-        assert.equal(backdrop(pair.base), lens.background, `${slug}/${lens.name}`);
-        assert.equal(backdrop(pair.detail), undefined, `${slug}/${lens.name}`);
-        checked++;
+        cases.push([`${volume.slug}/${world}/${lens.name}`, lens, volume.tileGrid]);
       }
     }
   }
-  assert.ok(checked >= 20, `every fixture lens was checked (${checked})`);
+  for (const [name, lens, grid] of cases) {
+    const pair = raster(lens, grid);
+    const window = [...lensExtent(lens, grid)];
+    assert.deepEqual(extent(pair.base.getExtent()), window, name);
+    assert.deepEqual(extent(pair.detail.getExtent()), window, name);
+    assert.equal(backdrop(pair.base), lens.background, name);
+    assert.equal(backdrop(pair.detail), undefined, name);
+  }
+  assert.equal(cases.length, 8,
+    "three corpus lenses and five invented ones: every lens this suite knows");
 });

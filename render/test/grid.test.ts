@@ -1,36 +1,46 @@
-// The grid the chart draws, judged against a recorded parity step.
+// The grid the chart draws, judged against the documented halving.
 //
-// `golden/parity/<slug>/tour.json` records, for every step, the cells the
-// chart held: their ids, their extents, their roles, their context distance
-// and how many pins each holds. That is the analysis lane's plan as a
-// renderer actually consumed it, so reproducing a step is a check on four
-// things at once — the ground the systems are handed, the plan's frozen
-// emission order, the split between the chosen path and the dimmed context,
-// and the containment test the counts come out of.
+// Geohash divides a ground by alternating halvings, five bits to a
+// character, most significant bit first, x first — and the axis does NOT
+// reset between characters, so an odd character splits x three times and y
+// twice, and an even character does the opposite. That is the whole of the
+// arithmetic, so every extent below is computed from it by hand and inlined:
+// nothing here reads a recording, and a change to the halving moves these
+// numbers before it moves anything a reader sees.
 //
-// This runs entirely offline: the world's payload and packed locations come
-// from `golden/fixtures/`, and the expected cells come from the tour.
+// THE HAND DERIVATION, used throughout and spot-checked against literals:
+// for an odd-position character of ordinal v (bits b16 b8 b4 b2 b1), the
+// splits land x, y, x, y, x — so column = 4·b16 + 2·b4 + b1 of eight columns
+// and row = 2·b8 + b2 of four rows, rows counted from the extent's bottom
+// (a set bit keeps the upper half, and "up" in OL world coordinates is
+// toward 0). An even-position character starts on y: column = 2·b8 + b2 of
+// four, row = 4·b16 + 2·b4 + b1 of eight.
+//
+// The ground is real: mars, whose lens declares an 8192 × 4096 surface, so
+// its level-1 cells are 1024 × 1024 — and bend-or, a plane city on the whole
+// 8192 square, whose level-1 cells are 1024 × 2048. The pin counts are the
+// corpus's own locations, recounted here by an independent sweep against the
+// hand-derived boxes.
 
-import { readFileSync } from "node:fs";
-import { join } from "node:path";
 import test from "node:test";
 import { strict as assert } from "node:assert";
 import VectorSource from "ol/source/Vector.js";
 import type { FeatureLike } from "ol/Feature.js";
 import { cellSystems, gridCellVisual } from "@atlas/analysis";
-import type { PlanCell } from "@atlas/analysis";
-import { cellMoved, drawGrid } from "../chart/grid.ts";
+import type { Extent, PlanCell } from "@atlas/analysis";
+import { cellMoved, drawGrid, planCells } from "../chart/grid.ts";
 import { labelFitsCell } from "../chart/styles.ts";
 import type { DrawnCell } from "../chart/grid.ts";
 import { WorldModel, worldGrid } from "../world/model.ts";
+import type { PointRecord } from "../world/model.ts";
 import { Visibility } from "../world/visibility.ts";
 import { EMPTY_SCENE } from "../scene/read.ts";
 import { LocationTable } from "../data/atlasloc.ts";
-import { FIXTURES, locations, payloads, tileGrid } from "./fixtures.ts";
+import { locations, payloads, tileGrid } from "./fixtures.ts";
 import type { LocationsFixture } from "./fixtures.ts";
 
-const PARITY = join(FIXTURES, "..", "..", "parity");
-const PLANS = join(FIXTURES, "..", "..", "analysis", "plans");
+/** The alphabet, spelled out by hand: the child order and the plan order. */
+const ALPHABET = "0123456789bcdefghjkmnpqrstuvwxyz";
 
 /**
  * A page with a ruler on it.
@@ -51,19 +61,6 @@ const PLANS = join(FIXTURES, "..", "..", "analysis", "plans");
     }),
   }),
 };
-
-interface Step {
-  name: string;
-  snapshot: { grid: { prefix: string; extent: number[] | null; cells: DrawnCell[] } };
-}
-
-function step(slug: string, name: string): Step["snapshot"]["grid"] {
-  const tour = JSON.parse(
-    readFileSync(join(PARITY, slug, "tour.json"), "utf8")) as { steps: Step[] };
-  const found = tour.steps.find((entry) => entry.name === name);
-  assert.ok(found, `${slug} has a ${name} step`);
-  return found.snapshot.grid;
-}
 
 /** Pack a fixture's records so the model can be built from them. */
 function table(fixture: LocationsFixture): LocationTable {
@@ -106,66 +103,140 @@ function world(slug: string, name: string): WorldModel {
 }
 
 /**
- * As the snapshot would carry it.
+ * As a diagnostics snapshot would carry it.
  *
- * A tour snapshot is JSON, and JSON has one zero: the analysis lane's
- * surface extent legitimately produces `-0` for the top edge of a lens
- * anchored at y = 0 (docs/analysis.md), which serializes as `0`. Comparing
- * through the serializer is comparing what a parity run would actually diff.
+ * A snapshot is JSON, and JSON has one zero: the analysis lane's surface
+ * extent legitimately produces `-0` for the top edge of a lens anchored at
+ * y = 0 (docs/analysis.md), which serializes as `0`. Comparing through the
+ * serializer is comparing what a reader of the snapshot would actually see.
  */
 function asRecorded<T>(value: T): T {
   return JSON.parse(JSON.stringify(value)) as T;
 }
 
+/** The hand derivation from the header, one character at a time. */
+function handCell(surface: Extent, hash: string): Extent {
+  let [minX, minY, maxX, maxY] = surface;
+  for (let depth = 0; depth < hash.length; depth++) {
+    const v = ALPHABET.indexOf(hash[depth] ?? "");
+    const odd = depth % 2 === 0;
+    const column = odd ? ((v >> 4) & 1) * 4 + ((v >> 2) & 1) * 2 + (v & 1) : ((v >> 3) & 1) * 2 + ((v >> 1) & 1);
+    const row = odd ? ((v >> 3) & 1) * 2 + ((v >> 1) & 1) : ((v >> 4) & 1) * 4 + ((v >> 2) & 1) * 2 + (v & 1);
+    const columns = odd ? 8 : 4;
+    const rows = odd ? 4 : 8;
+    const width = (maxX - minX) / columns;
+    const height = (maxY - minY) / rows;
+    minX += width * column;
+    maxX = minX + width;
+    minY += height * row;
+    maxY = minY + height;
+  }
+  return [minX, minY, maxX, maxY];
+}
+
+test("the hand derivation lands on the numbers worked out on paper", () => {
+  const mars: Extent = [0, -4096, 8192, 0];
+  // "0" is every bit clear: the bottom-left corner. "m" is ordinal 19,
+  // binary 10011 — column 4+0+1 = 5, row 0+1 = 1. "z" is 31: the top-right.
+  assert.deepEqual(handCell(mars, "0"), [0, -4096, 1024, -3072]);
+  assert.deepEqual(handCell(mars, "m"), [5120, -3072, 6144, -2048]);
+  assert.deepEqual(handCell(mars, "z"), [7168, -1024, 8192, 0]);
+  // "6" in second position starts on y: ordinal 6, binary 00110 — column
+  // 2·0 + 1 = 1 of four 256-wide columns, row 0 + 2·1 + 0 = 2 of eight
+  // 128-tall rows. A depth-2 cell is 256 × 128, not 128 × 256.
+  assert.deepEqual(handCell(mars, "m6"), [5376, -2816, 5632, -2688]);
+  // And the third character is back on x: 32 × 32.
+  assert.deepEqual(handCell(mars, "m60"), [5376, -2816, 5408, -2784]);
+  assert.deepEqual(handCell(mars, "m6s"), [5504, -2752, 5536, -2720]);
+});
+
+/** The independent recount: standing pins inside a hand-derived box. */
+function sweep(points: readonly PointRecord[], extent: Extent): number {
+  // Closed intervals on every edge, exactly as the containment rule reads: a
+  // pin on a boundary belongs to both cells it touches.
+  return points.filter(({ coordinate: [x, y] }) =>
+    x >= extent[0] && x <= extent[2] && y >= extent[1] && y <= extent[3]).length;
+}
+
 /** Draw one grid the way the chart does, and answer what it held. */
 function draw(model: WorldModel, cell: string): {
-  cells: DrawnCell[]; extent: readonly number[] | null;
+  cells: DrawnCell[]; extent: readonly number[] | null; standing: PointRecord[];
 } {
   const lens = model.payload.lenses[0] ?? null;
   const ground = model.ground(lens);
   const system = cellSystems.require("geohash");
-  const standing = new Visibility(model, EMPTY_SCENE, lens?.shard ?? 0, null);
+  const standing = [...new Visibility(model, EMPTY_SCENE, lens?.shard ?? 0, null).standing()];
   const chosen = new VectorSource({ wrapX: false });
   const context = new VectorSource({ wrapX: false });
-  const drawn = drawGrid(ground, system, cell,
-    [...standing.standing()], chosen, context);
-  const cells = [...chosen.getFeatures(), ...context.getFeatures()]
-    .map((feature) => feature.get("gridCell") as DrawnCell);
-  return { cells, extent: drawn.extent };
+  const drawn = drawGrid(ground, system, cell, standing, chosen, context);
+  // `drawn.cells` is the plan's own order; the sources hand features back in
+  // whatever order their index likes, so the two are checked against each
+  // other as sets and the ordering claims are made of the draw's account.
+  const held = [...chosen.getFeatures(), ...context.getFeatures()]
+    .map((feature) => (feature.get("gridCell") as DrawnCell).hash).sort();
+  assert.deepEqual(held, drawn.cells.map((cell) => cell.hash).sort(),
+    "every planned cell became a feature on one of the two sources");
+  return { cells: drawn.cells, extent: drawn.extent, standing };
 }
 
-test("the root grid over Mars is the one the tour recorded", () => {
-  const recorded = step("mars", "grid-open");
-  const drawn = draw(world("mars", "global"), recorded.prefix);
-  assert.deepEqual(asRecorded(drawn.extent), recorded.extent, "the ground the system divides");
+test("the root grid over Mars is the thirty-two children of the lens's surface", () => {
+  const surface: Extent = [0, -4096, 8192, 0];
+  const { cells, extent, standing } = draw(world("mars", "global"), "");
+  assert.deepEqual(asRecorded(extent), [...surface], "the ground the system divides");
+  assert.equal(standing.length, 2048, "every pin the corpus world holds is standing");
   assert.deepEqual(
-    drawn.cells.map((cell) => [cell.hash, cell.role, cell.contextDistance]).sort(),
-    recorded.cells.map((cell) => [cell.hash, cell.role, cell.contextDistance]).sort(),
-    "the cells the grid holds");
-  for (const cell of recorded.cells) {
-    const mine = drawn.cells.find((candidate) => candidate.hash === cell.hash);
-    assert.ok(mine, `cell ${cell.hash} was drawn`);
-    assert.deepEqual(asRecorded([...mine.extent]), cell.extent, `cell ${cell.hash}: extent`);
-    assert.equal(mine.count, cell.count, `cell ${cell.hash}: the pins it holds`);
+    cells.map((cell) => [cell.hash, cell.role, cell.contextDistance]),
+    [...ALPHABET].map((character) => [character, "child", 0]),
+    "one child per character, in the alphabet's own order, and nothing else");
+  for (const cell of cells) {
+    assert.deepEqual(asRecorded([...cell.extent]), asRecorded([...handCell(surface, cell.hash)]),
+      `cell ${cell.hash}: the hand-derived box`);
+    assert.equal(cell.count, sweep(standing, handCell(surface, cell.hash)),
+      `cell ${cell.hash}: the pins it holds, recounted independently`);
   }
+  // Two anchors read straight off the corpus, so the sweep itself is held to
+  // something: of the 2,048 Trek locations, 26 stand in "0" and 95 in "m".
+  assert.equal(cells.find((cell) => cell.hash === "0")?.count, 26);
+  assert.equal(cells.find((cell) => cell.hash === "m")?.count, 95);
 });
 
 test("descending into a cell holds its neighbours as context", () => {
-  const recorded = step("mars", "grid-descended");
-  const drawn = draw(world("mars", "global"), recorded.prefix);
-  assert.deepEqual(asRecorded(drawn.extent), recorded.extent, "the held cell is the ground now");
-  const roles = (cells: DrawnCell[]) => {
-    const held: Record<string, number> = {};
-    for (const cell of cells) held[cell.role] = (held[cell.role] ?? 0) + 1;
-    return held;
-  };
-  assert.deepEqual(roles(drawn.cells), roles(recorded.cells), "how many cells of each role");
-  for (const cell of recorded.cells) {
-    const mine = drawn.cells.find((candidate) => candidate.hash === cell.hash);
-    assert.ok(mine, `cell ${cell.hash} was drawn`);
-    assert.equal(mine.role, cell.role, `cell ${cell.hash}: role`);
-    assert.equal(mine.contextDistance, cell.contextDistance, `cell ${cell.hash}: distance`);
-    assert.equal(mine.count, cell.count, `cell ${cell.hash}: the pins it holds`);
+  const surface: Extent = [0, -4096, 8192, 0];
+  const { cells, extent, standing } = draw(world("mars", "global"), "m");
+  assert.deepEqual(asRecorded(extent), [5120, -3072, 6144, -2048],
+    "the held cell is the ground now");
+  const roles: Record<string, number> = {};
+  for (const cell of cells) roles[cell.role] = (roles[cell.role] ?? 0) + 1;
+  assert.deepEqual(roles, { child: 32, scope: 1, neighbor: 31 },
+    "the subdivision, the held boundary, and every sibling dimmed around it");
+  for (const cell of cells) {
+    assert.equal(cell.contextDistance, cell.role === "neighbor" ? 1 : 0,
+      `cell ${cell.hash}: one level of ancestors means one distance`);
+    assert.deepEqual(asRecorded([...cell.extent]), asRecorded([...handCell(surface, cell.hash)]),
+      `cell ${cell.hash}: the hand-derived box`);
+    assert.equal(cell.count, sweep(standing, handCell(surface, cell.hash)),
+      `cell ${cell.hash}: the pins it holds, recounted independently`);
+  }
+  assert.deepEqual(
+    cells.filter((cell) => cell.role === "child").map((cell) => cell.hash),
+    [...ALPHABET].map((character) => `m${character}`),
+    "the children refine the held address by one character");
+});
+
+test("a plane city's root grid divides the whole world square", () => {
+  // bend-or's Basemap declares the full 8192 square as its surface, so a
+  // level-1 cell here is 1024 × 2048 — same alphabet, different ground.
+  const surface: Extent = [0, -8192, 8192, 0];
+  const { cells, extent, standing } = draw(world("bend-or", "2026-08-02"), "");
+  assert.deepEqual(asRecorded(extent), [...surface]);
+  assert.equal(standing.length, 65, "the city corpus stands 65 pins");
+  assert.deepEqual(asRecorded([...(cells.find((cell) => cell.hash === "0")?.extent ?? [])]),
+    [0, -8192, 1024, -6144], "column 0, bottom row of four 2048-tall rows");
+  assert.deepEqual(asRecorded([...(cells.find((cell) => cell.hash === "z")?.extent ?? [])]),
+    [7168, -2048, 8192, 0], "column 7, top row");
+  for (const cell of cells) {
+    assert.equal(cell.count, sweep(standing, handCell(surface, cell.hash)),
+      `cell ${cell.hash}: the pins it holds, recounted independently`);
   }
 });
 
@@ -190,9 +261,9 @@ test("the chosen path draws under the pins and the context over them", () => {
 // is three, the plan holds all thirty-two of them, and typing a depth-three
 // address works.
 //
-// The plan was never the problem. `golden/analysis/plans/contract.json` pins
-// it: the same ground the tour walks, held at "m6", with thirty-two children
-// under it. What was wrong is *when* the question "can this cell carry its
+// The plan was never the problem: held at "m6", it carries thirty-two
+// children, in the frozen emission order the first test below spells out by
+// hand. What was wrong is *when* the question "can this cell carry its
 // address?" was asked. A child too small for its label draws **nothing**
 // (analysis/cellsystems/visual.ts), so that one boolean decides whether the
 // subdivision exists — and it was answered once, while the grid was being
@@ -202,24 +273,8 @@ test("the chosen path draws under the pins and the context over them", () => {
 // levels down every one of them failed.
 //
 // So the fit gate belongs to the style function, where OpenLayers hands the
-// resolution being drawn at. These tests are that, in numbers taken from the
-// contract and from the tour.
-
-interface PlanStep {
-  step: string;
-  system: string;
-  cell: string;
-  subgridVisible: boolean;
-  plan: { hash: string; extent: number[]; role: string }[];
-}
-
-function contractStep(name: string): PlanStep {
-  const contract = JSON.parse(readFileSync(
-    join(PLANS, "contract.json"), "utf8")) as { steps: PlanStep[] };
-  const found = contract.steps.find((entry) => entry.step === name);
-  assert.ok(found, `the plan contract has a ${name} case`);
-  return found;
-}
+// resolution being drawn at. These tests are that, in numbers derived from
+// the halving and from the ruler stub above.
 
 /** Every feature one draw built, chosen path first, in the sources' own order. */
 function features(model: WorldModel, cell: string): FeatureLike[] {
@@ -245,15 +300,29 @@ function paints(cell: PlanCell, resolution: number, subgridVisible: boolean): bo
   }) !== null;
 }
 
-test("a cell held two levels down plans every one of its children", () => {
-  const recorded = contractStep("geohash-depth-2");
-  const cells = planned(world("mars", "global"), recorded.cell);
+test("a cell held two levels down plans every one of its children, in the frozen order", () => {
+  // The emission order, spelled out by hand from the contract: each
+  // ancestor's children root-first, skipping the one on the path — thirty-one
+  // at distance two, thirty-one at distance one — then the held cell as the
+  // scope, then its thirty-two children.
+  const expected: [string, string, number][] = [
+    ...[...ALPHABET].filter((c) => c !== "m").map((c): [string, string, number] => [c, "neighbor", 2]),
+    ...[...ALPHABET].filter((c) => c !== "6").map((c): [string, string, number] => [`m${c}`, "neighbor", 1]),
+    ["m6", "scope", 0],
+    ...[...ALPHABET].map((c): [string, string, number] => [`m6${c}`, "child", 0]),
+  ];
+  const model = world("mars", "global");
+  const plan = planCells(
+    model.ground(model.payload.lenses[0] ?? null), cellSystems.require("geohash"), "m6");
   assert.deepEqual(
-    cells.map((cell) => [cell.hash, cell.role]).sort(),
-    recorded.plan.map((cell) => [cell.hash, cell.role]).sort(),
-    "the contract's own plan, cell for cell");
-  assert.equal(cells.filter((cell) => cell.role === "child").length, 32,
+    plan.map((cell) => [cell.hash, cell.role, cell.contextDistance]), expected,
+    "ninety-five cells, position for position");
+  assert.equal(plan.filter((cell) => cell.role === "child").length, 32,
     "thirty-two children, one level above the cap");
+  assert.deepEqual(
+    planned(model, "m6").map((cell) => cell.hash).sort(),
+    plan.map((cell) => cell.hash).sort(),
+    "and the drawn features carry that same plan, cell for cell");
   // AND NOTHING ABOUT HOW THEY LOOK IS DECIDED HERE. A visual baked onto the
   // feature is a visual decided at the wrong moment: the camera moves between
   // a grid being built and a reader seeing it, and the answer never changed
@@ -265,17 +334,17 @@ test("a cell held two levels down plans every one of its children", () => {
 });
 
 test("and draws them, once the camera has landed on the cell it was flown to", () => {
-  const recorded = contractStep("geohash-depth-2");
-  const cells = planned(world("mars", "global"), recorded.cell);
+  const cells = planned(world("mars", "global"), "m6");
   const children = cells.filter((cell) => cell.role === "child");
-  // The resolution the parent was being read at when the descent was asked
-  // for: `grid-descended` in the mars tour, holding "m" one level up. Judged
-  // there, a 32-pixel child is 16 pixels across and cannot carry "m60".
-  const leaving = 2.007843137254902;
+  // The gate's own arithmetic, with the ruler stub above: a three-character
+  // chip at 11 px is 3 · 11 · 0.6 + 10 of padding = 29.8 screen pixels, and a
+  // child of "m6" is 32 world pixels across — so it carries its address only
+  // below 32 / 29.8 ≈ 1.07 world pixels per screen pixel.
+  const leaving = 2; // reading "m" from far enough out that a child is 16 px
   assert.equal(children.some((cell) => paints(cell, leaving, true)), false,
     "no child fits its address at the zoom the camera is leaving — which is what was drawn");
-  // Where the camera actually lands: the held cell, 256 by 128, fitted into
-  // the window with its padding, snapped to the pyramid's own ladder.
+  // Where the camera actually lands: a rung of the pyramid's own ladder well
+  // under the gate, where the same child is 128 screen pixels across.
   const landed = 0.25;
   for (const child of children) {
     assert.equal(paints(child, landed, true), true,
@@ -293,8 +362,7 @@ test("the subdivision still answers to the reader's own switch", () => {
 });
 
 test("a cell at the cap is a leaf with nothing under it", () => {
-  const recorded = contractStep("geohash-leaf");
-  const cells = planned(world("mars", "global"), recorded.cell);
+  const cells = planned(world("mars", "global"), "m6s");
   assert.equal(cells.filter((cell) => cell.role === "leaf").length, 1);
   assert.equal(cells.filter((cell) => cell.role === "child").length, 0,
     "the floor of the telescope divides no further");
@@ -302,6 +370,8 @@ test("a cell at the cap is a leaf with nothing under it", () => {
   // reader asked for, not a subdivision offered to them.
   const leaf = cells.find((cell) => cell.role === "leaf");
   assert.ok(leaf);
+  assert.deepEqual(asRecorded([...leaf.extent]), [5504, -2752, 5536, -2720],
+    "a 32-pixel square, three characters down");
   assert.equal(paints(leaf, 64, true), true, "even from far enough out to lose its chip");
 });
 
