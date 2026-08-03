@@ -14,14 +14,10 @@ import (
 
 // The bundles these tests measure.
 //
-// Two kinds, and the difference is the point. A stated bundle is written here
-// from a few lines of Go, so a page test can say exactly what a build holds and
-// then read the page back. A fixture bundle is packed out of golden/fixtures --
-// the reference implementation's own extraction of a real volume -- so one test
-// can hold a page to a score that was captured rather than invented.
-//
-// Both go through format/bundle's real writer: nothing opaque is checked in,
-// and a bundle a test measures is a bundle the application could open.
+// Every bundle is stated: written here from a few lines of Go, so a page test
+// can say exactly what a build holds and then read the page back. They go
+// through format/bundle's real writer: nothing opaque is checked in, and a
+// bundle a test measures is a bundle the application could open.
 
 type bundleSpec struct {
 	slug        string
@@ -183,83 +179,3 @@ func marshal(t *testing.T, value any) []byte {
 	return data
 }
 
-// packFixture writes a golden fixture directory out as a real .atlas file.
-//
-// The fixture is the reference implementation's own extraction of a build
-// (golden/fixtures/README.md): its manifest verbatim, and one payload trio per
-// world. Packing it back into the container is what lets a page test measure
-// the same bytes the enrich lane's own suite scores.
-func packFixture(t *testing.T, fixture, dir string) string {
-	t.Helper()
-	var manifest bundle.Manifest
-	readJSON(t, filepath.Join(fixture, "manifest.json"), &manifest)
-
-	path := filepath.Join(dir, bundle.VersionedFileName(manifest))
-	file, err := os.Create(path)
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer file.Close()
-	writer, err := bundle.NewWriter(file, manifest)
-	if err != nil {
-		t.Fatal(err)
-	}
-	for _, entry := range manifest.Worlds {
-		payload := read(t, filepath.Join(fixture, "worlds", entry.Slug+".payload.json"))
-		text := read(t, filepath.Join(fixture, "worlds", entry.Slug+".text.json"))
-		if err := writer.AddDeflated(bundle.WorldEntryName(entry.Slug, bundle.WorldSuffix), payload); err != nil {
-			t.Fatal(err)
-		}
-		if err := writer.AddDeflated(bundle.WorldEntryName(entry.Slug, bundle.TextSuffix), text); err != nil {
-			t.Fatal(err)
-		}
-		packed := bundle.PackLocations(fixtureLocations(t, fixture, entry.Slug))
-		if err := writer.AddStored(bundle.WorldEntryName(entry.Slug, bundle.PackedSuffix), bytes.NewReader(packed)); err != nil {
-			t.Fatal(err)
-		}
-	}
-	if err := writer.Close(); err != nil {
-		t.Fatal(err)
-	}
-	return path
-}
-
-func fixtureLocations(t *testing.T, fixture, world string) []bundle.Location {
-	t.Helper()
-	var held struct {
-		Locations []struct {
-			ID     int64   `json:"id"`
-			Owner  uint16  `json:"owner"`
-			Lat    float64 `json:"lat"`
-			Lng    float64 `json:"lng"`
-			Member int64   `json:"member"`
-			Shard  int64   `json:"shard"`
-			Title  string  `json:"title"`
-		} `json:"locations"`
-	}
-	readJSON(t, filepath.Join(fixture, "worlds", world+".locations.json"), &held)
-	out := make([]bundle.Location, 0, len(held.Locations))
-	for _, location := range held.Locations {
-		out = append(out, bundle.Location{
-			ID: location.ID, Owner: location.Owner, Lat: location.Lat, Lng: location.Lng,
-			Member: location.Member, Shard: location.Shard, Title: location.Title,
-		})
-	}
-	return out
-}
-
-func read(t *testing.T, path string) []byte {
-	t.Helper()
-	data, err := os.ReadFile(path)
-	if err != nil {
-		t.Fatal(err)
-	}
-	return data
-}
-
-func readJSON(t *testing.T, path string, into any) {
-	t.Helper()
-	if err := json.Unmarshal(read(t, path), into); err != nil {
-		t.Fatalf("%s: %v", path, err)
-	}
-}

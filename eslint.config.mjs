@@ -68,9 +68,9 @@ const consoleRule = {
 
 export default tseslint.config(
   {
-    // Fixtures are data, not source: they are compared byte for byte, and a
-    // linter that reformatted one would be breaking the gate that reads it.
-    ignores: ["golden/fixtures/**", "**/node_modules/**", "**/dist/**", "**/build/**"],
+    // The corpus is data, not source: it is compared byte for byte, and a
+    // linter that reformatted a file would be breaking the test that reads it.
+    ignores: ["testdata/corpus/**", "**/node_modules/**", "**/dist/**", "**/build/**"],
   },
 
   {

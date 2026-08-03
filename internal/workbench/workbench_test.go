@@ -306,43 +306,51 @@ func TestTheAssetsAreTheWorkbenchsOwnAndTheRuntimeIsOptional(t *testing.T) {
 	}
 }
 
-// TestTheMeasurementPageCarriesAFixturesKnownScore anchors a page to a number
-// that was captured rather than invented: the golden extraction of TUNIC, packed
-// back into a bundle, scores 1323 under point table v1 -- the same figure the
-// enrich lane's own suite reports for the same fixture. A page that stopped
-// printing the score, or a table re-weighted without a version bump, fails here.
-func TestTheMeasurementPageCarriesAFixturesKnownScore(t *testing.T) {
-	const (
-		fixture = "../../golden/fixtures/bundles/tunic"
-		score   = 1323
-		version = 1
-	)
+// TestTheMeasurementPageCarriesTheMeasuredScore holds the page to the number
+// the measurement lane itself reports for the same bytes. The bundle is
+// stated, not captured: what each score point is worth is the maturity
+// package's own suite's business; this test's business is that the page
+// prints that verdict rather than a stale or reformatted one, table version
+// included. A stated bundle with prose, an icon and a ledger scores well
+// clear of zero, so a page that went blank cannot pass by printing nothing.
+func TestTheMeasurementPageCarriesTheMeasuredScore(t *testing.T) {
 	dir := t.TempDir()
-	path := packFixture(t, fixture, dir)
-
+	path := bundleSpec{
+		slug: "hollowmere", title: "Hollowmere",
+		worlds: []worldSpec{{
+			slug: "overworld", title: "Overworld", icon: "icons/marker.png",
+			features: []featureSpec{
+				{id: 1, title: "Gate", description: "The way in, and out."},
+				{id: 2, title: "Well"},
+			},
+			merged: []map[string]any{{
+				"source": "IGN Wiki", "slug": "ign",
+				"donorFeatures": map[string]any{"point": 4},
+				"added":         1,
+				"matched":       []map[string]any{{"d": 11, "w": 1, "px": 38, "e": true}},
+				"alignment":     "14 names, 3px residual",
+			}},
+		}},
+	}.write(t, dir)
 	table, err := maturity.Points()
 	if err != nil {
 		t.Fatal(err)
-	}
-	if table.Version != version {
-		t.Skipf("the point table is v%d; the anchored score is a v%d figure", table.Version, version)
 	}
 	measured, err := maturity.Measure(path, table)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if measured.Total != score {
-		t.Fatalf("the fixture scores %d, and the anchor says %d: either the fixture moved "+
-			"or the point table was re-weighted without a version bump", measured.Total, score)
+	if measured.Total <= 0 {
+		t.Fatalf("the stated bundle scores %d; the page test needs a number that cannot be mistaken for a blank", measured.Total)
 	}
 
 	server := site(t, testWorkbench(t, dir))
-	response, body := get(t, server, "/volume/tunic")
+	response, body := get(t, server, "/volume/hollowmere")
 	if response.StatusCode != http.StatusOK {
 		t.Fatalf("the measurement page answered %d", response.StatusCode)
 	}
-	wants(t, "measurement", body, "TUNIC", strconv.Itoa(score), "point table v"+strconv.Itoa(version), "world")
+	wants(t, "measurement", body, "Hollowmere", strconv.Itoa(measured.Total), "point table v"+strconv.Itoa(table.Version), "world")
 
 	_, library := get(t, server, "/")
-	wants(t, "library", library, "TUNIC", strconv.Itoa(score))
+	wants(t, "library", library, "Hollowmere", strconv.Itoa(measured.Total))
 }

@@ -1,6 +1,6 @@
-// Reading the golden fixtures, for the tests that judge the lane against them.
+// Reading the corpus, for the tests that judge the lane against real data.
 //
-// `golden/fixtures/bundles/<slug>/` is a committed extraction of one build:
+// `testdata/corpus/bundles/<slug>/` is a committed extraction of one build:
 // the manifest, each world's payload and unpacked locations, and a per-pyramid
 // tile inventory with content and decoded-pixel digests. No rasters and no
 // archives are in the repository, so everything here is JSON — which is
@@ -13,8 +13,8 @@ import type { TileGrid, WorldPayload } from "../data/payload.ts";
 
 const here = fileURLToPath(new URL(".", import.meta.url));
 
-/** The repository's golden fixture root. */
-export const FIXTURES = join(here, "..", "..", "golden", "fixtures", "bundles");
+/** The repository's corpus root. */
+export const FIXTURES = join(here, "..", "..", "testdata", "corpus", "bundles");
 
 /** Every fixture volume, by slug. */
 export function volumes(): string[] {

@@ -1,29 +1,21 @@
-# Line endings, for a harness that runs on three platforms.
+# Line endings, for tests that run on three platforms.
 #
-# The golden gates compare bytes: a fixture against a capture, a generated
-# artifact against the committed one, a manifest against the manifest a build
-# actually wrote. Git's default on Windows is to rewrite line endings on
-# checkout, which would turn every one of those comparisons into a diff of
-# invisible characters. So the working tree is LF everywhere, on every
-# platform, and the files that are data rather than text are never touched at
-# all.
+# The tests compare bytes: a generated artifact against the committed one, a
+# manifest against the manifest a build actually wrote. Git's default on
+# Windows is to rewrite line endings on checkout, which would turn every one
+# of those comparisons into a diff of invisible characters. So the working
+# tree is LF everywhere, on every platform, and the files that are data rather
+# than text are never touched at all.
 
 * text=auto eol=lf
 
-# The captured fixtures are data. They were extracted from bundles the
-# reference implementation wrote, and nothing may transform them between the
-# capture and the comparison -- not an editor, not a checkout.
-golden/fixtures/**              -text
+# The corpus is data. It was extracted from bundles built out of public
+# sources -- city open data and NASA Trek -- and nothing may transform it
+# between the extraction and the comparison: not an editor, not a checkout.
+testdata/corpus/**              -text
 golden/analysis/vectors/*.json  -text
 golden/analysis/plans/*.json    -text
 golden/analysis/plans/contract.json -text
-golden/parity/FIXTURES.json     -text
-golden/parity/**/tour.json      -text
-
-# The parity pictures are photographs, compared pixel for pixel against a
-# fresh walk's own. A checkout that touched one would be a difference nobody
-# introduced, on the one gate whose whole point is that no count can see it.
-golden/parity/screens/**/*.png  binary
 
 # Bundles are zip archives. None is committed today; if one ever is, it is
 # bytes.
