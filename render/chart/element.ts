@@ -42,7 +42,7 @@ import { logger } from "../log.ts";
 import type { DataPlane } from "../data/plane.ts";
 import { reportGridPick, reportPick } from "../data/report.ts";
 import type { WorldContext } from "../context.ts";
-import type { Lens } from "../data/payload.ts";
+import type { Lens, TileGrid } from "../data/payload.ts";
 import type { PointRecord, ShapeRecord } from "../world/model.ts";
 import { COORDINATE_SYSTEM, atlasProjection, lensExtent, viewMaxZoom } from "./projection.ts";
 import { TileCounter, buildRaster } from "./raster.ts";
@@ -76,6 +76,71 @@ const GRID_FIT_PADDING = 52;
  * screen rather than as a shape with a size.
  */
 const ZONE_FIT_PADDING = 54;
+
+/** A camera, in the one shape both panes and the session speak it in. */
+export interface Camera {
+  readonly x: number;
+  readonly y: number;
+  readonly zoom: number;
+  readonly rotation: number;
+}
+
+/**
+ * A camera fit to be put on a view, or nothing.
+ *
+ * THE BOUNDARY GUARD, and the reference has exactly one of it: the sphere's
+ * write-back checked that both coordinates were numbers before handing them
+ * to the map, because — its own words — "a broken number here once blacked
+ * out both panes with no way back" (frontend/src/globe.js). That is the
+ * defect this whole function is a widening of, and the widening is the point:
+ * a camera crosses between the two panes in both directions, is carried
+ * across a lens rebuild, and arrives out of a session record written by an
+ * older build, and every one of those is a place a number can be wrong.
+ *
+ * THREE WAYS TO BE WRONG, and only the first is about `NaN`.
+ *
+ *   NOT A NUMBER. `NaN` in a centre is terminal and silent: OpenLayers keeps
+ *   it, every constraint passes it through, and no control a reader has can
+ *   move it — a pan adds to it, a zoom leaves it alone. The pane is blank
+ *   until the page is thrown away. So a camera with one of these in it is not
+ *   repaired, it is refused.
+ *
+ *   DEEPER THAN THE LENS. A perfectly finite zoom past `viewMaxZoom` is a
+ *   camera the pyramid has no level for. It is reachable: a camera fitted
+ *   while its pane had no window lands at whatever the deepest level is, and
+ *   the lens it lands on may not be the lens it fronts under.
+ *
+ *   OFF THE WORLD. A finite centre outside the lens's own square is ground
+ *   that was never drawn, so the raster serves nothing and the view spends
+ *   its time being pushed back by its own extent constraint.
+ *
+ * The last two are clamped rather than refused, because a reader who is one
+ * level too deep asked to be nearly there. Clamping is exact — `Math.min` and
+ * `Math.max` of a value already inside its range answer the value itself, bit
+ * for bit — so a healthy camera comes back out of here unmoved, which is what
+ * lets this stand on every boundary without moving a recorded step.
+ */
+export function saneCamera(
+  camera: Camera | null | undefined, lens: Lens | null, grid: TileGrid,
+): Camera | null {
+  if (!camera) return null;
+  const { x, y, zoom, rotation } = camera;
+  if (!Number.isFinite(x) || !Number.isFinite(y) ||
+    !Number.isFinite(zoom) || !Number.isFinite(rotation)) return null;
+  const [minX = 0, minY = 0, maxX = 0, maxY = 0] = lensExtent(lens, grid);
+  return {
+    x: Math.min(Math.max(x, minX), maxX),
+    y: Math.min(Math.max(y, minY), maxY),
+    zoom: Math.min(Math.max(zoom, 0), viewMaxZoom(lens)),
+    rotation,
+  };
+}
+
+/** Whether two cameras are the same one, to the last bit of every field. */
+export function sameCamera(a: Camera | null, b: Camera | null): boolean {
+  if (!a || !b) return a === b;
+  return a.x === b.x && a.y === b.y && a.zoom === b.zoom && a.rotation === b.rotation;
+}
 
 /**
  * The rectangle a shape occupies, or nothing when it carries no drawable
@@ -518,17 +583,106 @@ export class AtlasChart extends HTMLElement {
     const lens = this.context?.lens;
     if (!view || !lens) return;
     const standing = view.getZoom() ?? 0;
+    // A step is taken from where the camera stands, and a camera standing
+    // nowhere has no step to take from: `??` catches a view with no
+    // resolution and not a view whose resolution is not a number, and adding
+    // one to `NaN` is how a pane that went blank once stays blank through
+    // every press afterwards. Putting the camera back is the more useful
+    // answer to the press than ignoring it.
+    if (!Number.isFinite(standing)) {
+      this.front();
+      return;
+    }
     view.animate({
       zoom: Math.min(Math.max(standing + delta, lens.minZoom), viewMaxZoom(lens)),
       duration: 140,
     });
   }
 
-  /** Put the camera somewhere — the globe handing a view back, or a jump. */
+  /**
+   * Put the camera somewhere — the globe handing a view back, a jump, a lens
+   * rebuild carrying one across, or the session handing back where the reader
+   * left off.
+   *
+   * THE ONE DOOR, which is why the guard is here and not at each of those
+   * four. Every camera this pane is ever *told* comes through this call, so a
+   * camera that cannot be put on a view is caught once, wherever it came
+   * from, and answered with the world's own opening view rather than with a
+   * blank pane (`saneCamera`).
+   */
   goTo(x: number, y: number, zoom: number, rotation = 0): void {
-    this.view?.setCenter([x, y]);
-    this.view?.setZoom(zoom);
-    this.view?.setRotation(rotation);
+    const context = this.context;
+    if (!this.view || !context) return;
+    const sane = saneCamera({ x, y, zoom, rotation }, context.lens, context.grid);
+    if (!sane) {
+      log.warn("a camera that is not a place was refused", {
+        op: "render", world: context.model.slug, x: String(x), y: String(y),
+        zoom: String(zoom), rotation: String(rotation),
+      });
+      this.fitWorld();
+      return;
+    }
+    this.view.setCenter([sane.x, sane.y]);
+    this.view.setZoom(sane.zoom);
+    this.view.setRotation(sane.rotation);
+  }
+
+  /**
+   * Come back up, and stand somewhere real while doing it.
+   *
+   * A CAMERA THAT WAS NEVER LOOKED THROUGH. Behind the sphere this pane keeps
+   * moving — a filter, a lens, above all a cell descent, whose fit is made
+   * against a window of no size and therefore lands at the deepest level the
+   * lens has (`drawGrid`, and every recorded globe step is a reading of it).
+   * That is right while nobody is looking and it is the standing view the
+   * moment somebody is, so the camera is asked whether it is a place at
+   * exactly the moment it becomes one: fronting, rather than while hidden.
+   * Checking it earlier would move what the baselines pin; checking it here
+   * moves nothing that was already sane.
+   *
+   * Which is the other half: a healthy camera is left *untouched* rather than
+   * rewritten with its own numbers. A `setCenter` here would raise a move on
+   * every pane swap, and a move is a report, a recount and a redrawn corner.
+   */
+  front(): void {
+    const context = this.context;
+    if (!this.view || !context) return;
+    const standing = this.camera();
+    const sane = saneCamera(standing, context.lens, context.grid);
+    if (sane && sameCamera(sane, standing)) return;
+    if (!sane) {
+      log.warn("the pane came up over a camera that is not a place", {
+        op: "render", world: context.model.slug, camera: JSON.stringify(standing),
+      });
+      this.fitWorld();
+      return;
+    }
+    this.goTo(sane.x, sane.y, sane.zoom, sane.rotation);
+  }
+
+  /**
+   * The world's own opening view: everything the lens drew, in the window
+   * there is.
+   *
+   * It is the answer to a camera that could not be repaired, and it is the
+   * same fit a volume opens on when the session has no camera to hand back —
+   * one arithmetic, so a reader recovering from a broken camera lands exactly
+   * where a reader arriving for the first time does.
+   *
+   * THE SIZE IS THE PANE'S WHEN THE MAP HAS NONE. A map behind the sphere
+   * reports `[0, 0]`, and a fit into no window is the arithmetic that made
+   * the camera suspect in the first place; falling back to what the element
+   * measures keeps the recovery a recovery.
+   */
+  private fitWorld(): void {
+    const context = this.context;
+    if (!this.view || !context) return;
+    const size = this.map?.getSize();
+    const window: [number, number] = size && size[0] && size[1]
+      ? [size[0], size[1]]
+      : [this.clientWidth || 1, this.clientHeight || 1];
+    this.view.fit(lensExtent(context.lens, context.grid) as [number, number, number, number],
+      { size: window, nearest: false });
   }
 
   /**
@@ -761,16 +915,20 @@ export class AtlasChart extends HTMLElement {
       if (carried) this.view.animate({ center: carried, duration: 200 });
     }
 
-    const extent = lensExtent(context.lens, context.grid);
-    const size = this.map.getSize() ?? [1, 1];
     // Shard crossing: swapping to a lens that draws another layer of the same
     // split world keeps the camera exactly where it was. The reader stepped
     // between floors of one building, not into another world, and a refit
     // would throw away the place they had found.
     if (fresh) {
+      // The session's camera, and it is a record rather than a reading: it was
+      // written by whatever build the reader last opened this volume in, over
+      // whatever lens they were on. `goTo` is what makes it safe to apply --
+      // a zoom the lens they are opening under cannot reach is clamped to one
+      // it can, and a record that is not a place opens the world at the fit,
+      // which is where a volume with no record opens anyway.
       const camera = context.scene.camera;
       if (camera) this.goTo(camera.x, camera.y, camera.zoom, camera.rotation);
-      else this.view.fit(extent, { size, nearest: false });
+      else this.fitWorld();
       // `fitZoom` is what "the whole map fits" is measured against, and it is
       // decided once, when the world opens: the zoom the reader arrived at,
       // whether that came from a fit or from the camera they left behind.

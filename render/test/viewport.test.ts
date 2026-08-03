@@ -419,8 +419,9 @@ test("a page with no navigator on it wires nothing and says nothing", () => {
 /** The two panes, as much of them as a pane flip touches. */
 function panes() {
   const chart = {
-    hidden: true, located: [] as unknown[], counted: 0,
+    hidden: true, located: [] as unknown[], counted: 0, fronted: 0,
     locate(where: unknown) { this.located.push(where); },
+    front() { this.fronted += 1; },
     show() {}, restyle() {}, writeCount() { this.counted += 1; }, redrawOverview() {},
   };
   const globe = { retired: 0, retire() { this.retired += 1; }, show() {} };
@@ -470,6 +471,8 @@ test("a world that declares no sphere takes the sphere down with it", async () =
   assert.equal(seam.globeUp, false, "the pane flag follows the world");
   assert.equal(chart.hidden, false, "the chart is back on screen");
   assert.deepEqual(chart.located, [null], "and reading its own camera again rather than being told");
+  assert.equal(chart.fronted, 1,
+    "and the camera it was left standing on behind the sphere is checked as it comes up");
   assert.equal(globe.retired, 1, "the planet is given back, not merely hidden");
   assert.equal(toggle.pressed, "false", "and the control says which pane is up");
 });
@@ -495,4 +498,5 @@ test("putting the sphere down twice is putting it down once", async () => {
   assert.equal(seam.globeUp, false);
   assert.equal(chart.hidden, false);
   assert.deepEqual(chart.located, [null], "the chart was put back once, not once per scene");
+  assert.equal(chart.fronted, 1, "and its camera was checked once, on the pass that put it back");
 });
