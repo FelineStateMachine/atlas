@@ -63,6 +63,7 @@ import { LensCoverage } from "../data/pyramid.ts";
 import { reportGridPick, reportPick } from "../data/report.ts";
 import { cellMoved } from "../chart/grid.ts";
 import { viewMaxZoom } from "../chart/projection.ts";
+import { saneCamera } from "../chart/element.ts";
 import { collectionColor } from "../chart/styles.ts";
 import {
   iconIsPicture, initialsOf, legibleIconColor, markerKey, markerRasterReady, outsetColor,
@@ -227,6 +228,32 @@ export interface ChartCamera {
   y: number;
   zoom: number;
   rotation: number;
+}
+
+/** Where the camera stands on the sphere, in the units globe.gl speaks. */
+export interface PointOfView {
+  readonly lat: number;
+  readonly lng: number;
+  readonly altitude: number;
+}
+
+/**
+ * A point of view fit to be placed, or nothing.
+ *
+ * The sphere's half of the boundary guard, and the more dangerous half. A map
+ * given a `NaN` centre draws nothing and can still be told a good one
+ * afterwards; a *three.js* camera given a `NaN` position is a matrix of them
+ * from the next frame on, and every reading taken off it after that --
+ * including the one the sphere hands back to the chart when the reader flips
+ * down -- is `NaN` too. That is the whole of how one broken number blacks out
+ * both panes: it does not stay on the pane it landed on.
+ *
+ * So nothing that is not a place is ever placed, in either direction:
+ * `povOf`, `cameraOf` and every steer through it.
+ */
+export function placeable(pov: PointOfView): PointOfView | null {
+  return Number.isFinite(pov.lat) && Number.isFinite(pov.lng) &&
+    Number.isFinite(pov.altitude) ? pov : null;
 }
 
 /** The equirect window a world declares, in world pixels and degrees. */
@@ -411,11 +438,21 @@ export class AtlasGlobe extends HTMLElement {
     }
     this.globe?.width(this.clientWidth || viewport.width);
     this.globe?.height(this.clientHeight || viewport.height);
-    const pov = this.povOf(camera);
-    if (!pov) return;
-    this.handed = camera;
+    // The chart's camera, checked before it becomes a distance. The chart is
+    // where this number has just come from, so it is nearly always already
+    // sane -- and "nearly always" is exactly the word that made the reference
+    // put its one guard on the other end of the same wire.
+    const clean = context ? saneCamera(camera, context.lens, context.grid) : camera;
+    const pov = clean && this.povOf(clean);
+    if (!clean || !pov) {
+      log.warn("the sphere refused a camera that is not a place", {
+        op: "render", world: context?.model.slug, camera: JSON.stringify(camera),
+      });
+      return;
+    }
+    this.handed = clean;
     this.given = pov;
-    this.globe?.pointOfView(pov, 0);
+    this.steer(pov, 0);
     // Everything a filter moved while the sphere was down, caught up in one
     // call now that there is somebody looking.
     this.update();
@@ -450,7 +487,15 @@ export class AtlasGlobe extends HTMLElement {
     const unmoved = Math.abs(pov.lat - this.given.lat) < 1e-9 &&
       Math.abs(pov.lng - this.given.lng) < 1e-9 &&
       Math.abs(pov.altitude - this.given.altitude) < 1e-9;
-    return unmoved ? this.handed : this.cameraOf(pov);
+    // The write-back, and the last place a number is looked at before the
+    // other pane is standing on it (`saneCamera`, and `globe.js:182` before
+    // it). `cameraOf` already refuses one it cannot invert; this holds the
+    // one it can to the lens the chart is about to draw it under, and answers
+    // nothing at all rather than a place that is not one -- which the host
+    // reads as "leave the chart where it is" (`AtlasViewport.flipPane`).
+    const back = unmoved ? this.handed : this.cameraOf(pov);
+    const context = this.context;
+    return context ? saneCamera(back, context.lens, context.grid) : back;
   }
 
   /**
@@ -563,20 +608,45 @@ export class AtlasGlobe extends HTMLElement {
   // ---- the pairing ----------------------------------------------------
 
   /** The chart's camera as a point of view. */
-  povOf(camera: ChartCamera): { lat: number; lng: number; altitude: number } | null {
+  povOf(camera: ChartCamera): PointOfView | null {
     const equirect = this.equirect;
     if (!equirect) return null;
     const [lat, lng] = equirect.mapping.toLatLng(camera.x, -camera.y);
-    return { lat, lng, altitude: altitudeForZoom(camera.zoom) };
+    return placeable({ lat, lng, altitude: altitudeForZoom(camera.zoom) });
   }
 
   /** A point of view as the chart's camera. The inverse of `povOf`, exactly. */
-  cameraOf(pov: { lat: number; lng: number; altitude: number }): ChartCamera | null {
+  cameraOf(pov: PointOfView): ChartCamera | null {
     const equirect = this.equirect;
     const context = this.context;
     if (!equirect || !context) return null;
     const [x, y] = equirect.mapping.toWorld(pov.lat, pov.lng);
+    // THE REFERENCE'S OWN GUARD, at the reference's own place: both
+    // coordinates, checked before the map is told (`globe.js:182`). A
+    // flattening is arithmetic over a point of view, so a point of view that
+    // is not a place comes out of it as a coordinate that is not one.
+    if (!Number.isFinite(x) || !Number.isFinite(y)) return null;
     return { x, y: -y, zoom: zoomForAltitude(pov.altitude, this.ceiling()), rotation: 0 };
+  }
+
+  /**
+   * Move the camera, and never to somewhere that is not a place.
+   *
+   * Every steer this element makes goes through here — coming up, descending
+   * into a cell, following a selection — because they all end in the same
+   * call and the call is one-way: a `NaN` handed to globe.gl is a `NaN` in
+   * three's own camera, and there is no reading afterwards that says so.
+   */
+  private steer(pov: PointOfView, ms: number): void {
+    const placed = placeable(pov);
+    if (!placed) {
+      log.warn("the sphere refused a point of view that is not a place", {
+        op: "render", world: this.context?.model.slug,
+        lat: String(pov.lat), lng: String(pov.lng), altitude: String(pov.altitude),
+      });
+      return;
+    }
+    this.globe?.pointOfView(placed, ms);
   }
 
   /** How deep the chart is willing to go, which is the pairing's own ceiling. */
@@ -1027,7 +1097,7 @@ export class AtlasGlobe extends HTMLElement {
     if (!corners) return;
     const span = Math.max(corners.east - corners.west, corners.north - corners.south);
     const altitude = clamp(span / 45, NEAREST_ALTITUDE, FARTHEST_ALTITUDE);
-    globe.pointOfView({ lat, lng, altitude }, 400);
+    this.steer({ lat, lng, altitude }, 400);
   }
 
   /**
@@ -1045,7 +1115,7 @@ export class AtlasGlobe extends HTMLElement {
     const stood = this.sprites.get(id)?.userData as
       { lat?: number; lng?: number } | undefined;
     if (stood?.lat === undefined || stood.lng === undefined) return;
-    globe.pointOfView(
+    this.steer(
       { lat: stood.lat, lng: stood.lng, altitude: globe.pointOfView().altitude }, 600);
   }
 

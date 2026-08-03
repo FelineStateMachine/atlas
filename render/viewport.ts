@@ -442,6 +442,18 @@ export class AtlasViewport extends HTMLElement {
       if (camera) chart.goTo(camera.x, camera.y, camera.zoom, camera.rotation);
       chart.hidden = false;
       this.globeUp = false;
+      // THE CAMERA IS CHECKED WHERE IT FRONTS, and this is the second half of
+      // the boundary the sphere's write-back is the first half of. Behind the
+      // sphere the chart went on being moved by things that do not need a
+      // window -- a filter, a lens, a cell descended into -- and the fit a
+      // descent makes there is made against a window of no size, so it lands
+      // at the deepest level the lens has whatever the reader was looking at.
+      // While the pane was away that was nobody's business. It becomes the
+      // reader's here, and it is the *only* moment it can be asked without
+      // moving what the recorded globe steps pin: a sphere handing back
+      // nothing at all (`leave` refusing a camera that is not a place) leaves
+      // the chart standing on that camera, and this is what looks at it.
+      chart.front();
       // Over the chart the camera is in the snapshot proper, so the locator
       // goes back to reading the map rather than being told.
       chart.locate(null);
@@ -491,6 +503,11 @@ export class AtlasViewport extends HTMLElement {
       const chart = this.chart;
       if (chart) {
         chart.hidden = false;
+        // The same fronting duty as `flipPane`, and owed more here: no camera
+        // is handed back at all on this path, so whatever the chart was left
+        // standing on behind the sphere is what the reader is about to be
+        // looking through.
+        chart.front();
         // Over the chart the camera is in the snapshot proper, so the locator
         // goes back to reading the map rather than being told.
         chart.locate(null);
