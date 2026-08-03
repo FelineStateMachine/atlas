@@ -29,9 +29,12 @@ render/dist/
 go.work
 go.work.sum
 
-# The inputs the pipeline gates read and git deliberately does not hold: the
-# capture archives and the derived tile set. golden/pipeline defaults to these
-# paths; ATLAS_ARCHIVE_DIR, ATLAS_CITY_ARCHIVE_DIR and ATLAS_TILES_INDEX move
-# them, and a checkout without any of it skips those gates and says so.
+# What a Playwright run leaves behind: traces, screenshots of failures.
+/tests/e2e/test-results/
+/playwright-report/
+
+# Crawl archives and derived tile sets a dev loop may keep here. No test
+# reads them: every required test's inputs are committed or built by the run,
+# and the deep checks over real libraries live behind `make corpus-smoke`.
 /crawl
 /tiles

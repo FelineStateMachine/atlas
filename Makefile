@@ -3,7 +3,7 @@
 # These targets are the enforcement surface; the existing build recipes are
 # untouched and still live where they always did.
 
-.PHONY: test test-e2e spec depcheck lint-lanes analysis-lane render-lane seam seam-watch static serve-static desktop
+.PHONY: test test-e2e corpus-smoke spec depcheck lint-lanes analysis-lane render-lane seam seam-watch static serve-static desktop
 
 # The one entrypoint: every required gate, and nothing that can silently
 # decline to judge. Go tests run through tools/testgate, which fails the run
@@ -24,6 +24,12 @@ test:
 test-e2e: static
 	go run ./tests/e2e/prep
 	npx playwright test --config tests/e2e/playwright.config.ts
+
+# The maintainer's deep check, and deliberately not a CI gate: walk a real
+# installed library and hold every current-format bundle to the reader's
+# invariants. Compares no stamps, no hashes, no content.
+corpus-smoke:
+	go run ./tools/corpussmoke
 
 # The semantic conventions, from their one machine-readable source: the Go
 # registry, the TypeScript lanes' key constants, and the document a reader

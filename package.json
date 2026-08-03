@@ -21,6 +21,7 @@
     "seam-lane": "npm run --silent lint && tsc --project render/tsconfig.json && npm run --silent seam-test && node render/tools/lines.mjs && echo 'render lane: the boundary rules, tsc --strict, the seam tests and the line budget all green'"
   },
   "devDependencies": {
+    "@playwright/test": "1.62.1",
     "@types/node": "22.15.3",
     "eslint": "9.39.0",
     "typescript": "5.9.2",
