@@ -668,7 +668,7 @@ bit for bit against the reference implementation's recorded stamps, for all ten
 pyramids of the five single-source fixtures; and two whole pyramids are rebuilt
 from the archive byte for byte, along with their zoom range, window, formats,
 bounds, background and coverage bitsets — tunic's 741 tiles for the copied path,
-and the city's 2,316 for the drawn one (§4.4). `golden/format/STAMPS.md` carries
+and the city's 2,316 for the drawn one (§4.4). `docs/stamps.md` carries
 the accounting.
 
 ### 4.4 The drawn level
@@ -1088,7 +1088,7 @@ stamp, and therefore its file name, and therefore its compressed size by a byte
 or two. The tiles are identical; the accounting of how they were made is not.
 Composing against `tiles/index.json` is what reproduces a bundle fixture byte
 for byte; composing against a freshly derived index is a correct build of the
-same volume under a different name. `golden/format/STAMPS.md` carries the
+same volume under a different name. `docs/stamps.md` carries the
 accounting.
 
 ---
@@ -1123,7 +1123,7 @@ whole pyramids rebuild from the archive byte for byte, one per path a level's
 pixels can take. Tunic's 741 tiles are the copied path, a captured level carried
 through and reduced; the city's 2,316 are the drawn one, rasterized from its own
 vectors; the warp's 1,365 are the fitted one, rendered through the affine and
-folded down. `golden/format/STAMPS.md` carries the accounting and the ceiling.
+folded down. `docs/stamps.md` carries the accounting and the ceiling.
 
 The tests are gated on the inputs that are deliberately not in git — the capture
 archives and the derived tile set — and skip with an explanation when neither

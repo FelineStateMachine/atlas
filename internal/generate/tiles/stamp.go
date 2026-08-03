@@ -23,7 +23,7 @@ import (
 // That is also why a stamp is not portable between implementations: two derivers
 // that write identical bytes still stamp differently, because they are different
 // tools, and the stamp's promise is "nothing that made this has moved" rather
-// than "these bytes are these bytes". golden/format/STAMPS.md carries what that
+// than "these bytes are these bytes". docs/stamps.md carries what that
 // costs and what is proven instead.
 //
 // The deriving code is every file that decides what a pyramid's bytes are --

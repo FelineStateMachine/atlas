@@ -1,9 +1,15 @@
 # Stamp identity: an aspiration, per fixture
 
-Issue #5 §6 asks the format gate for two different things and is careful to
+Issue #5 §6 asked the format gate for two different things and was careful to
 say they are different: **canonical-content equality is mandatory, stamp
 identity is tracked as an aspiration per fixture.** This file is that
-tracking, and the reason the second one is not an assertion.
+tracking, and the reason the second one is not an assertion. The golden
+harness that ran the gate has since been retired; the checks that survived it
+run as the corpus tests in `format/bundle`, against the committed extractions
+under `testdata/corpus/bundles/`, and this file stays as the record of what
+stamp identity can mean, what it cannot, and how close each fixture came.
+Everything below is written in the harness's present tense, on purpose: it is
+the measurement as it was taken.
 
 ## Why a stamp cannot be recomputed from a bundle
 

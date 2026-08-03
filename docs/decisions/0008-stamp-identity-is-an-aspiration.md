@@ -3,7 +3,7 @@
 - **Date:** 2026-08-02
 - **Status:** accepted
 - **Where it is written down:** issue #5 §6, §10 decision 7;
-  [golden/format/STAMPS.md](../../golden/format/STAMPS.md),
+  [stamps.md](../stamps.md),
   [format.md](../format.md) §8
 
 ## Context
@@ -44,7 +44,7 @@ pyramids.
 
 ## Consequences
 
-- `golden/format/STAMPS.md` carries a per-fixture tracking table with a stated
+- `docs/stamps.md` carries a per-fixture tracking table with a stated
   status, so the aspiration cannot quietly stay impossible — or quietly become
   possible while nobody checks.
 - Four fixtures read HELD because the derived tile set is an input the same way
