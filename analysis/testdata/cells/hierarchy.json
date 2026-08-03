@@ -1,0 +1,279 @@
+{
+  "family": "hierarchy",
+  "about": "children() in its STABLE order, and the parent link back. Order is contractual: the plan emits children in it, the palette indexes into it, and the conformance suites in both lanes compare the result positionally.",
+  "cases": [
+    {
+      "name": "geohash-children-of-m",
+      "ground": "test/square-1024",
+      "system": "geohash",
+      "call": "children",
+      "args": [
+        "m"
+      ],
+      "expect": [
+        "m0",
+        "m1",
+        "m2",
+        "m3",
+        "m4",
+        "m5",
+        "m6",
+        "m7",
+        "m8",
+        "m9",
+        "mb",
+        "mc",
+        "md",
+        "me",
+        "mf",
+        "mg",
+        "mh",
+        "mj",
+        "mk",
+        "mm",
+        "mn",
+        "mp",
+        "mq",
+        "mr",
+        "ms",
+        "mt",
+        "mu",
+        "mv",
+        "mw",
+        "mx",
+        "my",
+        "mz"
+      ]
+    },
+    {
+      "name": "geohash-children-of-the-root",
+      "ground": "test/square-1024",
+      "system": "geohash",
+      "call": "children",
+      "args": [
+        ""
+      ],
+      "expect": [
+        "0",
+        "1",
+        "2",
+        "3",
+        "4",
+        "5",
+        "6",
+        "7",
+        "8",
+        "9",
+        "b",
+        "c",
+        "d",
+        "e",
+        "f",
+        "g",
+        "h",
+        "j",
+        "k",
+        "m",
+        "n",
+        "p",
+        "q",
+        "r",
+        "s",
+        "t",
+        "u",
+        "v",
+        "w",
+        "x",
+        "y",
+        "z"
+      ]
+    },
+    {
+      "name": "s2-faces",
+      "ground": "test/sphere-8192x4096",
+      "system": "s2",
+      "call": "children",
+      "args": [
+        ""
+      ],
+      "expect": [
+        "1",
+        "3",
+        "5",
+        "7",
+        "9",
+        "b"
+      ],
+      "note": "The six faces of the cube, in face order. This is the root's child list.",
+      "handDerived": true
+    },
+    {
+      "name": "s2-children-of-47a1cb",
+      "ground": "test/sphere-8192x4096",
+      "system": "s2",
+      "call": "children",
+      "args": [
+        "47a1cb"
+      ],
+      "expect": [
+        "47a1ca4",
+        "47a1cac",
+        "47a1cb4",
+        "47a1cbc"
+      ]
+    },
+    {
+      "name": "s2-parent-of-47a1ca4",
+      "ground": "test/sphere-8192x4096",
+      "system": "s2",
+      "call": "parent",
+      "args": [
+        "47a1ca4"
+      ],
+      "expect": "47a1cb",
+      "handDerived": true
+    },
+    {
+      "name": "s2-child-index-of-47a1ca4",
+      "ground": "test/sphere-8192x4096",
+      "system": "s2",
+      "call": "childIndex",
+      "args": [
+        "47a1ca4"
+      ],
+      "expect": 0
+    },
+    {
+      "name": "s2-parent-of-47a1cac",
+      "ground": "test/sphere-8192x4096",
+      "system": "s2",
+      "call": "parent",
+      "args": [
+        "47a1cac"
+      ],
+      "expect": "47a1cb",
+      "handDerived": true
+    },
+    {
+      "name": "s2-child-index-of-47a1cac",
+      "ground": "test/sphere-8192x4096",
+      "system": "s2",
+      "call": "childIndex",
+      "args": [
+        "47a1cac"
+      ],
+      "expect": 1
+    },
+    {
+      "name": "s2-parent-of-47a1cb4",
+      "ground": "test/sphere-8192x4096",
+      "system": "s2",
+      "call": "parent",
+      "args": [
+        "47a1cb4"
+      ],
+      "expect": "47a1cb",
+      "handDerived": true
+    },
+    {
+      "name": "s2-child-index-of-47a1cb4",
+      "ground": "test/sphere-8192x4096",
+      "system": "s2",
+      "call": "childIndex",
+      "args": [
+        "47a1cb4"
+      ],
+      "expect": 2
+    },
+    {
+      "name": "s2-parent-of-47a1cbc",
+      "ground": "test/sphere-8192x4096",
+      "system": "s2",
+      "call": "parent",
+      "args": [
+        "47a1cbc"
+      ],
+      "expect": "47a1cb",
+      "handDerived": true
+    },
+    {
+      "name": "s2-child-index-of-47a1cbc",
+      "ground": "test/sphere-8192x4096",
+      "system": "s2",
+      "call": "childIndex",
+      "args": [
+        "47a1cbc"
+      ],
+      "expect": 3
+    },
+    {
+      "name": "s2-children-of-a-face",
+      "ground": "test/sphere-8192x4096",
+      "system": "s2",
+      "call": "children",
+      "args": [
+        "5"
+      ],
+      "expect": [
+        "44",
+        "4c",
+        "54",
+        "5c"
+      ],
+      "note": "The north-polar face's four children — the ids that do not refine by appending."
+    },
+    {
+      "name": "real-children-of-the-root-are-the-window",
+      "ground": "bend-or/2026-08-02/0",
+      "system": "geohash",
+      "call": "children",
+      "args": [
+        ""
+      ],
+      "expect": [
+        "9rce",
+        "9rcg",
+        "9rcd",
+        "9rcf",
+        "9rc9",
+        "9rcc"
+      ],
+      "note": "The root plan: the six depth-4 cells the window intersects (columns 166-167, rows 761-763 of the 0.3515625 x 0.17578125 degree grid), in reading order - north to south, west to east. Cells are the planet's; the PLAN is the window's.",
+      "handDerived": true
+    },
+    {
+      "name": "real-parent-of-a-base-cell-is-the-root",
+      "ground": "bend-or/2026-08-02/0",
+      "system": "geohash",
+      "call": "parent",
+      "args": [
+        "9rcd"
+      ],
+      "expect": "",
+      "handDerived": true
+    },
+    {
+      "name": "real-parent-one-layer-down",
+      "ground": "bend-or/2026-08-02/0",
+      "system": "geohash",
+      "call": "parent",
+      "args": [
+        "9rcdx"
+      ],
+      "expect": "9rcd",
+      "handDerived": true
+    },
+    {
+      "name": "real-childindex-is-the-window-position",
+      "ground": "bend-or/2026-08-02/0",
+      "system": "geohash",
+      "call": "childIndex",
+      "args": [
+        "9rcd"
+      ],
+      "expect": 2,
+      "note": "Position among the window's own cells in reading order, not the last character's alphabet ordinal: with absent siblings filtered out, the ordinal would leave holes in the palette walk.",
+      "handDerived": true
+    }
+  ]
+}

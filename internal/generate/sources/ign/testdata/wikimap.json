@@ -1,0 +1,29 @@
+{
+  "source": "ign-wikimaps",
+  "objectSlug": "hollow-vale",
+  "mapSlug": "surface",
+  "gameTitle": "Hollow Vale",
+  "mapTitle": "The Surface",
+  "map": {
+    "width": 1,
+    "height": 0.5,
+    "minZoom": 0,
+    "maxZoom": 1,
+    "initialLat": -0.25,
+    "initialLng": 0.5,
+    "backgroundColor": "#101010",
+    "tileset": "https://cdn.example.invalid/wikimaps/hollow-vale/surface/{z}/{x}/{y}.PNG"
+  },
+  "types": [
+    {"typeSlug": "gate", "typeName": "Gates"},
+    {"typeSlug": "fountain", "typeName": "Fountains", "parentTypeSlug": "street-life"},
+    {"typeSlug": "bench", "typeName": "Benches", "parentTypeSlug": "street-life"},
+    {"typeSlug": "ghost", "typeName": "Ghosts", "parentTypeSlug": "street-life"}
+  ],
+  "markers": [
+    {"id": "m-b2", "lat": -0.75, "lng": 0.5, "markerName": "South Bench", "markerSlug": "south-bench", "typeSlug": "bench"},
+    {"id": "m-b1", "lat": -0.25, "lng": 0.25, "markerName": "North Bench", "markerSlug": "north-bench", "typeSlug": "bench"},
+    {"id": "m-f1", "lat": -0.0625, "lng": 0.125, "markerName": "Old Fountain", "markerSlug": "old-fountain", "typeSlug": "fountain"},
+    {"id": "m-g1", "lat": -0.5, "lng": 0.875, "markerName": "East Gate", "markerSlug": "east-gate", "typeSlug": "gate"}
+  ]
+}

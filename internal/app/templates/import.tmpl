@@ -1,0 +1,23 @@
+{{/*
+  import — one import's progress, as the one row it is.
+
+  A hundred-megabyte bundle takes long enough that silence reads as failure,
+  so the answer is a stream rather than one answer at the end: the handler
+  renders this region again, and flushes it, for every state a run reaches
+  (internal/app/importing.go). Each render replaces the last -- the `import`
+  partial target is an outerMorph over this section -- so what the reader sees
+  is one row changing its mind, not a growing list, and the section itself is
+  the same element throughout, which is what lets `aria-live` announce the
+  changes to a reader who is not watching the corner.
+
+  The row's id carries the run's number: within a run the morph finds the same
+  element and updates it, and a second run brings a different element, which
+  is how its dismissal starts over instead of inheriting one that has already
+  played out.
+
+  With no rows the section renders itself away. That is a first paint, where
+  no import has happened yet -- and it is also how a cancelled picker leaves:
+  the handler's last word is this region with nothing in it.
+*/}}
+{{define "import"}}<section id="atlas-import" class="import-rows" aria-live="polite"{{if not .Rows}} hidden{{end}}>{{range .Rows}}<p id="atlas-import-run-{{.Run}}" class="import-row{{if .Fading}} import-row-fading{{end}}" data-state="{{.State}}">{{.Detail}}</p>{{end}}</section>
+{{end}}

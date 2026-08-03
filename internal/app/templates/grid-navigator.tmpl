@@ -1,0 +1,58 @@
+{{/*
+  grid-navigator — the cell system in play, the cell held, and the subgrid.
+
+  What a cell system is and what a cell draws belong to the analysis lane
+  (issue #5 §5.4); which one is chosen and which cell is held belong to the
+  session. This region is the second half only, which is why it names a system
+  and never computes one.
+*/}}
+{{define "grid-navigator"}}<div id="atlas-grid-navigator" class="grid-navigator"{{if not .Grid.Enabled}} hidden{{end}}>
+  {{/*
+    Escape and the arrow telescope out one level. At the root there is no
+    level left, so the same press closes the grid -- which is what the title
+    says rather than leaving a reader to find out.
+  */}}
+  <button type="button" id="grid-back" aria-label="Back one cell level"
+          title="{{if .Grid.Cell}}Back one {{.Grid.System}} level{{else}}Close {{.Grid.System}} grid{{end}}"
+          hx-post="/session/grid" hx-vals:append='{"cell":"{{.Grid.Cell}}","ascend":"1"}'>←</button>
+  {{/*
+    One small mark beside the field it qualifies, saying which system the
+    hash is written in. Always there -- a hash without its system is half an
+    address -- and a button only when this world offers another system to
+    cycle to; a world that divides one way wears the mark inert.
+  */}}
+  <button type="button" class="grid-system" id="grid-system"{{if not .Grid.Cycles}} disabled{{end}}
+          title="{{if .Grid.Cycles}}Dividing by {{.Grid.Name}} · ⌘G for {{.Grid.Next}}{{else}}Dividing by {{.Grid.Name}}{{end}}"
+          aria-label="{{if .Grid.Cycles}}Cell system: {{.Grid.Name}}. Switch to {{.Grid.Next}}{{else}}Cell system: {{.Grid.Name}}{{end}}"
+          hx-post="/session/grid" hx-vals:append='{"system":"cycle"}'>{{.Grid.Mark}}</button>
+  {{/*
+    NO `changed` ON THIS FIELD, and the reason is that the server writes into
+    it. `changed` remembers the value the last event carried and refuses one
+    that matches -- which is right for a search box nobody else touches, and
+    wrong here: the field is re-rendered by every swap, so ascending out of
+    "m" leaves an empty field beside a remembered "m", and a reader who types
+    the same hash again is answered with nothing at all. The event this hangs
+    on is `input`, which a browser raises only when the value actually moved
+    under the reader's hands, so the modifier was buying nothing to begin
+    with. The reference had no such memory either: one input listener, one
+    address, every time (`frontend/src/events.js`).
+  */}}
+  <label>
+    <input type="text" id="grid-input" name="cell" value="{{.Grid.Cell}}"{{if .Grid.Length}} maxlength="{{.Grid.Length}}"{{end}}
+           inputmode="text" autocomplete="off" autocapitalize="none" spellcheck="false"
+           aria-label="{{.Grid.Name}} cell"
+           hx-post="/session/grid" hx-trigger="input delay:150ms">
+  </label>
+  <button type="button" class="subgrid-toggle" id="subgrid-toggle"
+          aria-pressed="{{.Grid.Subgrid}}"
+          aria-label="{{if .Grid.Subgrid}}Hide the subgrid{{else}}Show the subgrid{{end}}"
+          title="Space · show or hide the subgrid"
+          hx-post="/session/grid" hx-vals:append='{"subgrid":"{{if .Grid.Subgrid}}0{{else}}1{{end}}"}'>
+    <svg viewBox="0 0 16 16" aria-hidden="true">
+      <path d="M2.5 2.5h11v11h-11z"/>
+      <path d="M6.2 2.5v11M9.8 2.5v11M2.5 6.2h11M2.5 9.8h11"/>
+      <path class="subgrid-toggle-slash" d="m2.6 13.4 10.8-10.8"/>
+    </svg>
+  </button>
+</div>
+{{end}}

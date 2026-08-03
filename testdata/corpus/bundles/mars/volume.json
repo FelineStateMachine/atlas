@@ -1,0 +1,102 @@
+{
+  "slug": "mars",
+  "title": "Mars",
+  "file": "mars-20260801-68e141f26b1a.atlas",
+  "fileBytes": 255455078,
+  "fileSha256": "489be13db598184291699f906edbad4e20dc3221df3deeec7a2f8419d65b2f20",
+  "formatVersion": 3,
+  "conventions": 2,
+  "stamp": "68e141f26b1a77fc778f4b90dbdb4eb897fb5d190930a7171f88e0ffb99bfea7",
+  "stamp12": "68e141f26b1a",
+  "createdAt": "2026-08-01T14:48:10.486177Z",
+  "revision": 9,
+  "traits": [
+    "sphere"
+  ],
+  "tileGrid": {
+    "sourceZoom": 13,
+    "firstTile": 4064,
+    "tileSize": 256,
+    "size": 8192
+  },
+  "counts": {
+    "entries": 5480,
+    "worlds": 1,
+    "tiles": 5462,
+    "icons": 14,
+    "points": 2048,
+    "paths": 0,
+    "areas": 0
+  },
+  "worlds": [
+    {
+      "slug": "global",
+      "title": "Global",
+      "points": 2048,
+      "paths": 0,
+      "areas": 0,
+      "collections": 29,
+      "lenses": [
+        "Viking MDIM 2.1=global__viking-mdim-2-1",
+        "MOLA Elevation=global__mola-elevation"
+      ],
+      "mergedFrom": [
+        "NASA Trek (origin)"
+      ],
+      "textEntries": 2048
+    }
+  ],
+  "pyramids": [
+    {
+      "pyramid": "global__mola-elevation",
+      "worlds": [
+        "global"
+      ],
+      "lenses": [
+        "global/MOLA Elevation"
+      ],
+      "tiles": 2731,
+      "bytes": 141562713,
+      "contentRollup": "7c3cc580418c33341673ab7c812c741766b3d0dcd9baf62826ab63e27d91c840",
+      "pixelRollup": "3e00f7138b62eca45ba1f4d0aaa7f0903a9418fea9bf89ce8660390ec92dc701",
+      "inventory": "tiles/global__mola-elevation.json"
+    },
+    {
+      "pyramid": "global__viking-mdim-2-1",
+      "worlds": [
+        "global"
+      ],
+      "lenses": [
+        "global/Viking MDIM 2.1"
+      ],
+      "tiles": 2731,
+      "bytes": 112793777,
+      "contentRollup": "f23f3f8a0e17cab58816f2405e8403bc815f52fb5567beea21bc0814928701a0",
+      "pixelRollup": "ed24be3157c6d014790ec6753a17678647cf4cb911953b1930d1880e6c21dc17",
+      "inventory": "tiles/global__viking-mdim-2-1.json"
+    }
+  ],
+  "partHashes": {
+    "atlas.json": "00f46eee4c4552e10b00a505f80710bfd4f7bf41421e7c5565f36bd546593432",
+    "worlds/global.bin": "0e18b29bedc9d1dd0c455c0d0ae6e4d535fdbe8356ea2fd420ac525c0b1ab5c7",
+    "worlds/global.json": "73dc5055973f2501621958f8c35328f76463eb0e3d57836e20896a91549c5ca0",
+    "worlds/global.text": "5a91b49459658f38736fef9b2dd14eed9549fa5746597ed7d6051d1aed97051c"
+  },
+  "entryOrder": {
+    "first": [
+      "atlas.json",
+      "worlds/global.json",
+      "worlds/global.bin",
+      "worlds/global.text",
+      "tiles/global__mola-elevation/0/0/0.jpg",
+      "tiles/global__mola-elevation/1/0/0.jpg",
+      "tiles/global__mola-elevation/1/1/0.jpg",
+      "tiles/global__mola-elevation/2/0/0.jpg",
+      "tiles/global__mola-elevation/2/0/1.jpg",
+      "tiles/global__mola-elevation/2/1/0.jpg",
+      "tiles/global__mola-elevation/2/1/1.jpg",
+      "tiles/global__mola-elevation/2/2/0.jpg"
+    ],
+    "sha256": "90ed1788e9ebdf2f4e29e889e48808f1b1349869dc2290929269742b0800a523"
+  }
+}

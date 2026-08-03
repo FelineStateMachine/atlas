@@ -1,0 +1,46 @@
+{
+  "schema": 1,
+  "version": 1,
+  "what": "the feature-maturity point table, version 1. Every entry is points a thing earns for a quality it verifiably has. There are no denominators and no ceilings: a percentage moves when the thing it divides by moves, which makes it useless as a build gate, so percentages survive in this lane only as diagnostics. More good data is more score, and nothing is ever done.",
+  "monotonicity": "a build is compared to the build before it under the same table version. A re-weighting is a new version, not a mass failure, and builds under different versions are simply not compared. A decrease is permitted only where the ledger carries corrections that account for it.",
+  "feature": {
+    "what": "what one feature earns.",
+    "name": 1,
+    "prose": 1,
+    "proseSubstance": 1,
+    "substanceChars": 140,
+    "geo": 1,
+    "membership": 1,
+    "icon": 1,
+    "geometryLog": 1,
+    "corroboration": 1
+  },
+  "featureNotes": {
+    "name": "a feature that is called something.",
+    "prose": "a feature that is explained in writing at all.",
+    "proseSubstance": "a second point once the prose is longer than substanceChars, which is where a description stops being a longer label and starts being an explanation.",
+    "geo": "true planetary coordinates, both axes, as the source published them.",
+    "membership": "one point per membership attribute the feature carries -- which subwatershed its ground lies in, and whatever joins come after.",
+    "icon": "the collection it belongs to resolves artwork, so the feature is drawn as something rather than as a dot.",
+    "geometryLog": "points per doubling of vertices: floor(log2(1+vertices)) times this. Ground that is actually drawn is worth more than ground that is claimed, and log scaling means a detailed boundary beats a rectangle without letting one over-noded polygon outweigh a city.",
+    "corroboration": "one point per other reading that pinned this same place, read off the merge ledger. Two sources agreeing is evidence, and evidence is quality."
+  },
+  "collection": {
+    "what": "what one collection earns.",
+    "convention": 1
+  },
+  "collectionNotes": {
+    "convention": "one point per registered semantic-conventions key the collection declares. A collection that says how it renders, what kind it is, and what its stroke weight means is machine-readable in a way one that says nothing is not."
+  },
+  "world": {
+    "what": "what one world earns.",
+    "convention": 1,
+    "lens": 1,
+    "lensZoom": 1
+  },
+  "worldNotes": {
+    "convention": "one point per registered world-level key: what surface this is, how it was flattened, what body it pictures, how big that body is.",
+    "lens": "one point per picture of the ground.",
+    "lensZoom": "one point per zoom level a picture actually holds, which is the honest measure of how much raster detail a reader can get to."
+  }
+}

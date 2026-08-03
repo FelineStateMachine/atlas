@@ -1,0 +1,87 @@
+{
+  "slug": "bend-or",
+  "title": "Bend, Oregon",
+  "file": "bend-or-20260802-3610a0f10798.atlas",
+  "fileBytes": 13642843,
+  "fileSha256": "7a4375d06db5dd39acd8f4af283722edb8491c8114a79eb091d455ce056d7650",
+  "formatVersion": 3,
+  "conventions": 2,
+  "stamp": "3610a0f107984c0fb61055d8c12ccc58739f12eedc6c55e5f263f925bd823a55",
+  "stamp12": "3610a0f10798",
+  "createdAt": "2026-08-02T10:45:19.464241Z",
+  "revision": 9,
+  "traits": [
+    "plain"
+  ],
+  "tileGrid": {
+    "sourceZoom": 13,
+    "firstTile": 4064,
+    "tileSize": 256,
+    "size": 8192
+  },
+  "counts": {
+    "entries": 2321,
+    "worlds": 1,
+    "tiles": 2316,
+    "icons": 1,
+    "points": 65,
+    "paths": 104,
+    "areas": 44
+  },
+  "worlds": [
+    {
+      "slug": "2026-08-02",
+      "title": "2026-08-02",
+      "points": 65,
+      "paths": 104,
+      "areas": 44,
+      "collections": 10,
+      "lenses": [
+        "Basemap=2026-08-02"
+      ],
+      "mergedFrom": [
+        "ArcGIS Open Data (origin)"
+      ],
+      "textEntries": 153
+    }
+  ],
+  "pyramids": [
+    {
+      "pyramid": "2026-08-02",
+      "worlds": [
+        "2026-08-02"
+      ],
+      "lenses": [
+        "2026-08-02/Basemap"
+      ],
+      "tiles": 2316,
+      "bytes": 11880890,
+      "contentRollup": "508e347325ee35fdaa124bcc02f8dc2a3d49a8e8cd36e35a143645b390cdebdd",
+      "pixelRollup": "bbfa22298536dc75e70228d101b1db960a97e0596f9be1470729b2ac7a69a959",
+      "inventory": "tiles/2026-08-02.json"
+    }
+  ],
+  "partHashes": {
+    "atlas.json": "3691c2d6f549e9263fcd5e963dcdfd7c8dc4f8d83d4474532363531a85332932",
+    "worlds/2026-08-02.bin": "dbd964db562548a481af844283ae2906ed19c8f6c6f58ae027a390c18b0df028",
+    "worlds/2026-08-02.json": "8772f1c7a10437a8a86b0326867589612d1154def2f57a9c41390b5528293fbc",
+    "worlds/2026-08-02.text": "3f2ee1558897303f35745fd270d73294938af87bfeca6350668c184f8c375a73"
+  },
+  "entryOrder": {
+    "first": [
+      "atlas.json",
+      "worlds/2026-08-02.json",
+      "worlds/2026-08-02.bin",
+      "worlds/2026-08-02.text",
+      "tiles/2026-08-02/0/0/0.png",
+      "tiles/2026-08-02/1/0/0.png",
+      "tiles/2026-08-02/1/0/1.png",
+      "tiles/2026-08-02/1/1/0.png",
+      "tiles/2026-08-02/1/1/1.png",
+      "tiles/2026-08-02/2/0/0.png",
+      "tiles/2026-08-02/2/0/1.png",
+      "tiles/2026-08-02/2/0/2.png"
+    ],
+    "sha256": "a093d0d4a017050388ee4daff8e9298b46ebe209af9c550b4cfd129e395e8be6"
+  }
+}

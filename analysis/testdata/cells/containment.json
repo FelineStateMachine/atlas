@@ -1,0 +1,694 @@
+{
+  "family": "containment",
+  "about": "Containment is boundary-INCLUSIVE, and descent agrees with it: the child under a point is a cell that contains the point. locate() is the same question asked for the pin card, in the system's own address.",
+  "cases": [
+    {
+      "name": "geohash-contains-top-right-corner",
+      "ground": "test/square-1024",
+      "system": "geohash",
+      "call": "contains",
+      "args": [
+        "m6",
+        [
+          704,
+          -672
+        ]
+      ],
+      "expect": true,
+      "note": "The maximum corner is inside: boundaries are inclusive on both sides.",
+      "handDerived": true
+    },
+    {
+      "name": "geohash-contains-bottom-left-corner",
+      "ground": "test/square-1024",
+      "system": "geohash",
+      "call": "contains",
+      "args": [
+        "m6",
+        [
+          672,
+          -704
+        ]
+      ],
+      "expect": true,
+      "handDerived": true
+    },
+    {
+      "name": "geohash-excludes-just-past-the-edge",
+      "ground": "test/square-1024",
+      "system": "geohash",
+      "call": "contains",
+      "args": [
+        "m6",
+        [
+          704.0001,
+          -672
+        ]
+      ],
+      "expect": false,
+      "handDerived": true
+    },
+    {
+      "name": "geohash-descend-root",
+      "ground": "test/square-1024",
+      "system": "geohash",
+      "call": "descendTarget",
+      "args": [
+        "",
+        [
+          688,
+          -688
+        ]
+      ],
+      "expect": "m",
+      "handDerived": true
+    },
+    {
+      "name": "geohash-descend-m",
+      "ground": "test/square-1024",
+      "system": "geohash",
+      "call": "descendTarget",
+      "args": [
+        "m",
+        [
+          688,
+          -688
+        ]
+      ],
+      "expect": "m6",
+      "handDerived": true
+    },
+    {
+      "name": "geohash-cell-at-depth-3",
+      "ground": "test/square-1024",
+      "call": "geohashCellAt",
+      "args": [
+        [
+          688,
+          -688
+        ],
+        3
+      ],
+      "expect": "m6s",
+      "handDerived": true
+    },
+    {
+      "name": "geohash-cell-at-off-the-surface",
+      "ground": "test/square-1024",
+      "call": "geohashCellAt",
+      "args": [
+        [
+          -1,
+          -1
+        ],
+        3
+      ],
+      "expect": "",
+      "note": "Off the surface names nothing.",
+      "handDerived": true
+    },
+    {
+      "name": "geohash-locate",
+      "ground": "test/square-1024",
+      "system": "geohash",
+      "call": "locate",
+      "args": [
+        [
+          688,
+          -688
+        ]
+      ],
+      "expect": {
+        "label": "Geohash",
+        "value": "m6s"
+      },
+      "handDerived": true
+    },
+    {
+      "name": "geohash-locate-off-the-surface",
+      "ground": "test/square-1024",
+      "system": "geohash",
+      "call": "locate",
+      "args": [
+        [
+          -1,
+          -1
+        ]
+      ],
+      "expect": null,
+      "handDerived": true
+    },
+    {
+      "name": "s2-locate",
+      "ground": "test/sphere-8192x4096",
+      "system": "s2",
+      "call": "locate",
+      "args": [
+        [
+          4363.848398961777,
+          -916.9692745045334
+        ]
+      ],
+      "expect": {
+        "label": "S2",
+        "value": "47a1cb"
+      },
+      "note": "The library's own vector: (49.703498679, 11.770681595) is leaf 0x47a1cbd595522b39, whose level-10 parent is 47a1cb. The point arrives in world pixels through the declared mapping.",
+      "handDerived": true
+    },
+    {
+      "name": "s2-descend-hop-0",
+      "ground": "test/sphere-8192x4096",
+      "system": "s2",
+      "call": "descendTarget",
+      "args": [
+        "",
+        [
+          4363.848398961777,
+          -916.9692745045334
+        ]
+      ],
+      "expect": "5"
+    },
+    {
+      "name": "s2-contains-hop-0",
+      "ground": "test/sphere-8192x4096",
+      "system": "s2",
+      "call": "contains",
+      "args": [
+        "5",
+        [
+          4363.848398961777,
+          -916.9692745045334
+        ]
+      ],
+      "expect": true,
+      "handDerived": true
+    },
+    {
+      "name": "s2-descend-hop-1",
+      "ground": "test/sphere-8192x4096",
+      "system": "s2",
+      "call": "descendTarget",
+      "args": [
+        "5",
+        [
+          4363.848398961777,
+          -916.9692745045334
+        ]
+      ],
+      "expect": "44"
+    },
+    {
+      "name": "s2-contains-hop-1",
+      "ground": "test/sphere-8192x4096",
+      "system": "s2",
+      "call": "contains",
+      "args": [
+        "44",
+        [
+          4363.848398961777,
+          -916.9692745045334
+        ]
+      ],
+      "expect": true,
+      "handDerived": true
+    },
+    {
+      "name": "s2-descend-hop-2",
+      "ground": "test/sphere-8192x4096",
+      "system": "s2",
+      "call": "descendTarget",
+      "args": [
+        "44",
+        [
+          4363.848398961777,
+          -916.9692745045334
+        ]
+      ],
+      "expect": "47"
+    },
+    {
+      "name": "s2-contains-hop-2",
+      "ground": "test/sphere-8192x4096",
+      "system": "s2",
+      "call": "contains",
+      "args": [
+        "47",
+        [
+          4363.848398961777,
+          -916.9692745045334
+        ]
+      ],
+      "expect": true,
+      "handDerived": true
+    },
+    {
+      "name": "s2-descend-hop-3",
+      "ground": "test/sphere-8192x4096",
+      "system": "s2",
+      "call": "descendTarget",
+      "args": [
+        "47",
+        [
+          4363.848398961777,
+          -916.9692745045334
+        ]
+      ],
+      "expect": "47c"
+    },
+    {
+      "name": "s2-contains-hop-3",
+      "ground": "test/sphere-8192x4096",
+      "system": "s2",
+      "call": "contains",
+      "args": [
+        "47c",
+        [
+          4363.848398961777,
+          -916.9692745045334
+        ]
+      ],
+      "expect": true,
+      "handDerived": true
+    },
+    {
+      "name": "s2-descend-hop-4",
+      "ground": "test/sphere-8192x4096",
+      "system": "s2",
+      "call": "descendTarget",
+      "args": [
+        "47c",
+        [
+          4363.848398961777,
+          -916.9692745045334
+        ]
+      ],
+      "expect": "47b"
+    },
+    {
+      "name": "s2-contains-hop-4",
+      "ground": "test/sphere-8192x4096",
+      "system": "s2",
+      "call": "contains",
+      "args": [
+        "47b",
+        [
+          4363.848398961777,
+          -916.9692745045334
+        ]
+      ],
+      "expect": true,
+      "handDerived": true
+    },
+    {
+      "name": "s2-descend-hop-5",
+      "ground": "test/sphere-8192x4096",
+      "system": "s2",
+      "call": "descendTarget",
+      "args": [
+        "47b",
+        [
+          4363.848398961777,
+          -916.9692745045334
+        ]
+      ],
+      "expect": "47a4"
+    },
+    {
+      "name": "s2-contains-hop-5",
+      "ground": "test/sphere-8192x4096",
+      "system": "s2",
+      "call": "contains",
+      "args": [
+        "47a4",
+        [
+          4363.848398961777,
+          -916.9692745045334
+        ]
+      ],
+      "expect": true,
+      "handDerived": true
+    },
+    {
+      "name": "s2-descend-hop-6",
+      "ground": "test/sphere-8192x4096",
+      "system": "s2",
+      "call": "descendTarget",
+      "args": [
+        "47a4",
+        [
+          4363.848398961777,
+          -916.9692745045334
+        ]
+      ],
+      "expect": "47a1"
+    },
+    {
+      "name": "s2-contains-hop-6",
+      "ground": "test/sphere-8192x4096",
+      "system": "s2",
+      "call": "contains",
+      "args": [
+        "47a1",
+        [
+          4363.848398961777,
+          -916.9692745045334
+        ]
+      ],
+      "expect": true,
+      "handDerived": true
+    },
+    {
+      "name": "s2-descend-hop-7",
+      "ground": "test/sphere-8192x4096",
+      "system": "s2",
+      "call": "descendTarget",
+      "args": [
+        "47a1",
+        [
+          4363.848398961777,
+          -916.9692745045334
+        ]
+      ],
+      "expect": "47a1c"
+    },
+    {
+      "name": "s2-contains-hop-7",
+      "ground": "test/sphere-8192x4096",
+      "system": "s2",
+      "call": "contains",
+      "args": [
+        "47a1c",
+        [
+          4363.848398961777,
+          -916.9692745045334
+        ]
+      ],
+      "expect": true,
+      "handDerived": true
+    },
+    {
+      "name": "s2-descend-hop-8",
+      "ground": "test/sphere-8192x4096",
+      "system": "s2",
+      "call": "descendTarget",
+      "args": [
+        "47a1c",
+        [
+          4363.848398961777,
+          -916.9692745045334
+        ]
+      ],
+      "expect": "47a1d"
+    },
+    {
+      "name": "s2-contains-hop-8",
+      "ground": "test/sphere-8192x4096",
+      "system": "s2",
+      "call": "contains",
+      "args": [
+        "47a1d",
+        [
+          4363.848398961777,
+          -916.9692745045334
+        ]
+      ],
+      "expect": true,
+      "handDerived": true
+    },
+    {
+      "name": "s2-descend-hop-9",
+      "ground": "test/sphere-8192x4096",
+      "system": "s2",
+      "call": "descendTarget",
+      "args": [
+        "47a1d",
+        [
+          4363.848398961777,
+          -916.9692745045334
+        ]
+      ],
+      "expect": "47a1cc"
+    },
+    {
+      "name": "s2-contains-hop-9",
+      "ground": "test/sphere-8192x4096",
+      "system": "s2",
+      "call": "contains",
+      "args": [
+        "47a1cc",
+        [
+          4363.848398961777,
+          -916.9692745045334
+        ]
+      ],
+      "expect": true,
+      "handDerived": true
+    },
+    {
+      "name": "s2-descend-hop-10",
+      "ground": "test/sphere-8192x4096",
+      "system": "s2",
+      "call": "descendTarget",
+      "args": [
+        "47a1cc",
+        [
+          4363.848398961777,
+          -916.9692745045334
+        ]
+      ],
+      "expect": "47a1cb"
+    },
+    {
+      "name": "s2-contains-hop-10",
+      "ground": "test/sphere-8192x4096",
+      "system": "s2",
+      "call": "contains",
+      "args": [
+        "47a1cb",
+        [
+          4363.848398961777,
+          -916.9692745045334
+        ]
+      ],
+      "expect": true,
+      "handDerived": true
+    },
+    {
+      "name": "s2-descent-has-a-floor",
+      "ground": "test/sphere-8192x4096",
+      "system": "s2",
+      "call": "descendTarget",
+      "args": [
+        "47a1cb",
+        [
+          4363.848398961777,
+          -916.9692745045334
+        ]
+      ],
+      "expect": "",
+      "note": "The telescope stops at S2 level 10.",
+      "handDerived": true
+    },
+    {
+      "name": "geohash-cellat-ignores-the-lens-window",
+      "ground": "test/square-1024-bounds",
+      "call": "geohashCellAt",
+      "args": [
+        [
+          688,
+          -688
+        ],
+        3
+      ],
+      "expect": "m6s",
+      "note": "Part 1: a plane's grid divides the WORLD SQUARE whatever window the lens fills, so this is the same m6s the whole-surface ground answers and a lens switch moves no hash.",
+      "handDerived": true
+    },
+    {
+      "name": "geohash-contains-on-the-world-square",
+      "ground": "test/square-1024-bounds",
+      "system": "geohash",
+      "call": "contains",
+      "args": [
+        "m6",
+        [
+          672,
+          -704
+        ]
+      ],
+      "expect": true,
+      "note": "m6 on the full 1024 square — [672,-704]..[704,-672], corner inclusive — not a halving of the 512x256 window.",
+      "handDerived": true
+    },
+    {
+      "name": "geohash-outside-the-window-still-on-the-square",
+      "ground": "test/square-1024-bounds",
+      "system": "geohash",
+      "call": "contains",
+      "args": [
+        "0",
+        [
+          8,
+          -1016
+        ]
+      ],
+      "expect": true,
+      "note": "A point outside the lens window but on the world square is in the square's own cell 0 (bottom-left 128x256 of the 1024 square).",
+      "handDerived": true
+    },
+    {
+      "name": "real-cellat-raster-centre",
+      "ground": "bend-or/2026-08-02/0",
+      "call": "geohashCellAt",
+      "args": [
+        [
+          4096,
+          -4096
+        ],
+        6
+      ],
+      "expect": "9rcdxk",
+      "note": "(4096,4096 y-down) inverts to lat 44.05759758..., lng -121.3175; textbook geohash at 6 characters is 9rcdxk.",
+      "handDerived": true
+    },
+    {
+      "name": "real-cellat-north-west",
+      "ground": "bend-or/2026-08-02/0",
+      "call": "geohashCellAt",
+      "args": [
+        [
+          1024,
+          -2048
+        ],
+        6
+      ],
+      "expect": "9rcdux",
+      "note": "(1024,2048 y-down) is lat 44.11669306..., lng -121.44091000...; 9rcdux.",
+      "handDerived": true
+    },
+    {
+      "name": "real-cellat-outside-the-window",
+      "ground": "bend-or/2026-08-02/0",
+      "call": "geohashCellAt",
+      "args": [
+        [
+          9000,
+          -4096
+        ],
+        6
+      ],
+      "expect": "9rcfeu",
+      "note": "East of the declared window, and still a real address: lat 44.05759758..., lng -121.12049392... is 9rcfeu. The ground is real earth; no point is refused.",
+      "handDerived": true
+    },
+    {
+      "name": "real-cellat-base-depth",
+      "ground": "bend-or/2026-08-02/0",
+      "call": "geohashCellAt",
+      "args": [
+        [
+          4096,
+          -4096
+        ],
+        4
+      ],
+      "expect": "9rcd",
+      "handDerived": true
+    },
+    {
+      "name": "real-contains-own-cell",
+      "ground": "bend-or/2026-08-02/0",
+      "system": "geohash",
+      "call": "contains",
+      "args": [
+        "9rcd",
+        [
+          4096,
+          -4096
+        ]
+      ],
+      "expect": true,
+      "handDerived": true
+    },
+    {
+      "name": "real-contains-not-the-neighbour",
+      "ground": "bend-or/2026-08-02/0",
+      "system": "geohash",
+      "call": "contains",
+      "args": [
+        "9rcf",
+        [
+          4096,
+          -4096
+        ]
+      ],
+      "expect": false,
+      "handDerived": true
+    },
+    {
+      "name": "real-contains-outside-the-window",
+      "ground": "bend-or/2026-08-02/0",
+      "system": "geohash",
+      "call": "contains",
+      "args": [
+        "9rcf",
+        [
+          9000,
+          -4096
+        ]
+      ],
+      "expect": true,
+      "note": "9rcf overhangs the window's east edge; the point east of the raster is inside its real degree rectangle.",
+      "handDerived": true
+    },
+    {
+      "name": "real-root-holds-everything",
+      "ground": "bend-or/2026-08-02/0",
+      "system": "geohash",
+      "call": "contains",
+      "args": [
+        "",
+        [
+          9000,
+          -4096
+        ]
+      ],
+      "expect": true,
+      "note": "The root is the whole earth: every point of the picture's plane is somewhere on it.",
+      "handDerived": true
+    },
+    {
+      "name": "real-descend-from-the-root-lands-on-base-depth",
+      "ground": "bend-or/2026-08-02/0",
+      "system": "geohash",
+      "call": "descendTarget",
+      "args": [
+        "",
+        [
+          4096,
+          -4096
+        ]
+      ],
+      "expect": "9rcd",
+      "note": "The root's children are the depth-4 cells, so the first descent is four characters, not one.",
+      "handDerived": true
+    },
+    {
+      "name": "real-descend-one-layer",
+      "ground": "bend-or/2026-08-02/0",
+      "system": "geohash",
+      "call": "descendTarget",
+      "args": [
+        "9rcd",
+        [
+          4096,
+          -4096
+        ]
+      ],
+      "expect": "9rcdx",
+      "handDerived": true
+    }
+  ]
+}

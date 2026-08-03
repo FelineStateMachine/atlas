@@ -1,0 +1,36 @@
+{{/*
+  dock — the panel beside the map: what the map is drawing, why the count is
+  what it is, the shortlist a reader can jump from, and the card.
+
+  The card is nested rather than beside because that is where it belongs on
+  screen, and it is its own region because it is its own swap: `select` moves
+  the card and the list, and a re-render of the dock carries the card with it
+  so the two can never disagree about what is open.
+*/}}
+{{define "dock"}}<aside id="atlas-dock" class="dock{{if not .Dock.Open}} is-folded{{end}}">
+  <button type="button" class="dock-readout" id="dock-fold"
+          aria-expanded="{{.Dock.Open}}" aria-label="{{.Dock.FoldLabel}}" title="{{.Dock.FoldLabel}}"
+          hx-post="/session/dock"
+          hx-vals:append='{"open":"{{if .Dock.Open}}0{{else}}1{{end}}","byHand":"1"}'>
+    <span id="dock-count">{{.Dock.Count}}</span>
+    <span class="dock-flag" id="dock-flag"{{if not .Dock.Flag}} hidden{{end}}{{with .Dock.FlagTitle}} title="{{.}}"{{end}}>{{.Dock.Flag}}</span>
+    <span class="dock-fold" aria-hidden="true"><svg viewBox="0 0 16 16"><path d="m6 3 5 5-5 5"/></svg></span>
+  </button>
+  <span class="dock-rail-label" aria-hidden="true">Locations<span class="dock-rail-name" id="dock-rail-name"{{if not .Dock.RailName}} hidden{{end}}> · {{.Dock.RailName}}</span></span>
+  <div class="dock-body">
+    <div class="dock-results" id="dock-results">
+      {{if .Dock.Empty}}<p class="search-empty">{{.Dock.Empty}}</p>{{end}}
+      {{range .Dock.Rows}}<button type="button" class="search-result{{if .Selected}} is-selected{{end}}"
+              {{if eq .Kind "point"}}data-location="{{.ID}}"{{else}}data-zone="{{.ID}}"{{end}}
+              style="--pin-color: {{.Color}}"
+              hx-post="/session/select" hx-vals:append='{"feature":"{{.ID}}","focus":"1"}'>
+        <span class="result-dot" style="background: {{.Color}}">{{.Glyph}}</span>
+        <span><strong>{{.Title}}</strong><small>{{.Collection}}{{if .Group}} · {{.Group}}{{end}}</small></span>
+      </button>
+      {{end}}
+      {{if .Dock.Note}}<p class="dock-note">{{.Dock.Note}}</p>{{end}}
+    </div>
+    {{template "detail" .}}
+  </div>
+</aside>
+{{end}}

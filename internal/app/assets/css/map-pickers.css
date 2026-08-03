@@ -1,0 +1,105 @@
+/* Game, map, and layer form a path, and the topbar sets them the way an IDE
+   sets its breadcrumb or a design tool its team-project-file trail: plain
+   crumbs separated by slashes, each one secretly a select. The captions stay
+   for screen readers; sighted readers get the trail itself. */
+.map-pickers {
+  display: flex;
+  align-items: center;
+  min-width: 0;
+  padding: 0 12px;
+}
+
+.map-pickers label {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+}
+
+.map-pickers label > span {
+  position: absolute;
+  overflow: hidden;
+  width: 1px;
+  height: 1px;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
+.map-pickers label + label::before {
+  padding: 0 10px;
+  color: var(--muted);
+  content: "/";
+  font-size: 12px;
+}
+
+.map-pickers select {
+  max-width: 300px;
+  height: 34px;
+  padding: 0 21px 0 8px;
+  border: 0;
+  border-radius: 7px;
+  outline: none;
+  appearance: none;
+  background: transparent no-repeat right 7px center;
+  background-image:
+    linear-gradient(45deg, transparent 50%, var(--muted) 50%),
+    linear-gradient(135deg, var(--muted) 50%, transparent 50%);
+  background-position: right 12px center, right 7px center;
+  background-size: 5px 5px;
+  color: var(--text-strong);
+  font-size: 13px;
+  font-weight: 600;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.map-pickers select:hover:enabled {
+  background-color: rgba(255, 255, 255, 0.05);
+}
+
+.map-pickers select:focus-visible {
+  box-shadow: 0 0 0 2px rgba(58, 165, 201, 0.6);
+}
+
+/* A crumb with one option: still part of the trail, in the trail's own
+   voice, but no chevron and nothing to press. */
+.map-pickers select:disabled {
+  padding-right: 8px;
+  background-image: none;
+  color: var(--text-strong);
+  cursor: default;
+  opacity: 1;
+}
+
+#lens-field[hidden] {
+  display: none;
+}
+
+/* Adding a volume is beside the trail, not part of it: the button keeps to the
+   far end of the row and speaks in the crumbs' own quiet register -- ghost
+   until hovered, framed only then. */
+.map-pickers .add-bundles {
+  width: 30px;
+  height: 30px;
+  margin-left: auto;
+  padding: 0;
+  border: 0;
+  border-radius: 7px;
+  background: transparent;
+  color: var(--muted);
+  cursor: pointer;
+}
+
+.map-pickers .add-bundles:hover {
+  background: rgba(255, 255, 255, 0.05);
+  color: var(--text-strong);
+}
+
+.map-pickers .add-bundles:focus-visible {
+  box-shadow: 0 0 0 2px rgba(58, 165, 201, 0.6);
+  outline: none;
+}
+
+.map-pickers .add-bundles svg {
+  width: 14px;
+  height: 14px;
+}

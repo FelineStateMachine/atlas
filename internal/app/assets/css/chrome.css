@@ -1,0 +1,183 @@
+/*
+  chrome — the whole difference between the carried stylesheet system and the
+  markup this application renders.
+
+  Every other file in this directory is carried unedited (issue #5 §9: the
+  cascade is an asset, and the visual identity is unchanged). What this
+  application's markup has that those files cannot know about is collected
+  here rather than smeared through the files it would belong to, so the delta
+  stays one file long.
+
+  The list is short on purpose. A difference the markup can spell instead is
+  not a difference: the detail card used to be patched here, keyed off
+  `:empty`, because a region rendered inside-out could not be given an
+  attribute; it is an outerMorph region now and renders its own `hidden`, so
+  the carried pin-detail.css works verbatim and there is nothing to say.
+*/
+
+/*
+  1. The regions the partial envelope swaps into carry ids of their own.
+
+  A region is one element with one id and one swap (internal/app/partials.go).
+  The carried system hangs off classes almost everywhere, so the regions wear
+  both: `<aside id="atlas-legend" class="sidebar">` is styled by the carried
+  `.sidebar` rules and targeted by the envelope's `#atlas-legend`. Two places
+  in the carried system reach for an id, and they are re-pointed here.
+*/
+#atlas-legend .legend .layer-section:last-child { border-bottom: 0; }
+
+/*
+  2. The seam's surfaces are the seam's, including while a swap is happening.
+
+  `<atlas-viewport>` and the overview's canvas holder carry
+  hx-morph-skip-children: a swap may touch their attributes and never their
+  internals (issue #5 §4.3). They therefore have no styling of their own here
+  beyond standing where the carried `.map` and `.overview` rules expect --
+  which is what these two rules say.
+*/
+atlas-viewport {
+  position: absolute;
+  inset: 0;
+  display: block;
+}
+atlas-chart,
+atlas-globe {
+  position: absolute;
+  inset: 0;
+  display: block;
+}
+atlas-globe[hidden] { display: none; }
+
+/*
+  3. The import region.
+
+  An import is a streamed answer (internal/app/importing.go), so it needs
+  somewhere to stand and a word for each state it passes through. Nothing in
+  the carried cascade describes it, because a native file dialog whose only
+  sign was the button it was raised from needed no panel at all.
+
+  It is one row, not a log: the region holds the run that is happening and
+  nothing else, and the handler morphs it from state to state. The section
+  says so itself -- it renders `hidden` when it is holding nothing, which an
+  outerMorph region can do and the `:empty` rule this used to lean on could
+  only guess at.
+
+  A row that ended well takes itself away. The news that a volume installed is
+  worth a moment and is clutter after that, and the reader is not going to
+  dismiss a thing they never asked to see -- so the fade is the stylesheet's
+  job, on a delay, with no script and nothing for the handler to remember. A
+  refusal is the opposite and stays: it is the only account of what went
+  wrong, and the next import is what replaces it.
+*/
+.import-rows {
+  position: fixed;
+  right: 17px;
+  bottom: 17px;
+  z-index: 80;
+  display: grid;
+  gap: 4px;
+  width: min(360px, calc(100% - 34px));
+  font-size: 12px;
+}
+.import-rows[hidden] { display: none; }
+.import-row {
+  margin: 0;
+  padding: 8px 11px;
+  border: 1px solid var(--line);
+  border-radius: 7px;
+  background: var(--panel-raised);
+  color: var(--muted);
+  overflow: hidden;
+}
+.import-row[data-state="installed"] { color: var(--text-strong); border-color: var(--accent); }
+.import-row[data-state="refused"] { color: #d99; border-color: #7e3f3f; }
+.import-row[data-state="installing"] { color: var(--text); }
+
+/*
+  The row stands for a few seconds, fades, and then collapses out of the
+  corner it was standing in -- the collapse is what stops an invisible box
+  going on sitting over the map. `forwards` is load-bearing: an animation that
+  did not hold its last frame would put the row back at the end of it.
+*/
+.import-row-fading {
+  animation: import-row-fade 500ms ease-in 4s forwards;
+}
+@keyframes import-row-fade {
+  0% { opacity: 1; max-height: 8rem; }
+  60% { opacity: 0; max-height: 8rem; }
+  100% {
+    opacity: 0;
+    max-height: 0;
+    padding-block: 0;
+    border-block-width: 0;
+    visibility: hidden;
+  }
+}
+
+/*
+  A reader who asked for less motion still wants the row gone; what they do
+  not want is the going. The delay stands and the movement does not.
+*/
+@media (prefers-reduced-motion: reduce) {
+  .import-row-fading { animation-duration: 1ms; }
+}
+
+/*
+  4. A feature index row is three elements.
+
+  One element carries one request, and a row of a feature index answers three:
+  the left button goes to the ground, the right button highlights it, and the
+  crosshair asks for that ground and no other
+  (internal/app/templates/legend.tmpl). The wrapper is the one that hears the
+  contextmenu, and it is the row itself: the name flexes, the action stands in
+  a gutter beside it.
+
+  The gutter is reserved whether or not the control is showing, which is the
+  rule the carried system states where it reserves the same column on a
+  collection row (layer-header.css) — a row that grew on hover would push the
+  one under the cursor out from under it.
+*/
+.zone-index-row {
+  display: flex;
+  align-items: center;
+}
+
+.zone-index-row .zone-index-item {
+  flex: 1;
+  min-width: 0;
+}
+
+.zone-index-row .only-button {
+  flex: none;
+}
+
+/*
+  The reveal is the carried rule's own, said again for a row the carried system
+  never had. `.only-button` is drawn at `opacity: 0` and revealed under
+  `.is-hovered` — the class the seam writes from where the pointer actually is
+  rather than from `:hover`, because a list that scrolls under a still cursor
+  is exactly what `:hover` gets wrong (render/hover.ts).
+
+  A zone that IS the highlight keeps its crosshair lit unasked. The control is
+  the way back out of the filter it set, and a way out that only appears once
+  the reader has found it is not one.
+*/
+.zone-index-row.is-hovered .only-button,
+.zone-index-row .only-button[aria-pressed="true"] {
+  opacity: 1;
+}
+
+.zone-index-row .only-button[aria-pressed="true"] {
+  background: rgba(58, 165, 201, 0.14);
+}
+
+/*
+  5. A pane put away is put away.
+
+  Both panes are absolutely positioned and `display: block`, which is stronger
+  than the `[hidden]` the browser's own sheet carries — so without this the
+  chart went on standing behind the sphere at full size, and the one question
+  a renderer answers from its window (how much of the map is in view, how a
+  cell fits it) went on being answered by a window nobody was looking through.
+*/
+atlas-chart[hidden] { display: none; }

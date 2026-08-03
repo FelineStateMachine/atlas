@@ -1,0 +1,30 @@
+{
+  "name": "atlas-workspaces",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "description": "Atlas's TypeScript lanes (issue #5 §3.1): analysis/, the cell systems, and render/, the deletable rendering seam. Two workspaces and one lock file for the whole repository — everything a browser runs here is one of these two.",
+  "workspaces": [
+    "analysis",
+    "render"
+  ],
+  "engines": {
+    "node": ">=22.18"
+  },
+  "scripts": {
+    "lint": "eslint --config eslint.config.mjs analysis render",
+    "typecheck": "tsc --project analysis/tsconfig.json && tsc --project render/tsconfig.json",
+    "test": "node --test \"analysis/test/*.test.ts\"",
+    "lane": "npm run --silent lint && tsc --project analysis/tsconfig.json && npm run --silent test && echo 'analysis lane: the boundary rules, tsc --strict and the conformance suite all green'",
+    "seam-test": "node --test \"render/test/*.test.ts\"",
+    "seam-build": "npm run --silent build --workspace @atlas/render",
+    "seam-lane": "npm run --silent lint && tsc --project render/tsconfig.json && npm run --silent seam-test && node render/tools/lines.mjs && echo 'render lane: the boundary rules, tsc --strict, the seam tests and the line budget all green'"
+  },
+  "devDependencies": {
+    "@playwright/test": "1.62.1",
+    "@types/node": "22.15.3",
+    "eslint": "9.39.0",
+    "typescript": "5.9.2",
+    "typescript-eslint": "8.46.0"
+  }
+}

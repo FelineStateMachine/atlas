@@ -1,0 +1,198 @@
+{{/*
+  legend — the whole sidebar: the search field, the toolbar, the collection
+  tree, and the footer count.
+
+  It is one region because it is one answer. Every filtering move changes the
+  rows, the isolate chip and the count together, and splitting them into three
+  regions would be three ways for them to disagree — which is exactly the
+  defect the reference implementation carried until every surface was made to
+  ask one place.
+
+  All of its algebra ran in Go before this file was given anything
+  (internal/app/legend.go). There is no arithmetic here and no policy: a
+  template that needs an `if` about what a collection means is a decision in
+  the wrong place.
+*/}}
+{{define "legend"}}<aside id="atlas-legend" class="sidebar">
+  <div class="search-wrap">
+    <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>
+    <input id="pin-search" type="search" name="q" value="{{.Legend.Search}}"
+           placeholder="Search locations" autocomplete="off" aria-label="Search locations"
+           hx-post="/session/search" hx-trigger="input changed delay:150ms, search">
+    <kbd>⌘K</kbd>
+  </div>
+  <div class="legend-toolbar">
+    <span>Layers</span>
+    <button type="button" class="solo-chip" id="solo-chip"{{if not .Legend.Solo}} hidden{{end}}
+            title="Showing exclusively {{.Legend.Solo}} — click to show everything"
+            hx-post="/session/solo">exclusively: {{.Legend.Solo}}</button>
+    <div class="legend-actions">
+      <button type="button" class="legend-action" id="expand-all"
+              data-label="Unfold every group" aria-label="Unfold every group"
+              hx-post="/session/sections" hx-vals:append='{"all":"unfold"}'>
+        <svg viewBox="0 0 16 16" aria-hidden="true"><path d="m4 6 4 4 4-4"/></svg>
+      </button>
+      <button type="button" class="legend-action" id="collapse-all"
+              data-label="Fold every group" aria-label="Fold every group"
+              hx-post="/session/sections" hx-vals:append='{"all":"fold"}'>
+        <svg viewBox="0 0 16 16" aria-hidden="true"><path d="m4 10 4-4 4 4"/></svg>
+      </button>
+      <span class="legend-actions-break" aria-hidden="true"></span>
+      <button type="button" class="legend-action" id="show-all"
+              data-label="Show every category" aria-label="Show every category"
+              hx-post="/session/collections" hx-vals:append='{"all":"show"}'>
+        <svg viewBox="0 0 16 16" aria-hidden="true"><path d="M1 8s2.5-4.5 7-4.5S15 8 15 8s-2.5 4.5-7 4.5S1 8 1 8z"/><circle cx="8" cy="8" r="2"/></svg>
+      </button>
+      <button type="button" class="legend-action" id="hide-all"
+              data-label="Hide every category" aria-label="Hide every category"
+              hx-post="/session/collections" hx-vals:append='{"all":"hide"}'>
+        <svg viewBox="0 0 16 16" aria-hidden="true"><path d="M1 8s2.5-4.5 7-4.5S15 8 15 8s-2.5 4.5-7 4.5S1 8 1 8z"/><path d="m2 14 12-12"/></svg>
+      </button>
+    </div>
+  </div>
+  <div class="layers" id="layers">
+    <div class="legend" id="legend">
+      {{range .Legend.Sections}}<section class="layer-section{{if .Collapsed}} is-collapsed{{end}}" data-layer-section="{{.Key}}">
+        <div class="layer-header">
+          <button type="button" class="layer-title" data-section="{{.Key}}"
+                  aria-expanded="{{if .Collapsed}}false{{else}}true{{end}}"
+                  hx-post="/session/sections"
+                  hx-vals:append='{"section":"{{.Key}}","open":"{{if .Collapsed}}1{{else}}0{{end}}"}'>
+            <span class="layer-chevron" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="m9 6 6 6-6 6"/></svg></span>
+            <span>{{.Title}}</span>
+            <span class="layer-count">{{.Count}}</span>
+          </button>
+          <button type="button" class="only-button" data-only-section="{{.Key}}"
+                  data-label="Exclusively {{.Title}}" aria-label="Exclusively {{.Title}}"
+                  hx-post="/session/solo" hx-vals:append='{"section":"{{.Key}}"}'>
+            <svg viewBox="0 0 16 16" aria-hidden="true"><circle cx="8" cy="8" r="4.6"/><circle cx="8" cy="8" r="1.3" fill="currentColor" stroke="none"/><path d="M8 1v2M8 13v2M1 8h2M13 8h2"/></svg>
+          </button>
+          <label class="layer-switch">
+            <input type="checkbox" data-section-toggle="{{.Key}}" aria-label="Show {{.Title}}"
+                   {{if .Shown}}checked{{end}}
+                   hx-post="/session/collections" hx-vals:append='{"section":"{{.Key}}"}'>
+            <span aria-hidden="true"></span>
+          </label>
+        </div>
+        <div class="category-toggles">
+          {{range .Rows}}<label class="category-row{{if .Expanded}} is-expanded{{end}}" style="--pin-color: {{.Color}}">
+            <input type="checkbox" data-collection="{{.ID}}"{{if .Visible}} checked{{end}}
+                   hx-post="/session/collections"
+                   hx-vals:append='{"collection":"{{.ID}}","visible":"{{if .Visible}}0{{else}}1{{end}}"}'>
+            {{if .Shapes}}<button type="button" class="collection-expand" data-expand-collection="{{.ID}}"
+                    aria-expanded="{{.Expanded}}" aria-label="Unfold the {{.Title}} index"
+                    hx-post="/session/expand"
+                    hx-vals:append='{"collection":"{{.ID}}","open":"{{if .Expanded}}0{{else}}1{{end}}"}'>
+              <svg class="collection-chevron" viewBox="0 0 16 16" aria-hidden="true"><path d="m6 4 4 4-4 4"/></svg>
+              {{if eq .Kind "path"}}<svg class="collection-kind" viewBox="0 0 16 16" aria-hidden="true"><path d="M2.5 12.5c3-6 8-2 11-9"/></svg>
+              {{else}}<svg class="collection-kind collection-kind-area" viewBox="0 0 16 16" aria-hidden="true"><path d="M8 4.2 12.6 11.6H3.4z"/></svg>{{end}}
+            </button>
+            {{else}}{{/*
+              THE MARK A ROW WEARS is the collection's own artwork wherever
+              there is any, and its initials only where there is not -- never
+              both. The reference set `--pin-icon` and the `has-source-icon`
+              class on this cell and emptied its text, or wrote the initials
+              into it (frontend/src/theme.js, applyCategoryGlyph); the rule
+              that draws one from the other came over with the stylesheet
+              (category-rows.css). Which of the two arrived is Go's answer
+              (legend.go, IconURL) -- this only spells it.
+            */}}<span class="category-icon{{if .IconURL}} has-source-icon{{end}}"{{with .IconURL}} style="--pin-icon: url('{{.}}')"{{end}}{{if .Icon}} title="{{.Icon}}"{{else}} title="{{.Title}}"{{end}}>{{if not .IconURL}}{{.Glyph}}{{end}}</span>
+            {{end}}
+            <span class="category-name">{{.Title}}</span>
+            {{with .Labels}}<button type="button" class="label-toggle" data-label-toggle="{{.Collection}}"
+                    data-label="{{.Action}}" aria-label="{{.Label}}" aria-pressed="{{.Speaking}}"
+                    hx-post="/session/labels" hx-vals:append='{"collection":"{{.Collection}}","flip":"1"}'>
+              {{/*
+                The mark says which question the button is asking. A bar and a
+                stem for ground that draws its names on itself; a luggage tag
+                for a point collection curated as text, whose names are the
+                whole of how it draws. Which one is Go's answer (legend.go,
+                labelToggle) -- this only spells them.
+              */}}
+              {{if eq .Glyph "tag"}}<svg viewBox="0 0 16 16" aria-hidden="true"><path d="M8.6 2.5H2.5v6.1l5.4 5.4a1.2 1.2 0 0 0 1.7 0l4.4-4.4a1.2 1.2 0 0 0 0-1.7z"/><path d="M5.6 5.6h.01"/></svg>
+              {{else}}<svg viewBox="0 0 16 16" aria-hidden="true"><path d="M3.5 3.5h9M8 3.5v9"/></svg>
+              {{end}}
+            </button>
+            {{else}}<span class="label-toggle-spacer"></span>
+            {{end}}
+            <button type="button" class="only-button" data-only-collection="{{.ID}}"
+                    data-label="Exclusively {{.Title}}" aria-label="Exclusively {{.Title}}"
+                    hx-post="/session/solo" hx-vals:append='{"collection":"{{.ID}}"}'>
+              <svg viewBox="0 0 16 16" aria-hidden="true"><circle cx="8" cy="8" r="4.6"/><circle cx="8" cy="8" r="1.3" fill="currentColor" stroke="none"/><path d="M8 1v2M8 13v2M1 8h2M13 8h2"/></svg>
+            </button>
+            <span class="category-count">{{.Count}}</span>
+          </label>
+          {{if .Shapes}}<div class="feature-index" data-feature-index="{{.ID}}"{{if not .Expanded}} hidden{{end}}>
+            {{/*
+              TWO VERBS, TWO BUTTONS OF THE MOUSE. A left click on a row of a
+              feature index *goes* to that ground: it selects the feature,
+              opens its card and flies the camera, which is the way a reader
+              reaches a place they cannot see. The right button asks after the
+              ground instead — highlight it, and narrow every other surface to
+              what it holds.
+
+              They are two elements because one element carries one request.
+              The row is the button and answers the click; the wrapper around
+              it hears the contextmenu the click bubbles past and answers that.
+              `prevent` is what keeps the platform's own menu out of the way.
+
+              AND A THIRD VERB, which is the one a right click cannot spell:
+              *only this ground*. Highlights accumulate, so asking after one
+              zone alone meant clearing the set by hand or isolating the whole
+              collection -- a different question, and a heavier one. The
+              crosshair is the same control a collection row and a section head
+              wear, asking the same thing one row further in, and it carries
+              the state it would leave: an exclusive zone's is pressed, and
+              pressing it again gives every highlight back.
+
+              IT IS A SIBLING OF THE ROW, NOT A CHILD OF IT, and that is the
+              whole of how the two clicks stay apart -- an event travels to its
+              ancestors and never to its siblings, so this one reaches the
+              wrapper, which listens for a contextmenu and hears no click. The
+              collection's own only-button needs no modifier either, for the
+              adjacent reason: a button is interactive content, so a label does
+              not forward its activation.
+            */}}
+            {{range .Index}}<div class="zone-index-row"
+                 hx-post="/session/highlight" hx-trigger="contextmenu prevent"
+                 hx-vals:append='{"feature":"{{.ID}}"}'>
+              <button type="button" class="zone-index-item{{if .Highlighted}} is-highlighted{{end}}{{if .Current}} is-current{{end}}"
+                      data-zone="{{.ID}}" aria-pressed="{{.Highlighted}}"
+                      style="--zone-color: {{.Color}}; --zone-depth: {{.Depth}}"
+                      hx-post="/session/select" hx-trigger="click"
+                      hx-vals:append='{"feature":"{{.ID}}","focus":"1"}'>
+                <span class="zone-index-marker" aria-hidden="true"></span>
+                <span>{{.Title}}</span>
+              </button>
+              {{/*
+                THE MARK IS `data-zone-only` AND NOT `data-only-zone`, which
+                is not a taste: html/template infers an attribute's context
+                from its name, strips a `data-` prefix before it does, and
+                reads anything left beginning with `on` as an event handler --
+                so `data-only-zone` is JS context and its value comes out
+                quoted, `&#34;93&#34;`. The two older marks in this file wear
+                that quoting today; they are only ever selected on by presence,
+                and renaming them would reach outside this change.
+              */}}
+              <button type="button" class="only-button" data-zone-only="{{.ID}}"
+                      data-label="Exclusively {{.Title}}" aria-label="Exclusively {{.Title}}"
+                      aria-pressed="{{.Exclusive}}"
+                      hx-post="/session/highlight"
+                      hx-vals:append='{"feature":"{{.ID}}","only":"1"}'>
+                <svg viewBox="0 0 16 16" aria-hidden="true"><circle cx="8" cy="8" r="4.6"/><circle cx="8" cy="8" r="1.3" fill="currentColor" stroke="none"/><path d="M8 1v2M8 13v2M1 8h2M13 8h2"/></svg>
+              </button>
+            </div>
+            {{end}}
+          </div>
+          {{end}}{{end}}
+        </div>
+      </section>
+      {{end}}
+    </div>
+  </div>
+  <footer class="sidebar-footer">
+    <span class="live-dot"></span>
+    <span id="visible-count">{{.Legend.Count}}</span>
+  </footer>
+</aside>
+{{end}}

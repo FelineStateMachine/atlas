@@ -1,0 +1,69 @@
+{{/*
+  operations — the pipeline, and what it may be pointed at.
+
+  Each form is an ordinary POST to /operations/run and works without the
+  runtime: the browser renders the streamed rows itself. With the runtime, the
+  same POST appends its rows to the console instead of navigating away
+  (hx-swap="beforeend"), which is the streaming swap of issue #5 §4.3 and the
+  same shape the application's import stream takes.
+
+  Nothing runs on a schedule or at startup. An operation exists only between a
+  submitted form and its subprocess's exit, and it dies with the request.
+*/}}
+{{define "title"}}Operations{{end}}
+{{define "content"}}
+<section class="page-head">
+  <h1>Operations</h1>
+  <p class="dim">
+    binary <b>{{if .Targets.Atlas}}{{.Targets.Atlas}}{{else}}not configured{{end}}</b> ·
+    archive <b>{{if .Targets.Archive}}{{.Targets.Archive}}{{else}}not configured{{end}}</b> ·
+    tiles <b>{{if .Targets.TileSet}}{{.Targets.TileSet}}{{else}}not configured{{end}}</b> ·
+    registry <b>{{if .Targets.Registry}}{{.Targets.Registry}}{{else}}not configured{{end}}</b>
+  </p>
+  {{if .Busy}}<p class="warn">An operation is already running: {{.Busy}}. One runs at a time.</p>{{end}}
+</section>
+
+<div class="columns">
+{{range .Operations}}
+<section class="card operation">
+  <h2>{{.Name}}</h2>
+  <p class="dim">{{.Summary}}</p>
+  {{if not .Ready}}
+  <p class="warn">{{.Missing}}</p>
+  {{else if .Source}}
+    {{/* One form per source, because a target only means something beside the
+         source that reads it: the hint on the field is that source's own. */}}
+    {{range $.Sources}}
+    <form method="post" action="/operations/run"
+          hx-post="/operations/run" hx-target="#op-log" hx-swap="beforeend">
+      <input type="hidden" name="op" value="crawl">
+      <input type="hidden" name="source" value="{{.Name}}">
+      <label for="target-{{.Name}}">{{.Label}}</label>
+      <input id="target-{{.Name}}" name="target" required placeholder="{{.TargetHint}}">
+      <button>Fetch</button>
+    </form>
+    {{else}}
+    <p class="dim">No registered source is crawled from here: the game sources' captures are
+      archived and their endpoints are somebody else's editorial work.</p>
+    {{end}}
+  {{else}}
+  <form method="post" action="/operations/run"
+        hx-post="/operations/run" hx-target="#op-log" hx-swap="beforeend">
+    <input type="hidden" name="op" value="{{.Name}}">
+    {{if .Volumes}}
+      <label for="volume-{{.Name}}">volume</label>
+      <input id="volume-{{.Name}}" name="volume" placeholder="every volume">
+    {{end}}
+    <button>Run {{.Name}}</button>
+  </form>
+  {{end}}
+</section>
+{{end}}
+</div>
+
+<section class="card">
+  <h2>Console</h2>
+  <p class="dim">The run's own event stream, a row at a time, as it arrives.</p>
+  <div id="op-log" class="console" aria-live="polite"></div>
+</section>
+{{end}}

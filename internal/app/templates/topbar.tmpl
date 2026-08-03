@@ -1,0 +1,76 @@
+{{/*
+  topbar — what is on offer: the volume, the world, the lens, and the two
+  buttons that change what the library holds.
+
+  Volume and world are in the address, so changing either is a navigation
+  rather than a session write: both selects ask /open, which answers with the
+  page at the URL they name and pushes that URL. The lens is not in the
+  address -- it is an arrangement of one world, not a different ground -- so it
+  is an ordinary session post answering with the regions it touches.
+*/}}
+{{define "topbar"}}
+<div class="brand" aria-label="Atlas — World explorer" title="World explorer">
+  <svg viewBox="0 0 10 10" aria-hidden="true"><path d="M5 0 10 5 5 10 0 5z"/></svg>
+  <strong>ATLAS</strong>
+</div>
+<div class="map-pickers">
+  <label>
+    <span>Volume</span>
+    {{/*
+      The empty hx-vals is this control saying it inherits nothing, and it is
+      load-bearing. Values declared on an element replace the parameters its
+      own name and value contributed, so the volume the shell declares --
+      the volume the reader is leaving -- would otherwise overwrite the one
+      they just chose, and every switch would navigate back to where it
+      started. This is the one control on the page whose own value shares a
+      name with the inherited one.
+    */}}
+    {{/*
+      A crumb with one option is a fact, not a choice: it stays in the trail
+      but stops offering itself -- no chevron, no focus, no menu of one.
+    */}}
+    <select id="volume-select" name="volume" aria-label="Volume" hx-vals='{}'
+            {{if le (len .Library) 1}}disabled {{end}}hx-get="/open" hx-trigger="change"
+            hx-target="#atlas-shell" hx-select="#atlas-shell"
+            hx-swap="outerMorph" hx-push-url="true">
+      {{range .Library}}<option value="{{.Slug}}"{{if .Current}} selected{{end}}>{{.Title}}</option>
+      {{end}}
+    </select>
+  </label>
+  {{with .Volume}}
+  <label>
+    <span>World</span>
+    <select id="world-select" name="world" aria-label="World"
+            {{if le (len .Worlds) 1}}disabled {{end}}hx-get="/open" hx-trigger="change"
+            hx-vals='{"volume":"{{.Slug}}"}'
+            hx-target="#atlas-shell" hx-select="#atlas-shell"
+            hx-swap="outerMorph" hx-push-url="true">
+      {{range .Worlds}}<option value="{{.Slug}}"{{if .Current}} selected{{end}}>{{.Title}}</option>
+      {{end}}
+    </select>
+  </label>
+  <label id="lens-field"{{if lt (len .Lenses) 2}} hidden{{end}}>
+    <span>Lens</span>
+    <select id="lens-select" name="lens" aria-label="World lens"
+            hx-post="/session/lens" hx-trigger="change">
+      {{range .Lenses}}<option value="{{.Name}}"{{if .Current}} selected{{end}}>{{.Name}}</option>
+      {{end}}
+    </select>
+  </label>
+  <button type="button" class="globe-toggle" id="globe-toggle"{{if not .Sphere}} hidden{{end}}
+          aria-pressed="false" aria-label="View as globe" title="View as globe">
+    <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3a15 15 0 0 1 0 18 15 15 0 0 1 0-18"/></svg>
+  </button>
+  {{end}}
+  <button type="button" class="icon-button add-bundles" id="add-bundles"
+          aria-label="Add volumes" title="Add .atlas volumes"
+          hx-post="/bundles/import" hx-swap="none">
+    <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>
+  </button>
+</div>
+<button type="button" class="icon-button mobile-legend" id="mobile-legend"
+        aria-label="Toggle legend" aria-expanded="{{if .Session.Sidebar.Collapsed}}false{{else}}true{{end}}"
+        hx-post="/session/sidebar" hx-vals:append='{"open":"{{if .Session.Sidebar.Collapsed}}1{{else}}0{{end}}"}'>
+  <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h16M4 12h16M4 17h16"/></svg>
+</button>
+{{end}}

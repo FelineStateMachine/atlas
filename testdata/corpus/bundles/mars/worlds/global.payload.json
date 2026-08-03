@@ -1,0 +1,614 @@
+{
+  "attrs": {
+    "atlas.geometry.body": "mars",
+    "atlas.geometry.equirect.deg": "-180,90,180,-90",
+    "atlas.geometry.equirect.px": "0,0,8192,4096",
+    "atlas.geometry.projection": "equirect",
+    "atlas.geometry.surface": "sphere",
+    "atlas.icon.outset": "dark"
+  },
+  "collections": [
+    {
+      "attrs": {
+        "atlas.geometry.kind": "point",
+        "atlas.icon.kind": "glyph",
+        "atlas.icon.std": "maki/circle",
+        "atlas.render.as": "pin"
+      },
+      "group": "Nomenclature",
+      "icon": "albedo-feature",
+      "iconAsset": "std--maki-circle.svg",
+      "id": 1481981621,
+      "kind": "point",
+      "title": "Albedo Feature",
+      "visible": true
+    },
+    {
+      "attrs": {
+        "atlas.geometry.kind": "point",
+        "atlas.icon.kind": "glyph",
+        "atlas.icon.std": "maki/circle-stroked",
+        "atlas.render.as": "pin"
+      },
+      "group": "Nomenclature",
+      "icon": "catena",
+      "iconAsset": "std--maki-circle-stroked.svg",
+      "id": 1665657400,
+      "kind": "point",
+      "title": "Catena",
+      "visible": true
+    },
+    {
+      "attrs": {
+        "atlas.geometry.kind": "point",
+        "atlas.icon.kind": "glyph",
+        "atlas.icon.std": "maki/circle-stroked",
+        "atlas.render.as": "pin"
+      },
+      "group": "Nomenclature",
+      "icon": "cavus",
+      "iconAsset": "std--maki-circle-stroked.svg",
+      "id": 314996208,
+      "kind": "point",
+      "title": "Cavus",
+      "visible": true
+    },
+    {
+      "attrs": {
+        "atlas.geometry.kind": "point",
+        "atlas.icon.kind": "glyph",
+        "atlas.icon.std": "maki/caution",
+        "atlas.render.as": "pin"
+      },
+      "group": "Nomenclature",
+      "icon": "chaos",
+      "iconAsset": "std--maki-caution.svg",
+      "id": 319878094,
+      "kind": "point",
+      "title": "Chaos",
+      "visible": true
+    },
+    {
+      "attrs": {
+        "atlas.geometry.kind": "point",
+        "atlas.icon.kind": "glyph",
+        "atlas.icon.std": "maki/wetland",
+        "atlas.render.as": "pin"
+      },
+      "group": "Nomenclature",
+      "icon": "chasma",
+      "iconAsset": "std--maki-wetland.svg",
+      "id": 36454787,
+      "kind": "point",
+      "title": "Chasma",
+      "visible": true
+    },
+    {
+      "attrs": {
+        "atlas.geometry.kind": "point",
+        "atlas.icon.kind": "glyph",
+        "atlas.icon.std": "maki/triangle-stroked",
+        "atlas.render.as": "pin"
+      },
+      "group": "Nomenclature",
+      "icon": "collis",
+      "iconAsset": "std--maki-triangle-stroked.svg",
+      "id": 1781146624,
+      "kind": "point",
+      "title": "Collis",
+      "visible": true
+    },
+    {
+      "attrs": {
+        "atlas.geometry.kind": "point",
+        "atlas.icon.kind": "glyph",
+        "atlas.icon.std": "maki/circle-stroked",
+        "atlas.render.as": "pin"
+      },
+      "group": "Nomenclature",
+      "icon": "crater",
+      "iconAsset": "std--maki-circle-stroked.svg",
+      "id": 814259701,
+      "kind": "point",
+      "title": "Crater",
+      "visible": true
+    },
+    {
+      "attrs": {
+        "atlas.geometry.kind": "point",
+        "atlas.icon.kind": "glyph",
+        "atlas.icon.std": "maki/triangle-stroked",
+        "atlas.render.as": "pin"
+      },
+      "group": "Nomenclature",
+      "icon": "dorsum",
+      "iconAsset": "std--maki-triangle-stroked.svg",
+      "id": 532656430,
+      "kind": "point",
+      "title": "Dorsum",
+      "visible": true
+    },
+    {
+      "attrs": {
+        "atlas.geometry.kind": "point",
+        "atlas.icon.kind": "glyph",
+        "atlas.icon.std": "maki/waterfall",
+        "atlas.render.as": "pin"
+      },
+      "group": "Nomenclature",
+      "icon": "fluctus",
+      "iconAsset": "std--maki-waterfall.svg",
+      "id": 1212566376,
+      "kind": "point",
+      "title": "Fluctus",
+      "visible": true
+    },
+    {
+      "attrs": {
+        "atlas.geometry.kind": "point",
+        "atlas.icon.kind": "glyph",
+        "atlas.icon.std": "maki/wetland",
+        "atlas.render.as": "pin"
+      },
+      "group": "Nomenclature",
+      "icon": "fossa",
+      "iconAsset": "std--maki-wetland.svg",
+      "id": 1691630446,
+      "kind": "point",
+      "title": "Fossa",
+      "visible": true
+    },
+    {
+      "attrs": {
+        "atlas.geometry.kind": "point",
+        "atlas.icon.kind": "glyph",
+        "atlas.icon.std": "maki/caution",
+        "atlas.render.as": "pin"
+      },
+      "group": "Nomenclature",
+      "icon": "labes",
+      "iconAsset": "std--maki-caution.svg",
+      "id": 2060693985,
+      "kind": "point",
+      "title": "Labes",
+      "visible": true
+    },
+    {
+      "attrs": {
+        "atlas.geometry.kind": "point",
+        "atlas.icon.kind": "glyph",
+        "atlas.icon.std": "maki/wetland",
+        "atlas.render.as": "pin"
+      },
+      "group": "Nomenclature",
+      "icon": "labyrinthus",
+      "iconAsset": "std--maki-wetland.svg",
+      "id": 148986029,
+      "kind": "point",
+      "title": "Labyrinthus",
+      "visible": true
+    },
+    {
+      "attrs": {
+        "atlas.geometry.kind": "point",
+        "atlas.icon.kind": "glyph",
+        "atlas.icon.std": "maki/landuse",
+        "atlas.render.as": "pin"
+      },
+      "group": "Nomenclature",
+      "icon": "lingula",
+      "iconAsset": "std--maki-landuse.svg",
+      "id": 855108222,
+      "kind": "point",
+      "title": "Lingula",
+      "visible": true
+    },
+    {
+      "attrs": {
+        "atlas.geometry.kind": "point",
+        "atlas.icon.kind": "glyph",
+        "atlas.icon.std": "maki/circle",
+        "atlas.render.as": "pin"
+      },
+      "group": "Nomenclature",
+      "icon": "macula",
+      "iconAsset": "std--maki-circle.svg",
+      "id": 1047800203,
+      "kind": "point",
+      "title": "Macula",
+      "visible": true
+    },
+    {
+      "attrs": {
+        "atlas.geometry.kind": "point",
+        "atlas.icon.kind": "glyph",
+        "atlas.icon.std": "maki/square",
+        "atlas.render.as": "pin"
+      },
+      "group": "Nomenclature",
+      "icon": "mensa",
+      "iconAsset": "std--maki-square.svg",
+      "id": 661530138,
+      "kind": "point",
+      "title": "Mensa",
+      "visible": true
+    },
+    {
+      "attrs": {
+        "atlas.geometry.kind": "point",
+        "atlas.icon.kind": "glyph",
+        "atlas.icon.std": "maki/mountain",
+        "atlas.render.as": "pin"
+      },
+      "group": "Nomenclature",
+      "icon": "mons",
+      "iconAsset": "std--maki-mountain.svg",
+      "id": 192420605,
+      "kind": "point",
+      "title": "Mons",
+      "visible": true
+    },
+    {
+      "attrs": {
+        "atlas.geometry.kind": "point",
+        "atlas.icon.kind": "glyph",
+        "atlas.icon.std": "maki/volcano",
+        "atlas.render.as": "pin"
+      },
+      "group": "Nomenclature",
+      "icon": "palus",
+      "iconAsset": "std--maki-volcano.svg",
+      "id": 1739974791,
+      "kind": "point",
+      "title": "Palus",
+      "visible": true
+    },
+    {
+      "attrs": {
+        "atlas.geometry.kind": "point",
+        "atlas.icon.kind": "glyph",
+        "atlas.icon.std": "maki/wetland",
+        "atlas.render.as": "pin"
+      },
+      "group": "Nomenclature",
+      "icon": "patera",
+      "iconAsset": "std--maki-wetland.svg",
+      "id": 1344768375,
+      "kind": "point",
+      "title": "Patera",
+      "visible": true
+    },
+    {
+      "attrs": {
+        "atlas.geometry.kind": "point",
+        "atlas.icon.kind": "glyph",
+        "atlas.icon.std": "maki/square-stroked",
+        "atlas.render.as": "pin"
+      },
+      "group": "Nomenclature",
+      "icon": "planitia",
+      "iconAsset": "std--maki-square-stroked.svg",
+      "id": 1032054422,
+      "kind": "point",
+      "title": "Planitia",
+      "visible": true
+    },
+    {
+      "attrs": {
+        "atlas.geometry.kind": "point",
+        "atlas.icon.kind": "glyph",
+        "atlas.icon.std": "maki/square",
+        "atlas.render.as": "pin"
+      },
+      "group": "Nomenclature",
+      "icon": "planum",
+      "iconAsset": "std--maki-square.svg",
+      "id": 2004331679,
+      "kind": "point",
+      "title": "Planum",
+      "visible": true
+    },
+    {
+      "attrs": {
+        "atlas.geometry.kind": "point",
+        "atlas.icon.kind": "glyph",
+        "atlas.icon.std": "maki/triangle",
+        "atlas.render.as": "pin"
+      },
+      "group": "Nomenclature",
+      "icon": "rupes",
+      "iconAsset": "std--maki-triangle.svg",
+      "id": 954684237,
+      "kind": "point",
+      "title": "Rupes",
+      "visible": true
+    },
+    {
+      "attrs": {
+        "atlas.geometry.kind": "point",
+        "atlas.icon.kind": "glyph",
+        "atlas.icon.std": "maki/triangle",
+        "atlas.render.as": "pin"
+      },
+      "group": "Nomenclature",
+      "icon": "scopulus",
+      "iconAsset": "std--maki-triangle.svg",
+      "id": 253939914,
+      "kind": "point",
+      "title": "Scopulus",
+      "visible": true
+    },
+    {
+      "attrs": {
+        "atlas.geometry.kind": "point",
+        "atlas.icon.kind": "glyph",
+        "atlas.icon.std": "maki/water",
+        "atlas.render.as": "pin"
+      },
+      "group": "Nomenclature",
+      "icon": "serpens",
+      "iconAsset": "std--maki-water.svg",
+      "id": 1332559540,
+      "kind": "point",
+      "title": "Serpens",
+      "visible": true
+    },
+    {
+      "attrs": {
+        "atlas.geometry.kind": "point",
+        "atlas.icon.kind": "glyph",
+        "atlas.icon.std": "maki/wetland",
+        "atlas.render.as": "pin"
+      },
+      "group": "Nomenclature",
+      "icon": "sulcus",
+      "iconAsset": "std--maki-wetland.svg",
+      "id": 1686215351,
+      "kind": "point",
+      "title": "Sulcus",
+      "visible": true
+    },
+    {
+      "attrs": {
+        "atlas.geometry.kind": "point",
+        "atlas.icon.kind": "glyph",
+        "atlas.icon.std": "maki/landuse",
+        "atlas.render.as": "pin"
+      },
+      "group": "Nomenclature",
+      "icon": "terra",
+      "iconAsset": "std--maki-landuse.svg",
+      "id": 164074456,
+      "kind": "point",
+      "title": "Terra",
+      "visible": true
+    },
+    {
+      "attrs": {
+        "atlas.geometry.kind": "point",
+        "atlas.icon.kind": "glyph",
+        "atlas.icon.std": "maki/mountain",
+        "atlas.render.as": "pin"
+      },
+      "group": "Nomenclature",
+      "icon": "tholus",
+      "iconAsset": "std--maki-mountain.svg",
+      "id": 348424821,
+      "kind": "point",
+      "title": "Tholus",
+      "visible": true
+    },
+    {
+      "attrs": {
+        "atlas.geometry.kind": "point",
+        "atlas.icon.kind": "glyph",
+        "atlas.icon.std": "maki/beach",
+        "atlas.render.as": "pin"
+      },
+      "group": "Nomenclature",
+      "icon": "unda",
+      "iconAsset": "std--maki-beach.svg",
+      "id": 1001218646,
+      "kind": "point",
+      "title": "Unda",
+      "visible": true
+    },
+    {
+      "attrs": {
+        "atlas.geometry.kind": "point",
+        "atlas.icon.kind": "glyph",
+        "atlas.icon.std": "maki/water",
+        "atlas.render.as": "pin"
+      },
+      "group": "Nomenclature",
+      "icon": "vallis",
+      "iconAsset": "std--maki-water.svg",
+      "id": 378741783,
+      "kind": "point",
+      "title": "Vallis",
+      "visible": true
+    },
+    {
+      "attrs": {
+        "atlas.geometry.kind": "point",
+        "atlas.icon.kind": "glyph",
+        "atlas.icon.std": "maki/square-stroked",
+        "atlas.render.as": "pin"
+      },
+      "group": "Nomenclature",
+      "icon": "vastitas",
+      "iconAsset": "std--maki-square-stroked.svg",
+      "id": 491372089,
+      "kind": "point",
+      "title": "Vastitas",
+      "visible": true
+    }
+  ],
+  "grid": {
+    "firstTile": 0,
+    "sourceZoom": 5
+  },
+  "lenses": [
+    {
+      "bounds": {
+        "height": 4096,
+        "width": 8192,
+        "x": 0,
+        "y": 0
+      },
+      "coverage": {
+        "1": {
+          "bits": "Aw==",
+          "h": 1,
+          "w": 2,
+          "x": 0,
+          "y": 0
+        },
+        "2": {
+          "bits": "/w==",
+          "h": 2,
+          "w": 4,
+          "x": 0,
+          "y": 0
+        },
+        "3": {
+          "bits": "/////w==",
+          "h": 4,
+          "w": 8,
+          "x": 0,
+          "y": 0
+        },
+        "4": {
+          "bits": "/////////////////////w==",
+          "h": 8,
+          "w": 16,
+          "x": 0,
+          "y": 0
+        },
+        "5": {
+          "bits": "/////////////////////////////////////////////////////////////////////////////////////w==",
+          "h": 16,
+          "w": 32,
+          "x": 0,
+          "y": 0
+        },
+        "6": {
+          "bits": "/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////w==",
+          "h": 32,
+          "w": 64,
+          "x": 0,
+          "y": 0
+        }
+      },
+      "formats": [
+        "jpg",
+        "jpg",
+        "jpg",
+        "jpg",
+        "jpg",
+        "jpg",
+        "jpg"
+      ],
+      "fullZoom": 6,
+      "interpolate": true,
+      "maxZoom": 6,
+      "minZoom": 0,
+      "name": "Viking MDIM 2.1",
+      "sourceZoom": 6,
+      "surface": {
+        "height": 4096,
+        "width": 8192,
+        "x": 0,
+        "y": 0
+      },
+      "tiles": "global__viking-mdim-2-1"
+    },
+    {
+      "bounds": {
+        "height": 4096,
+        "width": 8192,
+        "x": 0,
+        "y": 0
+      },
+      "coverage": {
+        "1": {
+          "bits": "Aw==",
+          "h": 1,
+          "w": 2,
+          "x": 0,
+          "y": 0
+        },
+        "2": {
+          "bits": "/w==",
+          "h": 2,
+          "w": 4,
+          "x": 0,
+          "y": 0
+        },
+        "3": {
+          "bits": "/////w==",
+          "h": 4,
+          "w": 8,
+          "x": 0,
+          "y": 0
+        },
+        "4": {
+          "bits": "/////////////////////w==",
+          "h": 8,
+          "w": 16,
+          "x": 0,
+          "y": 0
+        },
+        "5": {
+          "bits": "/////////////////////////////////////////////////////////////////////////////////////w==",
+          "h": 16,
+          "w": 32,
+          "x": 0,
+          "y": 0
+        },
+        "6": {
+          "bits": "/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////w==",
+          "h": 32,
+          "w": 64,
+          "x": 0,
+          "y": 0
+        }
+      },
+      "formats": [
+        "jpg",
+        "jpg",
+        "jpg",
+        "jpg",
+        "jpg",
+        "jpg",
+        "jpg"
+      ],
+      "fullZoom": 6,
+      "interpolate": true,
+      "maxZoom": 6,
+      "minZoom": 0,
+      "name": "MOLA Elevation",
+      "sourceZoom": 6,
+      "surface": {
+        "height": 4096,
+        "width": 8192,
+        "x": 0,
+        "y": 0
+      },
+      "tiles": "global__mola-elevation"
+    }
+  ],
+  "merged": [
+    {
+      "added": 0,
+      "donorFeatures": {
+        "area": 0,
+        "path": 0,
+        "point": 2048
+      },
+      "origin": true,
+      "slug": "nasa-trek",
+      "source": "NASA Trek"
+    }
+  ]
+}

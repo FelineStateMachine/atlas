@@ -1,249 +1,104 @@
 # Atlas
 
-Atlas is a standalone, offline game-map explorer built with
-[Allons](https://github.com/FelineStateMachine/allons), Wails, and
-OpenLayers. The executable carries only the
-application shell; each game travels as a self-contained `.atlas` bundle --
-its maps, packed locations, raster tile pyramids, and category icons in one
-zip archive. Drop a bundle into the application's `bundles` directory and the
-game appears; drop in a newer build of the same game and it updates. There
-are no sidecars, CDNs, or runtime network dependencies.
+Atlas is an offline map explorer built around a file format. A world — a game's
+map, a city's open data, Mars — travels as one self-contained `.atlas` bundle:
+its manifest, its features, its raster tile pyramids and its icons in a single
+zip archive. Drop a bundle into the library and the volume appears; drop in a
+newer build of the same volume and it takes over. No sidecars, no CDN, no
+runtime network of any kind, ever.
 
-Allons is an ordinary module dependency, fetched by version. Building
-bundles additionally wants the `gamemap` corpus beside this repository:
+Two things ship from this repository:
 
-```text
-~/Developer/
-├── atlas/
-└── gamemap/
-```
-
-To hack on Allons itself, point a workspace at a local checkout rather
-than editing `go.mod` — `go work init . ../allons` — since `go.work` is
-ignored and a committed `replace` directive would break anyone without
-the sibling checkout.
-
-Run Atlas from this repository:
+- **`atlas`** — the pipeline and the server. `crawl` captures what a publisher
+  serves, `tiles` derives pyramids, `compose` writes bundles, `enrich` folds
+  several readings of a volume together, `measure` scores them, `workbench`
+  serves the operator's pages, `serve` serves the application headlessly, and
+  `dev` is the loop for working on it.
+- **Atlas** — the desktop application: the same application in a window.
 
 ```sh
-go generate .   # once, to build the bundles into the library
-go run -tags dev .
+go build ./cmd/atlas          # the CLI
+make desktop                  # the desktop app (macOS; see .github/workflows/release.yml)
+make serve-static             # the application over HTTP, with the seam mounted
 ```
 
-Generation installs bundles straight into the central library -- `bundles/`
-under the application's data directory (on macOS,
-`~/Library/Application Support/dev.felinestatemachine.atlas/bundles`) -- and
-the application reads the same place, so a dev run serves whatever has been
-built with no pointing at anything. `ATLAS_BUNDLES_DIR` overrides the library
-for either side when isolation is wanted, and `tools/generate -bundles`
-writes a registry elsewhere (for an export, say) without touching the
-library.
-
-Wails requires a desktop build tag even when it is invoked through `go run`.
-Atlas supplies the additional macOS `UniformTypeIdentifiers` linker flag
-itself, so no shell environment setup is needed.
+The library lives under the application's own data directory —
+`~/Library/Application Support/dev.felinestatemachine.atlas/bundles` on macOS,
+`%AppData%\dev.felinestatemachine.atlas\bundles` on Windows,
+`~/.config/dev.felinestatemachine.atlas/bundles` on Linux. `ATLAS_BUNDLES_DIR`
+points either the CLI or the desktop app somewhere else; `atlas compose
+-bundles DIR` writes a registry elsewhere without touching the library at all.
 
 ## Released builds
 
-Tagged releases carry portable builds for Windows (x64), macOS (Apple
-Silicon), and Linux (x64); each reads `.atlas` bundles from the library
-directory above. Two platform notes:
+Tagged releases carry the CLI for five targets and the desktop application for
+Windows (x64), macOS (Apple Silicon) and Linux (x64). Two platform notes:
 
-- **macOS**: the app is unsigned. After unzipping, clear the quarantine
-  with `xattr -dr com.apple.quarantine Atlas.app`, or approve it under
-  System Settings → Privacy & Security → "Open Anyway".
+- **macOS**: the app is unsigned. After unzipping, clear the quarantine with
+  `xattr -dr com.apple.quarantine Atlas.app`, or approve it under System
+  Settings → Privacy & Security → "Open Anyway".
 - **Linux**: the binary links GTK 3 and WebKitGTK 4.1 at runtime
-  (`libgtk-3-0`, `libwebkit2gtk-4.1-0`) — present on Ubuntu 24.04+,
-  Debian 13, and recent Fedora.
+  (`libgtk-3-0`, `libwebkit2gtk-4.1-0`) — present on Ubuntu 24.04+, Debian 13,
+  and recent Fedora.
 
-The app supports scroll/pinch zoom, drag panning, pin search, map and tile-set
-selection, compact category toggles, group-level show/hide controls, floating
-`display_type: "text"` labels, optional region polygons and names, and pin
-details. Search and filter results list in a right-docked panel — a capped,
-alphabetical shortlist of whatever survives the current filters — and opening
-a location pushes the list aside for its detail card, with the way back kept
-on screen. The dock folds to a thin rail and the choice is remembered with
-the game. A game with one map keeps that map visible in a disabled selector.
-Curated map ordering places a game's primary map first; the small ordering
-table lives in `tools/generate/main.go`.
+## The shape of it
 
-Pins and legend entries use the archive's category SVG and resolved MapGenie
-color when available, with a white exterior treatment for contrast. Normal
-zoom levels use stable, priority-based decluttering. Selected and searched
-locations bypass decluttering, and hovering a pin reveals its title. `Z` opts
-into all visible pin labels at native-detail zoom or closer; the default
-remains uncluttered. Area and region titles retain their independent toggles
-and full-detail pass. Every map permits two display-only overzoom levels so
-three-character geohash cells and dense annotations can be inspected without
-requesting synthetic tiles. Pixel-art maps remain nearest-neighbor sharp;
-photographic maps retain smooth interpolation.
-
-[SCRAPER_PROMPT.md](SCRAPER_PROMPT.md) contains a ready-to-use prompt for
-preserving MapGenie's text-display and zone fields in the upstream archive.
-
-## Capture sources
-
-Three crawlers fill the archive, all through `tools/crawl`:
-
-```sh
-go run ./tools/crawl -game skyrim                        # MapGenie
-go run ./tools/crawl -ign cyberpunk-2077/night-city      # IGN's native wikimaps
-go run ./tools/crawl -piggyback cyberpunk-2077/night-city # Piggyback (Cyberpunk only)
+```
+format/          THE CENTRE. The .atlas container, manifest, ATLASLOC codec,
+                 stamps, registry, validation, and the semantic conventions.
+                 Pure Go, standard library only, importable by anyone.
+internal/
+  generate/      Capture and composition: crawl, five sources, tiles, compose.
+  enrich/        Merge, national layers, standard icons, lenses, maturity.
+  app/           The hypermedia application: one pure http.Handler, HTMX 4.
+  workbench/     Scores, build diffs, source cards, pipeline operations.
+analysis/        TypeScript: the cell systems (geohash, S2) behind one contract.
+render/          TypeScript: the rendering seam. Deletable, and deleted in the
+                 sense that matters — nothing imports it, and the application
+                 builds, serves and works with its assets absent.
+testdata/        The committed corpus: real extractions with public
+                 provenance (see testdata/corpus/README.md).
+tests/, tools/   The test trees that cannot live with their packages, and
+                 the enforcement commands — depcheck, which enforces every
+                 boundary named above, testgate and corpussmoke.
+main.go          The desktop shell: ~300 lines of host wiring around the
+                 handler, and the whole of what a window costs.
 ```
 
-Each stores a content-addressed capture -- an unchanged re-crawl records no
-new version -- plus the tile pyramid and the category icons. MapGenie's
-icons resolve from an icon font, which the crawl now renders automatically
-once a game's maps are captured (`tools/icons/render-icons.mjs`, rerunnable
-by hand on a machine without node). The IGN mode refuses maps that merely
-embed MapGenie, and the Piggyback importer is deliberately game-specific:
-each Piggyback map projects through a transformation buried in its own
-scripts, only Cyberpunk's is verified, and an unverified game is refused
-rather than captured through the wrong lens.
+## Documentation
 
-Sources are additive components of one game. `tools/generate` composes every
-capture of a game slug into a single bundle: pins of shared ground resolve
-one-to-one through an affine fitted on the places both sources name
-(projections differ between sources, so the shared names -- not coordinates
--- are the basis of locality; a fit that will not close is refused), lesser
-rasters ride along as aligned variants, maps no other source draws join
-whole, and every map's payload carries its provenance: an origin account
-naming its source, and a ledger per donor of what matched, was added,
-adopted, held, or rejected. `tools/maturity` reports every build of every
-game along the axes this evolution is judged by, and `cmd/cartograph`
-(`go run ./cmd/cartograph`) serves a local workbench over the same
-collection: builds, ledgers, diffs, and the source registry with
-crawl/tiles/generate runnable from the page.
-
-## Building the game bundles
-
-With `../gamemap` beside this repository:
-
-```sh
-go generate .
-```
-
-`main.go` embeds only the application shell (`assets/index.html`,
-`assets/app.css`, `assets/app.js`). `go generate` performs three operations:
-
-1. `tools/tiles` finds the highest complete source level for every configured
-   layer, keeps it unstitched, and derives every missing lower level into
-   `build/tiles`. Photographic source tiles retain JPEG/PNG encoding;
-   pixel-art levels are normalized to lossless PNG and use nearest-neighbor
-   reduction. Photo pyramids use smooth box reduction. Repeated placeholder
-   borders are excluded from fit bounds.
-
-   Each pyramid records a stamp over the tiles it was derived from and the
-   tool that derived them, so a layer nothing has changed under is left where
-   it is: a run that captures one new game costs seconds rather than the half
-   minute of re-deriving the rest. `-force` derives everything again.
-2. `tools/generate` writes one `.atlas` bundle per game into the central
-   library: the game's manifest, one payload per map, its tile pyramids, and
-   its archive SVG icons, validated as each bundle is written. Maps with
-   missing snapshots or incomplete configured layers are omitted. Bundles are
-   named `<game>-<capture-day>-<stamp>.atlas`, versioned by the newest
-   snapshot capture across the game's maps -- building the same archive
-   anywhere yields the same file -- and a build already present is left
-   untouched. Older versions are never pruned: the library is a registry,
-   and `index.json` beside the bundles lists every game's builds, newest
-   first.
-3. `npm ci` and the local esbuild/OpenLayers installation produce the
-   self-contained `assets/app.js` and `assets/app.css` bundles.
-
-Neither the binary nor a bundle has any runtime dependency on `../gamemap`,
-npm, or the network.
-
-## Where everything lives
-
-Atlas keeps its game library and its build caches in fixed places:
-
-- **The library** — installed `.atlas` bundles, read and watched by the
-  running application, written by `go generate` and by the in-app importer:
-  `bundles/` under the application data directory. That is
-  `~/Library/Application Support/dev.felinestatemachine.atlas` on macOS,
-  `%AppData%\dev.felinestatemachine.atlas` on Windows, and
-  `~/.config/dev.felinestatemachine.atlas` on Linux (`os.UserConfigDir`,
-  the same convention the framework resolves). `index.json` beside the
-  bundles lists every build of every game, newest first.
-- **The tile cache** — `build/tiles` in this repository, ignored by git.
-  `tools/tiles` derives pyramids into it and stamps each one over its
-  sources, so regeneration re-derives only what changed; deleting the
-  directory costs a full re-derivation from `../gamemap`.
-- **Session state** — last game, camera, and panel arrangement live in the
-  WebView's localStorage under the same application identity; the packaged
-  data never mixes with it.
-
-Nothing else is cached anywhere: a bundle in the library is served straight
-out of its zip, and deleting the application data directory resets Atlas
-completely.
-
-## The .atlas format
-
-A `.atlas` file is a zip archive holding one game: `atlas.json` (the
-manifest: game identity, version stamp, tile grid, map list), `maps/<slug>`
-payloads in three parts, `tiles/<pyramid>/z/x/y` rasters stored uncompressed
-for byte-range serving, and `icons/`. The format is Atlas's own and carries
-nothing specific to any capture source; `internal/bundle` owns reading,
-writing, and validation. Provenance still travels: each map's payload names
-the source it came from and accounts for every other source folded into it.
-Two bundles naming the same game slug are two versions of that game -- the
-newest by capture time wins, ties broken by the build policy revision and
-then the stamp, so updating a game is dropping in a newer file, and an older
-file dropped beside a newer one is simply shadowed. File names carry the version for people and for cheap
-existence checks; ordering always comes from the manifest inside.
-
-## Renderer architecture
-
-Atlas uses a bounded `ATLAS:PIXELS` projection over an 8192×8192 logical
-extent. Each map layer is an XYZ source with a 64-tile cache, no wrapping, no
-tile transitions, and interpolation selected by map type. Only visible tiles
-are decoded and drawn.
-
-OpenLayers vector layers are ordered as raster, geohash grid, zones, zone
-names, floating titles, pins, full-detail labels, and selected or searched
-annotations. The grid uses a standard base32 hierarchy over the active map's
-pixel bounds, capped at three characters so its terminal cells remain useful
-at the available overzoom. Press `G` to toggle it, click a cell to descend, or
-enter a hash in the dedicated field to jump one character at a time. `Escape`
-and the back button ascend one level; escaping from the root closes the grid.
-Selecting a cell promotes every enabled annotation inside it above normal
-decluttering.
-Ancestor sibling cells remain visible as shaded, clickable context. Together
-they dim everything outside the selected cell and permit direct lateral
-traversal without backing all the way out.
-Map shortcuts are ignored while an input, select, textarea, or editable
-control has focus.
-
-Named zones appear in a hierarchical table of contents above the category
-legend. Click a zone to fit it in the viewport. Right-click a zone to toggle
-its high-contrast outline and fill; highlighting a zone also restores the
-global zone layer if it was hidden. While any zone is highlighted, unrelated
-zones are shaded as context in the same visual language as geohash neighbors.
-Pins outside the highlighted zone union are culled, while every enabled pin
-inside that union moves to a dedicated declutter group. This shows a denser,
-useful sample without reintroducing every overlapping annotation. Selected and
-searched locations remain visible even when they fall outside the zone focus.
-
-Wheel input over the map always zooms, including immediately after using a
-sidebar filter. Wheel input over the sidebar remains normal sidebar scrolling.
-
-All annotations and grid cells are canvas-rendered and viewport-culled; the
-sidebar does not create a DOM element per location.
-
-Switching layers within one map replaces and clears the raster source while
-retaining the current center, resolution, and overlay state.
+[`docs/`](docs/) is the system, written down. Read in this order:
+[`format.md`](docs/format.md) is the centre;
+[`generate.md`](docs/generate.md) and [`enrich.md`](docs/enrich.md) are how a
+bundle comes to be; [`app.md`](docs/app.md) is what serves it;
+[`render-seam.md`](docs/render-seam.md) and
+[`analysis.md`](docs/analysis.md) are what pictures it;
+[`workbench.md`](docs/workbench.md) is the operator's view;
+[`logging.md`](docs/logging.md) is how everything narrates itself;
+[`testing.md`](docs/testing.md) is how it is judged; and
+[`decisions/`](docs/decisions/) is why any of it is shaped this way.
+[`docs/README.md`](docs/README.md) is the map.
 
 ## Verification
 
-The complete local verification sequence is:
-
 ```sh
-go generate .
-go test ./...
-go vet ./...
-go build -tags dev .
+npm ci
+make test        # vet, every Go test skip-proof, both TypeScript lanes, depcheck
+make test-e2e    # the application in a real browser, over the committed corpus
 ```
 
-The corpus-dependent tests read the central library and skip themselves when
-no bundles have been built, so `go test ./...` passes on a checkout without
-`../gamemap`.
+`make test` is the whole required surface, and it is what CI runs on Linux,
+macOS and Windows (`.github/workflows/ci.yml`).
+[`docs/testing.md`](docs/testing.md) is the map: the layers, what tests are
+made of, where they live, and the bar for a new one.
+
+## History
+
+Atlas was rewritten from a clean room in 2026 ([issue
+#5](https://github.com/FelineStateMachine/atlas/issues/5)). The implementation
+it replaced is archived, checkout-able, whole and working, at the tag
+**`golden-reference`** (mirrored at `archive/golden-reference`), and the
+behavioral differences accepted against it are [decision
+18](docs/decisions/0018-divergences-from-the-reference.md). Nothing on this
+branch imports it — `tools/depcheck` refuses the edge — and no file here cites
+its comments as documentation.

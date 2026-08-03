@@ -1,0 +1,529 @@
+{
+  "family": "geometry",
+  "about": "The shapes: bbox in OL world coordinates (x east, y negative-down), the centre, and the closed ring. Every geohash number here is the recursive halving of the surface, five bits to a character, alternating axes — the arithmetic the app has always done.",
+  "cases": [
+    {
+      "name": "geohash-bbox-root",
+      "ground": "test/square-1024",
+      "system": "geohash",
+      "call": "bbox",
+      "args": [
+        ""
+      ],
+      "expect": [
+        0,
+        -1024,
+        1024,
+        0
+      ],
+      "handDerived": true
+    },
+    {
+      "name": "geohash-bbox-m",
+      "ground": "test/square-1024",
+      "system": "geohash",
+      "call": "bbox",
+      "args": [
+        "m"
+      ],
+      "expect": [
+        640,
+        -768,
+        768,
+        -512
+      ],
+      "note": "m = alphabet index 19 = 10011: x right, y bottom, x left, y up, x right.",
+      "handDerived": true
+    },
+    {
+      "name": "geohash-bbox-m6",
+      "ground": "test/square-1024",
+      "system": "geohash",
+      "call": "bbox",
+      "args": [
+        "m6"
+      ],
+      "expect": [
+        672,
+        -704,
+        704,
+        -672
+      ],
+      "note": "6 = 00110, continuing on the alternate axis.",
+      "handDerived": true
+    },
+    {
+      "name": "geohash-bbox-m6s",
+      "ground": "test/square-1024",
+      "system": "geohash",
+      "call": "bbox",
+      "args": [
+        "m6s"
+      ],
+      "expect": [
+        688,
+        -688,
+        692,
+        -680
+      ]
+    },
+    {
+      "name": "geohash-center-root",
+      "ground": "test/square-1024",
+      "system": "geohash",
+      "call": "center",
+      "args": [
+        ""
+      ],
+      "expect": [
+        512,
+        -512
+      ]
+    },
+    {
+      "name": "geohash-center-m",
+      "ground": "test/square-1024",
+      "system": "geohash",
+      "call": "center",
+      "args": [
+        "m"
+      ],
+      "expect": [
+        704,
+        -640
+      ]
+    },
+    {
+      "name": "geohash-center-m6",
+      "ground": "test/square-1024",
+      "system": "geohash",
+      "call": "center",
+      "args": [
+        "m6"
+      ],
+      "expect": [
+        688,
+        -688
+      ]
+    },
+    {
+      "name": "geohash-center-m6s",
+      "ground": "test/square-1024",
+      "system": "geohash",
+      "call": "center",
+      "args": [
+        "m6s"
+      ],
+      "expect": [
+        690,
+        -684
+      ]
+    },
+    {
+      "name": "geohash-ring-m6",
+      "ground": "test/square-1024",
+      "system": "geohash",
+      "call": "ring",
+      "args": [
+        "m6"
+      ],
+      "expect": [
+        [
+          672,
+          -704
+        ],
+        [
+          672,
+          -672
+        ],
+        [
+          704,
+          -672
+        ],
+        [
+          704,
+          -704
+        ],
+        [
+          672,
+          -704
+        ]
+      ]
+    },
+    {
+      "name": "geohash-poles",
+      "ground": "test/square-1024",
+      "system": "geohash",
+      "call": "poleContained",
+      "args": [
+        "m6"
+      ],
+      "expect": null,
+      "note": "A plane holds no pole; geohash always answers null.",
+      "handDerived": true
+    },
+    {
+      "name": "s2-bbox-root-is-the-surface",
+      "ground": "test/sphere-8192x4096",
+      "system": "s2",
+      "call": "bbox",
+      "args": [
+        ""
+      ],
+      "expect": [
+        0,
+        -4096,
+        8192,
+        0
+      ]
+    },
+    {
+      "name": "s2-bbox-47a1cb",
+      "ground": "test/sphere-8192x4096",
+      "system": "s2",
+      "call": "bbox",
+      "args": [
+        "47a1cb"
+      ],
+      "expect": [
+        4363.4660320228095,
+        -918.0330704631035,
+        4366.649152033657,
+        -915.9777996060031
+      ]
+    },
+    {
+      "name": "s2-center-47a1cb",
+      "ground": "test/sphere-8192x4096",
+      "system": "s2",
+      "call": "center",
+      "args": [
+        "47a1cb"
+      ],
+      "expect": [
+        4365.055288331254,
+        -917.0057076847435
+      ]
+    },
+    {
+      "name": "s2-bbox-5",
+      "ground": "test/sphere-8192x4096",
+      "system": "s2",
+      "call": "bbox",
+      "args": [
+        "5"
+      ],
+      "expect": [
+        5120,
+        -1245.5392214413164,
+        13312,
+        -1024
+      ]
+    },
+    {
+      "name": "s2-center-5",
+      "ground": "test/sphere-8192x4096",
+      "system": "s2",
+      "call": "center",
+      "args": [
+        "5"
+      ],
+      "expect": [
+        0,
+        0
+      ]
+    },
+    {
+      "name": "s2-bbox-1",
+      "ground": "test/sphere-8192x4096",
+      "system": "s2",
+      "call": "bbox",
+      "args": [
+        "1"
+      ],
+      "expect": [
+        3072,
+        -3072,
+        5120,
+        -1024
+      ]
+    },
+    {
+      "name": "s2-center-1",
+      "ground": "test/sphere-8192x4096",
+      "system": "s2",
+      "call": "center",
+      "args": [
+        "1"
+      ],
+      "expect": [
+        4096,
+        -2048
+      ]
+    },
+    {
+      "name": "clip-straddling-right-edge",
+      "ground": "test/square-1024",
+      "call": "clipRingX",
+      "args": [
+        [
+          [
+            80,
+            -10
+          ],
+          [
+            80,
+            -30
+          ],
+          [
+            120,
+            -30
+          ],
+          [
+            120,
+            -10
+          ],
+          [
+            80,
+            -10
+          ]
+        ],
+        0,
+        100
+      ],
+      "expect": [
+        [
+          100,
+          -10
+        ],
+        [
+          80,
+          -10
+        ],
+        [
+          80,
+          -30
+        ],
+        [
+          100,
+          -30
+        ],
+        [
+          100,
+          -10
+        ]
+      ],
+      "note": "clipRingX cuts a closed ring against the surface's two vertical edges — the Sutherland-Hodgman walk the chart uses to draw a ring that stayed continuous across the antimeridian as its two pieces."
+    },
+    {
+      "name": "clip-shifted-a-world-left",
+      "ground": "test/square-1024",
+      "call": "clipRingX",
+      "args": [
+        [
+          [
+            -20,
+            -10
+          ],
+          [
+            -20,
+            -30
+          ],
+          [
+            20,
+            -30
+          ],
+          [
+            20,
+            -10
+          ],
+          [
+            -20,
+            -10
+          ]
+        ],
+        0,
+        100
+      ],
+      "expect": [
+        [
+          0,
+          -10
+        ],
+        [
+          0,
+          -30
+        ],
+        [
+          20,
+          -30
+        ],
+        [
+          20,
+          -10
+        ],
+        [
+          0,
+          -10
+        ]
+      ]
+    },
+    {
+      "name": "clip-entirely-outside",
+      "ground": "test/square-1024",
+      "call": "clipRingX",
+      "args": [
+        [
+          [
+            -220,
+            -10
+          ],
+          [
+            -220,
+            -30
+          ],
+          [
+            -180,
+            -30
+          ],
+          [
+            -180,
+            -10
+          ],
+          [
+            -220,
+            -10
+          ]
+        ],
+        0,
+        100
+      ],
+      "expect": [],
+      "note": "A ring entirely outside survives as nothing.",
+      "handDerived": true
+    },
+    {
+      "name": "clip-entirely-inside",
+      "ground": "test/square-1024",
+      "call": "clipRingX",
+      "args": [
+        [
+          [
+            10,
+            -10
+          ],
+          [
+            10,
+            -20
+          ],
+          [
+            20,
+            -20
+          ],
+          [
+            20,
+            -10
+          ],
+          [
+            10,
+            -10
+          ]
+        ],
+        0,
+        100
+      ],
+      "expect": [
+        [
+          10,
+          -10
+        ],
+        [
+          10,
+          -20
+        ],
+        [
+          20,
+          -20
+        ],
+        [
+          20,
+          -10
+        ],
+        [
+          10,
+          -10
+        ]
+      ],
+      "note": "A ring entirely inside comes back whole, closed, in its own order.",
+      "handDerived": true
+    },
+    {
+      "name": "geohash-bbox-root-on-a-bounds-lens",
+      "ground": "test/square-1024-bounds",
+      "system": "geohash",
+      "call": "bbox",
+      "args": [
+        ""
+      ],
+      "expect": [
+        0,
+        -1024,
+        1024,
+        0
+      ],
+      "note": "Part 1: the root is the world square, not the 512x256 raster window the lens declares.",
+      "handDerived": true
+    },
+    {
+      "name": "geohash-bbox-m6-on-a-bounds-lens",
+      "ground": "test/square-1024-bounds",
+      "system": "geohash",
+      "call": "bbox",
+      "args": [
+        "m6"
+      ],
+      "expect": [
+        672,
+        -704,
+        704,
+        -672
+      ],
+      "note": "Re-derived on the full 1024 square: m is column 5 of 8, row 1 of 4 from the bottom (128x256 at 640,-768); 6 = 00110 splits y first inside it, landing the 32x32 box at 672,-704 - the same box the whole-surface lens answers.",
+      "handDerived": true
+    },
+    {
+      "name": "real-bbox-9rcd",
+      "ground": "bend-or/2026-08-02/0",
+      "system": "geohash",
+      "call": "bbox",
+      "args": [
+        "9rcd"
+      ],
+      "expect": [
+        -3947.432211218598,
+        -7981.703605508047,
+        4803.884266171338,
+        -1895.4089537724801
+      ],
+      "note": "9rcd is -121.640625..-121.2890625 by 43.9453125..44.12109375. x = (lng - west)/(east - west) * 8192; y = (asinh(tan latN) - asinh(tan lat))/(asinh(tan latN) - asinh(tan latS)) * 8192, then the sign flip. The west edge lands off the raster at x = -3947.43...: real cells are drawn at their full extents, overhang and all. Cross-checked in python to 1e-10.",
+      "handDerived": true
+    },
+    {
+      "name": "real-bbox-9rcdx",
+      "ground": "bend-or/2026-08-02/0",
+      "system": "geohash",
+      "call": "bbox",
+      "args": [
+        "9rcdx"
+      ],
+      "expect": [
+        3709.969706497596,
+        -4940.812877376354,
+        4803.884266171338,
+        -3418.6763501123382
+      ],
+      "note": "One layer down: -121.3330078125..-121.2890625 by 44.033203125..44.0771484375, fully inside the raster.",
+      "handDerived": true
+    }
+  ]
+}

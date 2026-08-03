@@ -1,11 +1,21 @@
 # Scheduled city snapshots
 
+> **Parked.** The workflow's steps are the shipped ones —
+> `atlas crawl|tiles|compose|enrich` — but the ArcGIS/USGS crawler is not
+> built: `atlas crawl -source list` offers `ign` alone, and
+> `docs/generate.md` §3.2 says why. A run therefore fails at its first step,
+> so this repository's scheduler is dispatch-only and the weekly cron is
+> written down in `snapshots.yml` rather than armed. Everything after the
+> crawl is the shipped path, walked over a city archive by the pipeline's own
+> tests (`docs/generate.md` §8). One crawler registered as `arcgis-hub`
+> unparks the whole thing, and nothing else here changes.
+
 A city's `.atlas` can build itself on a schedule: crawl the city's ArcGIS
 hub, exit quietly when nothing changed, and publish a new versioned bundle
 when something did.
 The reusable workflow lives in this repository
 (`.github/workflows/snapshot.yml`); this repository's own scheduler runs it
-weekly over the public proof cities. A city IT team runs the same workflow
+over the public proof cities. A city IT team runs the same workflow
 in a repository of their own, so every employee works off the same enriched
 `.atlas` at whatever cadence the team chooses.
 
@@ -34,12 +44,13 @@ One-time, in a (typically private) repository:
 
 ```sh
 git switch --orphan snapshots
-# your city's curation, if it is not one of the public proof cities:
-cp /path/to/cities_local.go .
-git add -A && git commit -m "snapshot state"
+git commit --allow-empty -m "snapshot state"
 git push -u origin snapshots
 git switch main
 ```
+
+The branch starts empty and fills up with the capture archive, one commit per
+run that found something new.
 
 Then a workflow:
 
@@ -58,8 +69,15 @@ jobs:
       city: your-city-slug
 ```
 
-The `cities_local.go` on the state branch is adopted into the build, so a
-private city's curation never has to be published. Employees fetch
+A city that should not be named in a public repository is carried by the
+`atlas-ref` input: point it at a branch or fork of Atlas whose curation table
+(`internal/generate/sources/arcgishub/cities.go`) names the city. There is no
+side door — a table that can be extended by a file nobody reviews is not the
+gate it is meant to be — so an uncurated city is refused rather than composed
+wrong ([decision 16](decisions/0016-uncurated-captures-are-passed-over.md)).
+
+Employees fetch
 `https://github.com/<org>/<repo>/releases/download/snapshot-<city>/<city>-latest.atlas`
 and drop it into their Atlas bundles directory — or IT mirrors it onto a
-share the app watches.
+share people copy from. (A bundle dropped in from outside appears at the next
+launch: the registry scans at launch and rescans on import, never watches.)

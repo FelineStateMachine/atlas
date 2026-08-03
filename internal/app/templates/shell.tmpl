@@ -1,0 +1,334 @@
+{{/*
+  shell — the whole page.
+
+  The region containers below are the contract three things agree on: the
+  partial envelope swaps into them by id (internal/app/partials.go), the
+  carried stylesheet system files itself under their classes, and the seam
+  reads the viewport's state node out of them. Each region's own template
+  renders its own container, so a swap and a first paint produce the same
+  bytes.
+
+  Inheritance is declared once, here, and explicitly (issue #5 §4.3): every
+  interaction on this page is about the same volume, so hx-vals says so at the
+  top rather than every control repeating it, and nothing inherits by accident
+  because nothing inherits without ":inherited" spelled out.
+*/}}
+{{define "shell"}}<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="dark">
+<link rel="icon" href="data:,">
+<title>{{.Title}} — Atlas</title>
+<link rel="stylesheet" href="/assets/app.css">
+<script src="/assets/htmx.js" defer></script>
+</head>
+<body class="atlas">
+{{template "shell-region" .}}
+{{template "import" .}}
+{{/*
+  The seam. It is loaded from /static, which is whatever tree the host mounted
+  and answers 404 when it mounted none. An undefined <atlas-viewport> renders
+  nothing and breaks nothing, which is the deletability principle costing this
+  page one script tag (issue #5 §5.5).
+*/}}
+<script type="module" src="/static/app.js"></script>
+</body>
+</html>
+{{end}}
+
+{{/*
+  shell-region — the page frame as a region.
+
+  The document above is what a first paint answers with; this is what a swap
+  answers with, and they are the same bytes because the document renders this.
+  It matters that they are separable: the sidebar's collapsed state is a class
+  on this element, and a swap can only set an attribute on a container it
+  renders *itself* -- so the shell is an outer morph over this, and the
+  document is never a partial.
+*/}}
+{{/*
+  kbd-editable — the editable-target guard, spelled once and pasted into every
+  keyboard filter that needs it (see the shortcuts block below).
+
+  It is the reference implementation's isEditableTarget written as an
+  expression, and `event.target instanceof Element` is doing real work at both
+  ends. A select counts as editable: the reference says so, and a select
+  answers the space bar itself. And a synthetic key dispatched straight at the
+  window -- which is how a headless driver presses one -- has the window as
+  its target, which is not an Element, so it passes as a keystroke nobody was
+  typing.
+
+  It carries no `]` and no comma on purpose: htmx reads a trigger's name up to
+  the first `]`, and splits a trigger attribute on commas outside brackets, so
+  either character would cut the filter in half.
+*/}}
+{{define "kbd-editable"}}!(event.target instanceof Element&&(/^(INPUT|TEXTAREA|SELECT)$/.test(event.target.tagName)||event.target.isContentEditable)){{end}}
+
+{{define "shell-region"}}<div id="atlas-shell" class="app-shell{{if .Session.Sidebar.Collapsed}} sidebar-collapsed{{end}}"
+     hx-vals:inherited='{"volume":"{{with .Volume}}{{.Slug}}{{end}}"}'
+     hx-swap:inherited="none">
+  <header id="atlas-topbar" class="topbar">{{template "topbar" .}}</header>
+  {{template "legend" .}}
+  <main class="map-panel">
+    {{template "viewport-surface" .}}
+    {{template "viewport" .}}
+    <div class="zoom-controls" aria-label="Map controls">
+      <button type="button" id="zoom-in" aria-label="Zoom in">+</button>
+      <button type="button" id="zoom-out" aria-label="Zoom out">−</button>
+    </div>
+    {{template "grid-navigator" .}}
+    <div class="map-corner">
+      {{template "overview" .}}
+      <div class="map-hint" id="map-hint">
+        <span>Drag to pan</span><i></i>
+        <span>Scroll to zoom</span><i></i>
+        <span id="labels-hint">Z · hold for labels</span><i></i>
+        <span id="grid-hint">{{if .Grid.Enabled}}G · {{.Grid.Name}}{{else}}G · grid off{{end}}</span>
+      </div>
+    </div>
+  </main>
+  {{template "dock" .}}
+  {{template "island" .}}
+  {{/*
+    The keyboard, as hypermedia.
+
+    Every shortcut below moves discrete state, so every one of them is a route
+    rather than a handler: an hx-trigger naming the key and the element the
+    key is heard on, and nothing else. There is no hx-on here and no listener
+    in the page. What is *not* here is the other half of the keyboard --
+    holding Z, focusing a field, flipping panes, stepping the zoom, swallowing
+    the webview's own menu -- because none of it moves discrete state and all
+    of it belongs to the seam (issue #5 §4.1, render/keys.ts).
+
+    They listen on the window rather than on the body, because that is where
+    a keystroke with no focused control is heard: an event dispatched at the
+    window never travels down to the body, so a shortcut listening there would
+    hear a reader's own typing and nothing else.
+
+    They are declared here rather than beside the controls they double for
+    because a shortcut has to survive the region that would have carried it
+    being swapped, and the shell is the one region a swap never replaces from
+    underneath.
+
+    THREE THINGS EVERY FILTER BELOW SAYS, and the page was broken for want of
+    all three.
+
+    It says whose keystroke it is. A shortcut heard on the window hears a
+    reader typing into the search field too, so "g" put a grid up mid-word and
+    the space bar in a hash flipped the subgrid; every filter but ⌘G carries
+    "kbd-editable", which is the reference implementation's isEditableTarget
+    written as an expression. ⌘G is deliberately above it, exactly as the
+    reference has it: switching cell systems is most wanted from inside the
+    token field.
+
+    It says the key is answered. `prevent` is htmx's own preventDefault, and
+    htmx runs it only when the filter passed -- so a shortcut suppresses the
+    keystroke it acts on and nothing else, which is what stops macOS sounding
+    the rejection tone at every press. ⌘R is the one place `prevent` takes
+    something away and hands it straight back: the browser's own reload is
+    swallowed, and the answer to the post is the same page fetched again --
+    over a record that has just been thrown away.
+
+    And it says the key was pressed rather than held. `!event.repeat` keeps an
+    autorepeating key from posting sixty times a second down a route that
+    writes a file.
+
+    The filters read the live page where the state they need is not this
+    template's to know -- whether the grid is up, whether the panel is folded.
+    A value rendered into hx-vals here would be right once and stale for the
+    rest of the session, because those regions swap and the shell does not.
+  */}}
+  <div hidden id="atlas-shortcuts">
+    {{/*
+      ⌘G cycles which cell system divides the map -- above the guard, so it
+      answers from inside the token field.
+    */}}
+    <span hx-post="/session/grid" hx-vals:append='{"system":"cycle"}'
+          hx-trigger="keydown[(metaKey||ctrlKey)&&key.toLowerCase()=='g'&&!event.repeat] from:window prevent"></span>
+    {{/*
+      ⌘R throws this volume's remembered state away and comes straight back to
+      it: the refresh key doing what a reader already believes refreshing does,
+      and the one way out of a record that has gone wrong -- five highlights
+      culled at every pin, a filter nobody can find the row for -- without
+      knowing which field is at fault.
+
+      ABOVE THE GUARD, exactly where the reference had it: a reader whose page
+      is misbehaving reaches for reload from wherever the cursor is, including
+      a field they were typing in, and a reload that answers everywhere but
+      there is a reload that has been half taken away.
+
+      The answer is a redirect back into the volume (resetSession,
+      internal/app/session.go) rather than a partial set: the record every
+      region is rendered from is gone, so there is nothing to patch and the
+      round trip is the refresh `prevent` just swallowed.
+    */}}
+    <span hx-post="/session/reset"
+          hx-trigger="keydown[(metaKey||ctrlKey)&&key.toLowerCase()=='r'&&!event.repeat] from:window prevent"></span>
+    {{/*
+      ⌘⌥B folds the panel beside the map, the shortcut editors give their
+      secondary sidebar. BY PHYSICAL KEY: Option rewrites event.key on a Mac
+      (⌥B types "∫"), so event.code is the one name the chord keeps
+      everywhere -- and it is declared before ⌘B, whose filter refuses altKey,
+      so the two chords can never both answer.
+
+      TWO SPANS, not one, and that is the interesting part. The panel's own
+      fold button knows which way it is going because the dock re-renders with
+      it; a shortcut in the shell does not, because folding the dock swaps the
+      dock alone. So the direction is not rendered at all: each span asks the
+      button on screen which way it is pointing, and only the one that agrees
+      answers. Nothing here can go stale, because nothing here is remembered.
+    */}}
+    <span hx-post="/session/dock" hx-vals:append='{"open":"1","byHand":"1"}'
+          hx-trigger="keydown[event.code=='KeyB'&&(metaKey||ctrlKey)&&altKey&&!event.repeat&&{{template "kbd-editable"}}&&document.querySelector('#dock-fold')?.getAttribute('aria-expanded')=='false'] from:window prevent"></span>
+    <span hx-post="/session/dock" hx-vals:append='{"open":"0","byHand":"1"}'
+          hx-trigger="keydown[event.code=='KeyB'&&(metaKey||ctrlKey)&&altKey&&!event.repeat&&{{template "kbd-editable"}}&&document.querySelector('#dock-fold')?.getAttribute('aria-expanded')=='true'] from:window prevent"></span>
+    {{/*
+      ⌘B puts the index away. This one *can* render its direction, because the
+      sidebar's collapsed state is a class on the shell and the shell is what
+      a sidebar swap re-renders -- so the value below is rewritten with it.
+    */}}
+    <span hx-post="/session/sidebar"
+          hx-vals:append='{"open":"{{if .Session.Sidebar.Collapsed}}1{{else}}0{{end}}"}'
+          hx-trigger="keydown[(metaKey||ctrlKey)&&!altKey&&key.toLowerCase()=='b'&&!event.repeat&&{{template "kbd-editable"}}] from:window prevent"></span>
+    {{/*
+      G opens the grid and closes it. The reference hands the keyboard on as
+      well -- the field that takes a hash is focused on the way in, the map on
+      the way out, so "gm6" arrives at m6 -- and that half is focus rather
+      than state, so it belongs to the seam and is noted as owed there
+      (render/keys.ts).
+    */}}
+    <span hx-post="/session/grid" hx-vals:append='{"system":"toggle"}'
+          hx-trigger="keydown[key.toLowerCase()=='g'&&!metaKey&&!ctrlKey&&!altKey&&!event.repeat&&{{template "kbd-editable"}}] from:window prevent"></span>
+    {{/*
+      Space divides the chosen cell, or stops dividing it -- only while there
+      is a grid to divide, and never when the toggle itself is focused, which
+      answers its own space bar and would otherwise be pressed twice.
+    */}}
+    <span hx-post="/session/grid" hx-vals:append='{"subgrid":"flip"}'
+          hx-trigger="keydown[key==' '&&!event.repeat&&{{template "kbd-editable"}}&&document.querySelector('#atlas-grid-navigator')?.hidden===false&&event.target!==document.querySelector('#subgrid-toggle')] from:window prevent"></span>
+    {{/*
+      And the same key from inside the field, which the guard above shuts out
+      by design: no hash will ever spell a space, and clearing the mesh is
+      what is most wanted while typing one. It is heard on the field rather
+      than the window, so it needs no guard of its own.
+    */}}
+    <span hx-post="/session/grid" hx-vals:append='{"subgrid":"flip"}'
+          hx-trigger="keydown[key==' '&&!event.repeat] from:#grid-input prevent"></span>
+    {{/*
+      ESCAPE MEANS TWO THINGS AT ONCE, and both of them happen.
+
+      Heard on the map it closes the card; heard on the window it telescopes
+      the grid out one level, and out of the grid altogether once there is no
+      address left. A press with the map focused is heard by both -- the first
+      at its target, the second as it bubbles -- which is exactly what the
+      reference did with one handler and two function calls.
+
+      Two handlers means two requests, and hx-sync is what keeps that from
+      being a race: both queue on the shell, so the card closes and *then* the
+      grid ascends, and neither answer is computed from a record the other one
+      has already moved on from.
+
+      The third meaning is the field's, and it is a stopPropagation in the
+      seam rather than a route: the first Escape in the grid input only hands
+      the keyboard back to the map, and the second one gets here.
+    */}}
+    <span hx-post="/session/select" hx-vals:append='{"feature":""}'
+          hx-sync="#atlas-shell:queue all"
+          hx-trigger="keydown[key=='Escape'&&!event.repeat&&{{template "kbd-editable"}}] from:#map prevent"></span>
+    <span hx-post="/session/grid" hx-vals:append='{"ascend":"1"}'
+          hx-sync="#atlas-shell:queue all"
+          hx-trigger="keydown[key=='Escape'&&!event.repeat&&{{template "kbd-editable"}}&&document.querySelector('#atlas-grid-navigator')?.hidden===false] from:window prevent"></span>
+  </div>
+  {{/*
+    The camera's way home.
+
+    The seam reports a settled camera so a volume reopens where the reader
+    left it (issue #5 §4.1). It is the one upward flow that is not a reader's
+    move, and it is *this page's* post rather than the seam's own: the
+    application renders the form and the fields, the seam fills them in and
+    raises the event, and htmx does the rest. That is the same arrangement the
+    labels hint and the corner locator already stand in -- chrome the
+    application renders for the seam to draw into (docs/render-seam.md §2) --
+    and it is what lets the answer land. A report the seam posted for itself
+    would throw the answer away, and the answer is the state island carrying
+    the camera that was just written.
+  */}}
+  <form hidden id="atlas-camera" hx-post="/session/view"
+        hx-trigger="atlas:camera from:window">
+    <input type="hidden" name="world" id="atlas-camera-world"
+           value="{{with .Volume}}{{.World.Slug}}{{end}}">
+    <input type="hidden" name="x" id="atlas-camera-x">
+    <input type="hidden" name="y" id="atlas-camera-y">
+    <input type="hidden" name="zoom" id="atlas-camera-zoom">
+    <input type="hidden" name="rotation" id="atlas-camera-rotation" value="0">
+  </form>
+  {{/*
+    The pick's way in.
+
+    The panes resolve a hit themselves -- a pixel is theirs and an identity is
+    this application's (docs/render-seam.md §5) -- and this is the half that
+    was missing: the seam handed an identity up and nothing was standing there
+    to take it, so a click on the canvas moved nothing at all.
+
+    It is the camera's arrangement exactly, and for the same reason. The
+    application renders the form and the field it wants filled, the seam fills
+    it in and raises the event, htmx posts it and applies the answer -- and the
+    answer is the selection the legend marks and the dock and the card draw,
+    which are the page's regions, not the seam's. A request the seam made for
+    itself would throw all of that away.
+
+    ONE FIELD, and the two absences are the point. The volume is not here
+    because it is inherited from the shell above like every other interaction's
+    on this page, and `focus` is not here because a pick off the canvas is not
+    a jump: a row reached for from a list marks the ground it opened in the
+    index, and a reader who clicked the ground was already standing on it
+    (applySelect, internal/app/session.go).
+  */}}
+  <form hidden id="atlas-pick" hx-post="/session/select"
+        hx-trigger="atlas:pick from:window">
+    <input type="hidden" name="feature" id="atlas-pick-feature">
+  </form>
+  {{/*
+    The cell's way in, which is the pick's way in for the other thing a
+    surface can be pointed at.
+
+    A reader telescopes through the grid three ways and they are one
+    interaction: typing an address into the navigator's field, clicking a cell
+    the chart drew, and pressing a point on the sphere -- which names the cell
+    one level below the one being held. The field is a control the application
+    already renders and posts for itself; the two surfaces are pixels, and a
+    pixel is the seam's to resolve (docs/render-seam.md §5). So they arrive
+    here, at the same route the field posts to and with the same field name,
+    and the server normalizes and validates the address once for all three.
+
+    IT POSTS `cell` AND NOTHING ELSE. Which system is dividing the map is
+    already in the session -- the address was resolved *by* that system, and a
+    seam telling the server which one it used would be the seam holding an
+    opinion about state it does not own. The volume is inherited from the
+    shell, as everything on this page is.
+  */}}
+  <form hidden id="atlas-grid-pick" hx-post="/session/grid"
+        hx-trigger="atlas:grid-pick from:window">
+    <input type="hidden" name="cell" id="atlas-grid-pick-cell">
+  </form>
+  {{/*
+    Live updates. The stream carries ready-to-swap partials and two event
+    names (docs/app.md §5); the page takes the plainer road of re-fetching
+    itself on either, because both events mean the library moved under it and
+    a page that re-reads its own URL cannot end up half-patched. The bodies
+    stay in the contract for a client that wants the cheaper path.
+
+    These stand inside #atlas-shell for the same reason the island does: the
+    address they re-fetch is the address of the volume they were rendered
+    for, and a pair left outside the shell goes on naming the volume the page
+    first opened on. A reconcile would then take the reader somewhere else,
+    which is exactly what an unchanged catalog must never do.
+  */}}
+  {{with .Volume}}<div hidden id="atlas-events" hx-sse:connect="/events?volume={{.Slug}}" hx-trigger="load"></div>
+  <div hidden hx-get="/v/{{.Slug}}/{{.World.Slug}}"
+       hx-trigger="catalog from:#atlas-events, refresh from:#atlas-events"
+       hx-target="#atlas-shell" hx-select="#atlas-shell" hx-swap="outerMorph"></div>{{end}}
+</div>
+{{end}}

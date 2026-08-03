@@ -1,0 +1,18 @@
+{{/*
+  island — the arrangement this page was rendered from, in the session
+  schema's published key names (docs/app.md §6).
+
+  It is inert, it is read by tests/island and the e2e suite and by nothing in
+  the page itself, and it is the server's half of the joint diagnostics issue
+  #5 §6 asks for. Every
+  session answer carries it, because every session answer has just written the
+  record it publishes — including the camera report, which is the only concern
+  whose answer nothing else would ever carry back.
+
+  It stands inside #atlas-shell, which is not decoration. Every navigation on
+  this page swaps the shell and selects `#atlas-shell` out of the answer; an
+  island beside the shell is never replaced, and a reader who switched volumes
+  would go on being told about the volume they left.
+*/}}
+{{define "island"}}<script type="application/json" id="atlas-session-island">{{.Island}}</script>
+{{end}}

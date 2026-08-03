@@ -1,0 +1,88 @@
+{{/*
+  diff — two builds of one volume, read in the A-to-B direction.
+
+  The headline is the score delta and the verdict it earns; the axes, the
+  features and the ledgers' agreements are under it as diagnostics. An
+  addition is something B has that A did not.
+*/}}
+{{define "title"}}{{.Volume.Title}} · what moved{{end}}
+{{define "content"}}
+<section class="page-head">
+  <h1>{{.Volume.Title}} <span class="dim">what moved</span></h1>
+  <p class="dim"><a href="/volume/{{.Volume.Slug}}">{{.Volume.Slug}}</a> ·
+    {{.Diff.A.File}} → {{.Diff.B.File}}</p>
+</section>
+
+<section class="headline">
+  <p class="score-big {{if gt .Diff.Movement.Delta 0}}delta-up{{else if lt .Diff.Movement.Delta 0}}delta-down{{else}}delta-flat{{end}}">
+    {{.Diff.Delta}}<span class="dim"> points · {{.Diff.Verdict}}</span></p>
+  <p class="dim">{{.Diff.Movement.Before}} → {{.Diff.Movement.After}}
+    {{if not .Diff.Movement.Comparable}} · scored under different point tables, so nothing is concluded{{end}}
+    {{if .Diff.Movement.Allowance}} · the ledger accounts for {{.Diff.Movement.Allowance}} points of decline{{end}}</p>
+  {{range .Diff.Movement.Reasons}}<p class="dim">correction: {{.}}</p>{{end}}
+</section>
+
+<section class="card">
+  <h2>Score by world</h2>
+  <table>
+    <thead><tr><th>world</th><th class="num">{{short .Diff.A.Stamp}}</th><th class="num">{{short .Diff.B.Stamp}}</th><th class="num">Δ</th></tr></thead>
+    <tbody>
+    {{range .Diff.Worlds}}
+      <tr><td>{{.Name}}</td><td class="num">{{.A}}</td><td class="num">{{.B}}</td>
+        <td class="num {{if gt .Sign 0}}delta-up{{else if lt .Sign 0}}delta-down{{else}}delta-flat{{end}}">{{.Delta}}</td></tr>
+    {{end}}
+    </tbody>
+  </table>
+</section>
+
+<section class="card">
+  <h2>Axes <span class="dim">diagnostics</span></h2>
+  <table>
+    <thead><tr><th>measure</th><th class="num">{{short .Diff.A.Stamp}}</th><th class="num">{{short .Diff.B.Stamp}}</th><th class="num">Δ</th></tr></thead>
+    <tbody>
+    {{range .Diff.Axes}}
+      <tr><td>{{.Name}}</td><td class="num">{{.A}}</td><td class="num">{{.B}}</td>
+        <td class="num {{if gt .Sign 0}}delta-up{{else if lt .Sign 0}}delta-down{{else}}delta-flat{{end}}">{{.Delta}}</td></tr>
+    {{end}}
+    </tbody>
+  </table>
+</section>
+
+<div class="columns">
+<section class="card">
+  <h2>Features added <span class="dim">{{len .Diff.Added}}</span></h2>
+  {{if .Diff.Added}}
+  <table>
+    <thead><tr><th>world</th><th class="num">id</th><th>title</th></tr></thead>
+    <tbody>{{range .Diff.Added}}<tr><td>{{.World}}</td><td class="num">{{.ID}}</td><td>{{.Title}}</td></tr>{{end}}</tbody>
+  </table>
+  {{else}}<p class="dim">None.</p>{{end}}
+</section>
+<section class="card">
+  <h2>Features removed <span class="dim">{{len .Diff.Removed}}</span></h2>
+  {{if .Diff.Removed}}
+  <table>
+    <thead><tr><th>world</th><th class="num">id</th><th>title</th></tr></thead>
+    <tbody>{{range .Diff.Removed}}<tr><td>{{.World}}</td><td class="num">{{.ID}}</td><td>{{.Title}}</td></tr>{{end}}</tbody>
+  </table>
+  {{else}}<p class="dim">None.</p>{{end}}
+</section>
+</div>
+
+<section class="card">
+  <h2>Matched-pair stability</h2>
+  {{if .Diff.Pairs}}
+  <p class="dim">A pair is the same pair only when donor and winner both agree; a match that changed winners
+    reads as one lost and one gained.</p>
+  <table>
+    <thead><tr><th>world</th><th>reading</th><th class="num">kept</th><th class="num">gained</th><th class="num">lost</th></tr></thead>
+    <tbody>
+    {{range .Diff.Pairs}}
+      <tr><td>{{.World}}</td><td>{{.Source}}</td><td class="num">{{.Kept}}</td>
+        <td class="num">{{.Gained}}</td><td class="num">{{.Lost}}</td></tr>
+    {{end}}
+    </tbody>
+  </table>
+  {{else}}<p class="dim">Neither build carries a ledger.</p>{{end}}
+</section>
+{{end}}

@@ -1,0 +1,48 @@
+{{/*
+  library — the collection, one row per volume, headlined by the score.
+
+  Every figure is the serving build's: the build a reader would be given. The
+  score comes first because it is the only number anything gates on; the
+  counts beside it are diagnostics, and the page says so.
+*/}}
+{{define "title"}}Library{{end}}
+{{define "content"}}
+<section class="page-head">
+  <h1>Library</h1>
+  <p class="dim">{{.Dir}} · point table v{{.Table}}</p>
+</section>
+{{range .Skipped}}<p class="warn">{{.}}</p>{{end}}
+{{if .Volumes}}
+<p class="dim note">Figures are the serving build's — the one a reader is given. The score is
+  the measurement; everything beside it is a diagnostic.</p>
+<table>
+  <thead><tr>
+    <th>volume</th><th class="num">score</th><th class="num">Δ last build</th>
+    <th class="num">builds</th><th class="num">features</th><th class="num">described</th>
+    <th class="num">shapes</th><th class="num">lenses</th><th class="num">raster</th>
+    <th>readings</th>
+  </tr></thead>
+  <tbody>
+  {{range .Volumes}}{{$serving := .Serving}}
+    <tr>
+      <td><a href="/volume/{{.Slug}}">{{.Title}}</a> <span class="dim">{{.Slug}}</span></td>
+      <td class="num score">{{$serving.Total}}</td>
+      <td class="num">
+        {{with .Movement}}<span class="{{if gt .Delta 0}}delta-up{{else if lt .Delta 0}}delta-down{{else}}delta-flat{{end}}">
+          {{if gt .Delta 0}}+{{end}}{{.Delta}}</span>{{else}}<span class="dim">—</span>{{end}}
+      </td>
+      <td class="num">{{len .Builds}}</td>
+      <td class="num">{{$serving.Axes.Features}}</td>
+      <td class="num">{{$serving.Axes.Described}} <span class="dim">{{$serving.Axes.DescribedShare}}</span></td>
+      <td class="num">{{$serving.Axes.Shapes}}</td>
+      <td class="num">{{$serving.Axes.Lenses}}</td>
+      <td class="num">{{$serving.Axes.RasterMB}} MB</td>
+      <td>{{range .Sources}}<span class="badge">{{.}}</span>{{else}}<span class="dim">—</span>{{end}}</td>
+    </tr>
+  {{end}}
+  </tbody>
+</table>
+{{else}}
+<p class="empty">No bundles in this directory yet. The operations page builds some.</p>
+{{end}}
+{{end}}

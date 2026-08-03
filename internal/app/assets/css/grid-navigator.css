@@ -1,0 +1,118 @@
+/* The system mark: one small button beside the field, wearing the current
+   divider's mark, cycling to the next on click -- and inert, not absent,
+   when this world divides only one way: a hash without its system is half
+   an address. It keeps the navigator's 36px rhythm; the icon type shrinks
+   to carry a word-mark instead of a glyph, at the specificity the shared
+   button rule would otherwise win. */
+.grid-navigator .grid-system {
+  color: var(--accent);
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.grid-navigator .grid-system:disabled {
+  color: var(--muted);
+  cursor: default;
+}
+
+.grid-navigator {
+  position: absolute;
+  z-index: 8;
+  top: 17px;
+  right: 67px;
+  display: flex;
+  overflow: hidden;
+  align-items: stretch;
+  border: 1px solid var(--line-strong);
+  border-radius: 8px;
+  background: rgba(23, 25, 29, 0.94);
+  box-shadow: 0 6px 25px rgba(0, 0, 0, 0.22);
+}
+
+.grid-navigator[hidden] {
+  display: none;
+}
+
+.grid-navigator button {
+  width: 36px;
+  padding: 0;
+  border: 0;
+  border-right: 1px solid var(--line);
+  background: transparent;
+  color: var(--muted);
+  font-size: 17px;
+  cursor: pointer;
+}
+
+.grid-navigator button:hover:enabled {
+  color: var(--accent);
+}
+
+/* The subgrid toggle sits after the field it belongs to, so its rule divides it
+   from the field rather than trailing off the end of the control. */
+.subgrid-toggle {
+  display: grid;
+  border-right: 0;
+  border-left: 1px solid var(--line);
+  place-items: center;
+}
+
+.subgrid-toggle svg {
+  width: 15px;
+  fill: none;
+  stroke: currentColor;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-width: 1.3;
+}
+
+.subgrid-toggle .subgrid-toggle-slash {
+  display: none;
+}
+
+.subgrid-toggle[aria-pressed="false"] {
+  color: #6d6860;
+}
+
+.subgrid-toggle[aria-pressed="false"] .subgrid-toggle-slash {
+  display: inline;
+  stroke: currentColor;
+  stroke-width: 1.6;
+}
+
+.grid-navigator label {
+  display: flex;
+  height: 36px;
+  align-items: center;
+  gap: 7px;
+  padding: 0 9px;
+  color: var(--muted);
+  font-size: 8px;
+  font-weight: 800;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.grid-navigator input {
+  width: 74px;
+  padding: 4px 6px;
+  border: 1px solid #3c3833;
+  border-radius: 4px;
+  outline: none;
+  background: #0e1014;
+  color: var(--accent);
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: lowercase;
+  -webkit-user-select: text;
+  user-select: text;
+}
+
+.grid-navigator input:focus {
+  border-color: rgba(58, 165, 201, 0.68);
+}
+

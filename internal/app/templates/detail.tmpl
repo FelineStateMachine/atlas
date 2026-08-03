@@ -1,0 +1,46 @@
+{{/*
+  detail — one feature's card.
+
+  The card is an outerMorph region (internal/app/partials.go): a swap replaces
+  the element itself, attributes and all, so the element can carry the `hidden`
+  the carried assets/css/pin-detail.css keys the results list off — and it
+  carries it on every swap, not only on the first paint. A closed card is a
+  hidden card, which is the same fact the reference implementation's script set
+  by hand after each render; here the server says it, out of the session, and
+  there is nothing left to fall out of step with.
+
+  ONE ROW IS RENDERED EMPTY, and only one: the grid cell. Where a point stands
+  is the payload's and is written here; what that place is *called* is the
+  analysis lane's, and the server has no access to it. So the row is rendered
+  present, empty and hidden for a point, and the seam fills it and un-hides it
+  after every swap (render/viewport.ts, writeCell) -- the same division the
+  footer's "N of M" sentence is written across. A shape has no point to name,
+  so it has no row at all, which is the branch the reference hid.
+*/}}
+{{define "detail"}}<article id="atlas-detail" class="pin-detail"{{if not .Detail.Open}} hidden{{end}}>{{with .Detail}}{{if .Open}}
+  <button type="button" class="detail-back" id="close-detail" aria-label="Back to results"
+          hx-post="/session/select" hx-vals:append='{"feature":""}'>
+    <svg viewBox="0 0 16 16" aria-hidden="true"><path d="M10 3 5 8l5 5"/></svg>
+    Back to results
+  </button>
+  <div class="detail-category">
+    <span id="detail-dot" style="background: {{.Color}}">{{.Glyph}}</span>
+    <span id="detail-category">{{.Category}}</span>
+  </div>
+  <h2 id="detail-title">{{.Title}}</h2>
+  <p id="detail-description">{{.Description}}</p>
+  <nav class="detail-links" id="detail-links"{{if not .Links}} hidden{{end}}>
+    {{range .Links}}<button type="button" class="detail-link" data-location="{{.ID}}"
+            hx-post="/session/select" hx-vals:append='{"feature":"{{.ID}}","focus":"1"}'>{{.Title}}</button>
+    {{end}}
+  </nav>
+  <dl>
+    <div><dt>ID</dt><dd id="detail-id">{{.ID}}</dd></div>
+    <div id="detail-coordinates-field"{{if not .Coordinates}} hidden{{end}}><dt>Coordinates</dt><dd id="detail-coordinates">{{.Coordinates}}</dd></div>
+    {{if .Point}}<div id="detail-cell-field" hidden><dt>Grid cell</dt><dd id="detail-cell"></dd></div>
+    {{end}}<div id="detail-source-field"{{if not .Source}} hidden{{end}}><dt>Source</dt><dd id="detail-source">{{.Source}}</dd></div>
+    {{range .Rows}}<div data-feature-row="{{.Key}}"><dt>{{.Label}}</dt><dd>{{.Value}}</dd></div>
+    {{end}}
+  </dl>
+{{end}}{{end}}</article>
+{{end}}

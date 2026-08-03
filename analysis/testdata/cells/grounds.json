@@ -1,0 +1,197 @@
+{
+  "about": "The grounds every vector names. This is the shape issue #5 §5.4 de-globalizes into a `Ground` descriptor: a case that names its ground here is a case that has declared its inputs. Four grounds are hand-derived — the squares and the sphere every vector was worked out on — and two are read from the public corpus bundles under testdata/corpus/bundles/, so the descriptor a test stands on is the declaration a reader really meets. Both lanes consume this file: analysis/test/vectors.test.ts and tests/cells/conformance_test.go.",
+  "reads": {
+    "tileGridSize": "the volume's tile grid size — the world square, the last fallback for the surface",
+    "lens.surface": "the lens's declared surface, preferred when present",
+    "lens.bounds": "its raster window, used when no surface is declared",
+    "world.attrs": "the semconv geometry keys: atlas.geometry.surface and the projection's px/deg mapping",
+    "surfaceExtent": "derived: [minX, minY, maxX, maxY] in OL world coordinates, x east and y negative-down. Recorded so a candidate carrying the ground differently still has to land on these numbers.",
+    "systems": "derived: which systems will divide this ground, in the navigator's order."
+  },
+  "grounds": {
+    "test/square-1024": {
+      "key": "test/square-1024",
+      "about": "The unit square of the hand-derived suite: a 1024 world declaring the whole of itself as its lens surface, and no geometry attributes at all — the plane every geohash number in the suite was halved out of.",
+      "tileGridSize": 1024,
+      "lens": {
+        "surface": {
+          "x": 0,
+          "y": 0,
+          "width": 1024,
+          "height": 1024
+        },
+        "bounds": null
+      },
+      "world": {
+        "attrs": {}
+      },
+      "surfaceExtent": [
+        0,
+        -1024,
+        1024,
+        0
+      ],
+      "systems": [
+        "geohash"
+      ]
+    },
+    "test/square-1024-bounds": {
+      "key": "test/square-1024-bounds",
+      "about": "The same world with a lens that declares no surface, only a raster window: the fallback branch of surfaceExtent.",
+      "tileGridSize": 1024,
+      "lens": {
+        "surface": null,
+        "bounds": {
+          "x": 128,
+          "y": 256,
+          "width": 512,
+          "height": 256
+        }
+      },
+      "world": {
+        "attrs": {}
+      },
+      "surfaceExtent": [
+        128,
+        -512,
+        640,
+        -256
+      ],
+      "systems": [
+        "geohash"
+      ]
+    },
+    "test/square-1024-no-lens": {
+      "key": "test/square-1024-no-lens",
+      "about": "The same world with no lens at all: the last fallback, the whole world square.",
+      "tileGridSize": 1024,
+      "lens": null,
+      "world": {
+        "attrs": {}
+      },
+      "surfaceExtent": [
+        0,
+        -1024,
+        1024,
+        0
+      ],
+      "systems": [
+        "geohash"
+      ]
+    },
+    "test/sphere-8192x4096": {
+      "key": "test/sphere-8192x4096",
+      "about": "The hand-derived sphere: the top half of an 8192 world square declared as a whole equirectangular ground. The S2 vectors — leaf 0x47a1cbd595522b39 and its level-10 parent 47a1cb — are the Go library's own, read through this declaration.",
+      "tileGridSize": 8192,
+      "lens": {
+        "surface": {
+          "x": 0,
+          "y": 0,
+          "width": 8192,
+          "height": 4096
+        },
+        "bounds": null
+      },
+      "world": {
+        "attrs": {
+          "atlas.geometry.surface": "sphere",
+          "atlas.geometry.projection": "equirect",
+          "atlas.geometry.equirect.px": "0,0,8192,4096",
+          "atlas.geometry.equirect.deg": "-180,90,180,-90"
+        }
+      },
+      "surfaceExtent": [
+        0,
+        -4096,
+        8192,
+        0
+      ],
+      "systems": [
+        "geohash",
+        "s2"
+      ]
+    },
+    "bend-or/2026-08-02/0": {
+      "key": "bend-or/2026-08-02/0",
+      "about": "Bend, Oregon — 2026-08-02, lens \"Basemap\". Read from the public corpus bundle at testdata/corpus/bundles/bend-or: a plane city that declares an earth Mercator window and names its body, so geohash divides it FOR REAL — genuine WGS84 addresses of the pictured ground, base depth 4 and floor 6 from the window's own 0.32909 x 0.23650 degree spans — and nothing else offers to.",
+      "tileGridSize": 8192,
+      "lens": {
+        "surface": {
+          "height": 8192,
+          "width": 8192,
+          "x": 0,
+          "y": 0
+        },
+        "bounds": null
+      },
+      "world": {
+        "attrs": {
+          "atlas.geometry.body": "earth",
+          "atlas.geometry.mercator.deg": "-121.48204667177453,44.17572950664809,-121.1529533282255,43.93922950850393",
+          "atlas.geometry.mercator.px": "0,0,8192,8192",
+          "atlas.geometry.surface": "plane"
+        }
+      },
+      "provenance": {
+        "volume": "bend-or",
+        "world": "2026-08-02",
+        "lens": "Basemap",
+        "lensIndex": 0
+      },
+      "surfaceExtent": [
+        0,
+        -8192,
+        8192,
+        0
+      ],
+      "systems": [
+        "geohash"
+      ]
+    },
+    "mars/global/0": {
+      "key": "mars/global/0",
+      "about": "Mars — Global, lens \"Viking MDIM 2.1\". Read from the public corpus bundle at testdata/corpus/bundles/mars: the one shipped sphere, so the S2 answers here are answers about a declaration a reader really meets.",
+      "tileGridSize": 8192,
+      "lens": {
+        "surface": {
+          "height": 4096,
+          "width": 8192,
+          "x": 0,
+          "y": 0
+        },
+        "bounds": {
+          "height": 4096,
+          "width": 8192,
+          "x": 0,
+          "y": 0
+        }
+      },
+      "world": {
+        "attrs": {
+          "atlas.geometry.body": "mars",
+          "atlas.geometry.equirect.deg": "-180,90,180,-90",
+          "atlas.geometry.equirect.px": "0,0,8192,4096",
+          "atlas.geometry.projection": "equirect",
+          "atlas.geometry.surface": "sphere",
+          "atlas.icon.outset": "dark"
+        }
+      },
+      "provenance": {
+        "volume": "mars",
+        "world": "global",
+        "lens": "Viking MDIM 2.1",
+        "lensIndex": 0
+      },
+      "surfaceExtent": [
+        0,
+        -4096,
+        8192,
+        0
+      ],
+      "systems": [
+        "geohash",
+        "s2"
+      ]
+    }
+  }
+}

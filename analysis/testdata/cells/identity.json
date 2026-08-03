@@ -1,0 +1,835 @@
+{
+  "family": "identity",
+  "about": "Cell ids are opaque strings and \"\" is the root. This family pins what a system says about one id on its own: its depth, its parent, its ordinal among siblings, the two cuts of its label, and its palette index. Geohash ids refine by appending a character; S2 ids do not, which is the whole reason the contract speaks in opaque strings.",
+  "cases": [
+    {
+      "name": "geohash-level-root",
+      "ground": "test/square-1024",
+      "system": "geohash",
+      "call": "level",
+      "args": [
+        ""
+      ],
+      "expect": 0,
+      "handDerived": true
+    },
+    {
+      "name": "geohash-parent-root",
+      "ground": "test/square-1024",
+      "system": "geohash",
+      "call": "parent",
+      "args": [
+        ""
+      ],
+      "expect": "",
+      "handDerived": true
+    },
+    {
+      "name": "geohash-level-m",
+      "ground": "test/square-1024",
+      "system": "geohash",
+      "call": "level",
+      "args": [
+        "m"
+      ],
+      "expect": 1,
+      "handDerived": true
+    },
+    {
+      "name": "geohash-parent-m",
+      "ground": "test/square-1024",
+      "system": "geohash",
+      "call": "parent",
+      "args": [
+        "m"
+      ],
+      "expect": "",
+      "handDerived": true
+    },
+    {
+      "name": "geohash-level-m6",
+      "ground": "test/square-1024",
+      "system": "geohash",
+      "call": "level",
+      "args": [
+        "m6"
+      ],
+      "expect": 2,
+      "handDerived": true
+    },
+    {
+      "name": "geohash-parent-m6",
+      "ground": "test/square-1024",
+      "system": "geohash",
+      "call": "parent",
+      "args": [
+        "m6"
+      ],
+      "expect": "m",
+      "handDerived": true
+    },
+    {
+      "name": "geohash-level-m6s",
+      "ground": "test/square-1024",
+      "system": "geohash",
+      "call": "level",
+      "args": [
+        "m6s"
+      ],
+      "expect": 3,
+      "handDerived": true
+    },
+    {
+      "name": "geohash-parent-m6s",
+      "ground": "test/square-1024",
+      "system": "geohash",
+      "call": "parent",
+      "args": [
+        "m6s"
+      ],
+      "expect": "m6",
+      "handDerived": true
+    },
+    {
+      "name": "geohash-child-index",
+      "ground": "test/square-1024",
+      "system": "geohash",
+      "call": "childIndex",
+      "args": [
+        "m6"
+      ],
+      "expect": 6,
+      "handDerived": true
+    },
+    {
+      "name": "geohash-label",
+      "ground": "test/square-1024",
+      "system": "geohash",
+      "call": "label",
+      "args": [
+        "m6s"
+      ],
+      "expect": {
+        "context": "m6",
+        "principal": "s"
+      },
+      "handDerived": true
+    },
+    {
+      "name": "geohash-color-key-0",
+      "ground": "test/square-1024",
+      "system": "geohash",
+      "call": "colorKey",
+      "args": [
+        "0"
+      ],
+      "expect": 0
+    },
+    {
+      "name": "geohash-color-key-m",
+      "ground": "test/square-1024",
+      "system": "geohash",
+      "call": "colorKey",
+      "args": [
+        "m"
+      ],
+      "expect": 9
+    },
+    {
+      "name": "geohash-color-key-m6",
+      "ground": "test/square-1024",
+      "system": "geohash",
+      "call": "colorKey",
+      "args": [
+        "m6"
+      ],
+      "expect": 6
+    },
+    {
+      "name": "geohash-color-key-m6s",
+      "ground": "test/square-1024",
+      "system": "geohash",
+      "call": "colorKey",
+      "args": [
+        "m6s"
+      ],
+      "expect": 4
+    },
+    {
+      "name": "geohash-color-key-mz",
+      "ground": "test/square-1024",
+      "system": "geohash",
+      "call": "colorKey",
+      "args": [
+        "mz"
+      ],
+      "expect": 1
+    },
+    {
+      "name": "s2-level-of-a-face",
+      "ground": "test/sphere-8192x4096",
+      "system": "s2",
+      "call": "level",
+      "args": [
+        "1"
+      ],
+      "expect": 1,
+      "handDerived": true
+    },
+    {
+      "name": "s2-level-47a1cb",
+      "ground": "test/sphere-8192x4096",
+      "system": "s2",
+      "call": "level",
+      "args": [
+        "47a1cb"
+      ],
+      "expect": 11,
+      "note": "port level = S2 level + 1.",
+      "handDerived": true
+    },
+    {
+      "name": "s2-parent-of-a-face-is-the-root",
+      "ground": "test/sphere-8192x4096",
+      "system": "s2",
+      "call": "parent",
+      "args": [
+        "1"
+      ],
+      "expect": "",
+      "handDerived": true
+    },
+    {
+      "name": "s2-parent-5",
+      "ground": "test/sphere-8192x4096",
+      "system": "s2",
+      "call": "parent",
+      "args": [
+        "5"
+      ],
+      "expect": ""
+    },
+    {
+      "name": "s2-level-5",
+      "ground": "test/sphere-8192x4096",
+      "system": "s2",
+      "call": "level",
+      "args": [
+        "5"
+      ],
+      "expect": 1
+    },
+    {
+      "name": "s2-child-index-5",
+      "ground": "test/sphere-8192x4096",
+      "system": "s2",
+      "call": "childIndex",
+      "args": [
+        "5"
+      ],
+      "expect": 2
+    },
+    {
+      "name": "s2-label-5",
+      "ground": "test/sphere-8192x4096",
+      "system": "s2",
+      "call": "label",
+      "args": [
+        "5"
+      ],
+      "expect": {
+        "context": "",
+        "principal": "5"
+      }
+    },
+    {
+      "name": "s2-color-key-5",
+      "ground": "test/sphere-8192x4096",
+      "system": "s2",
+      "call": "colorKey",
+      "args": [
+        "5"
+      ],
+      "expect": 2,
+      "note": "Sibling tokens can share their final character, so the accent comes from the sibling ordinal instead."
+    },
+    {
+      "name": "s2-parent-44",
+      "ground": "test/sphere-8192x4096",
+      "system": "s2",
+      "call": "parent",
+      "args": [
+        "44"
+      ],
+      "expect": "5"
+    },
+    {
+      "name": "s2-level-44",
+      "ground": "test/sphere-8192x4096",
+      "system": "s2",
+      "call": "level",
+      "args": [
+        "44"
+      ],
+      "expect": 2
+    },
+    {
+      "name": "s2-child-index-44",
+      "ground": "test/sphere-8192x4096",
+      "system": "s2",
+      "call": "childIndex",
+      "args": [
+        "44"
+      ],
+      "expect": 0
+    },
+    {
+      "name": "s2-label-44",
+      "ground": "test/sphere-8192x4096",
+      "system": "s2",
+      "call": "label",
+      "args": [
+        "44"
+      ],
+      "expect": {
+        "context": "4",
+        "principal": "4"
+      }
+    },
+    {
+      "name": "s2-color-key-44",
+      "ground": "test/sphere-8192x4096",
+      "system": "s2",
+      "call": "colorKey",
+      "args": [
+        "44"
+      ],
+      "expect": 0
+    },
+    {
+      "name": "s2-parent-47",
+      "ground": "test/sphere-8192x4096",
+      "system": "s2",
+      "call": "parent",
+      "args": [
+        "47"
+      ],
+      "expect": "44"
+    },
+    {
+      "name": "s2-level-47",
+      "ground": "test/sphere-8192x4096",
+      "system": "s2",
+      "call": "level",
+      "args": [
+        "47"
+      ],
+      "expect": 3
+    },
+    {
+      "name": "s2-child-index-47",
+      "ground": "test/sphere-8192x4096",
+      "system": "s2",
+      "call": "childIndex",
+      "args": [
+        "47"
+      ],
+      "expect": 3
+    },
+    {
+      "name": "s2-label-47",
+      "ground": "test/sphere-8192x4096",
+      "system": "s2",
+      "call": "label",
+      "args": [
+        "47"
+      ],
+      "expect": {
+        "context": "4",
+        "principal": "7"
+      }
+    },
+    {
+      "name": "s2-color-key-47",
+      "ground": "test/sphere-8192x4096",
+      "system": "s2",
+      "call": "colorKey",
+      "args": [
+        "47"
+      ],
+      "expect": 3
+    },
+    {
+      "name": "s2-parent-47c",
+      "ground": "test/sphere-8192x4096",
+      "system": "s2",
+      "call": "parent",
+      "args": [
+        "47c"
+      ],
+      "expect": "47"
+    },
+    {
+      "name": "s2-level-47c",
+      "ground": "test/sphere-8192x4096",
+      "system": "s2",
+      "call": "level",
+      "args": [
+        "47c"
+      ],
+      "expect": 4
+    },
+    {
+      "name": "s2-child-index-47c",
+      "ground": "test/sphere-8192x4096",
+      "system": "s2",
+      "call": "childIndex",
+      "args": [
+        "47c"
+      ],
+      "expect": 3
+    },
+    {
+      "name": "s2-label-47c",
+      "ground": "test/sphere-8192x4096",
+      "system": "s2",
+      "call": "label",
+      "args": [
+        "47c"
+      ],
+      "expect": {
+        "context": "47",
+        "principal": "c"
+      }
+    },
+    {
+      "name": "s2-color-key-47c",
+      "ground": "test/sphere-8192x4096",
+      "system": "s2",
+      "call": "colorKey",
+      "args": [
+        "47c"
+      ],
+      "expect": 3
+    },
+    {
+      "name": "s2-parent-47b",
+      "ground": "test/sphere-8192x4096",
+      "system": "s2",
+      "call": "parent",
+      "args": [
+        "47b"
+      ],
+      "expect": "47c"
+    },
+    {
+      "name": "s2-level-47b",
+      "ground": "test/sphere-8192x4096",
+      "system": "s2",
+      "call": "level",
+      "args": [
+        "47b"
+      ],
+      "expect": 5
+    },
+    {
+      "name": "s2-child-index-47b",
+      "ground": "test/sphere-8192x4096",
+      "system": "s2",
+      "call": "childIndex",
+      "args": [
+        "47b"
+      ],
+      "expect": 1
+    },
+    {
+      "name": "s2-label-47b",
+      "ground": "test/sphere-8192x4096",
+      "system": "s2",
+      "call": "label",
+      "args": [
+        "47b"
+      ],
+      "expect": {
+        "context": "47",
+        "principal": "b"
+      }
+    },
+    {
+      "name": "s2-color-key-47b",
+      "ground": "test/sphere-8192x4096",
+      "system": "s2",
+      "call": "colorKey",
+      "args": [
+        "47b"
+      ],
+      "expect": 1
+    },
+    {
+      "name": "s2-parent-47a4",
+      "ground": "test/sphere-8192x4096",
+      "system": "s2",
+      "call": "parent",
+      "args": [
+        "47a4"
+      ],
+      "expect": "47b"
+    },
+    {
+      "name": "s2-level-47a4",
+      "ground": "test/sphere-8192x4096",
+      "system": "s2",
+      "call": "level",
+      "args": [
+        "47a4"
+      ],
+      "expect": 6
+    },
+    {
+      "name": "s2-child-index-47a4",
+      "ground": "test/sphere-8192x4096",
+      "system": "s2",
+      "call": "childIndex",
+      "args": [
+        "47a4"
+      ],
+      "expect": 0
+    },
+    {
+      "name": "s2-label-47a4",
+      "ground": "test/sphere-8192x4096",
+      "system": "s2",
+      "call": "label",
+      "args": [
+        "47a4"
+      ],
+      "expect": {
+        "context": "47a",
+        "principal": "4"
+      }
+    },
+    {
+      "name": "s2-color-key-47a4",
+      "ground": "test/sphere-8192x4096",
+      "system": "s2",
+      "call": "colorKey",
+      "args": [
+        "47a4"
+      ],
+      "expect": 0
+    },
+    {
+      "name": "s2-parent-47a1",
+      "ground": "test/sphere-8192x4096",
+      "system": "s2",
+      "call": "parent",
+      "args": [
+        "47a1"
+      ],
+      "expect": "47a4"
+    },
+    {
+      "name": "s2-level-47a1",
+      "ground": "test/sphere-8192x4096",
+      "system": "s2",
+      "call": "level",
+      "args": [
+        "47a1"
+      ],
+      "expect": 7
+    },
+    {
+      "name": "s2-child-index-47a1",
+      "ground": "test/sphere-8192x4096",
+      "system": "s2",
+      "call": "childIndex",
+      "args": [
+        "47a1"
+      ],
+      "expect": 0
+    },
+    {
+      "name": "s2-label-47a1",
+      "ground": "test/sphere-8192x4096",
+      "system": "s2",
+      "call": "label",
+      "args": [
+        "47a1"
+      ],
+      "expect": {
+        "context": "47a",
+        "principal": "1"
+      }
+    },
+    {
+      "name": "s2-color-key-47a1",
+      "ground": "test/sphere-8192x4096",
+      "system": "s2",
+      "call": "colorKey",
+      "args": [
+        "47a1"
+      ],
+      "expect": 0
+    },
+    {
+      "name": "s2-parent-47a1c",
+      "ground": "test/sphere-8192x4096",
+      "system": "s2",
+      "call": "parent",
+      "args": [
+        "47a1c"
+      ],
+      "expect": "47a1"
+    },
+    {
+      "name": "s2-level-47a1c",
+      "ground": "test/sphere-8192x4096",
+      "system": "s2",
+      "call": "level",
+      "args": [
+        "47a1c"
+      ],
+      "expect": 8
+    },
+    {
+      "name": "s2-child-index-47a1c",
+      "ground": "test/sphere-8192x4096",
+      "system": "s2",
+      "call": "childIndex",
+      "args": [
+        "47a1c"
+      ],
+      "expect": 3
+    },
+    {
+      "name": "s2-label-47a1c",
+      "ground": "test/sphere-8192x4096",
+      "system": "s2",
+      "call": "label",
+      "args": [
+        "47a1c"
+      ],
+      "expect": {
+        "context": "47a1",
+        "principal": "c"
+      }
+    },
+    {
+      "name": "s2-color-key-47a1c",
+      "ground": "test/sphere-8192x4096",
+      "system": "s2",
+      "call": "colorKey",
+      "args": [
+        "47a1c"
+      ],
+      "expect": 3
+    },
+    {
+      "name": "s2-parent-47a1d",
+      "ground": "test/sphere-8192x4096",
+      "system": "s2",
+      "call": "parent",
+      "args": [
+        "47a1d"
+      ],
+      "expect": "47a1c"
+    },
+    {
+      "name": "s2-level-47a1d",
+      "ground": "test/sphere-8192x4096",
+      "system": "s2",
+      "call": "level",
+      "args": [
+        "47a1d"
+      ],
+      "expect": 9
+    },
+    {
+      "name": "s2-child-index-47a1d",
+      "ground": "test/sphere-8192x4096",
+      "system": "s2",
+      "call": "childIndex",
+      "args": [
+        "47a1d"
+      ],
+      "expect": 2
+    },
+    {
+      "name": "s2-label-47a1d",
+      "ground": "test/sphere-8192x4096",
+      "system": "s2",
+      "call": "label",
+      "args": [
+        "47a1d"
+      ],
+      "expect": {
+        "context": "47a1",
+        "principal": "d"
+      }
+    },
+    {
+      "name": "s2-color-key-47a1d",
+      "ground": "test/sphere-8192x4096",
+      "system": "s2",
+      "call": "colorKey",
+      "args": [
+        "47a1d"
+      ],
+      "expect": 2
+    },
+    {
+      "name": "s2-parent-47a1cc",
+      "ground": "test/sphere-8192x4096",
+      "system": "s2",
+      "call": "parent",
+      "args": [
+        "47a1cc"
+      ],
+      "expect": "47a1d"
+    },
+    {
+      "name": "s2-level-47a1cc",
+      "ground": "test/sphere-8192x4096",
+      "system": "s2",
+      "call": "level",
+      "args": [
+        "47a1cc"
+      ],
+      "expect": 10
+    },
+    {
+      "name": "s2-child-index-47a1cc",
+      "ground": "test/sphere-8192x4096",
+      "system": "s2",
+      "call": "childIndex",
+      "args": [
+        "47a1cc"
+      ],
+      "expect": 1
+    },
+    {
+      "name": "s2-label-47a1cc",
+      "ground": "test/sphere-8192x4096",
+      "system": "s2",
+      "call": "label",
+      "args": [
+        "47a1cc"
+      ],
+      "expect": {
+        "context": "47a1c",
+        "principal": "c"
+      }
+    },
+    {
+      "name": "s2-color-key-47a1cc",
+      "ground": "test/sphere-8192x4096",
+      "system": "s2",
+      "call": "colorKey",
+      "args": [
+        "47a1cc"
+      ],
+      "expect": 1
+    },
+    {
+      "name": "s2-parent-47a1cb",
+      "ground": "test/sphere-8192x4096",
+      "system": "s2",
+      "call": "parent",
+      "args": [
+        "47a1cb"
+      ],
+      "expect": "47a1cc"
+    },
+    {
+      "name": "s2-level-47a1cb",
+      "ground": "test/sphere-8192x4096",
+      "system": "s2",
+      "call": "level",
+      "args": [
+        "47a1cb"
+      ],
+      "expect": 11
+    },
+    {
+      "name": "s2-child-index-47a1cb",
+      "ground": "test/sphere-8192x4096",
+      "system": "s2",
+      "call": "childIndex",
+      "args": [
+        "47a1cb"
+      ],
+      "expect": 1
+    },
+    {
+      "name": "s2-label-47a1cb",
+      "ground": "test/sphere-8192x4096",
+      "system": "s2",
+      "call": "label",
+      "args": [
+        "47a1cb"
+      ],
+      "expect": {
+        "context": "47a1c",
+        "principal": "b"
+      }
+    },
+    {
+      "name": "s2-color-key-47a1cb",
+      "ground": "test/sphere-8192x4096",
+      "system": "s2",
+      "call": "colorKey",
+      "args": [
+        "47a1cb"
+      ],
+      "expect": 1
+    },
+    {
+      "name": "real-level-root",
+      "ground": "bend-or/2026-08-02/0",
+      "system": "geohash",
+      "call": "level",
+      "args": [
+        ""
+      ],
+      "expect": 0,
+      "handDerived": true
+    },
+    {
+      "name": "real-level-base-cell",
+      "ground": "bend-or/2026-08-02/0",
+      "system": "geohash",
+      "call": "level",
+      "args": [
+        "9rcd"
+      ],
+      "expect": 1,
+      "note": "Level counts LAYERS on real ground: the root's children are four characters long and level 1, so the telescope is still three deep.",
+      "handDerived": true
+    },
+    {
+      "name": "real-level-floor",
+      "ground": "bend-or/2026-08-02/0",
+      "system": "geohash",
+      "call": "level",
+      "args": [
+        "9rcdxk"
+      ],
+      "expect": 3,
+      "handDerived": true
+    },
+    {
+      "name": "real-label",
+      "ground": "bend-or/2026-08-02/0",
+      "system": "geohash",
+      "call": "label",
+      "args": [
+        "9rcdxk"
+      ],
+      "expect": {
+        "context": "9rcdx",
+        "principal": "k"
+      },
+      "handDerived": true
+    }
+  ]
+}

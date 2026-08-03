@@ -1,0 +1,24 @@
+# Line endings, for tests that run on three platforms.
+#
+# The tests compare bytes: a generated artifact against the committed one, a
+# manifest against the manifest a build actually wrote. Git's default on
+# Windows is to rewrite line endings on checkout, which would turn every one
+# of those comparisons into a diff of invisible characters. So the working
+# tree is LF everywhere, on every platform, and the files that are data rather
+# than text are never touched at all.
+
+* text=auto eol=lf
+
+# The corpus is data. It was extracted from bundles built out of public
+# sources -- city open data and NASA Trek -- and nothing may transform it
+# between the extraction and the comparison: not an editor, not a checkout.
+testdata/corpus/**              -text
+
+# The shared cell vectors are the contract both cell-arithmetic
+# implementations answer; the TypeScript side compares its answers as JSON
+# text, byte for byte.
+analysis/testdata/cells/*.json  -text
+
+# Bundles are zip archives. None is committed today; if one ever is, it is
+# bytes.
+*.atlas binary

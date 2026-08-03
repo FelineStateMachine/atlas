@@ -1,0 +1,721 @@
+{
+  "1010840213": {
+    "a": {
+      "atlas.geo.lat": "44.0552954",
+      "atlas.geo.lon": "-121.3224236"
+    },
+    "d": "Residential · 229 NW CONGRESS ST · Constructed: 1924"
+  },
+  "1038051144": {
+    "d": "Lies in the Deschutes Junction subwatershed (HUC 170703010801)."
+  },
+  "1044196772": {
+    "a": {
+      "atlas.geo.lat": "44.0584667",
+      "atlas.geo.lon": "-121.3203694"
+    },
+    "d": "Commercial · 515 NW KANSAS AVE · Constructed: 1919"
+  },
+  "1060974391": {
+    "a": {
+      "atlas.geo.lat": "44.0528738",
+      "atlas.geo.lon": "-121.3184529"
+    },
+    "d": "Commercial · 845 NW DELAWARE AVE · Constructed: 1921"
+  },
+  "1078097784": {
+    "a": {
+      "atlas.geo.lat": "44.053071",
+      "atlas.geo.lon": "-121.3208824"
+    },
+    "d": "Residential · 153 NW JEFFERSON PL · Constructed: 1916"
+  },
+  "1088111022": {
+    "d": "Lies in the Overturf Butte-Deschutes River subwatershed (HUC 170703010406)."
+  },
+  "1094036760": {
+    "a": {
+      "atlas.geo.lat": "44.0538587",
+      "atlas.geo.lon": "-121.313602"
+    },
+    "d": "District"
+  },
+  "1094875403": {
+    "a": {
+      "atlas.geo.lat": "44.0609234",
+      "atlas.geo.lon": "-121.3184561"
+    },
+    "d": "Residential · 1 NW ROCKLYN RD · Constructed: 1927"
+  },
+  "110838651": {
+    "d": "Lies in the Laidlaw Butte-Deschutes River subwatershed (HUC 170703010802)."
+  },
+  "1110814379": {
+    "a": {
+      "atlas.geo.lat": "44.0592513",
+      "atlas.geo.lon": "-121.3158172"
+    },
+    "d": "Institutional · Constructed: 1970"
+  },
+  "1111013058": {
+    "a": {
+      "atlas.geo.lat": "44.0556744",
+      "atlas.geo.lon": "-121.3095969"
+    },
+    "d": "Institutional · 157 NW FRANKLIN AVE · Constructed: 1912"
+  },
+  "1111653022": {
+    "a": {
+      "atlas.geo.lat": "44.0545434",
+      "atlas.geo.lon": "-121.3140047"
+    },
+    "d": "Residential · 429 NW GEORGIA AVE · Constructed: 1912-13"
+  },
+  "1127591998": {
+    "a": {
+      "atlas.geo.lat": "44.0563209",
+      "atlas.geo.lon": "-121.3176011"
+    },
+    "d": "Institutional · 507 NW WALL ST · Constructed: 1939"
+  },
+  "1127790677": {
+    "a": {
+      "atlas.geo.lat": "44.0620238",
+      "atlas.geo.lon": "-121.3226813"
+    },
+    "d": "Institutional · 701 NW NEWPORT AVE · Constructed: 1924"
+  },
+  "1128283546": {
+    "a": {
+      "atlas.geo.lat": "44.0597207",
+      "atlas.geo.lon": "-121.3107685"
+    },
+    "d": "Commercial · 215 NW GREENWOOD AVE · Constructed: 1911"
+  },
+  "1128430641": {
+    "a": {
+      "atlas.geo.lat": "44.0565992",
+      "atlas.geo.lon": "-121.3081036"
+    },
+    "d": "Residential · 45 NW GREELEY AVE · Constructed: 1904"
+  },
+  "1144369617": {
+    "a": {
+      "atlas.geo.lat": "44.060555",
+      "atlas.geo.lon": "-121.2832421"
+    },
+    "d": "Institutional · 1000 NE HWY 20 · Constructed: 1928"
+  },
+  "1144568296": {
+    "a": {
+      "atlas.geo.lat": "44.0563028",
+      "atlas.geo.lon": "-121.3162218"
+    },
+    "d": "Institutional · 520 NW WALL ST · Constructed: 1924-25"
+  },
+  "1145061165": {
+    "a": {
+      "atlas.geo.lat": "44.0589992",
+      "atlas.geo.lon": "-121.3127727"
+    },
+    "d": "Commercial · 115 NW OREGON AVE · Constructed: 1916-17"
+  },
+  "1145208260": {
+    "a": {
+      "atlas.geo.lat": "44.0631848",
+      "atlas.geo.lon": "-121.3160725"
+    },
+    "d": "Residential · 1535 NW AWBREY RD · Constructed: 1924"
+  },
+  "1161345915": {
+    "a": {
+      "atlas.geo.lat": "44.0561937",
+      "atlas.geo.lon": "-121.3116181"
+    },
+    "d": "Institutional · 494 NW LAVA RD · Constructed: 1920"
+  },
+  "1161985879": {
+    "a": {
+      "atlas.geo.lat": "44.0632756",
+      "atlas.geo.lon": "-121.3029415"
+    },
+    "d": "Residential · 1315 NE 3RD ST · Constructed: 1914"
+  },
+  "1164474483": {
+    "d": "Lies in the Overturf Butte-Deschutes River subwatershed (HUC 170703010406)."
+  },
+  "1178123534": {
+    "a": {
+      "atlas.geo.lat": "44.0553869",
+      "atlas.geo.lon": "-121.3171042"
+    },
+    "d": "Institutional · 129 NW IDAHO AVE · Constructed: 1914"
+  },
+  "1178763498": {
+    "a": {
+      "atlas.geo.lat": "44.0617912",
+      "atlas.geo.lon": "-121.3185238"
+    },
+    "d": "Residential · 352 NW DRAKE RD · Constructed: 1927"
+  },
+  "1194702474": {
+    "a": {
+      "atlas.geo.lat": "44.0987018",
+      "atlas.geo.lon": "-121.2778335"
+    },
+    "d": "District"
+  },
+  "1194901153": {
+    "a": {
+      "atlas.geo.lat": "44.0559207",
+      "atlas.geo.lon": "-121.317052"
+    },
+    "d": "Institutional · 520 NW WALL ST · Constructed: 1917-18"
+  },
+  "1195541117": {
+    "a": {
+      "atlas.geo.lat": "44.0614818",
+      "atlas.geo.lon": "-121.3252233"
+    },
+    "d": "Residential · 1325 NW Federal St · Constructed: 1923-24"
+  },
+  "1211480093": {
+    "a": {
+      "atlas.geo.lat": "44.0575585",
+      "atlas.geo.lon": "-121.3200478"
+    },
+    "d": "District"
+  },
+  "1211678772": {
+    "a": {
+      "atlas.geo.lat": "44.0557073",
+      "atlas.geo.lon": "-121.317938"
+    },
+    "d": "Institutional · 469 NW WALL ST · Constructed: 1929"
+  },
+  "1228456391": {
+    "a": {
+      "atlas.geo.lat": "44.0553558",
+      "atlas.geo.lon": "-121.3171366"
+    },
+    "d": "Institutional · 129 NW IDAHO AVE · Constructed: 1813"
+  },
+  "1231377312": {
+    "d": "Lies in the Deschutes Junction subwatershed (HUC 170703010801)."
+  },
+  "1245234010": {
+    "a": {
+      "atlas.geo.lat": "44.0650761",
+      "atlas.geo.lon": "-121.3097638"
+    },
+    "d": "Institutional · 1525 NW HILL ST · Constructed: 1928"
+  },
+  "1246581996": {
+    "d": "Lies in the Lower Tumalo Creek subwatershed (HUC 170703010502)."
+  },
+  "1262011629": {
+    "a": {
+      "atlas.geo.lat": "44.0590326",
+      "atlas.geo.lon": "-121.3182191"
+    },
+    "d": "Institutional · Constructed: 1958"
+  },
+  "1284631983": {
+    "d": "Lies in the Lower Tumalo Creek subwatershed (HUC 170703010502)."
+  },
+  "130260370": {
+    "d": "Lies in the Lower Tumalo Creek subwatershed (HUC 170703010502)."
+  },
+  "1360496060": {
+    "d": "Lies in the Overturf Butte-Deschutes River subwatershed (HUC 170703010406)."
+  },
+  "1381086311": {
+    "d": "Lies in the Overturf Butte-Deschutes River subwatershed (HUC 170703010406)."
+  },
+  "140888164": {
+    "d": "Lies in the Overturf Butte-Deschutes River subwatershed (HUC 170703010406)."
+  },
+  "1421743618": {
+    "d": "Lies in the Overturf Butte-Deschutes River subwatershed (HUC 170703010406)."
+  },
+  "1446200039": {
+    "d": "Lies in the Overturf Butte-Deschutes River subwatershed (HUC 170703010406)."
+  },
+  "1456568242": {
+    "d": "Lies in the Overturf Butte-Deschutes River subwatershed (HUC 170703010406)."
+  },
+  "146516870": {
+    "d": "Lies in the Overturf Butte-Deschutes River subwatershed (HUC 170703010406)."
+  },
+  "1489627449": {
+    "d": "Lies in the Overturf Butte-Deschutes River subwatershed (HUC 170703010406)."
+  },
+  "1530534567": {
+    "d": "Lies in the Lower Tumalo Creek subwatershed (HUC 170703010502)."
+  },
+  "1551958950": {
+    "d": "Lies in the Laidlaw Butte-Deschutes River subwatershed (HUC 170703010802)."
+  },
+  "155673587": {
+    "d": "Lies in the Deschutes Junction subwatershed (HUC 170703010801)."
+  },
+  "1564729989": {
+    "d": "Lies in the Deschutes Junction subwatershed (HUC 170703010801)."
+  },
+  "1611354226": {
+    "d": "Lies in the Overturf Butte-Deschutes River subwatershed (HUC 170703010406)."
+  },
+  "1619374773": {
+    "d": "Lies in the Deschutes Junction subwatershed (HUC 170703010801)."
+  },
+  "1642032671": {
+    "d": "Lies in the Overturf Butte-Deschutes River subwatershed (HUC 170703010406)."
+  },
+  "1647514932": {
+    "d": "Lies in the Overturf Butte-Deschutes River subwatershed (HUC 170703010406)."
+  },
+  "1656866649": {
+    "d": "Lies in the Overturf Butte-Deschutes River subwatershed (HUC 170703010406)."
+  },
+  "1746406056": {
+    "d": "Lies in the Overturf Butte-Deschutes River subwatershed (HUC 170703010406)."
+  },
+  "1759555416": {
+    "d": "Lies in the Lower Tumalo Creek subwatershed (HUC 170703010502)."
+  },
+  "176670885": {
+    "d": "Lies in the Lower Tumalo Creek subwatershed (HUC 170703010502)."
+  },
+  "1825612500": {
+    "d": "Lies in the Odin Falls-Deschutes River subwatershed (HUC 170703010805)."
+  },
+  "1833108048": {
+    "d": "Lies in the Lower Tumalo Creek subwatershed (HUC 170703010502)."
+  },
+  "1859543858": {
+    "d": "Lies in the Overturf Butte-Deschutes River subwatershed (HUC 170703010406)."
+  },
+  "1888958826": {
+    "d": "Lies in the Deschutes Junction subwatershed (HUC 170703010801)."
+  },
+  "189789401": {
+    "d": "Lies in the Deschutes Junction subwatershed (HUC 170703010801)."
+  },
+  "1901657662": {
+    "d": "Lies in the Overturf Butte-Deschutes River subwatershed (HUC 170703010406)."
+  },
+  "1908580891": {
+    "d": "Lies in the Deschutes Junction subwatershed (HUC 170703010801)."
+  },
+  "1941164228": {
+    "d": "Lies in the Overturf Butte-Deschutes River subwatershed (HUC 170703010406)."
+  },
+  "1942027053": {
+    "d": "Lies in the Lower Tumalo Creek subwatershed (HUC 170703010502)."
+  },
+  "1944361263": {
+    "d": "Lies in the Overturf Butte-Deschutes River subwatershed (HUC 170703010406)."
+  },
+  "1950229844": {
+    "d": "Lies in the Deschutes Junction subwatershed (HUC 170703010801)."
+  },
+  "1992979102": {
+    "d": "Lies in the Lower Tumalo Creek subwatershed (HUC 170703010502)."
+  },
+  "2076029878": {
+    "d": "Lies in the Lower Tumalo Creek subwatershed (HUC 170703010502)."
+  },
+  "209453049": {
+    "d": "Lies in the Deschutes Junction subwatershed (HUC 170703010801)."
+  },
+  "2100502246": {
+    "d": "Lies in the Overturf Butte-Deschutes River subwatershed (HUC 170703010406)."
+  },
+  "2103814584": {
+    "d": "Lies in the Deschutes Junction subwatershed (HUC 170703010801)."
+  },
+  "2117905034": {
+    "d": "Lies in the Overturf Butte-Deschutes River subwatershed (HUC 170703010406)."
+  },
+  "2136701539": {
+    "d": "Lies in the Lower Tumalo Creek subwatershed (HUC 170703010502)."
+  },
+  "2138401203": {
+    "d": "Lies in the Overturf Butte-Deschutes River subwatershed (HUC 170703010406)."
+  },
+  "247391503": {
+    "d": "Lies in the Overturf Butte-Deschutes River subwatershed (HUC 170703010406)."
+  },
+  "298291562": {
+    "d": "Lies in the Overturf Butte-Deschutes River subwatershed (HUC 170703010406)."
+  },
+  "313507453": {
+    "d": "Lies in the Lower Tumalo Creek subwatershed (HUC 170703010502)."
+  },
+  "333362834": {
+    "d": "Lies in the Overturf Butte-Deschutes River subwatershed (HUC 170703010406)."
+  },
+  "389343463": {
+    "d": "Lies in the Laidlaw Butte-Deschutes River subwatershed (HUC 170703010802)."
+  },
+  "40520127": {
+    "d": "Lies in the Overturf Butte-Deschutes River subwatershed (HUC 170703010406)."
+  },
+  "40837483": {
+    "d": "Lies in the Overturf Butte-Deschutes River subwatershed (HUC 170703010406)."
+  },
+  "436064266": {
+    "d": "Lies in the Deschutes Junction subwatershed (HUC 170703010801)."
+  },
+  "448297505": {
+    "d": "Lies in the Deschutes Junction subwatershed (HUC 170703010801)."
+  },
+  "460690887": {
+    "d": "Lies in the Deschutes Junction subwatershed (HUC 170703010801)."
+  },
+  "462956553": {
+    "d": "Lies in the Overturf Butte-Deschutes River subwatershed (HUC 170703010406)."
+  },
+  "47307541": {
+    "d": "Lies in the Overturf Butte-Deschutes River subwatershed (HUC 170703010406)."
+  },
+  "474250322": {
+    "d": "Lies in the Laidlaw Butte-Deschutes River subwatershed (HUC 170703010802)."
+  },
+  "490390464": {
+    "d": "Lies in the Lower Tumalo Creek subwatershed (HUC 170703010502)."
+  },
+  "507974855": {
+    "d": "Lies in the Deschutes Junction subwatershed (HUC 170703010801)."
+  },
+  "525144081": {
+    "d": "Lies in the Overturf Butte-Deschutes River subwatershed (HUC 170703010406)."
+  },
+  "626955014": {
+    "d": "Lies in the Overturf Butte-Deschutes River subwatershed (HUC 170703010406)."
+  },
+  "649623630": {
+    "d": "Lies in the Deschutes Junction subwatershed (HUC 170703010801)."
+  },
+  "665419951": {
+    "d": "Lies in the Deschutes Junction subwatershed (HUC 170703010801)."
+  },
+  "670174180": {
+    "d": "Lies in the Overturf Butte-Deschutes River subwatershed (HUC 170703010406)."
+  },
+  "675624543": {
+    "d": "Lies in the Deschutes Junction subwatershed (HUC 170703010801)."
+  },
+  "678475011": {
+    "d": "Lies in the Overturf Butte-Deschutes River subwatershed (HUC 170703010406)."
+  },
+  "717446559": {
+    "d": "Lies in the Overturf Butte-Deschutes River subwatershed (HUC 170703010406)."
+  },
+  "74805650": {
+    "d": "Lies in the Overturf Butte-Deschutes River subwatershed (HUC 170703010406)."
+  },
+  "750427398": {
+    "d": "Lies in the Deschutes Junction subwatershed (HUC 170703010801)."
+  },
+  "756517934": {
+    "d": "Lies in the Deschutes Junction subwatershed (HUC 170703010801)."
+  },
+  "756689154": {
+    "a": {
+      "atlas.geo.lat": "44.0561638",
+      "atlas.geo.lon": "-121.3190627"
+    },
+    "d": "Residential · 7 NW TUMALO AVE · Constructed: 1911"
+  },
+  "765088404": {
+    "d": "Lies in the Lower Tumalo Creek subwatershed (HUC 170703010502)."
+  },
+  "768269243": {
+    "d": "Lies in the Deschutes Junction subwatershed (HUC 170703010801)."
+  },
+  "773466773": {
+    "a": {
+      "atlas.geo.lat": "44.0566705",
+      "atlas.geo.lon": "-121.3198043"
+    },
+    "d": "Residential · 440 NW CONGRESS ST · Constructed: 1916"
+  },
+  "778461794": {
+    "d": "Lies in the Lower Tumalo Creek subwatershed (HUC 170703010502)."
+  },
+  "790244392": {
+    "a": {
+      "atlas.geo.lat": "44.0582095",
+      "atlas.geo.lon": "-121.3198805"
+    },
+    "d": "Residential · 552 NW STATE ST · Constructed: 1923"
+  },
+  "792385392": {
+    "a": {
+      "atlas.geo.lat": "44.0505431",
+      "atlas.geo.lon": "-121.3222513"
+    },
+    "d": "Commercial · Constructed: 1915"
+  },
+  "801603853": {
+    "d": "Lies in the Overturf Butte-Deschutes River subwatershed (HUC 170703010406)."
+  },
+  "807022011": {
+    "a": {
+      "atlas.geo.lat": "44.0578769",
+      "atlas.geo.lon": "-121.3194252"
+    },
+    "d": "Residential · 545 NW CONGRESS ST · Constructed: 1921"
+  },
+  "809163011": {
+    "a": {
+      "atlas.geo.lat": "44.0508045",
+      "atlas.geo.lon": "-121.3198033"
+    },
+    "d": "Commercial · 15 SW COLORADO AVE · Constructed: Circa 1930"
+  },
+  "823799630": {
+    "a": {
+      "atlas.geo.lat": "44.0578409",
+      "atlas.geo.lon": "-121.3184539"
+    },
+    "d": "Residential · 606 NW CONGRESS ST · Constructed: 1911"
+  },
+  "825940630": {
+    "a": {
+      "atlas.geo.lat": "44.0577119",
+      "atlas.geo.lon": "-121.313127"
+    },
+    "d": "Commercial · 838 NW BOND ST · Constructed: 1916"
+  },
+  "828031966": {
+    "d": "Lies in the Overturf Butte-Deschutes River subwatershed (HUC 170703010406)."
+  },
+  "840577249": {
+    "a": {
+      "atlas.geo.lat": "44.0584706",
+      "atlas.geo.lon": "-121.3176488"
+    },
+    "d": "Residential · 912 NW RIVERSIDE BLVD · Constructed: 1912"
+  },
+  "842718249": {
+    "a": {
+      "atlas.geo.lat": "44.0499124",
+      "atlas.geo.lon": "-121.3154412"
+    },
+    "d": "Commercial · 721 SW INDUSTRIAL WAY · Constructed: 1937"
+  },
+  "842865344": {
+    "a": {
+      "atlas.geo.lat": "44.0588567",
+      "atlas.geo.lon": "-121.3147587"
+    },
+    "d": "Commercial · 849 NW WALL ST · Constructed: 1912"
+  },
+  "856236711": {
+    "d": "Lies in the Overturf Butte-Deschutes River subwatershed (HUC 170703010406)."
+  },
+  "857354868": {
+    "a": {
+      "atlas.geo.lat": "44.0593997",
+      "atlas.geo.lon": "-121.315009"
+    },
+    "d": "Residential · 875 NW BROOKS ST · Constructed: 1904"
+  },
+  "859495868": {
+    "a": {
+      "atlas.geo.lat": "44.0759117",
+      "atlas.geo.lon": "-121.3066834"
+    },
+    "d": "Commercial · Constructed: 1914"
+  },
+  "859642963": {
+    "a": {
+      "atlas.geo.lat": "44.0592986",
+      "atlas.geo.lon": "-121.3153115"
+    },
+    "d": "Commercial · Constructed: 1901"
+  },
+  "874132487": {
+    "a": {
+      "atlas.geo.lat": "44.0591973",
+      "atlas.geo.lon": "-121.3082646"
+    },
+    "d": "Residential · 44 NW IRVING AVE · Constructed: 1910"
+  },
+  "876273487": {
+    "a": {
+      "atlas.geo.lat": "44.0685267",
+      "atlas.geo.lon": "-121.3054719"
+    },
+    "d": "Commercial · 1854 NE DIVISION ST · Constructed: 1923"
+  },
+  "876420582": {
+    "a": {
+      "atlas.geo.lat": "44.0579817",
+      "atlas.geo.lon": "-121.3156556"
+    },
+    "d": "Commercial · 777 NW WALL ST · Constructed: 1932-33"
+  },
+  "887189907": {
+    "d": "Lies in the Overturf Butte-Deschutes River subwatershed (HUC 170703010406)."
+  },
+  "890910106": {
+    "a": {
+      "atlas.geo.lat": "44.0581364",
+      "atlas.geo.lon": "-121.3081051"
+    },
+    "d": "Residential · 42 NW HAWTHORNE AVE · Constructed: 1910"
+  },
+  "893051106": {
+    "a": {
+      "atlas.geo.lat": "44.0618569",
+      "atlas.geo.lon": "-121.3135484"
+    },
+    "d": "Commercial · Constructed: 1910"
+  },
+  "893198201": {
+    "a": {
+      "atlas.geo.lat": "44.0584055",
+      "atlas.geo.lon": "-121.3160629"
+    },
+    "d": "Commercial · 731 NW FRANKLIN AVE · Constructed: 1924"
+  },
+  "893396880": {
+    "a": {
+      "atlas.geo.lat": "44.0596497",
+      "atlas.geo.lon": "-121.3120752"
+    },
+    "d": "Commercial · 1033 NW BOND ST · Constructed: 1920"
+  },
+  "899660215": {
+    "d": "Lies in the Deschutes Junction subwatershed (HUC 170703010801)."
+  },
+  "906762944": {
+    "d": "Lies in the Overturf Butte-Deschutes River subwatershed (HUC 170703010406)."
+  },
+  "909828725": {
+    "a": {
+      "atlas.geo.lat": "44.0759038",
+      "atlas.geo.lon": "-121.3070914"
+    },
+    "d": "Commercial · Constructed: 1914"
+  },
+  "909975820": {
+    "a": {
+      "atlas.geo.lat": "44.0585096",
+      "atlas.geo.lon": "-121.3133143"
+    },
+    "d": "Commercial · 901 NW BOND ST · Constructed: 1917"
+  },
+  "910174499": {
+    "a": {
+      "atlas.geo.lat": "44.0599457",
+      "atlas.geo.lon": "-121.3119669"
+    },
+    "d": "Commercial · 327 NW GREENWOOD AVE · Constructed: 1917"
+  },
+  "926606344": {
+    "a": {
+      "atlas.geo.lat": "44.0601616",
+      "atlas.geo.lon": "-121.3095192"
+    },
+    "d": "Commercial · 130 NW GREENWOOD AVE · Constructed: 1911"
+  },
+  "926753439": {
+    "a": {
+      "atlas.geo.lat": "44.060544",
+      "atlas.geo.lon": "-121.3063739"
+    },
+    "d": "Commercial · Constructed: 1912"
+  },
+  "926952118": {
+    "a": {
+      "atlas.geo.lat": "44.0596271",
+      "atlas.geo.lon": "-121.3105361"
+    },
+    "d": "Commercial · 211 NW GREENWOOD AVE · Constructed: 1923"
+  },
+  "932976282": {
+    "d": "Lies in the Overturf Butte-Deschutes River subwatershed (HUC 170703010406)."
+  },
+  "941381472": {
+    "d": "Lies in the Deschutes Junction subwatershed (HUC 170703010801)."
+  },
+  "943383963": {
+    "a": {
+      "atlas.geo.lat": "44.047505",
+      "atlas.geo.lon": "-121.3195502"
+    },
+    "d": "Commercial · 313 SW SHEVLIN HIXON DR · Constructed: 1911-12"
+  },
+  "943531058": {
+    "a": {
+      "atlas.geo.lat": "44.0594906",
+      "atlas.geo.lon": "-121.3140011"
+    },
+    "d": "Commercial · 935 NW WALL ST · Constructed: 1909"
+  },
+  "943729737": {
+    "a": {
+      "atlas.geo.lat": "44.0601687",
+      "atlas.geo.lon": "-121.3093678"
+    },
+    "d": "Commercial · 124 NW GREENWOOD AVE · Constructed: 1916"
+  },
+  "960308677": {
+    "a": {
+      "atlas.geo.lat": "44.0593708",
+      "atlas.geo.lon": "-121.3141052"
+    },
+    "d": "Commercial · 933 NW WALL ST · Constructed: 1912"
+  },
+  "960507356": {
+    "a": {
+      "atlas.geo.lat": "44.0610417",
+      "atlas.geo.lon": "-121.3125563"
+    },
+    "d": "Commercial · 1133 NW WALL ST · Constructed: 1916-17"
+  },
+  "961211749": {
+    "d": "Lies in the Lower Tumalo Creek subwatershed (HUC 170703010502)."
+  },
+  "976585144": {
+    "d": "Lies in the Overturf Butte-Deschutes River subwatershed (HUC 170703010406)."
+  },
+  "977284975": {
+    "a": {
+      "atlas.geo.lat": "44.0601747",
+      "atlas.geo.lon": "-121.31055"
+    },
+    "d": "Commercial · 200 NW GREENWOOD AVE · Constructed: 1916"
+  },
+  "977432070": {
+    "a": {
+      "atlas.geo.lat": "44.083967",
+      "atlas.geo.lon": "-121.3031336"
+    },
+    "d": "Residential · 20410 NE BEND RIVER MALL · Constructed: 1905"
+  },
+  "985959165": {
+    "d": "Lies in the Laidlaw Butte-Deschutes River subwatershed (HUC 170703010802)."
+  },
+  "988790938": {
+    "d": "Lies in the Overturf Butte-Deschutes River subwatershed (HUC 170703010406)."
+  },
+  "994062594": {
+    "a": {
+      "atlas.geo.lat": "44.0617568",
+      "atlas.geo.lon": "-121.3198265"
+    },
+    "d": "Residential · 434 NW DRAKE RD · Constructed: 1920"
+  },
+  "994209689": {
+    "a": {
+      "atlas.geo.lat": "44.0979995",
+      "atlas.geo.lon": "-121.2984377"
+    },
+    "d": "Residential · 63291 Nels Anderson Rd · Constructed: 1929-31"
+  }
+}

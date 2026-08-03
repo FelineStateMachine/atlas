@@ -1,0 +1,193 @@
+{
+  "family": "surface",
+  "about": "What the ground is, before any cell is named: the surface extent every system divides, and which systems are willing to divide it. The three surfaceExtent branches — a declared lens surface, a raster window, neither — are the whole of the fallback ladder.",
+  "cases": [
+    {
+      "name": "extent-from-lens-surface",
+      "ground": "test/square-1024",
+      "call": "surfaceExtent",
+      "args": [],
+      "expect": [
+        0,
+        -1024,
+        1024,
+        0
+      ],
+      "handDerived": true
+    },
+    {
+      "name": "extent-from-lens-bounds",
+      "ground": "test/square-1024-bounds",
+      "call": "surfaceExtent",
+      "args": [],
+      "expect": [
+        128,
+        -512,
+        640,
+        -256
+      ],
+      "handDerived": true
+    },
+    {
+      "name": "extent-from-world-square",
+      "ground": "test/square-1024-no-lens",
+      "call": "surfaceExtent",
+      "args": [],
+      "expect": [
+        0,
+        -1024,
+        1024,
+        0
+      ],
+      "handDerived": true
+    },
+    {
+      "name": "extent-sphere",
+      "ground": "test/sphere-8192x4096",
+      "call": "surfaceExtent",
+      "args": [],
+      "expect": [
+        0,
+        -4096,
+        8192,
+        0
+      ]
+    },
+    {
+      "name": "systems-on-a-plane",
+      "ground": "test/square-1024",
+      "call": "applicableSystems",
+      "args": [],
+      "expect": [
+        "geohash"
+      ],
+      "note": "S2 only divides a map that declares what its picture is of; geohash divides anything.",
+      "handDerived": true
+    },
+    {
+      "name": "systems-on-a-sphere",
+      "ground": "test/sphere-8192x4096",
+      "call": "applicableSystems",
+      "args": [],
+      "expect": [
+        "geohash",
+        "s2"
+      ],
+      "handDerived": true
+    },
+    {
+      "name": "geohash-applies-to-a-plane",
+      "ground": "test/square-1024",
+      "system": "geohash",
+      "call": "appliesTo",
+      "args": [],
+      "expect": true,
+      "handDerived": true
+    },
+    {
+      "name": "s2-refuses-a-plane",
+      "ground": "test/square-1024",
+      "system": "s2",
+      "call": "appliesTo",
+      "args": [],
+      "expect": false,
+      "handDerived": true
+    },
+    {
+      "name": "s2-applies-to-a-sphere",
+      "ground": "test/sphere-8192x4096",
+      "system": "s2",
+      "call": "appliesTo",
+      "args": [],
+      "expect": true,
+      "handDerived": true
+    },
+    {
+      "name": "geohash-max-level",
+      "ground": "test/sphere-8192x4096",
+      "system": "geohash",
+      "call": "maxLevel",
+      "args": [],
+      "expect": 3,
+      "handDerived": true
+    },
+    {
+      "name": "geohash-input-length",
+      "ground": "test/sphere-8192x4096",
+      "system": "geohash",
+      "call": "inputLength",
+      "args": [],
+      "expect": 3,
+      "handDerived": true
+    },
+    {
+      "name": "s2-max-level",
+      "ground": "test/sphere-8192x4096",
+      "system": "s2",
+      "call": "maxLevel",
+      "args": [],
+      "expect": 11,
+      "note": "Port levels count the root as 0 and the six faces as 1, so the S2 level-10 floor is port level 11.",
+      "handDerived": true
+    },
+    {
+      "name": "s2-input-length",
+      "ground": "test/sphere-8192x4096",
+      "system": "s2",
+      "call": "inputLength",
+      "args": [],
+      "expect": 6,
+      "handDerived": true
+    },
+    {
+      "name": "geohash-applies-to-the-anchored-city",
+      "ground": "bend-or/2026-08-02/0",
+      "system": "geohash",
+      "call": "appliesTo",
+      "args": [],
+      "expect": true,
+      "note": "Geohash divides anything; here it divides it for REAL — the plane declares an earth Mercator window, so its hashes are genuine WGS84 addresses.",
+      "handDerived": true
+    },
+    {
+      "name": "s2-still-refuses-the-anchored-city",
+      "ground": "bend-or/2026-08-02/0",
+      "system": "s2",
+      "call": "appliesTo",
+      "args": [],
+      "expect": false,
+      "note": "The earth anchoring changes nothing for S2: the surface says plane, and S2 divides only spheres.",
+      "handDerived": true
+    },
+    {
+      "name": "systems-on-the-anchored-city",
+      "ground": "bend-or/2026-08-02/0",
+      "call": "applicableSystems",
+      "args": [],
+      "expect": [
+        "geohash"
+      ],
+      "handDerived": true
+    },
+    {
+      "name": "geohash-max-level-on-the-anchored-city",
+      "ground": "bend-or/2026-08-02/0",
+      "system": "geohash",
+      "call": "maxLevel",
+      "args": [],
+      "expect": 3,
+      "note": "Three layers of precision on every ground; only where the layers START moves.",
+      "handDerived": true
+    },
+    {
+      "name": "geohash-input-length-on-the-anchored-city",
+      "ground": "bend-or/2026-08-02/0",
+      "system": "geohash",
+      "call": "inputLength",
+      "args": [],
+      "expect": 6,
+      "note": "The ground-aware floor: baseDepth 4 (the smallest depth whose cell spans fit the window's 0.32909 by 0.23650 degrees — depth 4's latitude span 0.17578125 fits where its longitude span 0.3515625 misses) plus the two layers under it. The navigator's maxlength follows this number.",
+      "handDerived": true
+    }
+  ]
+}
