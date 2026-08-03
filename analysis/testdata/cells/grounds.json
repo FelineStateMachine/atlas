@@ -1,5 +1,5 @@
 {
-  "about": "The grounds every vector names. This is the shape issue #5 §5.4 de-globalizes into a `Ground` descriptor: a case that names its ground here is a case that has declared its inputs. Four grounds are hand-derived — the squares and the sphere every vector was worked out on — and two are read from the public corpus bundles under testdata/corpus/bundles/, so the descriptor a test stands on is the declaration a reader really meets. Both lanes consume this file: analysis/test/vectors.test.ts and tests/cells/conformance_test.go.",
+  "about": "The grounds every vector names. This is the shape issue #5 §5.4 de-globalizes into a `Ground` descriptor: a case that names its ground here is a case that has declared its inputs. Five grounds are hand-derived — the squares, the sphere every vector was worked out on, and the included Earth volume's own declaration — and two are read from the public corpus bundles under testdata/corpus/bundles/, so the descriptor a test stands on is the declaration a reader really meets. Both lanes consume this file: analysis/test/vectors.test.ts and tests/cells/conformance_test.go.",
   "reads": {
     "tileGridSize": "the volume's tile grid size — the world square, the last fallback for the surface",
     "lens.surface": "the lens's declared surface, preferred when present",
@@ -98,6 +98,40 @@
           "atlas.geometry.projection": "equirect",
           "atlas.geometry.equirect.px": "0,0,8192,4096",
           "atlas.geometry.equirect.deg": "-180,90,180,-90"
+        }
+      },
+      "surfaceExtent": [
+        0,
+        -4096,
+        8192,
+        0
+      ],
+      "systems": [
+        "geohash",
+        "s2"
+      ]
+    },
+    "test/earth-8192x4096": {
+      "key": "test/earth-8192x4096",
+      "about": "The included Earth volume's declaration, hand-derived from the shipped bundle: the same whole-sphere equirectangular window as the sphere above, carried as the lens's raster bounds rather than a declared surface, with the body and its radius named. The extra keys change nothing the systems read: a sphere naming the earth is still divided synthetically, and S2 still takes it.",
+      "tileGridSize": 8192,
+      "lens": {
+        "surface": null,
+        "bounds": {
+          "x": 0,
+          "y": 0,
+          "width": 8192,
+          "height": 4096
+        }
+      },
+      "world": {
+        "attrs": {
+          "atlas.geometry.body": "earth",
+          "atlas.geometry.equirect.deg": "-180,90,180,-90",
+          "atlas.geometry.equirect.px": "0,0,8192,4096",
+          "atlas.geometry.projection": "equirect",
+          "atlas.geometry.radius_km": "6371.0088",
+          "atlas.geometry.surface": "sphere"
         }
       },
       "surfaceExtent": [

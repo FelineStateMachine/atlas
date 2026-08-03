@@ -92,6 +92,7 @@ func TestGroundsAgreeOnSurfaceAndSystems(t *testing.T) {
 	want := []string{
 		"bend-or/2026-08-02/0",
 		"mars/global/0",
+		"test/earth-8192x4096",
 		"test/sphere-8192x4096",
 		"test/square-1024",
 		"test/square-1024-bounds",

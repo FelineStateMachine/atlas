@@ -168,6 +168,19 @@ func TestApplicableSystemsAsksTheWorldTwoQuestions(t *testing.T) {
 			semconv.KeyGeometrySurface: "plane",
 		}, []string{"geohash"}},
 		{"a sphere with a flattening takes both", marsAttrs, []string{"geohash", "s2"}},
+		// The included Earth volume's own declaration: the body and its
+		// radius change nothing the systems read. In particular, naming the
+		// earth on a *sphere* does not put geohash into its real mode --
+		// that mode is a plane's (see TestEarthMercatorAsksAllThreeQuestions)
+		// -- so the whole-planet picture divides synthetically, like Mars.
+		{"the included Earth's declaration takes both", map[string]string{
+			semconv.KeyGeometrySurface:     semconv.SurfaceSphere,
+			semconv.KeyGeometryProjection:  semconv.ProjectionEquirect,
+			semconv.KeyGeometryEquirectPx:  "0,0,8192,4096",
+			semconv.KeyGeometryEquirectDeg: "-180,90,180,-90",
+			semconv.KeyGeometryBody:        "earth",
+			semconv.KeyGeometryRadiusKM:    "6371.0088",
+		}, []string{"geohash", "s2"}},
 		{"a sphere that declares no flattening takes neither but geohash", map[string]string{
 			semconv.KeyGeometrySurface: "sphere",
 		}, []string{"geohash"}},

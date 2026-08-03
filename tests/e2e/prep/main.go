@@ -13,6 +13,7 @@ import (
 	"os"
 	"path/filepath"
 
+	"github.com/FelineStateMachine/atlas/format/bundle"
 	"github.com/FelineStateMachine/atlas/tests/corpus"
 )
 
@@ -47,5 +48,22 @@ func run() error {
 		}
 		fmt.Println(path)
 	}
+
+	// The included Earth volume beside the corpus: the committed bundle the
+	// desktop embeds, installed whole through the format's own path. It is the
+	// one registry entry with real rasters, which is what lets a spec ask for
+	// a tile and get an image back.
+	included, err := filepath.Glob(filepath.Join("included", "*.atlas"))
+	if err != nil {
+		return err
+	}
+	if len(included) != 1 {
+		return fmt.Errorf("included/ holds %d bundles, want exactly the one Earth", len(included))
+	}
+	installed, err := bundle.Install(dir, included[0])
+	if err != nil {
+		return fmt.Errorf("installing %s: %w", included[0], err)
+	}
+	fmt.Println(installed.Locator)
 	return nil
 }
