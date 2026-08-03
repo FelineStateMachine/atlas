@@ -25,8 +25,12 @@
       started. This is the one control on the page whose own value shares a
       name with the inherited one.
     */}}
+    {{/*
+      A crumb with one option is a fact, not a choice: it stays in the trail
+      but stops offering itself -- no chevron, no focus, no menu of one.
+    */}}
     <select id="volume-select" name="volume" aria-label="Volume" hx-vals='{}'
-            hx-get="/open" hx-trigger="change"
+            {{if le (len .Library) 1}}disabled {{end}}hx-get="/open" hx-trigger="change"
             hx-target="#atlas-shell" hx-select="#atlas-shell"
             hx-swap="outerMorph" hx-push-url="true">
       {{range .Library}}<option value="{{.Slug}}"{{if .Current}} selected{{end}}>{{.Title}}</option>
@@ -37,7 +41,8 @@
   <label>
     <span>World</span>
     <select id="world-select" name="world" aria-label="World"
-            hx-get="/open" hx-trigger="change" hx-vals='{"volume":"{{.Slug}}"}'
+            {{if le (len .Worlds) 1}}disabled {{end}}hx-get="/open" hx-trigger="change"
+            hx-vals='{"volume":"{{.Slug}}"}'
             hx-target="#atlas-shell" hx-select="#atlas-shell"
             hx-swap="outerMorph" hx-push-url="true">
       {{range .Worlds}}<option value="{{.Slug}}"{{if .Current}} selected{{end}}>{{.Title}}</option>

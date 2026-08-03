@@ -52,7 +52,7 @@
   white-space: nowrap;
 }
 
-.map-pickers select:hover {
+.map-pickers select:hover:enabled {
   background-color: rgba(255, 255, 255, 0.05);
 }
 
@@ -60,10 +60,12 @@
   box-shadow: 0 0 0 2px rgba(58, 165, 201, 0.6);
 }
 
+/* A crumb with one option: still part of the trail, in the trail's own
+   voice, but no chevron and nothing to press. */
 .map-pickers select:disabled {
   padding-right: 8px;
   background-image: none;
-  color: var(--muted);
+  color: var(--text-strong);
   cursor: default;
   opacity: 1;
 }

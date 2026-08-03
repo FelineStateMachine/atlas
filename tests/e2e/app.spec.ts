@@ -63,11 +63,17 @@ test.describe("the explorer page", () => {
       expect(state.entry?.world).toBe(volume.world);
 
       // The topbar's selects say where the reader is and what else there is.
+      // A crumb with one option is a fact, not a choice: both corpus volumes
+      // carry a single world, so the world crumb reads but does not edit,
+      // while the volume crumb (two volumes installed) stays a real select.
       await expect(page.locator("#volume-select")).toHaveValue(volume.slug);
+      await expect(page.locator("#volume-select")).toBeEnabled();
       await expect(page.locator("#world-select")).toHaveValue(volume.world);
+      await expect(page.locator("#world-select")).toBeDisabled();
       const lensField = page.locator("#lens-field");
       if (volume.lenses > 1) {
         await expect(lensField).toBeVisible();
+        await expect(page.locator("#lens-select")).toBeEnabled();
         await expect(page.locator("#lens-select option")).toHaveCount(volume.lenses);
       } else {
         await expect(lensField).toBeHidden();
