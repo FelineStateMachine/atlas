@@ -20,6 +20,16 @@
 // shape — never a coloured disc with a symbol punched out of it — and while
 // its raster is still being composed the pin wears its collection's initials
 // in the same colour, rimmed the same way.
+//
+// ONE KIND OF COLLECTION HAS NO MARKER. A point collection curated
+// `atlas.render.as: text` is written on the projected map rather than pinned
+// to it: its name is drawn on the place and nothing else is. This is a
+// deliberate departure from the reference, which by its last revision drew a
+// marker for every point collection and kept `atlas.render.as` only as the
+// default its label policy fell back to — so a text collection wore its
+// symbol AND its name, the "A — Wellspring of Wisdom" the reader rejected.
+// Post-parity and user-decided, like ⌘R. The sphere is untouched: this is a
+// rule about the projected form.
 
 import Fill from "ol/style/Fill.js";
 import Icon from "ol/style/Icon.js";
@@ -52,6 +62,24 @@ const INITIALS_FONT = (selected: boolean): string =>
 
 const LABEL_FONT = "600 11px ui-sans-serif, system-ui, -apple-system, Segoe UI, sans-serif";
 const TITLE_FONT = "600 12px ui-sans-serif, system-ui, -apple-system, Segoe UI, sans-serif";
+
+/**
+ * The face a text collection's own name is drawn in, when the name is the
+ * whole of the mark.
+ *
+ * This is the reference's `.text-symbol` — 11px, weight 900, the collection's
+ * own colour — brought over from the key, where it was the swatch a text
+ * collection wore, onto the map, where the same collection now has no other
+ * form. The condensed family is that rule's, with the chart's own stack behind
+ * it; the letter-spacing it also asked for has no expression in a canvas font
+ * and is left off rather than approximated.
+ *
+ * It grows a step when the reader is pointing at the feature or holding its
+ * card open, which is the marker's own 13→15 convention said at this size.
+ */
+const TEXT_MARK_FONT = (attended: boolean): string =>
+  `900 ${attended ? 13 : 11}px "Arial Narrow", "Roboto Condensed", ` +
+  "ui-sans-serif, system-ui, sans-serif";
 
 /** Everything a style needs to know that is not on the feature itself. */
 export interface StyleContext {
@@ -185,6 +213,36 @@ export class Styles {
   }
 
   /**
+   * Whether a feature IS its name on the projected map.
+   *
+   * `atlas.render.as: text` is curation saying that these places are written
+   * rather than pinned — a province is a word across a region, not a dot
+   * somewhere inside it — so a text collection draws its name and nothing
+   * else: no symbol, no initials, no "A — Wellspring of Wisdom" with the mark
+   * still standing beside the word it duplicates.
+   *
+   * TWO THINGS PUT THE MARKER BACK, and both are the same rule: nothing may
+   * be made to vanish off a map while its box is still ticked and its place
+   * still counted.
+   *
+   * The reader's own silencing is the first. Quieting a collection quiets its
+   * names, and for a collection whose name is its only form that would erase
+   * the feature outright — so a silenced text collection draws the ordinary
+   * marker instead. The override becomes a choice between the two forms a
+   * point collection can take rather than between a form and nothing, which
+   * is what the reference's own key called that toggle ("a point collection's
+   * override is which shape it takes at all — markers, or the floating names
+   * text categories used to be set apart for").
+   *
+   * A feature with no name is the second, and needs no argument: there is no
+   * text to draw it as.
+   */
+  private drawsAsText(point: PointRecord): boolean {
+    return Boolean(point.title) && renderAs(point.collection) === "text" &&
+      this.context.scene.overrides.get(String(point.collection.id)) !== "quiet";
+  }
+
+  /**
    * The pin itself: the collection's symbol, in the collection's colour,
    * wearing the world's outset.
    *
@@ -197,8 +255,12 @@ export class Styles {
    * `selected` is the pin whose card is open and nothing else: a search
    * promotes every pin it matched so the declutterer cannot drop one, and
    * growing all of those would say that a hundred places were chosen.
+   *
+   * A collection curated to draw as text has no mark here at all: its name is
+   * its mark, and `pinLabel` draws it (see `drawsAsText`).
    */
   pin(point: PointRecord, promoted: boolean): Style[] {
+    if (this.drawsAsText(point)) return [];
     const selected = promoted && point.id === this.context.scene.selected;
     const face = this.face(point.collection);
     // One mark per collection and state, shared by every pin wearing it: two
@@ -236,8 +298,9 @@ export class Styles {
    * `atlas.label.policy`, then the kind's default — a pin collection waits to
    * be asked, and one curated as text speaks unasked, because floating names
    * are labels a producer pinned on rather than a different way of drawing.
-   * (A text collection draws an ordinary marker; that is the whole of what
-   * `atlas.render.as` still decides.)
+   * A text collection's name is not beside its pin: it IS the pin, drawn
+   * centred on the place with no marker under it (`drawsAsText`), which is
+   * the one thing `atlas.render.as` decides about how the chart draws.
    *
    * Two things speak over the policy, and only two: the pin the reader is
    * pointing at and the one whose card is open. **Promotion is not one of
@@ -258,6 +321,7 @@ export class Styles {
       point.id === this.context.hovered;
     const revealed = this.context.labelsHeld && override !== "quiet";
     if (policy !== "always" && !attended && !revealed) return null;
+    if (this.drawsAsText(point)) return this.textMark(point, promoted, attended);
     return new Style({
       text: new Text({
         text: point.title,
@@ -273,6 +337,38 @@ export class Styles {
         declutterMode: promoted ? "none" : "declutter",
       }),
       zIndex: promoted ? 9_100_000 : point.priority,
+    });
+  }
+
+  /**
+   * A text collection's whole visible form: its name, standing on the place.
+   *
+   * Centred, because there is no mark for it to stand off from — the label's
+   * 16-pixel drop is the room a marker takes, and kept here it would leave
+   * every province written below the point it names. The colour and the rim
+   * are the marker's own, taken through the same legibility ladder, so a
+   * place written on the map is recognisably its collection's in exactly the
+   * way a place pinned on it is.
+   *
+   * The stacking is the mark's rather than the label's: the feature whose
+   * card is open is drawn over everything, because this text is what a
+   * chosen marker would have been.
+   */
+  private textMark(point: PointRecord, promoted: boolean, attended: boolean): Style {
+    const face = this.face(point.collection);
+    const selected = point.id === this.context.scene.selected;
+    return new Style({
+      text: new Text({
+        text: point.title,
+        font: TEXT_MARK_FONT(attended),
+        fill: new Fill({ color: face.color }),
+        stroke: new Stroke({ color: face.outset, width: attended ? 4 : 3 }),
+        overflow: true,
+        // The same declutter the label declares, for the same reason: a name
+        // that has to give way gives way to a rarer collection's.
+        declutterMode: promoted ? "none" : "declutter",
+      }),
+      zIndex: selected ? 20_000_000 : promoted ? 9_100_000 : point.priority,
     });
   }
 

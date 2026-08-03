@@ -24,6 +24,16 @@
 // tested there; what is here is what the chart does with it — the size, the
 // stacking, and the initials it draws in the window before it exists.
 //
+// THE TEXT FORM. A point collection curated `atlas.render.as: text` is
+// written on the map rather than pinned to it: one style, which is its name,
+// and no marker under it. This departs from the reference on purpose — the
+// reference drew a marker for every point collection, so a text collection
+// wore its symbol and its name at once — and the cases below are the whole of
+// the rule: no mark, a centred name in the collection's own colour and rim, a
+// step of growth under the pointer, and the marker back again for the one
+// reader who silences the collection by hand, so that nothing can be made to
+// vanish from the map while its box is still ticked.
+//
 // The ladder is a pure function of a collection, a scene and a pin, so those
 // cases are table-driven over a synthetic world: no fixtures, no map. The
 // mark needs a canvas and an image, and both are stubbed by hand below —
@@ -40,7 +50,9 @@ import type { PointRecord } from "../world/model.ts";
 import { Visibility } from "../world/visibility.ts";
 import type { Collection, TileGrid } from "../data/payload.ts";
 import { Styles, curatedPointPolicy } from "../chart/styles.ts";
-import { OUTSET_COLORS, forgetMarkerRasters, outsetColor } from "../chart/markers.ts";
+import {
+  OUTSET_COLORS, forgetMarkerRasters, legibleIconColor, outsetColor,
+} from "../chart/markers.ts";
 
 // ---- the page a raster is composed on --------------------------------
 
@@ -107,6 +119,7 @@ const QUIETED: Collection = {
 };
 const TEXT: Collection = {
   id: 4, title: "Regions", kind: "point", visible: true,
+  color: "#2c3f52",
   attrs: { "atlas.render.as": "text" },
 };
 
@@ -124,7 +137,21 @@ const DAEDRIC: Collection = {
   id: 6, title: "Daedric Shrines", kind: "point", visible: true,
   iconAsset: "shrine.svg", color: "#4fb3d5",
 };
-const COLLECTIONS = [PLAIN, SPOKEN, QUIETED, TEXT, SHRINES, DAEDRIC];
+
+/**
+ * A text collection that was given artwork anyway, which is the real case.
+ *
+ * Zelda's Areas and Provinces both carry a glyph — `area.svg`, `province.svg`
+ * — and both are curated as text: the curation's word about the form wins
+ * over the artwork it happens to have, or the change would do nothing at all
+ * on the one volume that asked for it.
+ */
+const LETTERED: Collection = {
+  id: 7, title: "Provinces", kind: "point", visible: true,
+  iconAsset: "province.svg", color: "#2c3f52",
+  attrs: { "atlas.render.as": "text" },
+};
+const COLLECTIONS = [PLAIN, SPOKEN, QUIETED, TEXT, SHRINES, DAEDRIC, LETTERED];
 
 /** One pin, standing wherever; only its title, id and collection matter here. */
 function pin(collection: Collection, id = "7", title = "Goodsprings"): PointRecord {
@@ -289,13 +316,6 @@ test("promotion still decides where a label is drawn and whether it declutters",
   assert.equal(promoted?.getText()?.getDeclutterMode(), "none");
 });
 
-test("a collection curated as text draws an ordinary marker", () => {
-  // `atlas.render.as` survives only as the default its policy falls back to:
-  // the text-only symbol it used to name was never drawn.
-  const built = waiting();
-  assert.equal(built.pin(pin(TEXT), false).length, built.pin(pin(PLAIN), false).length);
-  assert.ok(built.pin(pin(TEXT), false)[0]?.getText(), "which is a mark like any other");
-});
 
 test("the curated default of a point collection is silence unless it is text", () => {
   assert.equal(curatedPointPolicy(PLAIN), "quiet");
@@ -342,7 +362,7 @@ test("a marker is the symbol itself: no disc, no second style", async () => {
 
 test("one symbol is composed for every collection drawn that way", async () => {
   const built = waiting();
-  assert.equal(parked.length, 1,
+  assert.equal(parked.filter((one) => one.url.endsWith("shrine.svg")).length, 1,
     "Shrine and Daedric Shrine are one asset in one colour, so one raster");
   parked[0]?.load();
   await settle();
@@ -401,7 +421,7 @@ test("a collection with no artwork wears its initials for good", async () => {
   await settle();
   const text = built.pin(pin(PLAIN), false)[0]?.getText();
   assert.equal(text?.getText(), "S", "Settlements");
-  assert.equal(built.pin(pin(TEXT), false)[0]?.getText()?.getText(), "R", "Regions");
+  assert.equal(built.pin(pin(QUIETED), false)[0]?.getText()?.getText(), "C", "Caves");
 });
 
 test("a colour that would vanish into the rim is taken off it", () => {
@@ -448,4 +468,126 @@ test("a mark is built once per collection and state, not once per pin", () => {
   assert.equal(built.pin(pin(SHRINES, "2"), false)[0], first,
     "two thousand pins of twenty collections are forty styles");
   assert.notEqual(built.pin(pin(PLAIN, "3"), false)[0], first);
+});
+
+// ---- the text form -----------------------------------------------------
+
+/** The colour a text mark is written in: the collection's, off the rim. */
+const TEXT_COLOR = legibleIconColor("#2c3f52", "dark");
+
+test("a collection curated as text draws its name and nothing else", () => {
+  // THE RULE, in the reader's words: "the map will display text as just the
+  // text by default rather than 'A - Wellspring of Wisdom'". The initials and
+  // the always-on name were two drawings of one place.
+  const built = waiting();
+  assert.deepEqual(built.pin(pin(TEXT), false), [], "no mark of any kind under the name");
+  const mark = built.pinLabel(pin(TEXT, "7", "Wellspring of Wisdom"), false);
+  assert.ok(mark, "and the name is what there is");
+  assert.equal(mark?.getText()?.getText(), "Wellspring of Wisdom");
+  assert.equal(mark?.getImage(), null, "no disc, no icon");
+});
+
+test("artwork does not buy a text collection a marker back", async () => {
+  // Zelda's Areas and Provinces carry glyphs and are curated as text: the
+  // curation decides the form, or the rule changes nothing where it was asked
+  // for. The raster still composes -- the reader may yet ask for markers --
+  // and it is still not drawn.
+  const built = waiting();
+  for (const one of parked) one.load();
+  await settle();
+  assert.deepEqual(built.pin(pin(LETTERED), false), []);
+  assert.ok(built.pinLabel(pin(LETTERED, "7", "Necluda"), false));
+});
+
+test("the text mark is the text-symbol's own face, in the collection's colour", () => {
+  const built = waiting();
+  const text = built.pinLabel(pin(TEXT, "7", "Necluda"), false)?.getText();
+  assert.equal(text?.getFont(),
+    '900 11px "Arial Narrow", "Roboto Condensed", ui-sans-serif, system-ui, sans-serif');
+  assert.equal(text?.getFill()?.getColor(), TEXT_COLOR,
+    "the collection's own colour, taken off the rim it is drawn against");
+  assert.equal(text?.getStroke()?.getColor(), OUTSET_COLORS.dark);
+  assert.equal(text?.getStroke()?.getWidth(), 3);
+});
+
+test("a text mark stands on its place rather than beside it", () => {
+  // The label's sixteen pixels are the room a marker takes up. With no marker
+  // there is nothing to stand off from, and a province written below the
+  // point it names is a province in the wrong place.
+  const built = waiting();
+  assert.equal(built.pinLabel(pin(TEXT), false)?.getText()?.getOffsetY(), 0);
+});
+
+test("an ordinary label still stands off from the marker it belongs to", () => {
+  const built = styles({ overrides: overrides(SPOKEN) });
+  assert.equal(built.pinLabel(pin(SPOKEN), false)?.getText()?.getOffsetY(), 16);
+});
+
+for (const attended of ["hovered", "selected"] as const) {
+  test(`a ${attended} text mark grows a step, as a marker does`, () => {
+    const id = "7";
+    const built = attended === "hovered"
+      ? styles({}, false, id)
+      : styles({ selected: id });
+    const text = built.pinLabel(pin(TEXT, id), attended === "selected")?.getText();
+    assert.equal(text?.getFont(),
+      '900 13px "Arial Narrow", "Roboto Condensed", ui-sans-serif, system-ui, sans-serif');
+    assert.equal(text?.getStroke()?.getWidth(), 4);
+  });
+}
+
+test("the text mark of the open card is drawn over everything", () => {
+  const built = styles({ selected: "7" });
+  assert.equal(built.pinLabel(pin(TEXT, "7"), true)?.getZIndex(), 20_000_000);
+  const beside = built.pinLabel(pin(TEXT, "8"), true);
+  assert.equal(beside?.getZIndex(), 9_100_000, "a promoted one is placed, not chosen");
+  assert.equal(beside?.getText()?.getDeclutterMode(), "none");
+  assert.equal(built.pinLabel(pin(TEXT, "9"), false)?.getZIndex(), 42);
+  assert.equal(built.pinLabel(pin(TEXT, "9"), false)?.getText()?.getDeclutterMode(), "declutter",
+    "and one in the crowd gives way to a rarer collection's, as any name does");
+});
+
+test("a reader who silences a text collection gets its markers back", () => {
+  // THE ONE JUDGEMENT THE RULE NEEDS. Silencing a collection silences its
+  // names, and for a collection whose name is its only form that would erase
+  // the feature outright: a box still ticked, a place still counted, and
+  // nothing on the map. So the override chooses between the two forms a point
+  // collection can take -- which is what the reference's own key called that
+  // toggle -- rather than between a form and nothing.
+  const built = waiting({ overrides: overrides(TEXT, "quiet") });
+  assert.equal(built.pinLabel(pin(TEXT), false), null, "the names are silenced");
+  const mark = built.pin(pin(TEXT), false)[0];
+  assert.equal(mark?.getText()?.getText(), "R", "and the ordinary marker stands in their place");
+  assert.equal(built.pin(pin(TEXT), false).length, 1);
+});
+
+test("a place with no name to be written as keeps its marker", () => {
+  // The other half of the same rule: there is no text to draw a nameless
+  // feature as, and a feature drawn as nothing is a feature the reader can
+  // neither see nor point at.
+  const built = waiting();
+  const nameless = pin(TEXT, "7", "");
+  assert.equal(built.pinLabel(nameless, false), null);
+  assert.equal(built.pin(nameless, false)[0]?.getText()?.getText(), "R");
+});
+
+test("a silenced text collection still answers the pointer, and with a marker beside", () => {
+  // Hover and selection speak over the silencing for every other collection;
+  // the marker is the form either way, so the name comes back beside it.
+  const id = "7";
+  const built = waiting({ overrides: overrides(TEXT, "quiet") }, "dark");
+  assert.equal(built.pin(pin(TEXT, id), false).length, 1);
+  const hovering = styles({ overrides: overrides(TEXT, "quiet") }, false, id);
+  const label = hovering.pinLabel(pin(TEXT, id), false);
+  assert.equal(label?.getText()?.getOffsetY(), 16, "an ordinary name, beside an ordinary mark");
+});
+
+test("everything else keeps the mark it had", async () => {
+  const built = waiting();
+  parked[0]?.load();
+  await settle();
+  assert.equal(built.pin(pin(SHRINES), false).length, 1);
+  assert.ok(built.pin(pin(SHRINES), false)[0]?.getImage(), "artwork collections are unchanged");
+  assert.equal(built.pin(pin(PLAIN), false).length, 1);
+  assert.equal(built.pin(pin(SPOKEN), false)[0]?.getText()?.getText(), "C", "Cities");
 });
