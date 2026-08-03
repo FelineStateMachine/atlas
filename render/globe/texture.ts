@@ -86,7 +86,17 @@ export class Skin {
   private baseGeneration = 0;
   private detailGeneration = 0;
 
-  private readonly window: Window;
+  /**
+   * The window of world pixels this composite is a picture of.
+   *
+   * Not readonly, because it is the *world's* declaration and one sphere
+   * outlives a world: flipping from one sphere world to another keeps the
+   * renderer, the canvas and the texture hanging on it, and every one of them
+   * is right — the only thing that was about the old world is where its pixels
+   * landed. `retarget` is that, and it is the whole of the skin's lifecycle
+   * beyond being built.
+   */
+  private window: Window;
   private readonly grid: TileGrid;
 
   constructor(window: Window, grid: TileGrid) {
@@ -114,6 +124,24 @@ export class Skin {
     this.detailKey = "";
     this.detailPainting = "";
     this.lens = "";
+  }
+
+  /**
+   * Take another world's window, and give up everything painted for the last.
+   *
+   * A different world is a different rectangle of world pixels and a different
+   * picture inside it, so nothing on this canvas means anything any more: both
+   * passes are cancelled, both keys go back to naming nothing, and the pixels
+   * are wiped rather than left to show through wherever the new world's window
+   * is smaller than the last one's. The alternative was a new `Skin` per
+   * world, which would take the texture out from under the material wearing it
+   * and cost a fresh four-megapixel canvas to say the same thing.
+   */
+  retarget(window: Window): void {
+    this.window = window;
+    this.clear();
+    this.baseKey = "";
+    this.paper?.clearRect(0, 0, TEXTURE_WIDTH, TEXTURE_HEIGHT);
   }
 
   /**
@@ -160,11 +188,18 @@ export class Skin {
    */
   async base(
     base: string,
+    world: string,
     lens: Lens,
     url: (z: number, x: number, y: number) => string | null,
     changed: () => void,
   ): Promise<void> {
-    const key = `${base}/${lens.tiles}`;
+    // THE WORLD IS IN THE KEY, and it is the guard against a stale skin. Two
+    // worlds of one volume are served off the same base and may name their
+    // pyramids the same thing -- `tiles` is a path inside a world, not across
+    // one -- so a key of base and pyramid alone says "already composited"
+    // about a picture of somewhere else. That is the reference's own
+    // `texturedFor`, which is volume, world and lens together.
+    const key = `${base}/${world}/${lens.tiles}`;
     if (key === this.baseKey || key === this.basePainting) return;
     // A newer base skin supersedes an older one: the texture is about to be
     // wiped, so what it held is no longer what `baseKey` says it held, and

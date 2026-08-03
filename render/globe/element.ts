@@ -19,12 +19,19 @@
 //   re-dressed, so a filter costs a boolean per pin rather than a rebuild —
 //   and the dressing itself is one shared material per collection.
 //
-// THE HORIZON is enforced by hand. Cards and chips turn the depth test off,
-// because a screen-sized card anchored on the ground would otherwise lose its
-// lower half to the planet's own curve; `cull` puts the silhouette back, so
-// nothing on the far side shines through. The pins keep their depth test and
-// are left alone by it, which is what keeps the standing count a reading of
-// the filters rather than of where the camera is pointing.
+// THE HORIZON is enforced by hand, and for the pins as much as for the cards.
+// Everything this pane raises off the ground turns the depth test off, because
+// a screen-sized sprite anchored on a curve loses whatever half of itself the
+// ground in front of it reaches over — which is what buried the limb pins to
+// the waist while the reader's rule was the plain one, that an icon is drawn
+// on top of the raster. `cull` then puts the silhouette back by hand, so
+// nothing on the far side shines through.
+//
+// WHAT A PIN IS CULLED BY IS NOT `visible`. That boolean is the filters'
+// answer and the harness counts it (`visibleSprites`, 2048 on Mars at every
+// recorded step), so a pin over the horizon is taken off the camera's layer
+// instead and the standing count stays a reading of what the legend left
+// rather than of where the camera happens to be pointing.
 //
 // THE CAMERA ROUND TRIP is the pane's one contract with the chart. A flip to
 // the sphere and straight back must land the chart's camera exactly where it
@@ -127,6 +134,38 @@ const DETAIL_SEGMENTS = 8;
 const FILL_RADIUS = DETAIL_RADIUS + 0.12;
 const LINE_RADIUS = DETAIL_RADIUS + 0.25;
 const CHIP_RADIUS = DETAIL_RADIUS + 0.35;
+
+/**
+ * The order the sphere paints in, the top of the ladder last.
+ *
+ * A depth buffer cannot settle this pane's layering, so the layering is
+ * stated: above the tiles, everything either writes no depth (the fills, the
+ * boundaries) or refuses to test it (every sprite), for the reason the header
+ * gives — a mark anchored on a curve loses half of itself to the ground in
+ * front of it.
+ *
+ * PINS OVER THE GRID AND UNDER THE WRITING. A pin is what the reader came
+ * for and a grid is the scaffolding it is read against, so a dim cell's wash
+ * must not settle over the marks inside it; a cell's address and a feature's
+ * name are writing *about* what is under them, so they go on top. That is the
+ * reference's own order (`globe.js`: chips at 3 and cards at 4 drawn after
+ * pins that tested depth against the skin and won), said in one place.
+ */
+const ORDER = { tile: 0, fill: 1, line: 2, pin: 3, chip: 4, card: 5 } as const;
+
+/**
+ * The two layers a pin can stand on: the one the camera draws, and the one
+ * over the horizon.
+ *
+ * A camera draws layer 0 and nothing else, so moving a sprite off it takes it
+ * out of the frame as completely as hiding it would — and without touching
+ * `visible`, which belongs to the filters and is what the recorded tours
+ * count. The other two ways of hiding a pin are both closed: opacity lives on
+ * a material shared by every pin of a collection, so dimming one dims twenty,
+ * and scale is what a selection speaks with.
+ */
+const DRAWN_LAYER = 0;
+const BEYOND_HORIZON_LAYER = 1;
 
 /** Names raised over the sphere at once. */
 const LABEL_BUDGET = 180;
@@ -298,6 +337,16 @@ export class AtlasGlobe extends HTMLElement {
     if (worldKey !== this.worldKey) {
       this.worldKey = worldKey;
       this.lensKey = "";
+      // A WORLD IS A NEW SKIN, and saying so is the whole of the stale-skin
+      // guard on this side. The window of world pixels the composite is laid
+      // into is the world's own declaration, and the picture in it is the
+      // world's own ground: everything the texture holds belonged to the world
+      // being left, and so does every tile draped over it. The pyramid a
+      // second world names may even be spelled the same as the first's, which
+      // is why the skin is told the world as well (`texture.ts`).
+      const [x, y, width, height] = this.equirect.px;
+      this.skin?.retarget({ x, y, width, height });
+      this.clearDetail();
       this.buildSprites(context);
     }
     this.openLens(context);
@@ -313,7 +362,7 @@ export class AtlasGlobe extends HTMLElement {
     // the camera next moves, which is exactly what the recorded tour saw.
     this.clearDetail();
     void this.skin?.base(
-      context.base, context.lens,
+      context.base, context.model.slug, context.lens,
       (z, x, y) => this.tileURL(z, x, y),
       () => this.refresh());
     this.seam.detail.lens = context.lens.tiles;
@@ -338,6 +387,11 @@ export class AtlasGlobe extends HTMLElement {
       const sprite = this.sprites.get(point.id);
       if (sprite) sprite.visible = !context.visibility.at(index).hidden;
     });
+    // A pin a filter has just let back in stands wherever it stands, which may
+    // be behind the planet: born on the camera's layer, it would shine through
+    // until the reader next moved. `drawLabels` and `drawGrid` cull too, and
+    // the horizon is cheap to answer twice.
+    this.cull();
     this.drawLabels();
     this.drawGrid();
   }
@@ -425,6 +479,40 @@ export class AtlasGlobe extends HTMLElement {
    * forgotten: the context is what the next `enter` builds from.
    */
   disconnectedCallback(): void {
+    this.dismantle();
+  }
+
+  /**
+   * The world stopped declaring a sphere.
+   *
+   * A volume or a world change can land on ground no globe can be draped
+   * over, and a pane that is not offered any more is not a pane to leave
+   * standing: the planet on screen would go on wearing the last world's skin
+   * with nothing but a hidden toggle to say otherwise. That is the defect this
+   * exists for, and it is the reference's own contract — `syncGlobe` destroys
+   * the instance, forgets what it was textured for, and empties the container
+   * (frontend/src/globe.js).
+   *
+   * The camera is *not* handed back the way `leave` hands it back. A camera is
+   * a place on a particular world, and the world it named is the one the
+   * reader has just left; the chart opens the new world where the session
+   * says, which is the same answer the reference gives by letting its mapping
+   * come back null.
+   */
+  retire(): void {
+    this.hidden = true;
+    // Asked once per scene change while a plane is open, and only the first
+    // one has anything to answer.
+    if (!this.globe && !this.context) return;
+    this.dismantle();
+    // Unlike a disconnect, this is not a pane that might come back to the same
+    // world: the next `enter` must build from whatever the reader opens next,
+    // and until then this element is about nothing at all.
+    this.context = null;
+    this.equirect = null;
+  }
+
+  private dismantle(): void {
     const globe = this.globe;
     if (globe && this.moving) globe.controls().removeEventListener("change", this.moving);
     this.moving = null;
@@ -439,6 +527,13 @@ export class AtlasGlobe extends HTMLElement {
     if (globe) {
       globe.scene().remove(this.pins, this.labels, this.cells, this.tiles);
       globe._destructor?.();
+      // globe.gl's destructor gives back the renderer and empties the scene
+      // and leaves its canvas exactly where it put it, holding the last frame
+      // it drew. So the container is emptied by hand, as the reference does
+      // (`elements.globe.replaceChildren()`): otherwise a retired sphere is
+      // still a picture of a planet on screen, and the next build hangs a
+      // second canvas behind the dead one.
+      this.replaceChildren?.();
     }
     this.texture?.dispose();
     this.texture = null;
@@ -580,6 +675,10 @@ export class AtlasGlobe extends HTMLElement {
       const sprite = new THREE.Sprite(markerMaterial(mark, chosen));
       const size = chosen ? PIN_SELECTED_SIZE : PIN_SIZE;
       sprite.scale.set(size, size, 1);
+      // Over the grid, under the writing, and on the camera's own layer until
+      // `cull` says the pin has gone over the rim.
+      sprite.renderOrder = ORDER.pin;
+      sprite.layers.set(DRAWN_LAYER);
       const at = globe.getCoords(lat, lng, PIN_ALTITUDE);
       sprite.position.set(at.x, at.y, at.z);
       sprite.userData = {
@@ -671,18 +770,20 @@ export class AtlasGlobe extends HTMLElement {
   /**
    * The horizon, enforced by hand.
    *
-   * Cards and chips are drawn with the depth test off, because a screen-sized
-   * card anchored on the ground loses its lower half to the planet's own curve
-   * at any glancing angle. The price of that is a card on the far side of the
-   * world shining straight through it, so the silhouette is applied here
-   * instead: a point at the limb sits where the cosine of its angle from the
-   * camera's axis equals the radius over the distance, and anything past that
-   * is ground nobody can see.
+   * Every sprite is drawn with the depth test off, because a screen-sized
+   * sprite anchored on the ground loses whatever half of itself the planet's
+   * own curve reaches over at a glancing angle -- the lower half of a card,
+   * and the buried half of a pin at the limb. The price of that is the far
+   * side of the world shining straight through, so the silhouette is applied
+   * here instead: a point at the limb sits where the cosine of its angle from
+   * the camera's axis equals the radius over the distance, and anything past
+   * that is ground nobody can see.
    *
-   * Only sprites, and only the two groups that turned their depth test off.
-   * The pins keep theirs, so the sphere occludes them itself -- and the count
-   * of standing sprites the baselines record stays a count of what the filters
-   * left, never a reading of where the camera happens to be pointing.
+   * THE PINS ARE HELD TO IT THROUGH A DIFFERENT DOOR. `visible` is spoken
+   * for: it is the filters' answer, and `visibleSprites` in six recorded tours
+   * is a count of it. So a pin beyond the rim is moved off the layer the
+   * camera draws, and back onto it when the planet turns -- the same
+   * silhouette, and the standing count never moves.
    */
   private cull(): void {
     const camera = this.globe?.camera().position;
@@ -692,6 +793,9 @@ export class AtlasGlobe extends HTMLElement {
         if (!(child as THREE.Sprite).isSprite) continue;
         child.visible = facesCamera(child.position, camera);
       }
+    }
+    for (const pin of this.pins.children) {
+      pin.layers.set(facesCamera(pin.position, camera) ? DRAWN_LAYER : BEYOND_HORIZON_LAYER);
     }
   }
 
@@ -891,9 +995,10 @@ export class AtlasGlobe extends HTMLElement {
     const height = canvas.height / scale / viewport;
     sprite.scale.set((height * canvas.width) / canvas.height, height, 1);
     sprite.center.set(1, 0);
-    // The grid's own order: the sheet, the boundary, the chip. A name card is
-    // above all three (4), and the tiles below all of them (0).
-    sprite.renderOrder = 3;
+    // The grid's own order: the sheet, the boundary, the chip -- and the chip
+    // over the pins as well, because an address is writing about the ground
+    // and not a thing standing on it (`ORDER`).
+    sprite.renderOrder = ORDER.chip;
     return sprite;
   }
 
@@ -1035,7 +1140,7 @@ export class AtlasGlobe extends HTMLElement {
     // A black square teaches nothing: the tile appears when it has something
     // to say, and the base skin carries the ground until then.
     mesh.visible = false;
-    mesh.renderOrder = 0;
+    mesh.renderOrder = ORDER.tile;
     new THREE.TextureLoader().load(url, (texture) => {
       texture.colorSpace = THREE.SRGBColorSpace;
       const material = mesh.material as THREE.MeshBasicMaterial;
@@ -1265,7 +1370,7 @@ export function ringFill(
     color: fill.color, transparent: true, opacity: fill.opacity,
     side: THREE.DoubleSide, depthWrite: false,
   }));
-  mesh.renderOrder = 1;
+  mesh.renderOrder = ORDER.fill;
   return mesh;
 }
 
@@ -1309,7 +1414,7 @@ export function cellBoundary(
   material.resolution.set(viewport.width || 1, viewport.height || 1);
   const loop = new Line2(geometry, material);
   loop.computeLineDistances();
-  loop.renderOrder = 2;
+  loop.renderOrder = ORDER.line;
   return loop;
 }
 
@@ -1544,7 +1649,7 @@ export function nameCard(
     sizeAttenuation: false, transparent: true,
   }));
   sprite.position.set(at.x, at.y, at.z);
-  sprite.renderOrder = 4;
+  sprite.renderOrder = ORDER.card;
   sprite.scale.set((LABEL_HEIGHT * width) / CARD_TALL, LABEL_HEIGHT, 1);
   // Anchored at its bottom edge, so the card floats above the marker rather
   // than covering it.
@@ -1611,7 +1716,17 @@ export function markerMaterial(marker: Marker, selected: boolean): THREE.SpriteM
   // Pins keep one size on screen however close the camera comes, the way the
   // chart draws its markers: world-sized sprites become dinner plates from low
   // altitude.
-  const material = new THREE.SpriteMaterial({ depthWrite: false, sizeAttenuation: false });
+  //
+  // AND THEY ARE NOT CLIPPED BY THE GROUND THEY STAND ON. A pin's sprite is
+  // screen-sized around a point half a unit off the skin, so at the limb most
+  // of that square is over ground *nearer* the camera than its own anchor:
+  // tested against the depth buffer, the planet swallowed the buried half and
+  // the reader saw icons sunk to the waist in the rim. The rule is the plain
+  // one -- an icon is drawn on top of the raster -- and the far side is kept
+  // out by `cull` rather than by the depth buffer.
+  const material = new THREE.SpriteMaterial({
+    depthTest: false, depthWrite: false, sizeAttenuation: false,
+  });
   markers.set(key, material);
   const dress = (image: HTMLImageElement | null): void => {
     material.map = markerTexture(marker, selected, image);

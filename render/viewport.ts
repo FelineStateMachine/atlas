@@ -138,6 +138,14 @@ export class AtlasViewport extends HTMLElement {
 
   private async apply(scene: Scene, change: SceneChange): Promise<void> {
     if (!scene.volume || !scene.base || !scene.world) return;
+    // BEFORE ANYTHING IS FETCHED, because a sphere left standing over a world
+    // that has none is the whole of the defect: the reader switches volumes,
+    // the page comes back a plane, and the planet on screen goes on wearing
+    // the skin of the world they left. The application says which surface this
+    // world declares in the scene itself (`data-surface`), so the pane can be
+    // put right in the same tick the scene moved rather than a payload later
+    // -- and if the payload never lands, the sphere is still down.
+    if (scene.surface !== "sphere") this.dropSphere();
     const mine = ++this.generation;
     try {
       const grid = await this.tileGrid(scene);
@@ -174,8 +182,14 @@ export class AtlasViewport extends HTMLElement {
         hovered: change.world ? null : held?.hovered ?? null,
       };
       this.context = context;
+      // The world's own answer, which is the one that decides: a world may
+      // declare a sphere and still flatten in a way no globe can invert, and
+      // only the payload knows. Asked before the chart is shown, so a chart
+      // coming back up is measured against a pane that is already on screen.
+      const sphere = AtlasGlobe.offers(model.payload.attrs ?? {});
+      if (!sphere) this.dropSphere();
       this.chart?.show(context);
-      if (AtlasGlobe.offers(model.payload.attrs ?? {})) this.globe?.show(context);
+      if (sphere) this.globe?.show(context);
     } catch (error) {
       log.error("the scene could not be drawn", {
         op: "render", volume: scene.volume, world: scene.world, error: String(error),
@@ -444,6 +458,43 @@ export class AtlasViewport extends HTMLElement {
     }
     toggle?.setAttribute("aria-pressed", String(this.globeUp));
     this.refresh({ recount: false });
+  }
+
+  /**
+   * Put the sphere down, because this world has none.
+   *
+   * THE PANE IS SEAM STATE AND THE WORLD IS NOT. Which pane is up survives a
+   * swap on purpose — it is continuous interaction state, and a filter must
+   * not drop the reader back to the chart — but a world change is exactly the
+   * moment that stops being right: the new world may be a game map, and the
+   * sphere standing over it belongs to the world before. Left alone, that is
+   * what the reader saw: Night City opened while a planet went on turning,
+   * still wearing Mars's skin, with only the toggle quietly hiding itself to
+   * say the offer had been withdrawn.
+   *
+   * So the chart comes back up, the toggle is put down, and the sphere is
+   * retired — the same teardown a disconnect does, plus the context, because
+   * this element is not about that world any more. No camera is carried back:
+   * a camera is a place on a particular world, and the sphere's was a place on
+   * the one being left (`AtlasGlobe.retire`).
+   *
+   * Idempotent, and it has to be: it is asked on every scene change a plane
+   * world sees, and only the first one has anything to put down.
+   */
+  private dropSphere(): void {
+    if (this.globeUp) {
+      this.globeUp = false;
+      const chart = this.chart;
+      if (chart) {
+        chart.hidden = false;
+        // Over the chart the camera is in the snapshot proper, so the locator
+        // goes back to reading the map rather than being told.
+        chart.locate(null);
+      }
+      document.querySelector<HTMLButtonElement>("#globe-toggle")
+        ?.setAttribute("aria-pressed", "false");
+    }
+    this.globe?.retire();
   }
 
   /**
