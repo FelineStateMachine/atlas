@@ -1,0 +1,12 @@
+{
+  "format": "fmg-git-working-tree",
+  "games": [
+    {
+      "directory": "games/arcgis-hub-redondo-beach-california-35460286494",
+      "id": 35460286494,
+      "source": "arcgis-hub",
+      "title": "Redondo Beach, California",
+      "url": "https://city-of-redondo-beach-gis-redondobeachgis.hub.arcgis.com"
+    }
+  ]
+}

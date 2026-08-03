@@ -1,0 +1,15 @@
+{
+  "icons": "games/arcgis-hub-redondo-beach-california-35460286494/icons/index.json",
+  "id": 35460286494,
+  "maps": [
+    {
+      "directory": "games/arcgis-hub-redondo-beach-california-35460286494/maps/2026-08-03-35074443506",
+      "id": 35074443506,
+      "slug": "2026-08-03",
+      "title": "2026-08-03"
+    }
+  ],
+  "source": "arcgis-hub",
+  "title": "Redondo Beach, California",
+  "url": "https://city-of-redondo-beach-gis-redondobeachgis.hub.arcgis.com"
+}
