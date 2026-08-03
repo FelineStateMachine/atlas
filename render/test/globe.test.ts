@@ -118,9 +118,10 @@ host.document = {
 
 // Imported after the page exists: `globe.gl` reads the document as it loads.
 const {
-  angularDistance, boundsOf, cellBoundary, densifyRing, detailBlock, detailLevel,
-  facesCamera, fillRows, initialsOf, labelCandidates, markerMaterial, nameCard,
-  release, ringFill, ringLatLng, tileGeometry, wearSkin, zoomForAltitude,
+  altitudeForZoom, angularDistance, boundsOf, cellBoundary, densifyRing, detailBlock,
+  detailLevel, facesCamera, fillRows, holdControls, initialsOf, labelCandidates,
+  markerMaterial, nameCard, release, ringFill, ringLatLng, tileGeometry, wearSkin,
+  zoomForAltitude,
 } = await import("../globe/element.ts");
 type Placed = import("../globe/element.ts").Placed;
 
@@ -661,4 +662,23 @@ test("a tile is draped on a grid that follows the curve, at the pyramid's own ra
   const uv = geometry.getAttribute("uv");
   assert.deepEqual([uv.getX(0), uv.getY(0)], [0, 1], "the tile's top-left is the texture's");
   assert.deepEqual([uv.getX(80), uv.getY(80)], [1, 0], "and its bottom-right likewise");
+});
+
+test("the wheel is held to the same clamps as every other door", () => {
+  // globe.gl's own controls would dolly the camera to a hair above the skin
+  // -- under the detail shell and the pins, where every face is a back face
+  // and the pane renders black -- and out to a hundred radii. holdControls
+  // gives the wheel the same two rails steer, changeZoom and the flip
+  // already ride: the pairing's own clamps, read back here through the
+  // exported conversion at a zoom past either end (the sphere's radius in
+  // globe.gl's units is 100).
+  const controls = { minDistance: 0, maxDistance: Infinity };
+  holdControls(controls);
+  assert.equal(controls.minDistance, 100 * (1 + altitudeForZoom(999)));
+  assert.equal(controls.maxDistance, 100 * (1 + altitudeForZoom(-999)));
+  // The nearest stand keeps the camera outside everything drawn off the
+  // skin: the detail tiles at radius 100.2 and the pins above them.
+  assert.ok(controls.minDistance > 100.6, `camera can reach ${controls.minDistance}`);
+  // And the farthest keeps the planet bigger than a dot.
+  assert.ok(controls.maxDistance <= 1000, `camera can leave to ${controls.maxDistance}`);
 });

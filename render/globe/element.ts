@@ -223,6 +223,19 @@ export function zoomForAltitude(altitude: number, ceiling: number): number {
   return clamp(WHOLE_CHART_ZOOM + Math.log2(WHOLE_DISC_ALTITUDE / safe), 0, ceiling);
 }
 
+/**
+ * Hold globe.gl's own controls to the pairing's clamps: the wheel is a door
+ * too. Left alone, the controls dolly to a hair above the skin — under the
+ * detail shell at `GLOBE_RADIUS + 0.2` and under the pins, where every face
+ * is a back face and the pane goes black — and out to a hundred radii, where
+ * the planet is a dot. Every other way of moving the camera (`steer`,
+ * `changeZoom`, the flip) already clamps to the same two altitudes.
+ */
+export function holdControls(controls: { minDistance: number; maxDistance: number }): void {
+  controls.minDistance = GLOBE_RADIUS * (1 + NEAREST_ALTITUDE);
+  controls.maxDistance = GLOBE_RADIUS * (1 + FARTHEST_ALTITUDE);
+}
+
 /** The camera as the chart speaks it. */
 export interface ChartCamera {
   x: number;
@@ -766,6 +779,8 @@ export class AtlasGlobe extends HTMLElement {
       .atmosphereColor("#7ea6c8")
       .atmosphereAltitude(0.12);
     wearSkin(this.globe.globeMaterial() as THREE.MeshPhongMaterial, this.texture);
+
+    holdControls(this.globe.controls());
 
     const scene = this.globe.scene();
     scene.add(this.tiles);
