@@ -454,6 +454,10 @@ export class AtlasViewport extends HTMLElement {
       // right on a first entry -- where the tiles arriving raised more events
       // -- and stale on every entry after it.
       this.globeUp = true;
+      // Retiring a sphere forgets its camera callback along with everything
+      // else, so a globe going up re-learns where its camera reports -- a
+      // wire asserted only at connect time is a wire a retire has cut.
+      globe.onCamera = (pov) => this.locate(pov);
       if (camera) globe.enter(camera, size);
     }
     toggle?.setAttribute("aria-pressed", String(this.globeUp));
