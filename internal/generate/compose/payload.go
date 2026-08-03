@@ -180,10 +180,14 @@ func tally(collections []composedCollection) counts {
 // them, points before shapes.
 func buildPayload(w composedWorld) (worldPayload, []byte, map[string]featureText) {
 	payload := worldPayload{
-		Grid:   w.Grid,
-		Lenses: w.Lenses,
-		Attrs:  w.Attrs,
-		Merged: w.Merged,
+		Grid: w.Grid,
+		// The collections array is always present, even empty: a raster-only
+		// world holds none, and a reader iterating the legend should meet a
+		// list rather than a null.
+		Collections: []wireCollection{},
+		Lenses:      w.Lenses,
+		Attrs:       w.Attrs,
+		Merged:      w.Merged,
 	}
 	var locations []bundle.Location
 	text := make(map[string]featureText)

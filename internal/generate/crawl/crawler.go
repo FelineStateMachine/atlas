@@ -84,6 +84,7 @@ var ErrNotRunnable = errors.New("this crawler is not run against live endpoints 
 func Registry() []Crawler {
 	return []Crawler{
 		ignCrawler{},
+		blueMarbleCrawler{},
 	}
 }
 

@@ -216,8 +216,8 @@ func TestMarsWorldSpeaksTheDeclaredFlattening(t *testing.T) {
 	want := map[string]string{
 		semconv.KeyGeometrySurface:     semconv.SurfaceSphere,
 		semconv.KeyGeometryProjection:  semconv.ProjectionEquirect,
-		semconv.KeyGeometryEquirectPx:  equirectPx,
-		semconv.KeyGeometryEquirectDeg: equirectDeg,
+		semconv.KeyGeometryEquirectPx:  doc.EquirectPx,
+		semconv.KeyGeometryEquirectDeg: doc.EquirectDeg,
 		semconv.KeyGeometryBody:        mars.Game.Slug,
 	}
 	if len(mars.Attrs) != len(want) {

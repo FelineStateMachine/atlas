@@ -60,13 +60,10 @@ const (
 	source      = "nasa-trek"
 )
 
-// The declared flattening, spelled once for the world's attributes and once for
-// the projection below: the mosaic fills the top half of the world square and
-// pictures the whole ground, -180..180 west to east and 90..-90 top to bottom.
-const (
-	equirectPx  = "0,0,8192,4096"
-	equirectDeg = "-180,90,180,-90"
-)
+// The declared flattening is the corpus's shared whole-sphere window
+// (doc.EquirectPx and friends): the mosaic fills the top half of the world
+// square and pictures the whole ground, -180..180 west to east and 90..-90 top
+// to bottom.
 
 // Source reads NASA Trek captures.
 type Source struct{}
@@ -163,10 +160,8 @@ func (s Source) translateWorld(a *archive.Archive, ref archive.WorldRef, log *sl
 		ID:    worldID,
 		Slug:  raw.MapSlug,
 		Title: named(raw.MapTitle, raw.MapSlug),
-		// A reader opens on the middle of the planet's picture: halfway across
-		// the world square, a quarter down it, which is where a 2:1 image's
-		// centre sits in a square.
-		Center: doc.SyntheticPosition(doc.SyntheticWorldSize/2, doc.SyntheticWorldSize/4),
+		// A reader opens on the middle of the planet's picture.
+		Center: doc.EquirectCenter(),
 		Capture: doc.Capture{
 			Kind:        archived.Kind,
 			ID:          archived.SourceID,
@@ -182,8 +177,8 @@ func (s Source) translateWorld(a *archive.Archive, ref archive.WorldRef, log *sl
 		Attrs: map[string]string{
 			semconv.KeyGeometrySurface:     semconv.SurfaceSphere,
 			semconv.KeyGeometryProjection:  semconv.ProjectionEquirect,
-			semconv.KeyGeometryEquirectPx:  equirectPx,
-			semconv.KeyGeometryEquirectDeg: equirectDeg,
+			semconv.KeyGeometryEquirectPx:  doc.EquirectPx,
+			semconv.KeyGeometryEquirectDeg: doc.EquirectDeg,
 			semconv.KeyGeometryBody:        raw.Body,
 		},
 	}
@@ -245,13 +240,9 @@ func TileSetPath(body, layer string) string { return body + "/EQ/" + layer }
 // LevelExtent reports the last tile column and row of one square level: the full
 // width of the world square, and the top half of its height. The crawler asks
 // for exactly these tiles and the deriver expects exactly these bounds, because
-// it is the same call.
-func LevelExtent(zoom int) (maxX, maxY int) {
-	if zoom == 0 {
-		return 0, 0
-	}
-	return 1<<zoom - 1, 1<<(zoom-1) - 1
-}
+// it is the same call -- the shared whole-sphere one every equirectangular
+// source measures with.
+func LevelExtent(zoom int) (maxX, maxY int) { return doc.EquirectLevelExtent(zoom) }
 
 // collectionsOf arranges the Gazetteer's flat feature list the way a legend
 // reads: one collection per feature type, all under one heading. The type's
@@ -338,38 +329,17 @@ func checkFeature(entry feature) error {
 	return nil
 }
 
-// worldPixel lands a feature's planetary coordinates on the picture. The mosaic
-// spans longitude -180..180 west to east and latitude 90..-90 top to bottom; the
-// Gazetteer speaks east-positive 0..360, so a longitude wraps into the mosaic's
-// half-open window first. X crosses the full world square, y only its top half,
-// because that is where a 2:1 image sits in a square.
+// worldPixel lands a feature's planetary coordinates on the picture, through
+// the shared whole-sphere window. The Gazetteer speaks east-positive 0..360,
+// which the shared mapping wraps into the mosaic's half-open window first.
 func worldPixel(longitude, latitude float64) (x, y float64) {
-	wrapped := math.Mod(longitude+180, 360) - 180
-	x = (wrapped + 180) / 360 * doc.SyntheticWorldSize
-	y = (90 - latitude) / 180 * (doc.SyntheticWorldSize / 2)
-	return x, y
+	return doc.EquirectWorldPixel(longitude, latitude)
 }
 
-// frameOf declares a mosaic's pyramid for the deriver. Every level down to zero
-// is declared: a level left unsaid would be measured against the corpus's shared
-// square, which this world does not sit in, and the half-height windows are what
-// tell frame discovery where the planet actually is. Every mosaic of a body
-// shares that window whatever its depth, which is what lets siblings ride one
-// world as its lenses.
+// frameOf declares a mosaic's pyramid for the deriver: the shared whole-sphere
+// frame, every level down to zero.
 func frameOf(maxZoom int, format string) *doc.Frame {
-	if format == "" {
-		format = "jpg"
-	}
-	frame := &doc.Frame{
-		MaxZoom: maxZoom,
-		Format:  format,
-		Windows: make(map[string]doc.TileWindow, maxZoom+1),
-	}
-	for zoom := 0; zoom <= maxZoom; zoom++ {
-		maxX, maxY := LevelExtent(zoom)
-		frame.Windows[strconv.Itoa(zoom)] = doc.TileWindow{MaxX: maxX, MaxY: maxY}
-	}
-	return frame
+	return doc.EquirectFrame(maxZoom, format)
 }
 
 func named(given, slug string) string {

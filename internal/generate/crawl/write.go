@@ -153,7 +153,12 @@ type Capture struct {
 	Kind      string
 	SourceID  int64
 	SourceURL string
-	Body      []byte
+	// CapturedAt pins the moment a capture answers to, for a source whose
+	// upstream is itself pinned: a fixed publication captured under a recorded
+	// time reproduces the same archive on any machine. Empty takes the clock's
+	// first sight, which is what a live origin gets.
+	CapturedAt string
+	Body       []byte
 }
 
 // WriteCapture archives one capture and reports whether anything moved.
@@ -178,10 +183,14 @@ func (a *Archive) WriteCapture(worldDir string, c Capture) (hash string, fresh b
 			return hash, false, nil
 		}
 	}
+	capturedAt := c.CapturedAt
+	if capturedAt == "" {
+		capturedAt = time.Now().UTC().Format(time.RFC3339Nano)
+	}
 	index = append(index, snapshot{
 		// First-seen, and never refreshed. A volume's creation time is derived
 		// from this, so a re-verified capture must not move it.
-		CapturedAt:  time.Now().UTC().Format(time.RFC3339Nano),
+		CapturedAt:  capturedAt,
 		ContentHash: hash,
 		Kind:        c.Kind,
 		SourceID:    c.SourceID,

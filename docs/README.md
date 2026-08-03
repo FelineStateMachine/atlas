@@ -19,7 +19,7 @@ pictures it, and [`decisions/`](decisions/) is why any of it is shaped this way.
 |---|---|
 | [`format.md`](format.md) | Normative `.atlas` v3 spec, sufficient alone to implement a reader: the container, the manifest, the world payload, the `ATLASLOC` bytes, stamps and ordering, validation, the registry directory, and a checklist for a new reader. |
 | [`semconv/REGISTRY.md`](semconv/REGISTRY.md) | The attribute vocabulary, generated from `spec/registry.yaml`; `spec/gen`'s own test holds the committed copy up to date. |
-| [`generate.md`](generate.md) | The generate lane: the interchange document, the sources and their gates, the capture archive, tile derivation, composition, curation. §2.7 is the "add a source" walkthrough. |
+| [`generate.md`](generate.md) | The generate lane: the interchange document, the sources and their gates, the capture archive, tile derivation, composition, curation. §2.8 is the "add a source" walkthrough. |
 | [`enrich.md`](enrich.md) | The enrich lane: the enricher interface, the contribution format, the ledger vocabulary, the curated queue, the maturity score. |
 | [`analysis.md`](analysis.md) | The cell-system contract: the eighteen methods, coordinates and continuity, the `Ground` descriptor, the plan order, the style tokens. §9 is the "add a third system" checklist. |
 | [`app.md`](app.md) | The hypermedia application: routes, the session record, regions and partials, the state island, the hostenv contract and the three-host story. |

@@ -3,7 +3,7 @@
 # These targets are the enforcement surface; the existing build recipes are
 # untouched and still live where they always did.
 
-.PHONY: test test-e2e corpus-smoke spec depcheck lint-lanes analysis-lane render-lane seam seam-watch static serve-static desktop
+.PHONY: test test-e2e corpus-smoke spec depcheck lint-lanes analysis-lane render-lane seam seam-watch static serve-static desktop included-earth
 
 # The one entrypoint: every required gate, and nothing that can silently
 # decline to judge. Go tests run through tools/testgate, which fails the run
@@ -88,6 +88,18 @@ static: seam
 # where the page looks for it. Read-only against the library.
 serve-static: static
 	go run ./cmd/atlas serve -static dist/static
+
+# The included Earth volume: the pinned Blue Marble base map captured, derived
+# and composed into the committed bundle the desktop shell embeds
+# (included/README.md is the recipe). The crawl step is the one networked part
+# and fetches nothing when the pinned source is already in the staged archive;
+# everything after it is offline. The registry index compose derives beside the
+# bundle is deleted because included/ is an embedded asset, not a library.
+included-earth:
+	go run ./cmd/atlas crawl -archive crawl/blue-marble/fmg-archive -source nasa-blue-marble earth
+	go run ./cmd/atlas tiles -archive crawl/blue-marble/fmg-archive -output tiles/blue-marble
+	go run ./cmd/atlas compose -archive crawl/blue-marble/fmg-archive -tiles tiles/blue-marble/index.json -bundles included earth
+	rm -f included/index.json
 
 # The desktop shell (issue #5 §3.4): the application in a window, one file,
 # seam embedded. This is the macOS recipe -- the same `go build` .github/
