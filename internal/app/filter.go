@@ -43,11 +43,12 @@ type visibility struct {
 	// on screen beside it.
 	Filtered bool
 
-	FooterText string
-	DockText   string
-	DockFlag   string
-	DockNote   string
-	Empty      string
+	FooterText    string
+	DockText      string
+	DockFlag      string
+	DockFlagTitle string
+	DockNote      string
+	Empty         string
 }
 
 // ListEntry is one row of the dock: a point or a shape, told apart by which
@@ -182,6 +183,20 @@ func visible(model *worldModel, session Session, lens *payloadLens) visibility {
 		out.DockFlag = "“" + session.Search + "”"
 	case out.Filtered:
 		out.DockFlag = "filtered"
+		// The chip's word is pinned by the goldens; the tooltip is where
+		// what narrows gets named — a reader once lost every pin to five
+		// highlights nobody could see.
+		var parts []string
+		if n := len(session.Hidden); n > 0 {
+			parts = append(parts, strconv.Itoa(n)+" hidden")
+		}
+		if n := len(session.Highlighted); n > 0 {
+			parts = append(parts, strconv.Itoa(n)+" highlighted")
+		}
+		if cell != nil {
+			parts = append(parts, "cell "+session.Grid.Cell+" held")
+		}
+		out.DockFlagTitle = strings.Join(parts, " · ")
 	}
 	if held := len(out.Listable); held > dockListLimit {
 		out.DockNote = "First " + strconv.Itoa(dockListLimit) + " of " +

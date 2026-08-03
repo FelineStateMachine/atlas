@@ -124,6 +124,7 @@ type DockView struct {
 	Open      bool
 	Count     string
 	Flag      string
+	FlagTitle string
 	Note      string
 	Empty     string
 	Rows      []ListEntry
@@ -317,14 +318,15 @@ func (a *App) view(held library, volume hostenv.Volume, session Session) View {
 // dockView is the panel's own account of what the filters left standing.
 func dockView(session Session, standing visibility, model *worldModel) DockView {
 	out := DockView{
-		Open:     session.Dock.Open,
-		Count:    standing.DockText,
-		Flag:     standing.DockFlag,
-		Note:     standing.DockNote,
-		Empty:    standing.Empty,
-		Rows:     standing.Rows(),
-		Filtered: standing.Filtered,
-		Section:  session.Dock.Section,
+		Open:      session.Dock.Open,
+		Count:     standing.DockText,
+		Flag:      standing.DockFlag,
+		FlagTitle: standing.DockFlagTitle,
+		Note:      standing.DockNote,
+		Empty:     standing.Empty,
+		Rows:      standing.Rows(),
+		Filtered:  standing.Filtered,
+		Section:   session.Dock.Section,
 	}
 	if out.Open {
 		out.FoldLabel = "Put the panel away (⌘⌥B)"
