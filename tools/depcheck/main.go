@@ -7,9 +7,9 @@
 //
 // Usage:
 //
-//	go run ./golden/depcheck                 # every clean-room package that exists
-//	go run ./golden/depcheck ./format/...    # an explicit pattern
-//	go run ./golden/depcheck help laneimports
+//	go run ./tools/depcheck                 # every clean-room package that exists
+//	go run ./tools/depcheck ./format/...    # an explicit pattern
+//	go run ./tools/depcheck help laneimports
 //
 // With no package pattern, depcheck scopes itself to the clean-room roots of
 // §3.1 that exist on disk. That is deliberate: the pre-rewrite tree is the

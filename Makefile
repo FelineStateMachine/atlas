@@ -1,20 +1,29 @@
-# The golden harness and the guardrails (issue #5 §6, §9).
+# The test surface and the guardrails.
 #
-# These targets are the clean-room rewrite's enforcement surface; the existing
-# build recipes are untouched and still live where they always did.
+# These targets are the enforcement surface; the existing build recipes are
+# untouched and still live where they always did.
 
-.PHONY: golden golden-all spec depcheck lint-lanes analysis-lane render-lane seam seam-watch static serve-static desktop
+.PHONY: test test-e2e spec depcheck lint-lanes analysis-lane render-lane seam seam-watch static serve-static desktop
 
-# The one entrypoint. Runs every gate of §6 in order; gates whose lane does not
-# exist yet report SKIP with the milestone they wait on, so a green run doubles
-# as a list of what is not yet proven.
-golden:
-	go run ./golden/harness
+# The one entrypoint: every required gate, and nothing that can silently
+# decline to judge. Go tests run through tools/testgate, which fails the run
+# if any test skipped; the lanes run their own boundary rules, type checks and
+# suites; depcheck holds the import matrix. What CI runs is this, spelled out
+# step by step in .github/workflows/ci.yml because the Windows runner has no
+# make.
+test:
+	go vet ./...
+	go run ./tools/testgate ./...
+	npm run --silent lane
+	npm run --silent seam-lane
+	go run ./tools/depcheck
 
-# Attempt every gate, including the ones that are not ready. Fails loudly.
-# Useful when you have just landed a lane and want to see its gate go red.
-golden-all:
-	go run ./golden/harness -suites=all
+# The application in a real browser, over a registry packed from the committed
+# corpus. Needs a Playwright Chromium (npx playwright install chromium); every
+# other prerequisite is built by the target itself.
+test-e2e: static
+	go run ./tests/e2e/prep
+	npx playwright test --config tests/e2e/playwright.config.ts
 
 # The semantic conventions, from their one machine-readable source: the Go
 # registry, the TypeScript lanes' key constants, and the document a reader
@@ -27,7 +36,7 @@ spec:
 # The guardrails alone: the lane import matrix, the clean-room rule, hostenv
 # purity, network confinement, semconv discipline.
 depcheck:
-	go run ./golden/depcheck
+	go run ./tools/depcheck
 
 # The TypeScript half of the same boundaries, over both lanes.
 lint-lanes:

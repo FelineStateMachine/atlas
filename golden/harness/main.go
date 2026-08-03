@@ -189,8 +189,8 @@ func suites() []suite {
 			name:       "depcheck",
 			milestone:  "M0",
 			awaiting:   "",
-			entrypoint: "golden/depcheck/main.go",
-			argv:       []string{"go", "run", "./golden/depcheck"},
+			entrypoint: "tools/depcheck/main.go",
+			argv:       []string{"go", "run", "./tools/depcheck"},
 			ready:      true,
 		},
 	}
