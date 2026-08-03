@@ -97,12 +97,13 @@ function evaluate(ground: Ground, spec: Vector): unknown {
 }
 
 describe("the shared vectors: grounds", () => {
-  // The four hand-derived grounds and the two corpus ones, by name: a fixture
+  // The five hand-derived grounds and the two corpus ones, by name: a fixture
   // that silently lost a ground would otherwise pass by answering nothing.
-  it("records the six grounds both lanes stand on", () => {
+  it("records the seven grounds both lanes stand on", () => {
     assert.deepEqual(Object.keys(grounds).sort(), [
       "bend-or/2026-08-02/0",
       "mars/global/0",
+      "test/earth-8192x4096",
       "test/sphere-8192x4096",
       "test/square-1024",
       "test/square-1024-bounds",

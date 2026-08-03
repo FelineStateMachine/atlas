@@ -9,6 +9,10 @@ import { expect, test, type Page } from "@playwright/test";
 // quietly failing to serve is a red test and not a shorter loop.
 const MARS = { slug: "mars", world: "global", title: "Mars", lenses: 2 };
 const BEND = { slug: "bend-or", world: "2026-08-02", title: "Bend, Oregon", lenses: 1 };
+// The included Earth volume: the committed bundle the desktop embeds,
+// installed into the e2e registry by tests/e2e/prep beside the corpus. It is
+// the one entry with real rasters.
+const EARTH = { slug: "earth", world: "earth", title: "Earth", lenses: 1 };
 
 // island reads the page's own account of the arrangement: the inert JSON
 // script node every explorer page carries.
@@ -39,7 +43,7 @@ test.describe("the doorways", () => {
       volumes: { slug: string; stamp: string; worlds: unknown[] }[];
     };
     const slugs = catalog.volumes.map((v) => v.slug).sort();
-    expect(slugs).toEqual([BEND.slug, MARS.slug].sort());
+    expect(slugs).toEqual([BEND.slug, EARTH.slug, MARS.slug].sort());
     for (const volume of catalog.volumes) {
       expect(volume.stamp).toMatch(/^[0-9a-f]{64}$/);
       expect(volume.worlds.length).toBeGreaterThan(0);
@@ -50,10 +54,28 @@ test.describe("the doorways", () => {
     const response = await page.goto("/v/nowhere/nothing");
     expect(response?.status()).toBe(404);
   });
+
+  // The raster leg, end to end: the included Earth carries real tiles, so the
+  // data plane can be asked for imagery and answer with an image — the one
+  // assertion the tile-less corpus volumes can never carry.
+  test("the included Earth serves a real raster tile", async ({ request }) => {
+    const response = await request.get("/data/catalog.json");
+    const catalog = (await response.json()) as {
+      volumes: { slug: string; stamp: string }[];
+    };
+    const earth = catalog.volumes.find((v) => v.slug === EARTH.slug);
+    expect(earth, "the catalog does not list earth").toBeTruthy();
+    const tile = await request.get(
+      `/data/v/${EARTH.slug}/${earth!.stamp.slice(0, 12)}/tiles/earth/0/0/0.jpg`,
+    );
+    expect(tile.ok()).toBeTruthy();
+    expect(tile.headers()["content-type"]).toBe("image/jpeg");
+    expect((await tile.body()).length).toBeGreaterThan(1000);
+  });
 });
 
 test.describe("the explorer page", () => {
-  for (const volume of [MARS, BEND]) {
+  for (const volume of [MARS, BEND, EARTH]) {
     test(`${volume.slug} arrives arranged`, async ({ page }) => {
       await page.goto(`/v/${volume.slug}/${volume.world}`);
 
@@ -63,9 +85,10 @@ test.describe("the explorer page", () => {
       expect(state.entry?.world).toBe(volume.world);
 
       // The topbar's selects say where the reader is and what else there is.
-      // A crumb with one option is a fact, not a choice: both corpus volumes
-      // carry a single world, so the world crumb reads but does not edit,
-      // while the volume crumb (two volumes installed) stays a real select.
+      // A crumb with one option is a fact, not a choice: every installed
+      // volume carries a single world, so the world crumb reads but does not
+      // edit, while the volume crumb (three volumes installed) stays a real
+      // select.
       await expect(page.locator("#volume-select")).toHaveValue(volume.slug);
       await expect(page.locator("#volume-select")).toBeEnabled();
       await expect(page.locator("#world-select")).toHaveValue(volume.world);
