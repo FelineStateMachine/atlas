@@ -1,19 +1,15 @@
-// The sphere's skin, and the one rule its two passes owe each other.
+// The sphere's skin, and the one rule a pass that can be interrupted owes.
 //
-// `Skin` composites twice into one texture: the base skin, once per lens and
-// never again, and the neighbourhood under the camera, again on every move.
-// The passes share pixels and nothing else, and the whole of this file is the
-// consequence of that: the frequent, cheap pass must never be able to cancel
-// the rare, expensive one, and a pass that was cancelled must leave the
-// texture asking for its composite again rather than claiming to hold it.
+// `Skin` composites the base skin into one texture, once per lens and never
+// again. The pass walks tiles one image at a time and awaits each, so it can
+// be standing between two awaits when the lens changes or the sphere is put
+// away -- and the whole of this file is the consequence of that: a pass that
+// was cancelled must leave the texture asking for its composite again rather
+// than claiming to hold it.
 //
-// The defect these tests are the record of: `openLens` drops the
-// neighbourhood and then starts the base skin without waiting for it, and the
-// first `refreshDetail` of an entry -- seen from far enough out to want no
-// detail at all -- drops the neighbourhood a second time while the base skin
-// is still suspended on its first tile. One shared counter made that second
-// drop cancel the base skin, and a key committed before the paint meant
-// nothing ever asked for it again. The sphere came up black and stayed black.
+// The defect these tests are the record of: a key committed before the paint
+// meant an abandoned pass was remembered as painted, so nothing ever asked
+// for it again and the sphere came up black and stayed black.
 //
 // Tiles are delivered by hand here. `Image` is stubbed so that every request
 // is parked until a test says it may arrive, which is the only way to be
@@ -131,24 +127,17 @@ function baseTiles(tag: string): string[] {
   return [`${tag}/1/0/0`, `${tag}/1/0/1`, `${tag}/1/1/0`, `${tag}/1/1/1`];
 }
 
-// ---- the passes are independent --------------------------------------
+// ---- the skin is composited once, and kept --------------------------
 
-test("dropping the neighbourhood does not cancel the base skin under it", async () => {
+test("the base skin arrives whole", async () => {
   const skin = fresh();
   const painting = skin.base("v1", "mars", alpha, urls("alpha"), nothing);
   await settle();
   assert.equal(parked.length, 1, "the base pass is suspended on its first tile");
-
-  // Exactly what `openLens` then `enter`'s first `refreshDetail` do: drop the
-  // neighbourhood, twice, while the skin underneath is still arriving.
-  skin.clearDetail();
-  skin.clearDetail();
-
   await deliverAll();
   await painting;
   assert.deepEqual(drawn, baseTiles("alpha"), "the whole base skin arrived");
   assert.equal(skin.lens, "alpha");
-  assert.equal(skin.tiles.size, 0, "a base pass is not neighbourhood bookkeeping");
 });
 
 test("a base skin that did arrive is not composited a second time", async () => {
@@ -158,9 +147,9 @@ test("a base skin that did arrive is not composited a second time", async () => 
   await first;
   assert.equal(drawn.length, 4);
 
-  // Leave, and come back: `leave` drops the neighbourhood, `show` asks for
-  // the same lens again. The skin is on the texture and is left there.
-  skin.clearDetail();
+  // Leave, and come back: `show` asks for the same lens again, and the skin
+  // is on the texture and is left there. Recompositing it is the expensive
+  // half of coming back, and this is why coming back does not pay it.
   await skin.base("v1", "mars", alpha, urls("alpha"), nothing);
   assert.equal(parked.length, 0, "no tile was asked for");
   assert.equal(drawn.length, 4, "and nothing was drawn again");
@@ -198,90 +187,4 @@ test("a newer base skin supersedes the one in flight, and it is the one kept", a
   await deliverAll();
   await back;
   assert.deepEqual(drawn, baseTiles("alpha"));
-});
-
-// ---- and the neighbourhood keeps its own bookkeeping ------------------
-
-test("a neighbourhood cancelled mid-block is asked for again, tiles and all", async () => {
-  const skin = fresh();
-  const bound = skin.tiles;
-  const wanted: [number, number][] = [[0, 0], [1, 0], [1, 1]];
-
-  const abandoned = skin.detail(beta, 3, wanted, urls("beta"), nothing);
-  await settle();
-  skin.clearDetail();
-  await deliverAll();
-  await abandoned;
-  assert.equal(skin.tiles.size, 0, "a put-away globe keeps no pyramid tiles");
-
-  const retry = skin.detail(beta, 3, wanted, urls("beta"), nothing);
-  await deliverAll();
-  await retry;
-  assert.deepEqual(
-    [...skin.tiles.keys()].sort(),
-    ["3/0/0", "3/1/0", "3/1/1"],
-    "every tile of the block counts, and only those");
-  assert.equal(skin.tiles, bound, "the map the diagnostics are bound to is the same map");
-});
-
-test("the neighbourhood is not recomposited while the camera holds still", async () => {
-  const skin = fresh();
-  const wanted: [number, number][] = [[2, 1]];
-  const first = skin.detail(beta, 3, wanted, urls("beta"), nothing);
-  await deliverAll();
-  await first;
-  assert.equal(drawn.length, 1);
-
-  await skin.detail(beta, 3, wanted, urls("beta"), nothing);
-  assert.equal(parked.length, 0);
-  assert.equal(drawn.length, 1);
-});
-
-// ---- one skin, and the worlds that pass under it ----------------------
-//
-// A sphere outlives a world. Flipping the volume select keeps the renderer,
-// the canvas and the texture hanging on it, and the only thing about the old
-// world is what is painted and where it landed -- so the two guards below are
-// the whole of the stale-skin defect: the reader opened another world and the
-// planet went on wearing the one before it.
-
-test("another world is another skin, even where the pyramid is spelled the same", async () => {
-  const skin = fresh();
-  const first = skin.base("v1", "mars", alpha, urls("mars"), nothing);
-  await deliverAll();
-  await first;
-  assert.deepEqual(drawn, baseTiles("mars"));
-
-  // The same volume and a pyramid of the same name: `tiles` is a path inside
-  // a world, so two worlds of one bundle collide here and nowhere else. Keyed
-  // on the base and the lens alone this composited nothing and the second
-  // world wore the first world's ground.
-  const second = skin.base("v1", "phobos", alpha, urls("phobos"), nothing);
-  await deliverAll();
-  await second;
-  assert.deepEqual(drawn, baseTiles("phobos"), "the second world composited its own skin");
-});
-
-test("a retargeted skin gives up its window, its pixels and both its keys", async () => {
-  const skin = fresh();
-  const first = skin.base("v1", "mars", alpha, urls("mars"), nothing);
-  await deliverAll();
-  await first;
-  const near = skin.detail(alpha, 3, [[0, 0]], urls("mars"), nothing);
-  await deliverAll();
-  await near;
-  assert.ok(drawn.length > 4, "a skin and a neighbourhood on the texture");
-
-  // The next world declares a different window of world pixels, so where
-  // every one of those tiles landed is wrong.
-  skin.retarget({ x: 0, y: 0, width: 512, height: 512 });
-  assert.deepEqual(drawn, [], "the texture was wiped rather than drawn over");
-  assert.equal(skin.tiles.size, 0, "and the neighbourhood went with it");
-
-  // Even the very same world and lens is composited again: nothing on this
-  // canvas is claimed any more.
-  const again = skin.base("v1", "mars", alpha, urls("mars"), nothing);
-  await deliverAll();
-  await again;
-  assert.deepEqual(drawn, [`mars/1/0/0`], "the new window is one tile of the pyramid");
 });

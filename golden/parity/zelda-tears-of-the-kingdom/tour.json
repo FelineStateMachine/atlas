@@ -15585,7 +15585,7 @@
         "canvases": 2,
         "rasterCacheSize": 64,
         "labelsHeld": false,
-        "hoveredPin": null,
+        "hoveredPin": "Terminal",
         "selectedPin": null,
         "fitZoom": 2.969005621312738,
         "grid": {
@@ -16450,7 +16450,7 @@
           "at": "5",
           "title": null,
           "kind": "cell",
-          "under": null
+          "under": "281632"
         }
       }
     },
@@ -16515,7 +16515,7 @@
         "canvases": 2,
         "rasterCacheSize": 64,
         "labelsHeld": false,
-        "hoveredPin": null,
+        "hoveredPin": "Terminal",
         "selectedPin": null,
         "fitZoom": 2.969005621312738,
         "grid": {
@@ -16665,7 +16665,7 @@
         "canvases": 2,
         "rasterCacheSize": 64,
         "labelsHeld": false,
-        "hoveredPin": null,
+        "hoveredPin": "Terminal",
         "selectedPin": null,
         "fitZoom": 2.969005621312738,
         "grid": {
@@ -16815,7 +16815,7 @@
         "canvases": 2,
         "rasterCacheSize": 64,
         "labelsHeld": false,
-        "hoveredPin": null,
+        "hoveredPin": "Terminal",
         "selectedPin": null,
         "fitZoom": 2.969005621312738,
         "grid": {
@@ -16969,7 +16969,7 @@
         "canvases": 2,
         "rasterCacheSize": 64,
         "labelsHeld": false,
-        "hoveredPin": null,
+        "hoveredPin": "Terminal",
         "selectedPin": null,
         "fitZoom": 2.969005621312738,
         "grid": {
@@ -17119,7 +17119,7 @@
         "canvases": 2,
         "rasterCacheSize": 64,
         "labelsHeld": false,
-        "hoveredPin": null,
+        "hoveredPin": "Terminal",
         "selectedPin": null,
         "fitZoom": 2.969005621312738,
         "grid": {
@@ -17663,7 +17663,7 @@
         "canvases": 2,
         "rasterCacheSize": 64,
         "labelsHeld": false,
-        "hoveredPin": null,
+        "hoveredPin": "Terminal",
         "selectedPin": null,
         "fitZoom": 2.969005621312738,
         "grid": {
@@ -18587,7 +18587,7 @@
         "canvases": 2,
         "rasterCacheSize": 64,
         "labelsHeld": false,
-        "hoveredPin": null,
+        "hoveredPin": "Terminal",
         "selectedPin": null,
         "fitZoom": 2.969005621312738,
         "grid": {
@@ -19515,7 +19515,7 @@
         "canvases": 2,
         "rasterCacheSize": 64,
         "labelsHeld": false,
-        "hoveredPin": null,
+        "hoveredPin": "Terminal",
         "selectedPin": null,
         "fitZoom": 2.969005621312738,
         "grid": {
@@ -20059,7 +20059,7 @@
         "canvases": 2,
         "rasterCacheSize": 64,
         "labelsHeld": false,
-        "hoveredPin": null,
+        "hoveredPin": "Terminal",
         "selectedPin": null,
         "fitZoom": 2.969005621312738,
         "grid": {
@@ -20983,7 +20983,7 @@
         "canvases": 2,
         "rasterCacheSize": 64,
         "labelsHeld": false,
-        "hoveredPin": null,
+        "hoveredPin": "Terminal",
         "selectedPin": null,
         "fitZoom": 2.969005621312738,
         "grid": {
@@ -21907,7 +21907,7 @@
         "canvases": 2,
         "rasterCacheSize": 64,
         "labelsHeld": false,
-        "hoveredPin": null,
+        "hoveredPin": "Terminal",
         "selectedPin": null,
         "fitZoom": 2.969005621312738,
         "grid": {
@@ -22057,7 +22057,7 @@
         "canvases": 2,
         "rasterCacheSize": 64,
         "labelsHeld": true,
-        "hoveredPin": null,
+        "hoveredPin": "Terminal",
         "selectedPin": null,
         "fitZoom": 2.969005621312738,
         "grid": {
@@ -22211,7 +22211,7 @@
         "canvases": 2,
         "rasterCacheSize": 64,
         "labelsHeld": false,
-        "hoveredPin": null,
+        "hoveredPin": "Terminal",
         "selectedPin": null,
         "fitZoom": 2.969005621312738,
         "grid": {
@@ -22365,7 +22365,7 @@
         "canvases": 2,
         "rasterCacheSize": 64,
         "labelsHeld": false,
-        "hoveredPin": null,
+        "hoveredPin": "Terminal",
         "selectedPin": null,
         "fitZoom": 2.969005621312738,
         "grid": {
@@ -22515,7 +22515,7 @@
         "canvases": 2,
         "rasterCacheSize": 64,
         "labelsHeld": false,
-        "hoveredPin": null,
+        "hoveredPin": "Terminal",
         "selectedPin": null,
         "fitZoom": 2.969005621312738,
         "grid": {
@@ -22669,7 +22669,7 @@
         "canvases": 2,
         "rasterCacheSize": 64,
         "labelsHeld": false,
-        "hoveredPin": null,
+        "hoveredPin": "Terminal",
         "selectedPin": null,
         "fitZoom": 2.969005621312738,
         "grid": {
@@ -22819,7 +22819,7 @@
         "canvases": 2,
         "rasterCacheSize": 64,
         "labelsHeld": false,
-        "hoveredPin": null,
+        "hoveredPin": "Terminal",
         "selectedPin": null,
         "fitZoom": 2.969005621312738,
         "grid": {
@@ -22969,7 +22969,7 @@
         "canvases": 2,
         "rasterCacheSize": 64,
         "labelsHeld": false,
-        "hoveredPin": null,
+        "hoveredPin": "Terminal",
         "selectedPin": null,
         "fitZoom": 2.969005621312738,
         "grid": {
@@ -23123,7 +23123,7 @@
         "canvases": 2,
         "rasterCacheSize": 64,
         "labelsHeld": false,
-        "hoveredPin": null,
+        "hoveredPin": "Terminal",
         "selectedPin": null,
         "fitZoom": 2.969005621312738,
         "grid": {
@@ -23277,7 +23277,7 @@
         "canvases": 2,
         "rasterCacheSize": 64,
         "labelsHeld": false,
-        "hoveredPin": null,
+        "hoveredPin": "Terminal",
         "selectedPin": null,
         "fitZoom": 2.969005621312738,
         "grid": {
@@ -23431,7 +23431,7 @@
         "canvases": 2,
         "rasterCacheSize": 64,
         "labelsHeld": false,
-        "hoveredPin": null,
+        "hoveredPin": "Terminal",
         "selectedPin": null,
         "fitZoom": 2.969005621312738,
         "grid": {
@@ -23581,7 +23581,7 @@
         "canvases": 2,
         "rasterCacheSize": 64,
         "labelsHeld": true,
-        "hoveredPin": null,
+        "hoveredPin": "Terminal",
         "selectedPin": null,
         "fitZoom": 2.969005621312738,
         "grid": {
@@ -23735,7 +23735,7 @@
         "canvases": 2,
         "rasterCacheSize": 64,
         "labelsHeld": false,
-        "hoveredPin": null,
+        "hoveredPin": "Terminal",
         "selectedPin": null,
         "fitZoom": 2.969005621312738,
         "grid": {
@@ -23885,7 +23885,7 @@
         "canvases": 2,
         "rasterCacheSize": 64,
         "labelsHeld": false,
-        "hoveredPin": null,
+        "hoveredPin": "Terminal",
         "selectedPin": null,
         "fitZoom": 2.969005621312738,
         "grid": {
@@ -24035,7 +24035,7 @@
         "canvases": 2,
         "rasterCacheSize": 64,
         "labelsHeld": false,
-        "hoveredPin": null,
+        "hoveredPin": "Terminal",
         "selectedPin": null,
         "fitZoom": 2.969005621312738,
         "grid": {
@@ -24189,7 +24189,7 @@
         "canvases": 2,
         "rasterCacheSize": 64,
         "labelsHeld": false,
-        "hoveredPin": null,
+        "hoveredPin": "Terminal",
         "selectedPin": null,
         "fitZoom": 2.969005621312738,
         "grid": {
@@ -24339,7 +24339,7 @@
         "canvases": 2,
         "rasterCacheSize": 64,
         "labelsHeld": false,
-        "hoveredPin": null,
+        "hoveredPin": "Terminal",
         "selectedPin": null,
         "fitZoom": 2.969005621312738,
         "grid": {
@@ -24493,7 +24493,7 @@
         "canvases": 2,
         "rasterCacheSize": 64,
         "labelsHeld": false,
-        "hoveredPin": null,
+        "hoveredPin": "Terminal",
         "selectedPin": null,
         "fitZoom": 2.969005621312738,
         "grid": {
@@ -24647,7 +24647,7 @@
         "canvases": 2,
         "rasterCacheSize": 64,
         "labelsHeld": false,
-        "hoveredPin": null,
+        "hoveredPin": "Terminal",
         "selectedPin": null,
         "fitZoom": 2.969005621312738,
         "grid": {

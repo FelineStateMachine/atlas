@@ -13252,18 +13252,18 @@
         "ui": {
           "sidebarCollapsed": false,
           "detailOpen": true,
-          "detailTitle": "Kenwood School",
+          "detailTitle": "Old Town Historic District",
           "searchQuery": "",
           "searchResultsVisible": true,
           "soloChip": null,
-          "visibleCountText": "109 of 213 features in view",
+          "visibleCountText": "103 of 213 features in view",
           "overviewDocked": false,
           "dockFolded": false,
           "dockDismissed": false,
           "subgridVisible": true
         },
         "sync": {
-          "footerText": "109 of 213 features in view",
+          "footerText": "103 of 213 features in view",
           "dockText": "213 features",
           "dockFlag": null,
           "dockRows": 100,
@@ -13283,8 +13283,8 @@
         "lens": "Basemap",
         "zoom": 4,
         "center": [
-          3967.0237955729167,
-          -3942.676854515105
+          4193.031488715278,
+          -4225.505129531122
         ],
         "resolution": 2,
         "nativeMaxZoom": 6,
@@ -13302,8 +13302,8 @@
         "canvases": 2,
         "rasterCacheSize": 64,
         "labelsHeld": false,
-        "hoveredPin": "Kenwood School",
-        "selectedPin": "Kenwood School",
+        "hoveredPin": "Old Town Historic District",
+        "selectedPin": "Old Town Historic District",
         "fitZoom": 1.3398500028846247,
         "grid": {
           "enabled": false,
@@ -13376,8 +13376,8 @@
             "world": "2026-08-02",
             "lens": 0,
             "center": [
-              3967,
-              -3943
+              4193,
+              -4226
             ],
             "zoom": 4,
             "hidden": [],
@@ -13401,10 +13401,10 @@
         },
         "route": "",
         "pick": {
-          "at": "1127790677",
-          "title": "Kenwood School",
+          "at": "1094036760",
+          "title": "Old Town Historic District",
           "kind": "point",
-          "under": "1127790677"
+          "under": "1094036760"
         }
       }
     },
@@ -13430,7 +13430,7 @@
         "ui": {
           "sidebarCollapsed": false,
           "detailOpen": true,
-          "detailTitle": "Kenwood School",
+          "detailTitle": "Old Town Historic District",
           "searchQuery": "",
           "searchResultsVisible": true,
           "soloChip": null,
@@ -13461,8 +13461,8 @@
         "lens": "Basemap",
         "zoom": 4,
         "center": [
-          3967.0237955729167,
-          -3942.676854515105
+          4193.031488715278,
+          -4225.505129531122
         ],
         "resolution": 2,
         "nativeMaxZoom": 6,
@@ -13481,7 +13481,7 @@
         "rasterCacheSize": 64,
         "labelsHeld": false,
         "hoveredPin": null,
-        "selectedPin": "Kenwood School",
+        "selectedPin": "Old Town Historic District",
         "fitZoom": 1.3398500028846247,
         "grid": {
           "enabled": false,
@@ -13554,8 +13554,8 @@
             "world": "2026-08-02",
             "lens": 0,
             "center": [
-              3967,
-              -3943
+              4193,
+              -4226
             ],
             "zoom": 4,
             "hidden": [
