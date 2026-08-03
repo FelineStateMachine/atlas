@@ -12,16 +12,15 @@
 //   y           **decreases** downward, so the square is [0, −size] … [size, 0]
 //   resolution  world pixels per screen pixel; level z is size / (256 · 2^z)
 //
-// The banner in the diagnostics object says exactly this, and the parity
-// baselines carry it on every step of every volume, which makes it the most
-// pinned sentence in the seam.
+// The banner in the diagnostics object says exactly this, on every report of
+// every volume, which makes it the most pinned sentence in the seam.
 
 import Projection from "ol/proj/Projection.js";
 import TileGrid from "ol/tilegrid/TileGrid.js";
 import type { Extent } from "ol/extent.js";
 import type { Lens, TileGrid as GridSpec } from "../data/payload.ts";
 
-/** The constant banner. Recorded on every parity step; never reworded. */
+/** The constant banner. Carried on every diagnostics report; never reworded. */
 export const COORDINATE_SYSTEM =
   "ATLAS:PIXELS; origin top-left; x increases right; y decreases downward";
 

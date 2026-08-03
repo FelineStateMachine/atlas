@@ -341,9 +341,9 @@ func flipLabel(collection *collectionModel, session Session) string {
 	return flipped
 }
 
-// ladder is the label ladder as the golden baselines read it off the buttons:
-// which collections are speaking and which are silent, sorted, over exactly
-// the rows that wear a toggle.
+// ladder is the label ladder as it reads off the buttons: which collections
+// are speaking and which are silent, sorted, over exactly the rows that wear
+// a toggle. tests/island reads it back off the rendered legend the same way.
 func ladder(model *worldModel, session Session) (speaking, silent []string) {
 	if model == nil {
 		return nil, nil

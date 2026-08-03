@@ -119,35 +119,42 @@ A **collection** and its **features**:
 }
 ```
 
-### 1.2 The decisions, and how they differ from what came before
+### 1.2 The decisions
 
-The reference implementation's interchange document was **MapGenie's API
-response**, transcribed as Go structs, that every other translator forged
-itself into. Everything below is a departure from that.
+The schema is source-neutral by design
+([decision 4](decisions/0004-source-neutral-interchange-document.md) carries
+the context), and its load-bearing choices are these:
 
-| | Reference tree | Clean room |
-| --- | --- | --- |
-| whose schema | MapGenie's wire format, `snake_case` | Atlas's own, `camelCase` |
-| structure | `groups → categories → locations`, with `regions` standing apart | one ordered `collections` array; points, paths and areas are the same kind of citizen |
-| a group | a container | a heading string on a collection |
-| extensions | `atlas_attrs`, `atlas_collections`, `atlas_collection` — fields squatted on somebody else's namespace | `attrs`, and collections declared like anything else |
-| render policy | `display_type`, a publisher's legacy field carried the whole way and read at composition | the source speaks `atlas.render.as` once, and the field never travels |
-| coordinates | numbers *or* quoted strings, tolerated everywhere | `{lat, lng}` floats; a source's spelling tolerance is the source's business |
-| absence | `*int64` for `region_id` and `parent_region_id` | `0`, everywhere, matching the wire's own reading of zero |
-| icons | a key implying a file probe into an archive directory at composition time | the artwork travels in the document |
-| lens detail | the publisher's claimed zoom range and bounds, read at composition | name and tile set for composition; the publisher's claimed frame carried separately, for the deriver alone, because only a source can say which tiles a complete level was supposed to hold |
-| provenance | recovered from the archive's directory names | `source` and a per-world `capture` on the document itself |
-| links | resolved at composition, with a MapGenie URL pattern compiled into it | resolved by the source, because a link syntax is a publisher's |
-| the world window | half from a hardcoded constant, half from the tile index | curation names the shared window; a pyramid names its own |
+- **One ordered `collections` array.** Points, paths and areas are the same
+  kind of citizen; a group is a heading string on a collection, never a
+  container.
+- **Extensions are ordinary fields.** `attrs` speaks the conventions, and a
+  collection is declared like anything else.
+- **Render policy travels once.** A publisher's own render field is spoken as
+  `atlas.render.as` by the source, and the field itself never travels.
+- **Coordinates are `{lat, lng}` floats.** A source's tolerance for other
+  spellings is the source's business.
+- **Absence is `0`, everywhere** — matching the wire's own reading of zero
+  (§1.4).
+- **Artwork travels in the document**, never as a key implying a file probe at
+  composition time.
+- **Lens detail splits in two.** Name and tile set are for composition; the
+  publisher's claimed frame is carried separately, for the deriver alone,
+  because only a source can say which tiles a complete level was supposed to
+  hold.
+- **Provenance rides the document** — `source`, and a per-world `capture` —
+  rather than being recovered from directory names.
+- **Links are resolved by the source**, because a link syntax is a
+  publisher's.
+- **The world window is curation's** to name where it is shared; a pyramid
+  names its own.
 
-Two things were **kept** because they were never MapGenie's:
-
-- The collection/feature model itself — a collection has a key, a title, a
-  legend heading, a kind, visibility, attributes and features; a feature has an
-  identity, a place or a geometry, nesting, prose, links and attributes. This
-  was already the source-neutral schema hiding inside the old normalizer.
-- Translation at **read time**, over an archive of source-native bytes. An
-  editorial change replays over years of captures instead of re-crawling them.
+Two structural choices frame all of that: the collection/feature model — a
+collection has a key, a title, a legend heading, a kind, visibility,
+attributes and features; a feature has an identity, a place or a geometry,
+nesting, prose, links and attributes — and translation at **read time**, over
+an archive of source-native bytes, so an editorial change replays over years
+of captures instead of re-crawling them.
 
 ### 1.3 Coordinates
 
@@ -213,9 +220,10 @@ leaking.
 - **Refusal over guessing.** A source states its structural preconditions and
   refuses what does not meet them. A volume that is merely *not crawled yet*
   wraps `ErrNotReady` and is skipped; anything else fails the build.
-- **Gates are named.** The reference tree's source gates carry over: IGN
-  refuses embedded-MapGenie maps, Piggyback refuses unverified transforms,
-  ArcGIS refuses an uncurated city. The MapGenie reader refuses a capture whose
+- **Gates are named.** IGN refuses embedded-MapGenie maps, Piggyback refuses
+  unverified transforms, ArcGIS refuses an uncurated city
+  ([decision 16](decisions/0016-uncurated-captures-are-passed-over.md)). The
+  MapGenie reader refuses a capture whose
   kind is not its own, because reading another source's bytes through it would
   produce a document that lies about where it came from.
 - **Offline purity starts here.** A publisher's links are resolved or removed
@@ -403,10 +411,11 @@ A source is one directory, one constructor, and one line in
    `format/semconv`'s registered keys and let the field itself stop there.
 8. **Register.** One line in `registry.go`, naming a constructor. If you need a
    second line there, the source is leaking.
-9. **Prove it.** A translator fixture test in `golden/pipeline` comparing what
-   your document *means* against the reference material, and — if the archive
-   holds a volume only your source reads — a row in `singleSource` so the whole
-   bundle is reproduced end to end.
+9. **Prove it.** A translator test in your own package comparing what your
+   document *means* against a committed capture — the NASA Trek reader is the
+   worked example, over `testdata/corpus/translators/nasa-trek.doc.json` and
+   its fixture — plus your reader's refusals, exercised the way every source
+   package exercises its own.
 
 What you may not do: reach the network (`depcheck`'s `netconfine` rule forbids
 it outside `internal/generate/crawl`), sort anything the capture ordered, read a
@@ -538,8 +547,8 @@ editorial work, so their crawlers are kept complete and are not run against live
 endpoints. The ArcGIS/USGS crawler is the one that may run, because its data is
 public, and it is the one still outstanding. The renderer it would feed landed
 first (§4.4), which leaves the city's archive an input rather than something
-this lane can take: the proof city was crawled back by the reference tree and is
-staged at `crawl/bend-or/fmg-archive`, and the clean room reads, draws and
+this lane can take: the proof city's archive is staged at
+`crawl/bend-or/fmg-archive`, and the lane reads, draws and
 composes from there. What the crawler adds is the ability to take a *new* day —
 a second world in the city's version history — rather than the ability to
 rebuild the one that is there.
@@ -661,15 +670,15 @@ point: changing how a level is reduced has to invalidate every pyramid, and a
 stamp that watched only the archive would quietly keep serving the old
 derivation.
 
-The consequence is that clean-room stamp identity for a pyramid is impossible by
-construction. What is proven instead, in `golden/pipeline/derive_test.go`, is the
-plan and the tiles: every field of the stamp except the tool hash is reproduced
-bit for bit against the reference implementation's recorded stamps, for all ten
-pyramids of the five single-source fixtures; and two whole pyramids are rebuilt
-from the archive byte for byte, along with their zoom range, window, formats,
-bounds, background and coverage bitsets — tunic's 741 tiles for the copied path,
-and the city's 2,316 for the drawn one (§4.4). `docs/stamps.md` carries
-the accounting.
+The consequence is that stamp identity across two derivers is impossible by
+construction. What is proven instead is the tiles and the plan where they are
+observable: the stamp arithmetic and the register's promises in
+`internal/generate/tiles`, the drawn level held to the capture's own recorded
+hashes on every derivation (§4.4), the whole pipeline run twice over one
+archive writing the same bytes (`cmd/atlas/pipeline_test.go`), and the corpus
+tile inventories, which carry a content and a decoded-pixel digest for every
+tile of every corpus pyramid (`testdata/corpus`). `docs/stamps.md` carries
+the reasoning.
 
 ### 4.4 The drawn level
 
@@ -814,11 +823,11 @@ What the deriver then does:
   base frame, and the six coefficients to nine decimal places — because the same
   donor through a different transformation is a different picture.
 
-`golden/pipeline/derive_test.go` holds this to the reference cache both ways.
-Cyberpunk's aligned pyramid plans to the recorded stamp under the reference
-tool's hash — which says the anchors, the name matching, the trimming, the
-least-squares fit and the target zoom all came out identical from the captures
-alone — and its 1,365 tiles are rebuilt byte for byte.
+`cmd/atlas/warp_test.go` holds the pairing policy — the finer picture is the
+frame, a source is never warped onto itself, readings that do not align stay
+apart, and names settle before anything is derived — and the resampling
+itself is the deriver's ordinary path, judged the way §4.3 says everything
+else is.
 
 ---
 
@@ -1018,11 +1027,11 @@ expects is commentary, not an entry.
 | `shard` | the sheets that hold several separate places, and what to do with them. |
 | `collectionEquivalents` | where two sources spell one concept differently, keyed by artwork key. Composition writes the shared name as `atlas.collection.key`, so the payload carries the merge identity and a later merge reads only the attribute. |
 
-These tables were extracted from tables in the reference tree's program text,
-and their content is golden-identical to it. Two were re-keyed: outsets and
-shard declarations were keyed by upstream numeric map ids, which made a
-curation entry unreadable without the publisher's database in front of you and
-unmovable to a second source describing the same ground.
+Every table is keyed in Atlas's vocabulary — including outsets and shard
+declarations, keyed by volume and world slugs rather than by a publisher's
+numeric map ids, so a curation entry is readable without the publisher's
+database in front of you and movable to a second source describing the same
+ground.
 
 ---
 
@@ -1081,106 +1090,35 @@ into the staged set, and is only needed when the archive has moved: a pyramid
 whose captures have not moved is carried over untouched (§4.2).
 
 **Deriving into a *fresh* output directory does not reproduce the staged set's
-stamps.** A derivation stamp covers the deriving tool's own source (§4.3), and
-the staged `tiles/` was derived by the reference implementation, so a clean-room
-re-derivation of the same tiles stamps differently — which changes the bundle's
-stamp, and therefore its file name, and therefore its compressed size by a byte
-or two. The tiles are identical; the accounting of how they were made is not.
-Composing against `tiles/index.json` is what reproduces a bundle fixture byte
-for byte; composing against a freshly derived index is a correct build of the
-same volume under a different name. `docs/stamps.md` carries the
-accounting.
+stamps.** A derivation stamp covers the deriving tool's own source (§4.3), so
+re-deriving the same tiles under a different build of the tool stamps
+differently — which changes the bundle's stamp, and therefore its file name.
+The tiles are identical; the accounting of how they were made is not.
+Composing against the staged `tiles/index.json` reproduces the builds already
+in circulation name for name; composing against a freshly derived index is a
+correct build of the same volume under a different name. `docs/stamps.md`
+carries the reasoning.
 
 ---
 
 ## 8. What is proven
 
-`golden/pipeline` composes every bundle fixture whose ledger names one source
-and holds the result against every extraction the reference build was captured
-into: part hashes, the canonicalized manifest, the world payloads, the unpacked
-locations, the deferred prose, the icon set, the tile inventory and the
-archive's entry order. Canonical-content equality is mandatory; stamp identity
-was tracked as an aspiration and, for all five, is now held.
+How the lane is judged overall is [testing.md](testing.md); every suite below
+runs under `make test`, hermetically, over stated inputs and the committed
+corpus.
 
-| fixture | shape it is a fixture of | source | result |
-| --- | --- | --- | --- |
-| `tunic` | plain: one world, one lens, one pyramid | mapgenie | byte-identical, 8,047,414 bytes |
-| `fallout-new-vegas` | a split sheet: 13 worlds, 8 of them insets | mapgenie | byte-identical, 23,188,369 bytes |
-| `zelda-tears-of-the-kingdom` | lens shards: three elevations of one ground | mapgenie | byte-identical, 58,031,657 bytes |
-| `mars` | a sphere, a derived id space, named artwork | nasa-trek | byte-identical, 255,455,078 bytes |
-| `bend-or` | a city: dated worlds, national layers, a drawn lens | arcgis-hub | byte-identical, 13,642,843 bytes |
-| `cyberpunk-2077` | two sources merged | ign-wiki ⊕ piggyback | canonically identical; the stamp is waived (§8.2) |
+| claim | held by |
+| --- | --- |
+| a source reads what its publisher actually serves | `internal/generate/sources/nasatrek`, over the committed capture at `testdata/corpus/translators/`; every other source over stated captures of its own shape, refusals included |
+| the city translates exactly — the window, the buckets, the membership join | `internal/generate/sources/arcgishub` (`TestCityTranslatesExactly`) |
+| the drawn level is deterministic and honest about its edges | `internal/generate/tiles/basemap`: same shapes, same bytes; holes, bleed, dash phase, opaque truecolour |
+| the whole pipeline writes the same bytes twice | `cmd/atlas/pipeline_test.go` (`TestPipelineWritesTheSameBytesTwice`): a synthetic archive — two readings of an invented game and one crawl day of the proof city — run through the shipped stages, twice, byte-identical |
+| a drawn tile is held to its witness | `cmd/atlas/pipeline_test.go` (`TestADrawnTileIsHeldToItsWitness`) — the §4.4 refusal, exercised |
+| the warp pairing policy (§4.5) | `cmd/atlas/warp_test.go` |
+| splitting, ordering, conventions, identifiers | `internal/generate/compose` |
+| what a composed bundle holds, tile for tile | the corpus extractions (`testdata/corpus/bundles/`), read by `format/bundle`'s corpus tests and the render lane's pyramid tests |
 
-Every source is held against the reference tree's own reading of the same
-archived capture — what the two documents *mean*, since the shapes deliberately
-differ — collection for collection, feature for feature, attribute for
-attribute. All five have such a fixture and all five are checked against one.
-
-The tile deriver is proven in two halves, for the reason §4.3 gives: the plan is
-bit-identical to the reference's for all ten pyramids of the five single-source
-fixtures and for cyberpunk's warped variant — alignment and all — and three
-whole pyramids rebuild from the archive byte for byte, one per path a level's
-pixels can take. Tunic's 741 tiles are the copied path, a captured level carried
-through and reduced; the city's 2,316 are the drawn one, rasterized from its own
-vectors; the warp's 1,365 are the fitted one, rendered through the affine and
-folded down. `docs/stamps.md` carries the accounting and the ceiling.
-
-The tests are gated on the inputs that are deliberately not in git — the capture
-archives and the derived tile set — and skip with an explanation when neither
-`ATLAS_ARCHIVE_DIR`/`ATLAS_CITY_ARCHIVE_DIR`/`ATLAS_TILES_INDEX` nor the
-repository's own gitignored copies are present. The city's archive is resolved
-separately from the corpus's because the corpus archive holds whatever its
-operator crawled, which may include a city the public curation table may not
-name (issue #5's privacy rule); staging the proof city apart keeps the gate
-independent of what else is on a machine.
-
-The harness's `generate-enrich` gate is **green over all six bundle
-fixtures**: the five single-source volumes reproduce through `golden/pipeline`
-and the merged volume through the shipped command below.
-
-### 8.1 The merged volume
-
-`cyberpunk-2077` is the one fixture no single lane can answer for, and it is
-reproduced by the shipped command rather than by a test's own reassembly of it:
-`golden/pipeline` runs `atlas enrich` over the archive and holds what lands in an
-empty registry to the fixture. Every part is byte-identical — the world payload
-including its whole merge ledger, the packed locations, the deferred prose, all
-38 icons, both pyramids' 17,507 tiles, and the archive's entry order — except
-the manifest, whose `version` object carries the enriched build's revision.
-Against the reference build itself that is 17,549 entries in identical order, of
-which exactly one differs, in two fields of one object.
-
-That one difference is the `enriched-build-revision` waiver and it is a
-consequence, not a divergence: §5.3 of issue #5 requires an enrich write to bump
-the revision past the serving build's so the registry fold serves it, the
-revision rides the manifest, the manifest rides the stamp, and the stamp names
-the file. The gate asserts the shape of the difference rather than shrugging at
-it — the capture time is unmoved, the revision is exactly this lane's bump of the
-fixture's own, the stamp differs, and the file name follows.
-
-### 8.2 What the city fixture waited for, and how it was answered
-
-`bend-or` was built during M0 from a live crawl of a public city's ArcGIS Hub,
-and *that* capture archive was not kept: for a while the fixture was the
-reference tree's output with no input behind it. It waited on three things —
-the offline basemap renderer (§4.4), the ArcGIS/USGS crawler (§3.2), and a
-fresh capture. Two of the three landed.
-
-The renderer landed here, in the generate lane, and the city was **re-crawled
-by the reference tree on the same day the fixture answers to**, into the
-archive now staged at `crawl/bend-or/fmg-archive` (§7.1). That re-crawl
-reproduced the lost build: all 2,320 non-manifest entries hash as the first
-build's did — every payload, the icon, and all 2,316 basemap tiles — so the
-city's open data had not moved between crawls and the offline render is
-deterministic over it. `atlas.json` differs in three fields and no others:
-`version.createdAt` and the world's `updatedAt`, which are capture-derived and
-therefore carry the second crawl's clock, and `version.stamp`, which follows
-the manifest's bytes. The file name follows the stamp. That is the format's
-first invariant behaving exactly as written, not a divergence, and
-`golden/fixtures/README.md` records both names.
-
-What is still outstanding is only the **clean-room** ArcGIS/USGS crawler
-(§3.2). The city's archive is an input this lane reads, draws and composes
-from; what the crawler would add is the ability to take a *new* day — a second
-world in the city's version history — not the ability to rebuild the one that
-is there.
+The staged capture archives and tile sets (§7.1) are maintainer inputs, not
+test inputs: no required test reads them, and `make corpus-smoke` is the
+maintainer's own deep check over a real installed library
+([testing.md](testing.md)).

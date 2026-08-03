@@ -1,6 +1,6 @@
 # The application
 
-**Status: built (M5, with the desktop host landing in M7).** This document
+**Status: built.** This document
 specifies the hypermedia application: the URL surface, the session record, the
 partial and event envelopes, the region and template system, the state island,
 and the contract between the handler and whatever host it is mounted in. §11
@@ -34,10 +34,10 @@ by three different hosts:
 | Host | Status | What it supplies |
 |---|---|---|
 | **Wails webview** | built | The desktop window; `PickFile` is the native dialog; the library is the application's data directory. `main.go` + `redirects.go` + `hostenv/wailshost`. |
-| **`atlas serve`** | built | Plain HTTP, no window. `PickFile` refuses with `ErrNotAvailable`. The dev loop, CI, and the parity harness. |
+| **`atlas serve`** | built | Plain HTTP, no window. `PickFile` refuses with `ErrNotAvailable`. The dev loop, CI, and the browser suite (`tests/e2e`). |
 | **WASM service worker** | not scheduled | Go compiled to `js/wasm`; the stores back onto OPFS. Nothing is built for it; the discipline is what keeps it reachable. |
 
-The rule is enforced mechanically: `golden/depcheck`'s `hostenv` analyzer
+The rule is enforced mechanically: `tools/depcheck`'s `hostenv` analyzer
 fails any import of `os`, `os/exec`, `path/filepath`, `syscall`, or a window
 toolkit from `internal/app` outside `internal/app/hostenv`. The OS
 implementations live in `internal/app/hostenv/oshost`, so a host that is not
@@ -114,8 +114,8 @@ wails.Run(&options.App{
 Four things about it are worth knowing.
 
 **Where the library is.** `$ATLAS_DATA_DIR`, else `os.UserConfigDir()` +
-`dev.felinestatemachine.atlas` — the identifier the pre-rewrite shell used, so
-a reader's existing library is found where it always was. `bundles/` under it
+`dev.felinestatemachine.atlas` — the identifier existing libraries already
+live under, so a reader's library is found where it always was. `bundles/` under it
 holds the volumes and `sessions/` the session records. `$ATLAS_BUNDLES_DIR`
 moves the library alone, which is what a development run points at a freshly
 composed `dist/bundles`. The headless host reads the same two variables
@@ -138,8 +138,8 @@ the two words Go writes in a redirect body. `redirects.go` walks the
 application's own doorways instead — GET only, `Location` values naming a path
 only, five hops at most, streaming answers passed straight through — so the
 handler goes on redirecting and `atlas serve` goes on serving those redirects
-to clients that follow them. The HTTP goldens judge what the handler sends,
-which is unchanged.
+to clients that follow them
+([decision 17](decisions/0017-the-host-follows-redirects.md)).
 
 **No Wails runtime JavaScript in the page.** Nothing is bound, no bindings
 JSON is generated, and the page hears that the library moved over the
@@ -160,16 +160,16 @@ three platforms.
 
 ## 2. Routes
 
-### 2.1 The data plane — byte-compatible with the reference implementation
+### 2.1 The data plane
 
 ```
 GET /data/catalog.json                                  no-store
 GET /data/v/{slug}/{stamp12}/{worlds|tiles|icons}/...   private, max-age=31536000, immutable
 ```
 
-The seam and the goldens both read this plane, so its shape is not this
-rewrite's to change. `golden/http` replays the recorded transcript against it
-(see `golden/http/NOTES.md`).
+The seam reads this plane, so its shape is contract rather than the
+application's to reshape; the browser suite serves it over the committed
+corpus.
 
 **The catalog** is composed at the moment it is asked for and never cached:
 
@@ -192,11 +192,10 @@ under `worlds/`, `tiles/` or `icons/`, or not carrying the serving stamp, is a
 plain `404`.
 
 **Byte ranges are not served.** Tiles are stored uncompressed so that they
-could be, and issue #5 §2 describes them that way, but the recorded transcript
-shows the reference implementation answering a `Range` request `200` with the
-whole body and no `Accept-Ranges`. Byte-compatibility with the recording wins;
-changing it is a deliberate act with a waiver in the same commit.
-`TestContentDoesNotServeRanges` is what keeps it from happening by accident.
+could be, but a `Range` request is answered `200` with the whole body and no
+`Accept-Ranges`. Changing that is a deliberate act, not a drive-by:
+`TestContentDoesNotServeRanges` (`internal/app`) is what keeps it from
+happening by accident.
 
 ### 2.2 The app plane
 
@@ -213,9 +212,8 @@ changing it is a deliberate act with a waiver in the same commit.
 | `GET /assets/{app.css,htmx.js}` | The application's own chrome, out of the binary. |
 | `GET /static/{path...}` | Whatever static tree the host mounted; `404` when it mounted none. |
 
-Real URLs replace the reference implementation's hash routing: a world can be
-bookmarked, reloaded, and linked to. `/` is a doorway, not a second name for
-the explorer.
+Every world lives at a real URL: it can be bookmarked, reloaded, and linked
+to. `/` is a doorway, not a second name for the explorer.
 
 A `GET` of an explorer page writes the session's `world` and the last-volume
 pointer. That is deliberate: arriving at a URL is a choice whether it was
@@ -291,8 +289,7 @@ Notes that are contract, not style:
   as strings — and the island writes them back as the numbers the payload
   declares (§6).
 - `lens` is the lens's **name**, not its index. A name outlives a build's
-  ordering; the island renders the index because that is what the golden
-  baselines record.
+  ordering; the island's `lens` key is the ordinal (§6).
 - `focused` is the ground the reader last *went to* from a list, and it is not
   `selected`: closing the card puts the selection down and leaves the feature
   index still marking where the reader has been. It is set only by a row that
@@ -392,9 +389,7 @@ import, and everything short of a full page render.
 
 **The legend is one region because it is one answer.** Every filtering move
 changes the rows, the isolate chip and the footer count together; three
-regions would be three ways for them to disagree, which is the exact defect
-the reference implementation carried until every surface was made to ask one
-place.
+regions would be three ways for them to disagree.
 
 **The card is nested inside the dock and is still its own region.** That is
 where it belongs on screen, and `select` moves the card and the list together,
@@ -519,14 +514,13 @@ nothing else. There is no `hx-on` on the page and no listener behind it.
 | `Escape` (on the window) | `grid` | telescopes the grid out one level, then out of the grid |
 
 Every filter says three things, and the page was broken for want of all three:
-**whose keystroke it is** (`kbd-editable`, the reference's `isEditableTarget` as
-an expression, so a reader typing "g" into the search field does not put a grid
-up); **that the key is answered** (`prevent`, which htmx runs only when the
+**whose keystroke it is** (`kbd-editable`, so a reader typing "g" into the
+search field does not put a grid up); **that the key is answered** (`prevent`, which htmx runs only when the
 filter passed, so a shortcut swallows the keystroke it acts on and nothing
 else); and **that the key was pressed rather than held** (`!event.repeat`, so an
 autorepeating key is not sixty writes a second down a route that writes a file).
 
-Two shortcuts stand **above** the guard, both as the reference had them. ⌘G
+Two shortcuts stand **above** the guard. ⌘G
 because switching cell systems is most wanted from inside the token field; ⌘R
 because a reader whose page is misbehaving reaches for reload from wherever the
 cursor happens to be. ⌘R is also the one place `prevent` takes something away
@@ -581,13 +575,11 @@ script node:
 <script type="application/json" id="atlas-session-island">{…}</script>
 ```
 
-It exists for one reason. Issue #5 §6 asks the rewritten application to publish
-"server session state as a JSON island … matching golden key names", so the
-parity tour can diff the application's account of the arrangement against the
-seam's. **These are the key names** — the ones the reference implementation
-wrote to `localStorage` under `atlas.session.v3`, documented in
-`golden/parity/SCHEMA.md` §3.2. Where the arrangement is stored is this
-application's business and has changed completely; what it contains is not.
+It exists for one reason: the application's account of the arrangement has to
+be diffable against the seam's, key for key, without either half guessing at
+the other. **The key names below are the contract** (`internal/app/island.go`
+is their home). Where the arrangement is stored is this application's
+business; what the island says about it is not.
 
 ```json
 {"last": "bend-or",
@@ -600,18 +592,17 @@ application's business and has changed completely; what it contains is not.
 ```
 
 Shape notes: ids are emitted as the numbers a payload declares them as but
-sorted as the strings they ride the DOM as, which is what the baselines record;
+sorted as the strings they ride the DOM as;
 `labels` is the override ledger, one `"<collection>=<policy>"` per entry,
 sorted; `lens` is the index; `center` is rounded to whole world units and
-`zoom` to three decimals, exactly as the harness rounds what it reads, so a
-baseline and an island are diffable without a normalizer in between.
+`zoom` to three decimals, so two accounts of one camera are diffable without a
+normalizer in between.
 
-`golden/island` is the gate. It drives session POST sequences derived from the
-baselines — twenty-seven steps across all six fixture volumes, over the legend,
-solo, search, label-policy, lens, grid and overview concerns — and holds the
-island to each step's `session` object key for key, in both directions: a key
-the baseline has and the island lacks is a hole, and a key the island invents
-is an invention.
+`tests/island` is the suite. It drives session POST sequences through the
+application's own HTTP surface, over the committed corpus — the legend, solo,
+search, label-policy, lens, grid and overview concerns — and holds the island
+to its contract key for key, in both directions: a key the contract promises
+and the island lacks is a hole, and a key the island invents is an invention.
 
 ### 6.1 What is seam-side, and why
 
@@ -624,9 +615,9 @@ to be:
   them. The server's only honest relationship with them is the one issue #5
   §4.1 describes: the seam reports a settled camera upward, debounced, at
   `POST /session/view`, and the server stores it and hands it back. Until the
-  seam has reported one they are `null`. The gate posts the baseline's own
-  camera and then checks the round trip, so what is proved about these two is
-  the echo, not the origin.
+  seam has reported one they are `null`. The island suite posts a camera and
+  then checks the round trip, so what is proved about these two is the echo,
+  not the origin.
 
 **The grid cull is not one of them, and was for a while.** A held cell narrows
 what stands exactly the way a highlight does, and the count above the panel has
@@ -634,8 +625,8 @@ to be the count the map is drawing — so the server has to answer "is this
 feature inside the held cell" without asking the seam, which the third upward
 flow §5 of [render-seam.md](render-seam.md) forbids would be the only other
 way. `internal/app/cells` is the smallest piece of one system's arithmetic that
-answers it: the recursive halving and nothing else, gated against the cell
-extents every parity baseline records. The cost — a second copy of arithmetic
+answers it: the recursive halving and nothing else, gated against the shared
+cell vectors (`analysis/testdata/cells/`). The cost — a second copy of arithmetic
 `analysis/cellsystems` also holds — is written down in that package's own
 comment, and the file is the first thing a Go twin of the analysis lane would
 delete.
@@ -643,7 +634,7 @@ delete.
 One thing still belongs to a lane, and is recorded here rather than papered
 over:
 
-- **The footer's "in view" half.** The reference implementation's footer read
+- **The footer's "in view" half.** The footer's full sentence is
   "N of M features in view", and N is the count inside the camera's extent —
   seam-side by construction. The server renders M; refining it to the full
   sentence is the seam's, once there is a camera to ask.
@@ -664,12 +655,11 @@ registry is a depcheck failure, not a review comment.
 | `filter.go` | what stands: the hide set, the search, the AND-across/OR-within highlight filter, the shard, the counts and the words above them |
 | `view.go` | the card, the dock, the grid and overview chrome, the viewport state node |
 
-Three rules worth stating because they are easy to get subtly wrong, all three
-extracted from the reference implementation's behaviour:
+Three rules worth stating because they are easy to get subtly wrong:
 
 1. **Highlighting reads AND across collections, OR within one.** Two districts
    highlighted widens the question; a district and a subwatershed narrows it to
-   the ground they share. The city fixture is the test bed: nine shape
+   the ground they share. The corpus city is the test bed: nine shape
    collections, and highlighting one boundary plus one waterbody takes the
    drawn count from 213 to 148, because none of the 65 annotated places stands
    in both. Two answers are exempt from the cull — the feature the reader has
@@ -682,40 +672,32 @@ extracted from the reference implementation's behaviour:
    on a zone's border was put there to mean the zone, and exact point-in-polygon
    arithmetic would flip it out over the width of the line it stands on.
 
-**One zone, exclusively, is a fourth way to ask — and the one thing here the
-reference implementation did not have.** Its only-button belonged to collections
-and to sections; a zone highlight only ever accumulated, so a reader who wanted
-one district and no other had to clear the set by hand, or isolate the whole
-collection, which answers the different and heavier question of putting every
-other collection away. `only`=`1` names one feature and makes the highlight set
-exactly that feature (`session.go`, `applyHighlight`), and it is a move on the
+**One zone, exclusively, is a fourth way to ask.** Isolating a collection or a
+section answers the different and heavier question of putting every other
+collection away; `only`=`1` names one feature and makes the highlight set
+exactly that feature (`session.go`, `applyHighlight`). It is a move on the
 set rather than a state of its own — the same shape as isolating, and derived
 the same way, so a zone that is alone *by any route* wears the pressed control
-and pressing it gives every highlight back. The ride-along is unchanged: an
+and pressing it gives every highlight back. The ride-along holds: an
 exclusive highlight still brings its own collection out of hiding, because
 asking to look at a piece of ground and keeping it put away cannot both be
-meant. It is spelled as an extension in the commit that added it rather than as
-parity, and no recorded tour step touches it.
+meant.
 
-The label ladder is the one place a convention helper had to move. The
-reference implementation gave a point collection curated as `atlas.render.as =
-text` a speaking default, because floating names are labels a producer pinned
-on rather than a different kind of thing to draw; `semconv.LabelPolicy` now
-says the same, so the rule lives in the registry rather than in a viewer.
+The label ladder's one convention rule lives in the registry rather than in a
+viewer: `semconv.LabelPolicy` gives a point collection curated as
+`atlas.render.as = text` a speaking default, because floating names are labels
+a producer pinned on rather than a different kind of thing to draw.
 
 ### 7.1 The stylesheet system
 
-`internal/app/assets/css` is the reference implementation's token-first,
-one-file-per-region system, carried as an asset (issue #5 §9) and unedited. The
-whole difference between it and this application's markup lives in one file,
-`chrome.css`: the region containers carry ids of their own, the seam's custom
-elements need somewhere to stand, and the import row is new — including the
-delayed fade that takes it away when a run ended well, which is an animation
-and not a script. The list is shorter than it was: the detail card used to be
-patched here, keyed off `:empty`, because a region rendered inside-out could
-not be given an attribute; it is an outerMorph region now (§4.1) and renders
-its own `hidden`, so the carried `pin-detail.css` works verbatim and there is
-nothing to say. The visual identity is unchanged — neutral dark chrome,
+`internal/app/assets/css` is a token-first, one-file-per-region system,
+carried as an asset (issue #5 §9). Everything this application's markup asks
+of it beyond the carried files lives in one file, `chrome.css`: the region
+containers carry ids of their own, the seam's custom elements need somewhere
+to stand, and the import row — including the delayed fade that takes it away
+when a run ended well, which is an animation and not a script. The detail card
+is an outerMorph region (§4.1) and renders its own `hidden`, so
+`pin-detail.css` works verbatim. The visual identity is neutral dark chrome,
 palette as accents.
 
 ---
@@ -744,12 +726,10 @@ out of a directory is the command's business. That is the hostenv rule
 surviving having a development loop.
 
 `-seam-watch` runs `npm run watch` in `render/` beside the server, streaming
-the bundler's output into the same event stream. The seam landed in M6, so the
-flag does its work; a tree with no `render/package.json` — the deletability
-principle exercised — is told so at `info` and the server carries on, because a
-missing seam is a served page with one script tag fewer, not a failed run. The
-flag's own usage line still describes the stub it was: a defect in the code,
-not in this paragraph.
+the bundler's output into the same event stream. A tree with no
+`render/package.json` — the deletability principle exercised — is told so at
+`info` and the server carries on, because a missing seam is a served page with
+one script tag fewer, not a failed run.
 
 ---
 
@@ -780,7 +760,7 @@ rather than a feeling:
    this architecture is a narrower region — a `legend-count` region — not a
    client-side filter.
 2. **The feature index.** A shape row's index is rendered whether or not the
-   row is unfolded, which is what the reference implementation did and what
+   row is unfolded, which is what
    keeps a feature reachable by name without unfolding first. It is also the
    largest thing in the legend partial.
 3. **The grid navigator's text field.** Typing a cell address round-trips per
@@ -793,30 +773,10 @@ worth nothing without a habit of writing down what it would apply to.
 
 ---
 
-## 11. What landed, and what is still named rather than built
+## 11. What is still named rather than built
 
 Named here so a stub is never mistaken for a decision — and so that a wave
 which lands moves out of the list rather than sitting in it as folklore.
-
-**Landed since this section was written:**
-
-- **The Wails host** (§1.4). `wails.Run` with this handler as the asset server,
-  the seam's built tree embedded and mounted at `/static`, and the native
-  dialog behind `PickFile`. No Wails runtime JS in the page; events are SSE.
-  The one thing the plan did not anticipate is that the webview's transport
-  cannot carry a redirect, so the host follows the application's own doorways
-  itself.
-- **The seam.** `render/` landed in M6. A build without it still serves:
-  `/static` answers `404`, an undefined `<atlas-viewport>` renders nothing, and
-  every non-viewport interaction works — the deletability principle,
-  demonstrated in the build order and again in the shipping binary. The M7
-  close-out walked it: with `render/` removed from the working copy,
-  `go build ./... && go test ./...` and `golden/depcheck` stay green, the page
-  serves whole, and search, the legend, solo, sections and the dock all answer.
-- **The grid cull** (§6.1). `internal/app/cells` answers it server-side, which
-  is what lets the panel's count and the map's drawing be one number.
-
-**Still named rather than built:**
 
 - **The WASM service-worker host.** §1's third row. Nothing is built for it;
   the hostenv discipline is what keeps it reachable.

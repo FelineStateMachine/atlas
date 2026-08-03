@@ -26,7 +26,7 @@ internal/logging, and internal/logging imports no lane back.`,
 // string when the edge is permitted.
 func laneImportEdge(from Lane, fromRel, importPath string) string {
 	if from == LaneOutside {
-		return "" // the golden-reference tree is the oracle, not the subject
+		return "" // the archived pre-rewrite tree is not the subject
 	}
 
 	toRel, local := rel(importPath)
@@ -93,7 +93,7 @@ func laneImportEdge(from Lane, fromRel, importPath string) string {
 			return contractf(
 				string(from)+" must not import "+string(other)+", but imports "+quote(importPath),
 				"3.2",
-				"the pipeline lanes are isolated — the composed multi-source result is generate ⊕ enrich, joined by the pipeline and checked at the bundle level by the goldens, never by an import edge",
+				"the pipeline lanes are isolated — the composed multi-source result is generate ⊕ enrich, joined by the pipeline and checked at the bundle level by the pipeline suite, never by an import edge",
 			)
 		}
 		return contractf(
@@ -144,8 +144,8 @@ func laneImportEdge(from Lane, fromRel, importPath string) string {
 		// already had their say.
 		return ""
 
-	case LaneGolden:
-		return "" // the harness may read anything it measures
+	case LaneTests:
+		return "" // a test tree may read anything it judges
 	}
 	return ""
 }

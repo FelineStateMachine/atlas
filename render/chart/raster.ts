@@ -160,8 +160,8 @@ export function buildRaster(
     // The detail layer draws only where it has something the base does not:
     // strictly deeper than the complete level. Above that threshold the base
     // pyramid is whole and asking the patchy one for the same ground would
-    // double every request a fresh view makes -- which is a number the parity
-    // baselines record, so it is a correctness question and not a saving.
+    // double every request a fresh view makes -- a number the diagnostics
+    // report carries, so it is a correctness question and not a saving.
     // A pyramid complete to its own bottom says so with a layer that never
     // renders, rather than with a special case.
     detail: new TileLayer({

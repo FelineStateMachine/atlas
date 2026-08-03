@@ -256,10 +256,10 @@ func TestContentPlane(t *testing.T) {
 	}
 }
 
-// The reference implementation sets a length and copies: a Range request is
-// answered whole. Tiles are stored uncompressed so that ranges *could* be
-// served, and the golden transcript records that they are not; this test is
-// what would go red if somebody implemented them without a waiver.
+// A Range request is answered whole: 200, the full body, no Accept-Ranges.
+// Tiles are stored uncompressed so that ranges *could* be served, and data.go
+// says why they deliberately are not; this test is what goes red if somebody
+// implements them without deciding to.
 func TestContentDoesNotServeRanges(t *testing.T) {
 	handler, _ := newApp(t, volume("tunic", "TUNIC", tunicStamp))
 	path := "/data/v/tunic/" + bundle.ShortStamp(tunicStamp) + "/tiles/overworld/0/0/0.jpg"
@@ -689,8 +689,8 @@ func sessionRecord(t *testing.T, host *fakeHost, name string) app.Session {
 // settling camera would fight the reader's own hand. What it does answer with
 // is the state island, which is an inert script node -- no focus to lose, no
 // scroll to reset -- because otherwise the camera it just wrote would be
-// readable only after the next unrelated request, and the parity baselines
-// record it on their very first step.
+// readable only after the next unrelated request, and the island's whole
+// point is that the two accounts of the arrangement diff now, not later.
 func TestCameraReportIsQuiet(t *testing.T) {
 	handler, host := newApp(t, volume("tunic", "TUNIC", tunicStamp))
 	got := post(t, handler, "/session/view", url.Values{
@@ -931,9 +931,9 @@ func TestKeyboardShortcutsAreHardened(t *testing.T) {
 	block := shell[opens : opens+closes]
 
 	// The editable-target guard, spelled the one way every filter spells it. A
-	// select is in the list because the reference puts it there, and the
+	// select is in the list because a select answers keys itself, and the
 	// `instanceof Element` is what lets a key dispatched straight at the
-	// window -- the parity tour's way of pressing one -- through as nobody's
+	// window -- a headless driver's way of pressing one -- through as nobody's
 	// typing.
 	const guard = `!(event.target instanceof Element&&` +
 		`(/^(INPUT|TEXTAREA|SELECT)$/.test(event.target.tagName)||event.target.isContentEditable))`
@@ -1123,7 +1123,7 @@ func zoneOnlyButton(page, zone string) string {
 
 // The exclusive control on a zone row: this ground, and no other.
 //
-// It is a post-parity addition rather than a port. The reference implementation
+// It is this application's own addition rather than a port. The reference implementation
 // gave the only-button to collections and to sections alone, and its zone
 // highlights only ever accumulated (frontend/src/areas.js, toggleZoneHighlight)
 // -- so a reader who wanted one zone had to clear the set by hand, or isolate

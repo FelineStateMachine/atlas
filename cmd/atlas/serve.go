@@ -22,8 +22,7 @@ import (
 
 // `atlas serve` is the headless host: the same application the desktop window
 // shows, over plain HTTP, with no window at all. It is the dev loop, the CI
-// host, and what the parity harness drives from a fresh launch per volume
-// (issue #5 §3.3).
+// host, and what the e2e suite drives in a real browser (tests/e2e).
 //
 // It is also the proof that the handler is portable: everything OS-shaped here
 // is three lines of hostenv wiring, and the handler below them cannot tell

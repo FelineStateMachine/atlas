@@ -12,9 +12,9 @@
 // the world on every camera event would be the most expensive thing on the
 // page, and it says exactly as much either way.
 //
-// The rectangle is written in whole pixels. The parity harness reads it as
-// `"left top width height"` and sub-pixel drift between two runs of one tour
-// is a difference that means nothing — the same discipline the camera check
+// The rectangle is written in whole pixels. The diagnostics report carries it
+// as `"left top width height"` and sub-pixel drift between two runs is a
+// difference that means nothing — the same discipline the camera check
 // already used.
 
 import type OLMap from "ol/Map.js";

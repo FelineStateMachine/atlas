@@ -651,8 +651,8 @@ func readEntry(volume hostenv.Volume, name string) ([]byte, error) {
 }
 
 // sortedIDs is the order a set of collection ids is written in everywhere it
-// is written: as strings, which is what the reference implementation's session
-// record and the golden baselines both record.
+// is written: as strings, which is how the session record and the state
+// island both spell it (docs/app.md §6).
 func sortedIDs(ids []string) []string {
 	out := append([]string(nil), ids...)
 	sort.Strings(out)

@@ -28,7 +28,7 @@
 // marker for every point collection and kept `atlas.render.as` only as the
 // default its label policy fell back to — so a text collection wore its
 // symbol AND its name, the "A — Wellspring of Wisdom" the reader rejected.
-// Post-parity and user-decided, like ⌘R. The sphere is untouched: this is a
+// This application's own addition, user-decided, like ⌘R. The sphere is untouched: this is a
 // rule about the projected form.
 
 import Fill from "ol/style/Fill.js";

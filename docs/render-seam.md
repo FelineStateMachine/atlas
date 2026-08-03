@@ -10,11 +10,8 @@ enough that the code is replaceable.
 The implementation is `render/`. Where this document and the code disagree,
 take it as a defect in one of them and say so.
 
-That standard was tested at M7 close-out rather than asserted, and it holds for
-the contracts and not yet for the numbers: §10.1 is the list of what a rewriter
-would still have to read out of `render/`. Every disagreement the test found
-between this document and the code has been resolved in favour of the code and
-is marked where it mattered.
+The standard holds for the contracts and not for the numbers: §10.1 is the
+list of what a rewriter would still have to read out of `render/`.
 
 ---
 
@@ -29,14 +26,14 @@ It stands on **three published contracts and one duty**:
 
 | | Where it is written | What it gives the seam |
 |---|---|---|
-| the `/data` plane | `docs/format.md`, `golden/fixtures/` | worlds, packed locations, prose, tiles, icons |
+| the `/data` plane | `docs/format.md`, `docs/app.md` §2.1 | worlds, packed locations, prose, tiles, icons |
 | the scene description | `docs/app.md` §4, and §3 below | what to draw and in what arrangement |
 | the analysis API | `docs/analysis.md`, `analysis/` | cell systems: plans, rings, style tokens |
-| the diagnostics duty | `golden/parity/SCHEMA.md`, and §8 below | what the seam must publish about itself |
+| the diagnostics duty | §8 below | what the seam must publish about itself |
 
 And on nothing else. It never imports the application, never reads a Go type,
 never learns a route beyond the two it posts to, and **nothing imports it**
-(`golden/depcheck` and the ESLint boundary rules both say so).
+(`tools/depcheck` and the ESLint boundary rules both say so).
 
 ### 1.1 The rules that keep it that way
 
@@ -46,11 +43,10 @@ never learns a route beyond the two it posts to, and **nothing imports it**
 - **Fetch lives in one place.** `render/data/` owns every network call. An
   ESLint rule fails the build otherwise, naming this contract.
 - **No bare `console.*`.** The `log` module is the browser end of the one
-  event stream (`docs/logging.md`), and the headless parity runner captures
-  it.
+  event stream (`docs/logging.md`).
 - **No UI framework.** The dependency surface is pinned: OpenLayers,
-  globe.gl + three, and `@atlas/analysis` (which brings s2js). It grows only
-  behind a green parity tour.
+  globe.gl + three, and `@atlas/analysis` (which brings s2js). Growing it is
+  a deliberate act, never a side effect of a feature.
 - **`strict`, `noUncheckedIndexedAccess`, `exactOptionalPropertyTypes`, ESM,
   no `any`** outside a typed browser-API escape hatch.
 - **~3,000 authored lines** is the guideline. `render/tools/lines.mjs` counts
@@ -64,8 +60,8 @@ never learns a route beyond the two it posts to, and **nothing imports it**
 Until the bundle loads, `<atlas-viewport>` is an unknown element: it renders
 nothing and breaks nothing. The application must serve, and every non-viewport
 test must pass, with the seam's assets absent — `/static/app.js` then answers
-`404`, which is what `golden/waivers.json`'s `seam-assets` entry asserts. This
-is the deletability principle standing up in the build order.
+`404` ([decision 13](decisions/0013-assets-and-static-are-two-mounts.md)).
+This is the deletability principle standing up in the build order.
 
 ---
 
@@ -110,8 +106,7 @@ page's backdrop, the keyboard focus and the loading scrim. In the reference
 implementation it *was* the map. Here the panes are the custom elements and
 `#map` is what is left, which is why paint order is load-bearing — rendered
 after the panes its backdrop covers them, every count reads correct and the
-page shows an empty rectangle. `checkCanvas` in the parity tour exists because
-that happened.
+page shows an empty rectangle.
 
 Which pane is up is **seam-local state** (issue #5 §4.1): the same world, the
 same filters, the same camera, seen from a different distance. The application
@@ -198,7 +193,7 @@ y = −(yTile − grid.firstTile) · grid.tileSize
 ```
 
 `grid` is the manifest's `tileGrid` with the world payload's own `grid`
-override applied (`docs/format.md` §6.2) — every fixture volume overrides it,
+override applied (`docs/format.md` §6.2) — every corpus volume overrides it,
 so skipping the override puts every feature about 850,000 pixels off the map.
 **This arithmetic belongs in `docs/format.md` and is not there.** It is
 recorded here, and in `internal/app/world.go`, until it moves.
@@ -261,9 +256,8 @@ canvas to it would depend on a tree the application is free to reshape.
 **A miss does not post.** Clicking open water is not a request to close what
 the reader is reading, so an empty feature raises nothing at all; the card is
 put away by Escape and by its own button. A pick event that fired on a miss
-would clear the selection on every stray click, which is a thing the reference
-never did — and `pick-missed` in the parity tour is the step that holds this
-decision (`golden/parity/SCHEMA.md` §2.1.1).
+would clear the selection on every stray click
+(`render/test/pick.test.ts` holds this decision).
 
 **The camera report** is `POST /session/view`, form-encoded
 (`volume world x y zoom rotation`), debounced 400 ms after the camera settles,
@@ -318,7 +312,7 @@ the square in one tile and zoom 0 is resolution 32. The banner string
 ATLAS:PIXELS; origin top-left; x increases right; y decreases downward
 ```
 
-is recorded on every step of every parity baseline. Never reword it.
+is part of the diagnostics contract (§8.2). Never reword it.
 
 **The camera fits `bounds`**, falling back to the whole world square — never
 `surface`. A lens may declare both, and they are not interchangeable: `bounds`
@@ -326,8 +320,7 @@ is the raster window the pyramid fills, `surface` is the ground that window
 pictures, which on a split sheet is smaller because the window was grown to
 take in a title drawn beside the map. The reader is shown everything the lens
 drew; `surface` is what anything *dividing* the world measures, and that
-reading belongs to the analysis lane's `Ground`. Tunic is the volume that
-tells them apart, and its baseline settles it.
+reading belongs to the analysis lane's `Ground`.
 
 ### 6.2 The twelve layers
 
@@ -352,21 +345,20 @@ Two layers, because a pyramid is two different things. The base carries
 `minZoom … fullZoom` and is complete. The detail carries everything above it
 and renders **only below the complete level's resolution** — above that
 threshold the base is whole, and asking the patchy pyramid for the same ground
-doubles every request a fresh view makes, which is a number the baselines
-record.
+doubles every request a fresh view makes.
 
 **Coverage is consulted before every request** (`docs/format.md` §6.3.1): a
 level with no bitset is fully covered *inside the lens's window*, and outside
 that window there is nothing. A denied tile returns no URL, and the parent is
-drawn larger instead. `render/test/pyramid.test.ts` reproduces all twelve
-golden tile inventories from bounds, coverage and formats alone.
+drawn larger instead. `render/test/pyramid.test.ts` reproduces every corpus
+tile inventory from bounds, coverage and formats alone.
 
 **Two overzoom levels** sit past the deepest tiles: the view's `maxZoom` is
 `lens.maxZoom + 2`, and there the base layer's own tiles are drawn larger.
 `lens.interpolate` decides how — smooth for a photograph, nearest-neighbour
 for pixel art, because a hand-drawn map magnified with bilinear smoothing
-stops being a drawing. *Every lens in the public fixture set declares `true`,
-so the nearest-neighbour branch is pinned by no golden.*
+stops being a drawing. *Every lens in the committed corpus declares `true`,
+so the nearest-neighbour branch is pinned by no fixture.*
 
 ### 6.4 Scrims, labels, declutter
 
@@ -418,8 +410,7 @@ sphere without resampling, which is why the globe asks for it by name.
 
 **Nothing is built until the sphere is entered.** A WebGL context, a texture
 and two thousand meshes are not what a reader looking at a chart asked for,
-and `pane.globeBuilt` in the baselines is exactly the question "does the
-`__atlasGlobe` global exist yet".
+and the `__atlasGlobe` global's absence until then is the observable (§8.3).
 
 **Four budgets**, each a decision rather than a limit:
 
@@ -447,9 +438,9 @@ rotation        = 0, always
 ```
 
 Deriving the altitude from the viewport height, the resolution and the
-equirect pixel span is defensible arithmetic and reproduces none of the
-recorded numbers; §10 shows the two Mars baseline readings the power law falls
-out of. The clamps are load-bearing rather than hygiene.
+equirect pixel span would be defensible arithmetic and is not what this
+pairing is; the power law and its clamps are the contract (§10). The clamps
+are load-bearing rather than hygiene.
 
 A flip to the sphere and straight back hands the chart the camera it was given
 — the **identical object**, when latitude, longitude and altitude have all
@@ -460,20 +451,20 @@ them — and otherwise inverts honestly.
 
 ## 8. The diagnostics duty
 
-The seam publishes what only a renderer can know, under the names
-`golden/parity/SCHEMA.md` records. A snapshot is two halves: the application's
-(the session island, `docs/app.md` §6) and the seam's. Neither half guesses at
-the other's keys.
+The seam publishes what only a renderer can know, under stable names
+(`render/diagnostics.ts` is their home). A snapshot is two halves: the
+application's (the session island, `docs/app.md` §6) and the seam's. Neither
+half guesses at the other's keys.
 
 ### 8.1 The globals
 
 | Global | Shape | Who reads it |
 |---|---|---|
 | `__atlasSeam.snapshot()` | §8.2 | the canonical entry point |
-| `__atlasDebug.snapshot()` | the same object | the recorded tours, which call this name |
-| `render_game_to_text()` | JSON of `__atlasAppDiagnostics()` merged under the seam's snapshot | the recorded tours |
-| `advanceTime()` | forces a synchronous frame | the tours' settle loop |
-| `__atlasGlobe` | §8.3 — **absent until the sphere is built** | the tours' `pane` half |
+| `__atlasDebug.snapshot()` | the same object | an alias for drivers that call this name |
+| `render_game_to_text()` | JSON of `__atlasAppDiagnostics()` merged under the seam's snapshot | a headless driver |
+| `advanceTime()` | forces a synchronous frame | a headless driver's settle loop |
+| `__atlasGlobe` | §8.3 — **absent until the sphere is built** | the sphere's own diagnostics |
 
 `__atlasAppDiagnostics` is the hook the application half plugs into. Nothing
 in the seam defines it; if it is absent, `render_game_to_text()` is the seam's
@@ -494,8 +485,8 @@ half alone.
 `loaded` measure the route two runs took rather than the destination and are
 not equality-checked. `grid.cells` is one object per plan cell —
 `{hash, extent, role, count, contextDistance}` — read back out of the two
-vector sources, chosen path first and dimmed context after, which is the order
-the baselines record. Every planned cell appears whether or not it painted:
+vector sources, chosen path first and dimmed context after, in a stable
+order. Every planned cell appears whether or not it painted:
 what the grid *holds* and what it *paints* are two questions.
 
 ### 8.3 `__atlasGlobe`
@@ -533,19 +524,17 @@ page one script tag rather than its chrome.
 
 Recorded here rather than papered over.
 
-- **The parity tour is wired and not yet green.** `golden/parity/tour.js` reads
-  this lane through the ids above and walks every recorded step;
-  `golden/parity/compare.mjs` is the gate. What it still shows is listed in
-  `golden/parity/SCHEMA.md` §7, and most of it is the application's half
-  rather than this one's.
-- **The reconcile path is verified by hand, not by a tour.** Patching the state
-  node in place and replacing it whole both land: a search narrows the
-  standing set, a `<data>` child hides a collection, a replaced node plus one
-  `atlas:rescan` opens the grid on the held cell with the extent the Mars
-  baseline records, and the selected feature survives the cell's cull. The
-  same journey through the application's own controls was walked by hand at
-  M7 close-out — search, a legend checkbox, a solo chip — and lands; what is
-  still missing is a tour that walks it every time.
+- **No browser test drives the panes.** The lane's own suite
+  (`render/test/`) judges the models — projection, pyramids, visibility,
+  picks, grid extents, the globe's decisions — over stated fixtures and the
+  corpus; `tests/e2e` asserts arrangement, never pixels. What a real pointer
+  over a real canvas does is exercised by hand, not by a gate.
+- **The reconcile path is verified by unit tests and by hand, not by a
+  browser tour.** Patching the state node in place and replacing it whole
+  both land: a search narrows the standing set, a `<data>` child hides a
+  collection, a replaced node plus one `atlas:rescan` opens the grid on the
+  held cell, and the selected feature survives the cell's cull. What is
+  still missing is a browser test that walks it every time.
 - **The globe's altitude pairing is calibrated.** It is a power law anchored at
   one point, not a field-of-view calculation (§7):
 
@@ -554,30 +543,22 @@ Recorded here rather than papered over.
   ```
 
   The whole disc at altitude 2.5 reads as the whole chart at zoom 2, and each
-  halving of altitude reads as one more zoom. The Mars baseline settles it
-  twice over: `globe-left` records a chart zoom of 1.3219, which is exactly
-  `2 + log2(2.5 / 4)` after the camera has been pushed out to the farthest
-  distance, and `globe-labels-held` records an altitude of 0.68, which is
-  `2.5 / 2^(1.8826 − 2)` halved twice — two halvings for three presses,
-  because two of them land in one tick and both read the same standing
-  altitude. The clamps are load-bearing rather than hygiene: the farthest is
-  what `globe-left`'s recorded zoom is a reading of.
+  halving of altitude reads as one more zoom. The clamps are load-bearing
+  rather than hygiene: the farthest distance is what the whole-disc reading
+  stands on.
 
   The locator's mark is calibrated with it, and it is a **dot, not a
   rectangle**: a fixed 22 × 22 box centred on the point the camera faces,
-  written in the canvas's own pixels. That is what makes `globe-entered`'s
-  `"117 53 22 22"` fall out — the world square is 8,192 across, the locator
-  composites it at 256 pixels, and a camera over the middle lands at
+  written in the canvas's own pixels — the world square is 8,192 across, the
+  locator composites it at 256 pixels, and a camera over the middle lands at
   `0.5 × 256 − 11 = 117`. The box never changes size however close the camera
   comes, because half a sphere is out of sight whatever the camera does and a
   true-to-scale rectangle would be saying something false.
-- **Nearest-neighbour resampling is pinned by no fixture.** Every public lens
-  declares `interpolate: true`.
-- **Hover is implemented and unverified against a baseline.** Picks and the
-  detail card are no longer in that sentence: the tour drives a real pointer at
-  a real pixel and holds what comes back (`golden/parity/SCHEMA.md` §2.1.1,
-  the `pick-*` steps). What no baseline holds is the hover — a pointer that
-  moves without pressing, and the styling that answers it.
+- **Nearest-neighbour resampling is pinned by no fixture.** Every lens in the
+  committed corpus declares `interpolate: true`.
+- **Canvas hover is implemented and unverified.** A pointer that moves
+  without pressing, and the styling that answers it, is held by no test;
+  picks are (`render/test/pick.test.ts`).
 - **The seam's bundle is 2.3 MB.** globe.gl brings three, d3 and turf. It is a
   desktop application served from its own binary, so this is a note rather
   than a problem — but it is the obvious thing to measure first if it ever
@@ -585,20 +566,17 @@ Recorded here rather than papered over.
 
 ## 10.1 What this document does not give you
 
-The M7 close-out ran the blind-rewrite test against this document and found the
-line where it stops being sufficient. §§1–9 are enough to build a seam that is
-*correct* — right contracts, right flows, right arithmetic, right budgets. They
-are **not** enough to build one whose diagnostics equal a recorded baseline,
-because a baseline is full of numbers this document does not carry. The gap is
-named here rather than left for the next person to discover step by step.
+§§1–9 are enough to build a seam that is *correct* — right contracts, right
+flows, right arithmetic, right budgets. They are **not** enough to build one
+that draws and reports exactly what this one does, because the code is full of
+numbers this document does not carry. The gap is named here rather than left
+for the next person to discover step by step.
 
-What a rewriter would still have to take from `render/`, `golden/parity/`, or a
-run of the tour:
+What a rewriter would still have to take from `render/` itself:
 
 - **Every drawn dimension.** Pin radii by state, rim stroke widths, icon pixel
   size and anchor, label fonts and halo widths, area fill opacities, sprite
-  geometry and colours on the sphere. None of it is here and none of it is in a
-  golden either — `golden/parity/SCHEMA.md` §7 says plainly that almost nothing
+  geometry and colours on the sphere. None of it is here, and almost nothing
   checks pixels, so a rewrite could differ in all of it and pass.
 - **`atlas.icon.outset`.** §2 does not mention it; the seam reads the world's
   declaration and uses it for the pin rim. *It also uses it wrong* — the
@@ -636,8 +614,7 @@ run of the tour:
   only shapes that have a title.
 - **The chart `View`'s explicit resolution ladder.** Enumerating
   `size/tileSize / 2^z` per level rather than deriving from a max and a factor
-  is what makes a candidate's camera *equal* a baseline's rather than close to
-  it. This one is the difference between eighty-one differing fields and one.
+  is what makes two implementations' cameras *equal* rather than close.
 - **The rest of the constants**: focus zoom 4 and the 220 ms flight, the
   "steered" thresholds that decide whether a closing card gives the camera
   back, the grid fit's 52 px padding, the 46 × 23 px test that decides whether
@@ -653,16 +630,16 @@ current seam's reading of them is not.
 
 | Behaviour (issue #5 §5.5) | Module | Verified by |
 |---|---|---|
-| `ATLAS:PIXELS` projection | `chart/projection.ts` | `test/projection.test.ts`, smoke |
-| 12-layer z-order | `chart/element.ts` | reading; the tour |
-| overzoom + parent upsampling | `chart/raster.ts` | `test/projection.test.ts`, smoke |
-| coverage bitsets honoured | `data/pyramid.ts` | `test/pyramid.test.ts` (12 inventories) |
-| nearest vs smooth | `chart/raster.ts` | payload-faithful; no fixture |
+| `ATLAS:PIXELS` projection | `chart/projection.ts` | `test/projection.test.ts` |
+| 12-layer z-order | `chart/element.ts` | reading |
+| overzoom + parent upsampling | `chart/raster.ts` | `test/raster.test.ts` |
+| coverage bitsets honoured | `data/pyramid.ts` | `test/pyramid.test.ts` (the corpus inventories) |
+| nearest vs smooth | `chart/raster.ts` | `test/raster.test.ts`; payload-faithful, no fixture pins the nearest branch |
 | priority declutter + bypass | `chart/styles.ts`, `world/visibility.ts` | `test/visibility.test.ts` |
-| zone scrims, even-odd | `chart/element.ts` | reading; the tour |
+| zone scrims, even-odd | `chart/element.ts` | `test/element.test.ts` |
 | shard-crossing view carry | `chart/element.ts` | `test/visibility.test.ts` (the shard half) |
-| the corner overview | `chart/overview.ts` | smoke |
-| globe equirect compositing | `globe/texture.ts` | smoke |
-| detail-tile + label budgets | `globe/element.ts` | smoke (0 on entry, 180 held, 0 on leave) |
-| camera round trip | `globe/element.ts` | smoke (exact) |
-| grid token vocabulary | `chart/grid.ts` | `test/grid.test.ts` against two recorded steps |
+| the corner overview | `chart/overview.ts` | reading |
+| globe equirect compositing | `globe/texture.ts` | `test/texture.test.ts` |
+| detail-tile + label budgets | `globe/element.ts` | `test/globe.test.ts` (the label budget); reading for the detail tiles |
+| camera round trip | `globe/element.ts` | `test/globe.test.ts` |
+| grid token vocabulary | `chart/grid.ts` | `test/grid.test.ts`, hand-derived extents |

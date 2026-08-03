@@ -1,10 +1,8 @@
 # The workbench
 
-**Status: built (M4).** This document specifies the workbench: the pages it
-serves, where their facts come from, the operation-runner library, the safety
-properties operations are held to, and the feature-by-feature account of the
-reference implementation's `cmd/cartograph` that this milestone's exit criterion
-asks for.
+**Status: built.** This document specifies the workbench: the pages it
+serves, where their facts come from, the operation-runner library, and the
+safety properties operations are held to.
 
 The implementation is `internal/workbench`, the runner is
 `internal/workbench/oprunner`, and the host is `atlas workbench`
@@ -52,7 +50,7 @@ its subprocess's exit.
 
 **Measurement first.** Every page leads with the score, because the score is the
 only number anything gates on ([enrich](enrich.md), the monotonicity gate). The
-five axes the reference tree measured — annotation, cartography, structure,
+five axes — annotation, cartography, structure,
 icons, conventions — are printed under it as diagnostics and are labelled as
 such on the page. Percentages survive there and nowhere else.
 
@@ -171,9 +169,9 @@ Every run reads the same way: one **command** row, then the subprocess's own
 A program that will not start, a program that exits non-zero, and a program that
 succeeds all end in a result row — the difference is `Failed`.
 
-### The safety properties, carried verbatim
+### The safety properties
 
-These are the reference implementation's, named because they are the contract:
+Named because they are the contract:
 
 1. **Origin-checked POSTs.** A browser sends `Origin` on any cross-site POST and
    omits it on an ordinary same-origin form submission. A present one must agree
@@ -222,119 +220,15 @@ application's assets) plus one file of this surface's own.
 
 ---
 
-## 6. Cartograph feature parity
+## 6. Scope
 
-M4's exit criterion is "cartograph feature parity", and this enumeration is the
-evidence. Every user-visible feature of the reference implementation's
-`cmd/cartograph` — read off its code and its tests — appears below with one of
-three verdicts:
+The workbench is the pipeline dashboard's whole surface: measurement-first
+pages over a registry, source cards fed by the lanes' own registry entries,
+and pipeline operations behind the safety properties of §4. Its archived
+predecessor is `cmd/cartograph` on the `golden-reference` tag.
 
-- **carried** — the same capability, here;
-- **replaced** — the capability is subsumed by the score, or by a mechanism this
-  architecture already has;
-- **dropped** — deliberately not carried, with the reason.
-
-**Tally: 58 features enumerated — 43 carried, 9 replaced by the score or by a
-mechanism this architecture already has, 6 deliberately dropped.**
-
-### The collection page → the library page
-
-| # | Cartograph | Verdict | Here |
-|---|---|---|---|
-| 1 | Registry directory printed | carried | Same, with the point-table version beside it. |
-| 2 | One row per volume, linking to its page | carried | Same. |
-| 3 | Bundles that fail to measure listed as warnings | carried | Same; one bad file never takes the page down. (Smoke-tested against a real library holding format v1 bundles the clean-room reader refuses.) |
-| 4 | Builds count | carried | Same. |
-| 5 | "Figures are the serving build's" note | carried | Same, plus "the score is the measurement; everything beside it is a diagnostic". |
-| 6 | Serving build = the registry's fold | carried | `bundle.Newer` over descriptors built from scores; a test holds the first build to `maturity.Serving`. |
-| 7 | Measurements cached by size and modification time | carried | Same test, same reason. |
-| 8 | Pin count as the headline figure | replaced | The **score** is the headline; the feature count is a diagnostic column. |
-| 9 | `DescribedPct` column | replaced | Described count with its share beside it, over the right denominator — the >100 % defect is retired by construction (see [enrich](enrich.md)). |
-| 10 | Unique raster MB | carried | Diagnostic column. |
-| 11 | Lens/layer count | carried | Diagnostic column. |
-| 12 | Merged-source badges | carried | "Readings" badges, from the serving build's ledger. |
-| 13 | Depth column | replaced | Moved to the measurement page's cartography axis; the library table leads with the score. |
-| 14 | Icon-coverage column | replaced | Moved to the measurement page's icons axis, for the same reason. |
-| — | *(new)* Score movement against the previous build | — | The delta headline of issue #5 §5.6. |
-
-### The volume page → the measurement page
-
-| # | Cartograph | Verdict | Here |
-|---|---|---|---|
-| 15 | Builds newest first, serving one marked | carried | Same. |
-| 16 | Capture time, revision, short stamp per build | carried | Same, plus whether the build was written by the enrich lane and under which policy. |
-| 17 | Annotation / cartography / structure / icons axes | carried | Same four, plus the conventions axis: five, as §5.3 asks. |
-| 18 | Merge table per build | carried | Per world: offered (by kind), matched, median px, enriched, added, adopted, held, rejected, alignment. Origin accounts are marked as such. |
-| 19 | Held pins with their reasons | carried | Same, and the rest of the ledger with it: rejected, adopted, collections that took an attribute, corrections. "Whole merge-ledger reporting" is the whole ledger. |
-| 20 | Compare form choosing two builds | carried | Same. |
-| 21 | 404 for an unknown volume | carried | Same. |
-| — | *(new)* Score headline, per-world breakdown, allowance and comparability | — | §5.3. |
-
-### The diff page
-
-| # | Cartograph | Verdict | Here |
-|---|---|---|---|
-| 22 | Axis table with A, B, Δ and signed styling | carried | Same shape, over the new axes. |
-| 23 | Share deltas in whole points | carried | Same arithmetic. |
-| 24 | Byte deltas in MB | carried | Same. |
-| 25 | Pins added and removed, by map | carried | Features added and removed, by world, unpacked from both builds on demand. |
-| 26 | Matched-pair stability (kept / gained / lost) | carried | Same rule: a pair is the same pair only when donor and winner both agree. |
-| 27 | "pick two builds" → 400 | carried | Same. |
-| — | *(new)* Score-delta headline, verdict, per-world deltas | — | §5.6. |
-
-### The sources page
-
-| # | Cartograph | Verdict | Here |
-|---|---|---|---|
-| 28 | One card per source, name and slug | carried | Same, from the lane's registry rather than a table in the dashboard. |
-| 29 | Licence and attribution | carried | The registry entry's own fields — this is what §5.6 asks the cards to carry. Cartograph only had them inside its prose. |
-| 30 | Component badges (raster / icons / locations / metadata) | dropped | The component set was dashboard-local editorial data with no home in the clean-room registry, and it never varied usefully. What a source actually contributed to a build is visible per build, in the ledger. |
-| 31 | A prose description per source | dropped | `doc.Provenance` carries identity and terms, not prose. A source's prose lives in its package and in [generate](generate.md); restating it here is the second copy this design refuses. |
-| 32 | Per-source fetch form with a target hint | carried | On the operations page, one form per crawlable source, each hinted by its own crawler's `Usage()`. |
-| — | *(new)* Id-space badge, crawlable badge | — | Facts the registry entry already carried. |
-
-### The pipeline panel → the operations page
-
-| # | Cartograph | Verdict | Here |
-|---|---|---|---|
-| 33 | Repo / archive / bundles line | carried | Binary / archive / tile set / registry. |
-| 34 | Fetch (`tools/crawl`) | carried | `crawl`. |
-| 35 | Rebuild pyramids (`tools/tiles`) | carried | `tiles`. |
-| 36 | Recompose bundles (`tools/generate`) | carried | `compose`, and `enrich` beside it — the lane split since. |
-| 37 | Console pane | carried | `#op-log`, rows appended as they arrive. |
-| 38 | `go run ./tools/…` from a repository checkout | replaced | Operations invoke the `atlas` binary — this process's own executable. The lanes are subcommands now, and no checkout is required. |
-| 39 | `-repo` flag and `findRepo()` walking up for `go.mod` | dropped | Nothing to find: see #38. |
-| 40 | Refusal when `-repo` or `-archive` is unset | carried | Each operation names the configured targets it lacks, on the card and in the refusal. |
-| 41 | `fmg-archive` directory-name check before generate | dropped | `atlas compose -archive` takes the archive root directly; the check guarded a positional convention that no longer exists. |
-| 42 | Unknown operation, unknown source → 400 | carried | Same. |
-| — | *(new)* `enrich` and `measure` operations, optional volume narrowing | — | The lanes that exist now. |
-
-### Mechanics
-
-| # | Cartograph | Verdict | Here |
-|---|---|---|---|
-| 43 | Origin-checked POST | carried | `oprunner.CheckOrigin`, tested on its own. |
-| 44 | One-operation mutex answering 409 | carried | `Runner.Acquire`; the refusal names what is running. |
-| 45 | Target validation (safe characters, no leading dash, pair slash rule) | carried | `oprunner.ValidTarget`, rule for rule, plus the volume slug held to the same rule. |
-| 46 | Streamed subprocess output, flushed as it arrives | carried | Streamed **HTML rows** carrying the parsed slog stream. |
-| 47 | Subprocess dies with the request | carried | Same, via the request's context. |
-| 48 | Both streams interleaved in arrival order | carried | Same, with each row saying which stream it came from. |
-| 49 | Strict CSP on every page | carried | Plus `base-uri 'none'` and `frame-ancestors 'none'`. |
-| 50 | Page rendered into a buffer first | carried | Same. |
-| 51 | Hand-written `app.js` streaming the response into a `<pre>` | replaced | An htmx streaming swap; the workbench ships no bespoke JavaScript. |
-| 52 | `/static/style.css`, `/static/app.js` | replaced | `/assets/workbench.css` and the vendored runtime at `/assets/htmx.js`. |
-| 53 | Plain-text operation output | replaced | HTML rows with level, message and attributes as separate cells, because the stream is structured now. |
-| 54 | `-bundles`, `-addr` flags; default library | carried | Same flags, same default. |
-| 55 | Prints the listening URL | carried | On stdout, as product output. |
-| 56 | Own `cartograph` binary | replaced | A subcommand of the one binary, `atlas workbench`. |
-| 57 | Dashboard-local `Source` interface with `FetchArgs` | dropped | Sources are the generate lane's; the workbench receives their entries as data and builds argv from the operations table. |
-| 58 | `internal/measure` axis vocabulary (`Pins`, `Zones`, `Categories`) | dropped | The format speaks features, collections and shapes now; the axes are spelled in the format's own words. |
-
-### What the workbench gained
-
-Not parity, but worth naming as the reason the exit criterion is a floor and not
-a ceiling: the score and its movement on every page, the build gate's own
-comparison rendered rather than reimplemented, the whole ledger instead of its
-counts, the enrich lane's operations, structured rows instead of a text pane,
-and a runner whose safety properties are a tested library rather than four
-paragraphs of handler.
+What carries the surface: the score and its movement on every page, the
+build gate's own comparison rendered rather than reimplemented, the whole
+ledger instead of its counts, the enrich lane's operations beside the generate
+lane's, structured rows instead of a text pane, and a runner whose safety
+properties are a tested library rather than four paragraphs of handler.

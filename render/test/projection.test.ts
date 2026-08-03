@@ -10,7 +10,7 @@
 //
 // The window every derivation assumes: 1280 × 720 with the legend beside the
 // map, which leaves the map 909 pixels wide — stated here rather than fitted
-// backwards, exactly as the retired parity harness stated it.
+// backwards, so every expectation below is checkable on paper.
 
 import test from "node:test";
 import { strict as assert } from "node:assert";
@@ -24,8 +24,8 @@ const MAP_WIDTH = 909;
 const MAP_HEIGHT = 659;
 
 test("the banner is the constant every diagnostics snapshot carries", () => {
-  // The sentence is the contract: it was recorded on every step of every
-  // parity baseline, and it may never be reworded.
+  // The sentence is the contract: every diagnostics consumer compares it
+  // verbatim, and it may never be reworded.
   assert.equal(COORDINATE_SYSTEM,
     "ATLAS:PIXELS; origin top-left; x increases right; y decreases downward");
 });

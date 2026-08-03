@@ -7,11 +7,12 @@ written to be sufficient on its own. An implementer who has never seen Atlas
 should be able to write a conforming system, register it, and pass the
 conformance suite from this document and nothing else.
 
-The reference implementation is `analysis/cellsystems`. The judge is
-`golden/analysis/` — 178 recorded vectors and 28 recorded plans, compared
-byte-exactly and positionally — plus the executable conformance suite in
-`analysis/test/conformance.ts`. Where this document and the implementation
-disagree, take it as a defect in one of them and say so.
+The reference implementation is `analysis/cellsystems`. The judge is the
+executable conformance suite in `analysis/test/conformance.ts`, plus the 178
+shared contract vectors in `analysis/testdata/cells/` — compared as JSON text,
+positionally, and read by the Go twin (`tests/cells`) as well, so the two
+copies of the arithmetic answer to one set of numbers. Where this document and
+the implementation disagree, take it as a defect in one of them and say so.
 
 ---
 
@@ -78,8 +79,9 @@ interface Ground {
 }
 ```
 
-`golden/analysis/vectors/grounds.json` records nine of these, and the gate
-checks two derived values on each.
+`analysis/testdata/cells/grounds.json` records six of these, each with its two
+derived values — `surfaceExtent` and the systems that divide it — checked by
+both lanes' vector suites.
 
 ### 3.1 `surfaceExtent(ground): [minX, minY, maxX, maxY]`
 
@@ -90,17 +92,18 @@ The ground every system divides. Three branches, in order:
 3. failing that, the whole **world square** (`tileGridSize`, or `0`).
 
 Each branch flips the sign: `[x, -(y + height), x + width, -y]`. A lens
-anchored at `y = 0` therefore produces a `maxY` of `-0`, which is a real double
-and appears in the goldens. JSON cannot carry it, which is why the vectors gate
-compares JSON text on both sides rather than loosening the comparison.
+anchored at `y = 0` therefore produces a `maxY` of `-0`, which is a real
+double. JSON cannot carry it, which is why the shared vectors are compared as
+JSON text on both sides — the serialization forces the negative zero to be
+normalized away rather than the comparison loosened.
 
 ### 3.2 What is deliberately not in it
 
 The active system, the held cell, and whether the subgrid is showing. Those are
 session state, and they arrive as arguments — `cellPlan(ground, system,
 cellID)`. That is what lets one ground be divided two ways at once, by two
-callers who never meet, and it is what the plan fixtures exercise by recording
-the session values per step rather than folding them into the ground.
+callers who never meet, and it is what the plan tests exercise by passing the
+session values per call rather than folding them into the ground.
 
 ### 3.3 The attribute vocabulary it reads
 
@@ -213,8 +216,8 @@ direction. Non-degeneracy is a rule; orientation is not.
 
 **The floor asymmetry.** `descendTarget` at `maxLevel` answers `""` in S2 and
 keeps halving in geohash. Nothing reaches it — every caller checks `maxLevel`
-first, in `cellPlan` and in `equivalentCell` — and both behaviours are
-recorded, so the contract asserts only that descent *terminates*: the telescope
+first, in `cellPlan` and in `equivalentCell` — and both behaviours are pinned
+by the shared vectors, so the contract asserts only that descent *terminates*: the telescope
 reaches `maxLevel` in exactly `maxLevel` hops, one level per hop.
 
 **The whole-world assumption.** The seam unwrap treats the ground's width as
@@ -222,9 +225,8 @@ one whole world. That is true of the equirectangular whole-planet lenses S2 is
 offered on in practice, and false of, say, a Web-Mercator city window — where
 `appliesTo` still answers yes and the coarse cells' rings are nonsense.
 `analysis/test/s2-limits.test.ts` pins the limit rather than papering over it;
-narrowing `appliesTo` would be a behaviour change no golden would have caught,
-and it is a curation decision for the app or a future `Ground` field, not this
-lane's to make unilaterally.
+narrowing `appliesTo` is a curation decision for the app or a future `Ground`
+field, not this lane's to make unilaterally.
 
 ---
 
@@ -267,10 +269,9 @@ interface PlanCell {
 }
 ```
 
-**Emission order is the contract.** The parity harness compares a plan
-positionally, cell for cell, and reports the index of the first difference —
-*"cell 12 of 32, emission order is the contract"*. A reordering is a failure,
-not a detail. The order is:
+**Emission order is the contract.** Every check of a plan — the conformance
+suite, the property suite — compares it positionally, cell for cell. A
+reordering is a failure, not a detail. The order is:
 
 1. For each ancestor from the root down, that ancestor's children **except the
    one on the path**, as `neighbor`s carrying their `contextDistance` — how many
@@ -383,41 +384,36 @@ The checklist:
    ```
 
 6. **Run the gates.** `make analysis-lane` for the boundary rules, the type
-   checker and the conformance suite; `make golden` for everything, including
-   the vectors, which your system does not appear in and must not disturb.
-7. **Do not touch the goldens.** The recorded vectors and plans describe
-   geohash and S2. A new system adds nothing to them; if adding one turns one
-   red, the new system reached something shared that it should not have.
+   checker and the conformance suite; `make test` for everything, including
+   the shared vectors, which your system does not appear in and must not
+   disturb.
+7. **Do not touch the shared vectors.** `analysis/testdata/cells/` describes
+   geohash and S2. A new system adds nothing to it; if adding one turns a
+   vector red, the new system reached something shared that it should not
+   have.
 
 ---
 
 ## 10. The root cases
 
-`""` is the root of every system, and S2's token vocabulary has no spelling for
-it — `fromToken("")` answers a cell id that is neither the sphere nor an error.
-The oracle therefore answered six of the fifteen methods with numbers rather
-than meanings at the root: `parent("")` was `"4"`, `contains("", p)` was false
-for most points, and `center("")`, `ring("")`, `childIndex("")` and
-`poleContained("")` were derived from the same junk id.
-
-None of it is reachable from a plan — the root is never a plan cell — which is
-why no golden ever had to have an answer. The contract says `""` is the root,
-so the clean lane keeps the contract instead: the root is the whole ground, its
-bbox and ring are the picture's own rectangle, its centre is the picture's
-centre, it contains every point the ground can name, its ordinal is 0, and it
-circles no single pole because it circles both. This is the one place the lane
-knowingly differs from the oracle, and the vectors gate is untouched by it.
+`""` is the root of every system, and S2's token vocabulary has no spelling
+for it — `fromToken("")` answers a cell id that is neither the sphere nor an
+error — so the root's answers are defined by this contract rather than
+borrowed from the token library. The root is never a plan cell, so nothing
+downstream reaches these answers through a plan; they exist so the fifteen
+methods stay total. The contract: the root is the whole ground, its bbox and
+ring are the picture's own rectangle, its centre is the picture's centre, it
+contains every point the ground can name, its ordinal is 0, and it circles no
+single pole because it circles both.
 
 ---
 
 ## 11. Running the lane
 
 ```sh
-make analysis-lane        # boundary rules + tsc --strict + the conformance suite
-make golden               # every gate, including the 178 vectors and 28 plans
-npm run --silent test     # the conformance suite alone
-node golden/analysis/run.mjs --verbose            # name every vector as it passes
-ATLAS_ANALYSIS_ENGINE=current node golden/analysis/run.mjs   # drive the oracle instead
+make analysis-lane        # boundary rules + tsc --strict + the lane's suite
+make test                 # the whole required surface, this lane included
+npm run --silent test     # the lane's suite alone, shared vectors included
 ```
 
 The lane needs a node that strips types (22.18+, or 24+) and one `npm ci` at

@@ -15,8 +15,9 @@ import (
 )
 
 // The data plane. Its shape is not a choice this rewrite gets to make: the
-// seam and the golden transcript both read it, and golden/http replays the
-// recorded answers against this file byte for byte (issue #5 §4.2).
+// seam reads it, and it stays byte-compatible with the implementation this
+// one replaces (issue #5 §4.2, docs/app.md §2.1). app_test.go holds this
+// file to that shape.
 
 // BasePath is the URL prefix volume content is served under. It appears in the
 // composed catalog so nothing has to assemble a content URL from parts it had
@@ -42,7 +43,7 @@ var contentTypes = map[string]string{
 // immutable and a new build of the volume arrives at new URLs.
 //
 // The field order and the tags are the wire, and the wire is pinned by
-// golden/fixtures/http/catalog.json.
+// TestCatalogComposition and TestCatalogCarriesTheBuildAndItsGrid.
 type catalogVolume struct {
 	Slug     string              `json:"slug"`
 	Title    string              `json:"title"`
@@ -109,12 +110,11 @@ func volumeBase(m bundle.Manifest) string {
 //
 // Byte ranges are deliberately not served. Tiles are stored uncompressed
 // precisely so that they could be, and issue #5 §2 describes them that way,
-// but the reference implementation sets a length and copies the entry: a Range
-// request is answered 200 with the whole body and no Accept-Ranges, and
-// golden/fixtures/http/transcript.json records exactly that exchange. Answering
-// 206 here would be a better data plane and a red golden; it is a change to
-// make deliberately, with a waiver, once something wants it. See
-// golden/http/NOTES.md.
+// but the data plane's published behavior is plainer: a Range request is
+// answered 200 with the whole body and no Accept-Ranges, and
+// TestContentDoesNotServeRanges asserts exactly that exchange. Answering 206
+// would be a better data plane and a different one; it is a change to make
+// deliberately, in the open, once something wants it.
 func (a *App) handleContent(w http.ResponseWriter, r *http.Request) {
 	held, ok := a.library().bySlug[r.PathValue("slug")]
 	if !ok {

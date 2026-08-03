@@ -58,7 +58,7 @@ func runNetConfine(pass *analysis.Pass) (any, error) {
 		return nil, nil
 	}
 	from := laneOf(fromRel)
-	if from == LaneOutside || from == LaneGolden || under(fromRel, crawlPackage) {
+	if from == LaneOutside || from == LaneTests || under(fromRel, crawlPackage) {
 		return nil, nil
 	}
 

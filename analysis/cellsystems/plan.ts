@@ -1,10 +1,10 @@
 // The plan: the one account of which cells a grid shows.
 //
 // `cellPlan(ground, system, cellID)` is issue #5 §5.4's contractual output,
-// and its **emission order is frozen**. The parity harness compares it
-// positionally, cell for cell, and reports the index of the first difference —
-// "cell 12 of 32, emission order is the contract". A reordering is a failure,
-// not a detail.
+// and its **emission order is frozen**: the plan is read positionally, cell
+// for cell — "cell 12 of 32, emission order is the contract" — so a
+// reordering is a failure, not a detail. The order property in
+// analysis/test/properties.test.ts holds it.
 //
 // THE ORDER, which is the whole contract:
 //

@@ -31,7 +31,7 @@ import type { Ring } from "../cellsystems/contract.ts";
 const here = path.dirname(fileURLToPath(import.meta.url));
 const vectorsDir = path.join(here, "..", "testdata", "cells");
 
-/** One recorded ground: a Ground descriptor plus the two derived goldens. */
+/** One recorded ground: a Ground descriptor plus the two derived facts every consumer re-checks. */
 interface RecordedGround extends Ground {
   readonly key: string;
   readonly surfaceExtent: readonly number[];
@@ -110,7 +110,7 @@ describe("the shared vectors: grounds", () => {
     ]);
   });
 
-  // The descriptors carry their own derived goldens: the rectangle every
+  // The descriptors carry their own derived facts: the rectangle every
   // system divides, and which systems are willing to divide it. A candidate
   // free to carry the ground differently still has to land on these numbers.
   for (const [key, ground] of Object.entries(grounds)) {

@@ -47,9 +47,9 @@ func runSemconvLiterals(pass *analysis.Pass) (any, error) {
 	}
 	from := laneOf(fromRel)
 	switch {
-	case from == LaneOutside, from == LaneGolden:
-		// The old tree is the oracle and the harness quotes goldens verbatim;
-		// fixtures are data, and data says keys out loud.
+	case from == LaneOutside, from == LaneTests:
+		// The test tree reads bundles other code produced; data says keys
+		// out loud, and a reader is lenient by convention.
 		return nil, nil
 	case under(fromRel, semconvRegistry):
 		return nil, nil

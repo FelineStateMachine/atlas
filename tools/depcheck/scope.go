@@ -19,7 +19,12 @@ const (
 	LaneApp       Lane = "app"
 	LaneWorkbench Lane = "workbench"
 	LaneCLI       Lane = "cmd/atlas"
-	LaneGolden    Lane = "golden"
+
+	// LaneTests is the out-of-package test tree: suites that must read the
+	// filesystem (the corpus, the shared cell vectors, the e2e registry)
+	// against packages that may not. It has the run of the lanes it judges
+	// and none of the producer duties, and the rules below say so by name.
+	LaneTests Lane = "tests"
 
 	// LaneShell is the desktop shell at the module root: the Wails host of
 	// issue #5 §3.4. It is a lane so that the rules which do apply to a host
@@ -37,9 +42,8 @@ const (
 	// alone and says so in its own rule.
 	LaneLogging Lane = "logging"
 
-	// LaneOutside covers anything the clean room does not own. Rules never
-	// fire on it. It described the pre-rewrite tree, which is now archived on
-	// the golden-reference tag (issue #5 §7, M7); it stays because a rule
+	// LaneOutside covers anything the module's rules do not own — tools/,
+	// third-party paths, anything unheard of. Rules never fire on it: a rule
 	// that is a total function of a package path needs an answer for a path
 	// it has never heard of.
 	LaneOutside Lane = ""
@@ -62,7 +66,7 @@ var cleanRoomRoots = []string{
 	"internal/app",
 	"internal/workbench",
 	"cmd/atlas",
-	"golden",
+	"tests",
 }
 
 // shellRoot names the module root in the vocabulary cleanRoomRoots is written
@@ -84,7 +88,7 @@ var lanePrefixes = []struct {
 	{LaneApp, "internal/app"},
 	{LaneWorkbench, "internal/workbench"},
 	{LaneCLI, "cmd/atlas"},
-	{LaneGolden, "golden"},
+	{LaneTests, "tests"},
 }
 
 // rel returns the module-relative path of an import path, and whether the

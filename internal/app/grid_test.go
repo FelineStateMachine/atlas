@@ -17,7 +17,7 @@ import (
 // beneath it are the same invariant said at the two ends.
 
 // sphere is the flattening a planetary world declares: the Mars bundle's own
-// attributes, which golden/cells holds against the fixture itself.
+// attributes, which tests/cells reads back against the shipped bundle itself.
 var sphere = map[string]string{
 	semconv.KeyGeometrySurface:     semconv.SurfaceSphere,
 	semconv.KeyGeometryProjection:  semconv.ProjectionEquirect,
@@ -29,9 +29,9 @@ var sphere = map[string]string{
 // every game map: geohash divides it and nothing else offers to.
 var plane = map[string]string{semconv.KeyIconOutset: semconv.OutsetDark}
 
-// worldOn is a world standing on the ground the carry vectors were recorded
-// against: the top half of an 8192 world square, declared whole as the lens's
-// surface (`test/sphere-8192x4096` in golden/analysis/vectors/grounds.json).
+// worldOn is a world standing on the ground the carry vectors are read on:
+// the top half of an 8192 world square, declared whole as the lens's
+// surface (`test/sphere-8192x4096` in analysis/testdata/cells/grounds.json).
 // Every question about a *place* -- as against a system's name -- needs one,
 // because a hierarchy divides a rectangle and a world with no rectangle
 // divides nothing.
@@ -168,19 +168,18 @@ func TestCyclingIsANoOpWithNoGridOpen(t *testing.T) {
 	}
 }
 
-// TestCyclingCarriesTheHeldPlace holds the Go carry to the recorded
+// TestCyclingCarriesTheHeldPlace holds the Go carry to the shared
 // `equivalentCell` vectors -- the same language-neutral oracle the TypeScript
-// lane answers to (golden/analysis/vectors/carry.json, family "carry", read on
-// the ground `test/sphere-8192x4096`). The tour never cycles, so there is no
-// parity baseline of a carried cell anywhere; these five are what stands in
-// place of one.
+// lane answers to (analysis/testdata/cells/carry.json, family "carry", read
+// on the ground `test/sphere-8192x4096`). These five are the carry seen from
+// inside the application lane, where the answer lands in a session.
 //
 // The table is transcribed rather than read, because the application lane may
-// not open a file (golden/depcheck, the hostenv rule) and a test file is still
-// the application lane. The durable home for a *reading* of this family is
-// golden/cells/vectors_test.go, whose dispatch already loads it and skips
-// every case as a seam concern; the case names below are that file's own keys,
-// so the two can be diffed by eye until it answers them.
+// not open a file (the hostenv rule, held by tools/depcheck) and a test file
+// is still the application lane. The durable *reading* of this family is
+// tests/cells/conformance_test.go, which loads carry.json and answers it
+// through cells.Equivalent; the case names below are that file's own keys, so
+// the two can be diffed by eye.
 func TestCyclingCarriesTheHeldPlace(t *testing.T) {
 	vectors := []struct {
 		name     string
@@ -353,8 +352,8 @@ func TestAscendingTelescopesOutOfTheHeldSystem(t *testing.T) {
 			Grid{System: "geohash", Cell: "m6", Subgrid: 1}},
 		{"down to the root, which keeps the grid open",
 			Grid{System: "geohash", Cell: "m", Subgrid: 1}, Grid{System: "geohash", Subgrid: 1}},
-		// The recorded hierarchy vector, read the other way round:
-		// parent("47a1ca4") is "47a1cb" (golden/analysis/vectors/hierarchy.json).
+		// The shared hierarchy vector, read the other way round:
+		// parent("47a1ca4") is "47a1cb" (analysis/testdata/cells/hierarchy.json).
 		// A truncation would have answered "47a1ca", one of its own siblings'
 		// neighbours.
 		{"an S2 token telescopes out to a token, not to a prefix",

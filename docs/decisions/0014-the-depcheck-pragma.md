@@ -2,8 +2,8 @@
 
 - **Date:** 2026-08-02
 - **Status:** accepted
-- **Where it is written down:** [golden/HARNESS.md](../../golden/HARNESS.md);
-  issue #5 §9, §10 decision 13; `golden/depcheck/report.go`
+- **Where it is written down:** issue #5 §9, §10 decision 13;
+  `tools/depcheck/report.go`
 
 ## Context
 
@@ -27,9 +27,10 @@ The pragma sits on the offending line or the line above it, names one rule (or
 or carrying no reason, is itself a finding — it would otherwise suppress
 nothing while reading as though it did.
 
-It is the source-level twin of a `golden/waivers.json` entry, and it is read
-the same way: **as a cost**, visible where the crossing is rather than in a
-config file nobody opens.
+It is the source-level twin of a waiver entry in the harness this repository
+was judged by (`golden/waivers.json`, archived on `golden-reference`), and it
+is read the same way: **as a cost**, visible where the crossing is rather than
+in a config file nobody opens.
 
 ## Consequences
 
@@ -43,5 +44,5 @@ config file nobody opens.
   definition has no constant. A second one appearing is a thing to notice, not
   a thing to prevent.
 - Grepping `//depcheck:allow` is the standing inventory of accepted crossings,
-  the same way printing the waiver file on every harness run is the standing
-  inventory of accepted divergences.
+  the same way the harness printed its waiver file on every run as the
+  standing inventory of accepted divergences.

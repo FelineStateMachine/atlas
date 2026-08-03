@@ -15,7 +15,7 @@ import (
 //
 // — over titles taken from the six fixture volumes, plus a handful of pairs
 // the fixture set does not happen to contain (a case pair, a numeric ladder)
-// so the two orders can be told apart here rather than only in a tour. The
+// so the two orders can be told apart here, over this very corpus. The
 // input order is part of the fixture: both sorts are stable, and where the
 // collation calls two titles equal it is the input order that decides.
 var collationInput = []string{

@@ -23,8 +23,9 @@ func contractf(violation, section, why string) string {
 //
 // The pragma may sit on the offending line or on the line above it. It must
 // name a rule (or "all") and carry a written reason — an unexplained pragma is
-// itself a finding. Waivers against captured goldens live in
-// golden/waivers.json; this is the source-level twin of that discipline.
+// itself a finding. Accepted divergences elsewhere in this tree live in
+// docs/decisions/ with their reasons; this is the source-level twin of that
+// discipline.
 const pragma = "//depcheck:allow"
 
 // knownRules is used to reject typo'd pragmas, which would otherwise silently
@@ -94,7 +95,7 @@ func (r *reporter) checkPragmas() {
 				r.pass.Reportf(a.pos, "%s", contractf(
 					pragma+" needs a written reason",
 					"6",
-					"every accepted divergence carries a reason a reviewer can weigh; an unexplained allowance is an edited golden by another name",
+					"every accepted divergence carries a reason a reviewer can weigh; an unexplained allowance is a silent hole in the rule",
 				))
 			}
 		}

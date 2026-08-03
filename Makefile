@@ -34,8 +34,7 @@ corpus-smoke:
 # The semantic conventions, from their one machine-readable source: the Go
 # registry, the TypeScript lanes' key constants, and the document a reader
 # learns the vocabulary from. `go generate ./format/semconv` is the same run.
-# `make golden`'s semconv-codegen gate checks that what is committed is what
-# this would write.
+# spec/gen's own test checks that what is committed is what this would write.
 spec:
 	go run ./spec/gen
 
@@ -50,14 +49,13 @@ lint-lanes:
 
 # The analysis lane's own gate: the boundary rules, the type checker at its
 # strictest, and the conformance suite over every registered system. `make
-# golden` runs this as the `analysis-lane` suite; this target is the same run,
-# reachable on its own.
+# test` runs the same thing; this target is the one lane on its own.
 analysis-lane:
 	npm run --silent lane
 
 # The seam's own gate: the same boundary rules, the type checker, the seam's
-# unit tests against the golden fixtures, and the authored-line budget as a
-# warning. `make golden` runs this as the `render-lane` suite.
+# unit tests against the corpus and its stated models, and the authored-line
+# budget as a warning. `make test` runs the same thing.
 render-lane:
 	npm run --silent seam-lane
 
@@ -77,7 +75,7 @@ seam-watch:
 #
 # It is installed in two places because two hosts want it in two shapes.
 # dist/static is the build output a `-static` mount is pointed at, and is what
-# the parity harness looks for by default (golden/parity/run.mjs). static/ is
+# the e2e run serves (tests/e2e/playwright.config.ts). static/ is
 # the tree the desktop shell embeds (`//go:embed static` in main.go), so that
 # the shipped application is one file; see static/README.md. Same bytes, one
 # build.

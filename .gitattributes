@@ -13,9 +13,11 @@
 # sources -- city open data and NASA Trek -- and nothing may transform it
 # between the extraction and the comparison: not an editor, not a checkout.
 testdata/corpus/**              -text
-golden/analysis/vectors/*.json  -text
-golden/analysis/plans/*.json    -text
-golden/analysis/plans/contract.json -text
+
+# The shared cell vectors are the contract both cell-arithmetic
+# implementations answer; the TypeScript side compares its answers as JSON
+# text, byte for byte.
+analysis/testdata/cells/*.json  -text
 
 # Bundles are zip archives. None is committed today; if one ever is, it is
 # bytes.

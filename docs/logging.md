@@ -16,7 +16,7 @@ rather than prose.
 |---|---|---|
 | `debug` | Internal mechanics: a cache consulted, a plan derived, a retry. Anything whose volume scales with the data. | off |
 | `info` | One line per **meaningful unit of work**: a capture skipped, a pyramid derived, a bundle installed, a build gated. If a person would say it aloud when asked "what happened?", it is Info. | on |
-| `warn` | Something tolerated that a human should eventually see: a waiver hit, a held merge pin, a bundle skipped during a scan, an under-claiming enricher that stayed silent. Never used for "this failed". | on |
+| `warn` | Something tolerated that a human should eventually see: a held merge pin, a bundle skipped during a scan, an under-claiming enricher that stayed silent. Never used for "this failed". | on |
 | `error` | An operation failed. The error value rides as an attribute; the message says what was being attempted. | on |
 
 Two rules about volume. Info is per *unit of work*, not per item: "packed
@@ -44,7 +44,7 @@ The workbench's streamed pipeline output is this same stream, rendered as
 rows. Nothing special is emitted for it.
 
 `fmt.Print*` and `log.Print*` outside a command's product-output path are lint
-violations (§9 of the rewrite issue). Narration goes through the stream.
+violations (issue #5 §9). Narration goes through the stream.
 
 ## The shared attribute vocabulary
 
@@ -103,9 +103,9 @@ logger.Info("bundle installed",
 `render/log.ts` mirrors this: a thin leveled module, console-backed,
 structured fields as an object payload, the level gate read once from
 `?atlas-log=` or `localStorage`. Reading it once is deliberate — a level that
-changed mid-run would make two captures of one tour disagree. The browser
-console becomes the same kind of stream, which the headless parity runner
-already captures, so a failing tour step ships its console context for free. An
+changed mid-run would make two captures of one run disagree. The browser
+console becomes the same kind of stream, so any headless driver that captures
+the console gets structured context for free. An
 ESLint rule forbids bare `console.*` outside that module and names this
 contract when it fires. The level names and the attribute vocabulary above are
 shared; the analysis lane has no logger of its own, because a pure

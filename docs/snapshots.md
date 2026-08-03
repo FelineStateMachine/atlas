@@ -1,14 +1,14 @@
 # Scheduled city snapshots
 
-> **Parked (issue #5 §7, M7).** The workflow's steps are the clean room's —
-> `atlas crawl|tiles|compose|enrich` — but the ArcGIS/USGS crawler is the one
-> crawler the rewrite has not built: `atlas crawl -source list` offers `ign`
-> alone, and `docs/generate.md` §3.2 says why. A run therefore fails at its
-> first step, so this repository's scheduler is dispatch-only and the weekly
-> cron is written down in `snapshots.yml` rather than armed. Everything after
-> the crawl is the shipped path, proven by the `bend-or` bundle fixture, which
-> reproduces byte-identically (`docs/generate.md` §8). One crawler registered
-> as `arcgis-hub` unparks the whole thing, and nothing else here changes.
+> **Parked.** The workflow's steps are the shipped ones —
+> `atlas crawl|tiles|compose|enrich` — but the ArcGIS/USGS crawler is not
+> built: `atlas crawl -source list` offers `ign` alone, and
+> `docs/generate.md` §3.2 says why. A run therefore fails at its first step,
+> so this repository's scheduler is dispatch-only and the weekly cron is
+> written down in `snapshots.yml` rather than armed. Everything after the
+> crawl is the shipped path, walked over a city archive by the pipeline's own
+> tests (`docs/generate.md` §8). One crawler registered as `arcgis-hub`
+> unparks the whole thing, and nothing else here changes.
 
 A city's `.atlas` can build itself on a schedule: crawl the city's ArcGIS
 hub, exit quietly when nothing changed, and publish a new versioned bundle
@@ -71,11 +71,10 @@ jobs:
 
 A city that should not be named in a public repository is carried by the
 `atlas-ref` input: point it at a branch or fork of Atlas whose curation table
-(`internal/generate/sources/arcgishub/cities.go`) names the city. The reference
-tree let a gitignored companion file register a city from an `init`; the clean
-room does not, because a table that can be extended by a file nobody reviews is
-not the gate it is meant to be — and an uncurated city is refused at the door
-rather than composed wrong.
+(`internal/generate/sources/arcgishub/cities.go`) names the city. There is no
+side door — a table that can be extended by a file nobody reviews is not the
+gate it is meant to be — so an uncurated city is refused rather than composed
+wrong ([decision 16](decisions/0016-uncurated-captures-are-passed-over.md)).
 
 Employees fetch
 `https://github.com/<org>/<repo>/releases/download/snapshot-<city>/<city>-latest.atlas`

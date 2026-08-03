@@ -56,8 +56,8 @@
   expression, and `event.target instanceof Element` is doing real work at both
   ends. A select counts as editable: the reference says so, and a select
   answers the space bar itself. And a synthetic key dispatched straight at the
-  window -- which is how the parity tour presses one -- has the window as its
-  target, which is not an Element, so it passes as a keystroke nobody was
+  window -- which is how a headless driver presses one -- has the window as
+  its target, which is not an Element, so it passes as a keystroke nobody was
   typing.
 
   It carries no `]` and no comma on purpose: htmx reads a trigger's name up to

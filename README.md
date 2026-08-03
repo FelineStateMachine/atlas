@@ -56,8 +56,11 @@ analysis/        TypeScript: the cell systems (geohash, S2) behind one contract.
 render/          TypeScript: the rendering seam. Deletable, and deleted in the
                  sense that matters — nothing imports it, and the application
                  builds, serves and works with its assets absent.
-golden/          Captured fixtures, the gates that compare against them, and
-                 depcheck, which enforces every boundary named above.
+testdata/        The committed corpus: real extractions with public
+                 provenance (see testdata/corpus/README.md).
+tests/, tools/   The test trees that cannot live with their packages, and
+                 the enforcement commands — depcheck, which enforces every
+                 boundary named above, testgate and corpussmoke.
 main.go          The desktop shell: ~300 lines of host wiring around the
                  handler, and the whole of what a window costs.
 ```
@@ -71,30 +74,31 @@ bundle comes to be; [`app.md`](docs/app.md) is what serves it;
 [`render-seam.md`](docs/render-seam.md) and
 [`analysis.md`](docs/analysis.md) are what pictures it;
 [`workbench.md`](docs/workbench.md) is the operator's view;
-[`logging.md`](docs/logging.md) is how everything narrates itself; and
+[`logging.md`](docs/logging.md) is how everything narrates itself;
+[`testing.md`](docs/testing.md) is how it is judged; and
 [`decisions/`](docs/decisions/) is why any of it is shaped this way.
-[`docs/README.md`](docs/README.md) is the map, and says where each document is
-thinner than it should be.
+[`docs/README.md`](docs/README.md) is the map.
 
 ## Verification
 
 ```sh
-go build ./... && go test ./...
-npm ci && make golden      # every gate of the golden harness, in order
+npm ci
+make test        # vet, every Go test skip-proof, both TypeScript lanes, depcheck
+make test-e2e    # the application in a real browser, over the committed corpus
 ```
 
-`make golden` is the one entrypoint, and it is what CI runs on Linux, macOS and
-Windows (`.github/workflows/golden.yml`). It prints one line per gate, then
-every accepted divergence from a golden with the reason it was accepted.
-[`golden/HARNESS.md`](golden/HARNESS.md) explains the gates;
-[`golden/fixtures/README.md`](golden/fixtures/README.md) explains where the
-fixtures came from.
+`make test` is the whole required surface, and it is what CI runs on Linux,
+macOS and Windows (`.github/workflows/ci.yml`).
+[`docs/testing.md`](docs/testing.md) is the map: the layers, what tests are
+made of, where they live, and the bar for a new one.
 
 ## History
 
 Atlas was rewritten from a clean room in 2026 ([issue
 #5](https://github.com/FelineStateMachine/atlas/issues/5)). The implementation
-it replaced is the golden reference the harness above measures against, and it
-is checkout-able, whole and working, at the tag **`golden-reference`**. Nothing
-on this branch imports it — `golden/depcheck` refuses the edge — and no file
-here cites its comments as documentation.
+it replaced is archived, checkout-able, whole and working, at the tag
+**`golden-reference`** (mirrored at `archive/golden-reference`), and the
+behavioral differences accepted against it are [decision
+18](docs/decisions/0018-divergences-from-the-reference.md). Nothing on this
+branch imports it — `tools/depcheck` refuses the edge — and no file here cites
+its comments as documentation.

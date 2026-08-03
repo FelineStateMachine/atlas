@@ -11,19 +11,18 @@ import (
 // The state island.
 //
 // The explorer page carries the session it was rendered from as an inert JSON
-// script node. It exists for one reason: the parity tour compares the
-// application's own account of the arrangement against the seam's, and issue
-// #5 §6 asks for that account "as a JSON island ... matching golden key
-// names". These are the key names -- the ones the reference implementation
-// wrote to localStorage under atlas.session.v3, documented in
-// golden/parity/SCHEMA.md §3.2.
+// script node. It exists for one reason: the application's own account of the
+// arrangement and the seam's report of the same arrangement must diff cleanly
+// against each other -- the joint diagnostics issue #5 §6 asks for, documented
+// in docs/app.md §6. These are the session schema's published key names.
 //
-// Where the arrangement is stored is this application's business and has
-// changed completely: it is a file per volume behind hostenv now, not a
-// browser's local storage. What it contains is not this application's
-// business to change, which is why the shape below is spelled out by hand
-// rather than derived from the Session struct. When the two disagree, this
-// file is the one that is wrong.
+// Where the arrangement is stored is this application's business: it is a
+// file per volume behind hostenv, not a browser's local storage. What the
+// island contains is a published contract, which is why the shape below is
+// spelled out by hand rather than derived from the Session struct. When the
+// two disagree, this file is the one that is wrong. tests/island drives the
+// application through its routes over the corpus and holds the island to this
+// shape; the e2e suite reads the same island out of a real browser.
 //
 // Two of the twelve keys cannot be produced here and are carried as the
 // server's echo of what the seam last said: center and zoom are the chart's
@@ -38,8 +37,8 @@ type islandDoc struct {
 	Entry *islandEntry `json:"entry"`
 }
 
-// islandEntry is one volume's arrangement, in the golden's own key names and
-// its own key order.
+// islandEntry is one volume's arrangement, in the session schema's published
+// key names and key order (docs/app.md §6).
 type islandEntry struct {
 	Volume         string    `json:"volume"`
 	World          string    `json:"world"`
@@ -85,10 +84,10 @@ func islandOf(model *worldModel, shown *VolumeView, session Session) *islandEntr
 	}
 	_ = model
 	if camera, held := session.Cameras[shown.World.Slug]; held {
-		// Rounded exactly as the harness rounds what it reads, so a
-		// baseline and an island are diffable without a normalizer in
+		// Rounded exactly as the seam rounds what it reports, so the
+		// island and the seam's report diff without a normalizer in
 		// between: whole world units for the centre, three decimals for
-		// the zoom (golden/parity/SCHEMA.md §3.2).
+		// the zoom (docs/app.md §6).
 		entry.Center = []float64{halfUp(camera.X), halfUp(camera.Y)}
 		zoom := math.Round(camera.Zoom*1000) / 1000
 		entry.Zoom = &zoom
@@ -96,15 +95,16 @@ func islandOf(model *worldModel, shown *VolumeView, session Session) *islandEntr
 	return entry
 }
 
-// halfUp rounds the way the harness that reads this rounds, which is the way
-// JavaScript's Math.round does: a half goes up, toward positive infinity,
+// halfUp rounds the way JavaScript's Math.round does, because that is how the
+// seam rounds its half of the diff: a half goes up, toward positive infinity,
 // rather than away from zero. On the y axis -- where every world coordinate is
 // negative -- the two conventions disagree on exactly the values a cell
 // boundary lands on, which is a whole world unit of difference in a field the
-// baselines compare exactly.
+// island and the seam's report must agree on exactly.
 func halfUp(value float64) float64 { return math.Floor(value + 0.5) }
 
-// identifiers writes a set of collection ids the way the golden records them:
+// identifiers writes a set of collection ids the way the session schema
+// publishes them:
 // sorted as the strings they ride the DOM as, and emitted as the numbers the
 // payload declares them as. A world whose ids are not numeric keeps its
 // strings, because a reader is never refused over the shape of an id.
@@ -129,7 +129,8 @@ func stringsOf(values []string) []string {
 	return out
 }
 
-// overrideLedger is the label-override ledger as the golden spells it: one
+// overrideLedger is the label-override ledger as the session schema spells
+// it: one
 // "<collection>=<policy>" per override, sorted, so a record is stable to diff.
 func overrideLedger(labels map[string]string) []string {
 	out := make([]string, 0, len(labels))

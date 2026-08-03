@@ -1,11 +1,9 @@
 // Command testgate runs `go test` and refuses to call a skipped test a pass.
 //
-// The golden harness this tree grew up under had one blind spot: `go test`
-// exits zero when every test in a package skips, so a gate whose inputs were
-// missing said PASS while judging nothing. The pipeline gate did exactly that
-// on every CI run, and the derive gate did it silently for weeks after its
-// reference tool left the tree. This command is the structural fix: a test
-// that does not run is a finding, not a pass.
+// `go test` exits zero when every test in a package skips, so a suite whose
+// inputs were missing would say PASS while judging nothing. This command is
+// the structural answer: a test that does not run is a finding, not a pass,
+// and the required surface holds no optional inputs for one to be missing.
 //
 // Usage:
 //

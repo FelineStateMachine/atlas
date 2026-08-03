@@ -201,9 +201,8 @@ func TestVectorsHoldTheGoSide(t *testing.T) {
 	}
 }
 
-// TestGeohashHalvingUndoesItself replaces the retired tour reproduction: the
-// recorded grids are gone with the parity layer, and what stood behind them
-// was always this arithmetic fact. The halving forward (an address to its
+// TestGeohashHalvingUndoesItself pins the arithmetic fact the grid stands
+// on. The halving forward (an address to its
 // rectangle) and the halving backward (a point to its address) are one walk,
 // and undoing the halving character by character lands exactly on the ground
 // -- every division is a halving of a finite float, so the inverse is a

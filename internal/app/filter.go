@@ -31,7 +31,8 @@ type visibility struct {
 	Drawn int
 
 	// Eligible is the point features the filters admit, which is the
-	// count the golden diagnostics call eligibleLocations.
+	// count the seam's diagnostics publish as eligibleLocations
+	// (render/diagnostics.ts).
 	Eligible int
 
 	// Listable is the part a list can name, alphabetically.
@@ -183,7 +184,7 @@ func visible(model *worldModel, session Session, lens *payloadLens) visibility {
 		out.DockFlag = "“" + session.Search + "”"
 	case out.Filtered:
 		out.DockFlag = "filtered"
-		// The chip's word is pinned by the goldens; the tooltip is where
+		// The chip's word is pinned by tests/island; the tooltip is where
 		// what narrows gets named — a reader once lost every pin to five
 		// highlights nobody could see.
 		var parts []string

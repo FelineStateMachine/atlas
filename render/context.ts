@@ -20,8 +20,9 @@ export interface WorldContext {
   readonly model: WorldModel;
   /**
    * The world's title, as the catalog spells it. The model carries the slug
-   * -- which is what a URL and a payload name a world by -- and the parity
-   * baselines record the title, because that is the word a reader is shown.
+   * -- which is what a URL and a payload name a world by -- and the
+   * diagnostics report carries the title, because that is the word a reader
+   * is shown.
    */
   readonly worldTitle: string;
   readonly lens: Lens | null;

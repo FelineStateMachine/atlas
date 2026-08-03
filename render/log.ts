@@ -3,7 +3,7 @@
 // The system narrates itself through a single leveled, structured stream. In
 // Go that is `log/slog`; here it is this module, backed by the console, with
 // the same discipline: a message that reads as a sentence, and everything
-// else as named fields. The headless parity runner captures the console, so a
+// else as named fields. A headless driver captures the console, so a
 // failing tour step ships its context for free — but only if everything goes
 // through here, which is why an ESLint rule forbids bare `console.*` outside
 // this file and names this contract when it fires.

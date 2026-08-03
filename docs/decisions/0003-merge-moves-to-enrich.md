@@ -27,7 +27,7 @@ result of running both lanes, not the boundary between them.
 ## Consequences
 
 - The two lanes never import each other (issue #5 §3.2, enforced by
-  `golden/depcheck`), which is what forces the adapter seam of
+  `tools/depcheck`), which is what forces the adapter seam of
   [ADR 9](0009-the-enrich-compose-adapter-seam.md).
 - Only a merge ledger ever names a source, so the source-neutral rule
   ([ADR 4](0004-source-neutral-interchange-document.md)) has exactly one

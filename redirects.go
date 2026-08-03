@@ -17,9 +17,10 @@ import (
 // The application is right to redirect. A world lives at exactly one URL and /
 // is a doorway, not a second name for it (docs/app.md §2.2), and the headless
 // host serves those redirects to a client that follows them like any other.
-// So the doorway is walked through here, in the host, where the limitation is.
-// The handler is not told; `atlas serve` and the desktop shell mount the same
-// bytes, and the HTTP goldens keep judging the redirect that is really sent.
+// So the doorway is walked through here, in the host, where the limitation is
+// (decision 17). The handler is not told; `atlas serve` and the desktop shell
+// mount the same bytes, and app_test.go keeps judging the redirect that is
+// really sent.
 
 // redirectHops is how many doorways a request may walk through before the host
 // decides the application is going in circles. Two is the most this

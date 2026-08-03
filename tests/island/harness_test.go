@@ -7,13 +7,11 @@
 // internal/app -- test files included -- from importing os or path/filepath,
 // which is exactly the rule that keeps the handler portable.
 //
-// What used to stand where this package stands was golden/island, which held
-// the island to recorded parity baselines, key for key. The recordings are
-// gone; what replaced them is the island's own contract (internal/app/
-// island.go): the keys it promises, the values that must agree with the page
-// it rides in, and counts that must agree with the corpus payloads the page
-// was rendered from. The application is still driven the same way -- through
-// its own HTTP surface over an in-memory host. Nothing here reaches inside it.
+// What it holds is the island's own contract (internal/app/island.go,
+// docs/app.md §6): the keys it promises, the values that must agree with the
+// page it rides in, and counts that must agree with the corpus payloads the
+// page was rendered from. The application is driven through its own HTTP
+// surface over an in-memory host. Nothing here reaches inside it.
 package island
 
 import (
@@ -323,7 +321,7 @@ func collectionNamed(t *testing.T, world corpusWorld, title string) corpusCollec
 // ---------------------------------------------------------------------------
 
 // readIsland pulls the island's JSON back out of a rendered answer. It is
-// deliberately read the way the parity harness read it -- by id, off the
+// deliberately read the way every consumer reads it -- by id, off the
 // document -- rather than by asking the application for it a second way.
 func readIsland(t *testing.T, page string) map[string]any {
 	t.Helper()

@@ -27,7 +27,7 @@ func TestLaneImportEdge(t *testing.T) {
 		{"generate may not use enrich", "internal/generate/compose", mod + "internal/enrich/merge", "generate must not import enrich"},
 		{"enrich may not use generate", "internal/enrich/merge", mod + "internal/generate/doc", "enrich must not import generate"},
 		{"generate may not use app", "internal/generate/doc", mod + "internal/app/session", "generate must not import app"},
-		{"enrich may not use the harness", "internal/enrich/maturity", mod + "golden/depcheck", "enrich must not import golden"},
+		{"enrich may not use the test tree", "internal/enrich/maturity", mod + "tests/corpus", "enrich must not import tests"},
 
 		{"app may use format", "internal/app/handler", mod + "format/semconv", ""},
 		{"app may use itself", "internal/app/handler", mod + "internal/app/hostenv", ""},
@@ -51,7 +51,7 @@ func TestLaneImportEdge(t *testing.T) {
 		{"logging may not use a lane", "internal/logging", mod + "internal/generate/doc", "logging must not import generate"},
 
 		{"the CLI wires every lane", "cmd/atlas", mod + "internal/enrich/merge", ""},
-		{"the harness may read a lane", "golden/depcheck", mod + "internal/generate/doc", ""},
+		{"the test tree may read a lane", "tests/island", mod + "internal/generate/doc", ""},
 		{"a path the clean room never heard of is not judged", "internal/measure", mod + "internal/bundle", ""},
 
 		{"the shell mounts the app", "", mod + "internal/app", ""},
@@ -82,7 +82,7 @@ func TestCleanRoomEdge(t *testing.T) {
 	}{
 		{"a lane may not reach the old tree", "internal/generate/doc", mod + "internal/mgdoc", "golden-reference tree"},
 		{"nor the desktop shell's helpers", "internal/app/handler", mod + "internal/icons", "golden-reference tree"},
-		{"the harness may read whatever it measures", "golden/pipeline", mod + "internal/bundle", ""},
+		{"the test tree may read whatever it judges", "tests/corpus", mod + "internal/bundle", ""},
 		{"format has a stricter rule of its own", "format/bundle", mod + "internal/bundle", ""},
 		{"a lane package is fine", "internal/generate/doc", mod + "format/bundle", ""},
 		{"the shared event stream is clean room, not old tree", "internal/app/hostenv/oshost", mod + "internal/logging", ""},
@@ -202,7 +202,7 @@ func TestLaneOf(t *testing.T) {
 		{"internal/app/hostenv", LaneApp},
 		{"internal/workbench", LaneWorkbench},
 		{"cmd/atlas", LaneCLI},
-		{"golden/depcheck", LaneGolden},
+		{"tests/cells", LaneTests},
 		{"internal/logging", LaneLogging},
 		// Archived names, kept as the recognisable examples of a path the
 		// matrix does not own: they are on the golden-reference tag, and the

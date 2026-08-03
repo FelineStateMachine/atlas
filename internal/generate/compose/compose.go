@@ -10,7 +10,7 @@
 //
 // Composition is single-source. What one source said travels here whole and
 // unmixed; folding two sources' readings of one volume together is the enrich
-// lane's work, and the goldens check the composed result of both together.
+// lane's work (docs/enrich.md).
 //
 // # Determinism
 //

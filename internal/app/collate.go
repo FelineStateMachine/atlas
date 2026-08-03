@@ -13,8 +13,8 @@ import (
 // own language orders one: punctuation before digits before letters, `¡La
 // Fantoma!` at the top of a list a byte comparison starts with `188 Trading
 // Post`. That is the CLDR root collation -- what a browser answers
-// `String.prototype.localeCompare` with, and what the parity baselines record
-// -- and there is no version of `strings.ToLower` that arrives at it.
+// `String.prototype.localeCompare` with -- and there is no version of
+// `strings.ToLower` that arrives at it.
 //
 // WHY A DEPENDENCY. `golang.org/x/text/collate` implements that same root
 // collation, and it was already in this module's graph -- `golang.org/x/text`
@@ -35,7 +35,7 @@ import (
 //
 // Both are kept rather than collapsed into one, even though the fixture corpus
 // cannot tell them apart (every shape title in it is ASCII and only two carry
-// digits): a distinction the goldens cannot see today is not a distinction to
+// digits): a distinction today's corpus cannot see is not a distinction to
 // lose, and the first bundle with an accented district title would find it.
 
 // titleCollator is the tertiary-strength root collation the panel's list used.

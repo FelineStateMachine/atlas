@@ -1,7 +1,6 @@
 // The Ground descriptor and the vocabulary it reads.
 //
-// These are the clean design's own intent tests (issue #5 §6, "goldens prove
-// equivalence, then fresh unit tests document the clean design's intent").
+// These are the clean design's own intent tests (issue #5 §6).
 // What they document: a ground is data, the fallback ladder is three branches
 // deep, and a malformed declaration is answered with silence rather than a
 // plausible number.

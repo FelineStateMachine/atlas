@@ -12,9 +12,9 @@
 //	go run ./tools/depcheck help laneimports
 //
 // With no package pattern, depcheck scopes itself to the clean-room roots of
-// §3.1 that exist on disk. That is deliberate: the pre-rewrite tree is the
-// golden reference, not the subject, and a rule about a lane nobody has
-// written yet passes by having nothing to say.
+// §3.1 that exist on disk. That is deliberate: the pre-rewrite tree (archived
+// on the golden-reference tag) is not the subject, and a rule about a lane
+// nobody has written yet passes by having nothing to say.
 package main
 
 import (

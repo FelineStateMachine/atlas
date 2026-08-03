@@ -1,10 +1,11 @@
 // The diagnostics duty (issue #5 §5.5).
 //
-// The seam publishes what it knows about itself under the names
-// `golden/parity/SCHEMA.md` records, because a parity baseline is compared
-// key for key and a rewritten seam that renamed its own diagnostics would be
-// unreadable against six recorded tours. This is the fourth contract the lane
-// stands on, and the only one that points outward.
+// The seam publishes what it knows about itself under one fixed set of key
+// names (docs/render-seam.md §8), because a snapshot is diffed key for key
+// against the application's half of the same account, and a seam that
+// renamed its own diagnostics would be unreadable to every driver of the
+// report. This is the fourth contract the lane stands on, and the only one
+// that points outward.
 //
 // THE SPLIT, and why it is where it is. A snapshot is two halves. The
 // application's half — what is hidden, what the footer says, what the library
@@ -18,12 +19,11 @@
 //
 //   `__atlasSeam`      this lane's half, and the canonical entry point.
 //   `__atlasGlobe`     the sphere's own counts, and only once it exists —
-//                      `globeBuilt` in the baselines is exactly the question
-//                      "is this global here yet".
+//                      its mere presence is the answer to "has the sphere
+//                      been entered this session".
 //   `render_game_to_text()` / `__atlasDebug` / `advanceTime()`
-//                      the names the recorded tours already call. They are
-//                      kept because renaming them would cost six baselines to
-//                      say nothing.
+//                      the entry points a headless driver calls. They are
+//                      published names, and renaming them would buy nothing.
 
 import { logger } from "./log.ts";
 import { COORDINATE_SYSTEM, RASTER_CACHE_SIZE, viewMaxZoom } from "./chart/projection.ts";
@@ -33,7 +33,7 @@ import { cellSystems } from "@atlas/analysis";
 
 const log = logger("diagnostics");
 
-/** The seam's half of a parity snapshot. */
+/** The seam's half of a diagnostics snapshot. */
 export interface SeamSnapshot {
   coordinateSystem: string;
   world: string;
@@ -104,10 +104,8 @@ export function snapshot(viewport: AtlasViewport): SeamSnapshot {
     rasterCacheSize: RASTER_CACHE_SIZE,
     labelsHeld: context?.labelsHeld ?? false,
     hoveredPin: hovered?.title ?? null,
-    // A *pin*, and only a pin. The reference put the selection down when a
-    // card opened on ground (`showFeature` sets `selectedPin = null`), so a
-    // shape being read about is recorded here as nothing — which is what every
-    // baseline with ground in it carries.
+    // A *pin*, and only a pin. The selection is put down when a card opens
+    // on ground, so a shape being read about is recorded here as nothing.
     selectedPin: selected && "coordinate" in selected ? selected.title || null : null,
     fitZoom: readings?.fitZoom ?? null,
     // `focused` is deliberately absent: which shape a reader has open is the
@@ -153,7 +151,7 @@ function isPlain(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 
-/** The window the harness reads. Typed here rather than cast at every use. */
+/** The window a headless driver reads. Typed here rather than cast at every use. */
 interface DiagnosticsWindow {
   __atlasSeam?: { snapshot(): SeamSnapshot; level: string };
   __atlasGlobe?: unknown;
@@ -164,11 +162,11 @@ interface DiagnosticsWindow {
 }
 
 /**
- * Open the seams the harness reads.
+ * Open the seams a headless driver reads.
  *
- * `__atlasGlobe` is a getter rather than an assignment: the baselines read
- * its mere presence as "the sphere has been entered at least once this
- * session", so it must not exist before the sphere is built.
+ * `__atlasGlobe` is a getter rather than an assignment: its mere presence
+ * says "the sphere has been entered at least once this session", so it must
+ * not exist before the sphere is built.
  */
 export function expose(held: AtlasViewport): void {
   const host = window as unknown as DiagnosticsWindow;

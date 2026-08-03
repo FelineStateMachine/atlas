@@ -34,7 +34,7 @@ descriptors; the fold that decides which build serves is pure and lives in
 `ErrNoSelection`, `ErrNotAvailable` — because an import that cannot happen and
 an import nobody wanted are different things to say.
 
-The rule is mechanical, not cultural: `golden/depcheck`'s `hostenv` analyzer
+The rule is mechanical, not cultural: `tools/depcheck`'s `hostenv` analyzer
 fails any import of `os`, `os/exec`, `path/filepath`, `syscall` or a window
 toolkit from `internal/app` outside `internal/app/hostenv`.
 

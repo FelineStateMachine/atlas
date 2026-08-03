@@ -1,9 +1,10 @@
 {{/*
-  island — the arrangement this page was rendered from, in the key names
-  golden/parity/SCHEMA.md records.
+  island — the arrangement this page was rendered from, in the session
+  schema's published key names (docs/app.md §6).
 
-  It is inert, it is read by the parity harness and by nothing else, and it is
-  the server's half of the joint diagnostics issue #5 §6 asks for. Every
+  It is inert, it is read by tests/island and the e2e suite and by nothing in
+  the page itself, and it is the server's half of the joint diagnostics issue
+  #5 §6 asks for. Every
   session answer carries it, because every session answer has just written the
   record it publishes — including the camera report, which is the only concern
   whose answer nothing else would ever carry back.

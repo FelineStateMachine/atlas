@@ -30,9 +30,11 @@ that fetches its runtime from a CDN is a page that does not.
 
 ## Consequences
 
-- `golden/waivers.json`'s `seam-assets` entry asserts the `404`, which turns
-  the waiver into a check of the deletability principle rather than an
-  unchecked difference from the reference implementation.
+- The `404` is asserted rather than tolerated — `TestStaticWithoutASeam`
+  (`internal/app/app_test.go`) — which turns the difference into a check of
+  the deletability principle rather than an unchecked absence. (It was first
+  asserted by the harness's `seam-assets` waiver, archived on
+  `golden-reference`.)
 - The `make static` target copies only `render/dist/app.js` into the tree a
   host mounts. The stylesheet is deliberately not there: deleting the seam
   costs the page one script tag, not its chrome.

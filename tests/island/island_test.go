@@ -98,9 +98,9 @@ func arrange(t *testing.T, handler http.Handler, slug, concern string, pairs ...
 	return answer.Body.String()
 }
 
-// TestTheIslandOpensWithTheWorldsOwnArrangement is the "initial" step of every
-// recorded tour, re-derived: a world nobody has arranged publishes exactly the
-// twelve keys, and every value is the one the world itself supplies -- nothing
+// TestTheIslandOpensWithTheWorldsOwnArrangement holds the opening
+// arrangement: a world nobody has arranged publishes exactly the twelve
+// keys, and every value is the one the world itself supplies -- nothing
 // hidden or folded, the ungrouped shape collections unfolded, the first lens,
 // a camera nobody has reported, and the furniture in its opening positions.
 func TestTheIslandOpensWithTheWorldsOwnArrangement(t *testing.T) {
@@ -134,8 +134,8 @@ func TestTheIslandOpensWithTheWorldsOwnArrangement(t *testing.T) {
 					entry["center"], entry["zoom"])
 			}
 			// Neither corpus payload curates anything invisible, so the hide
-			// set opens empty -- and empty, not null: the golden key names came
-			// with golden shapes.
+			// set opens empty -- and empty, not null: the session schema's
+			// keys come with shapes as well as names (docs/app.md §6).
 			if got := idStrings(t, entry["hidden"]); len(got) != 0 {
 				t.Errorf("hidden opens as %v", got)
 			}

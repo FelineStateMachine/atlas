@@ -222,7 +222,7 @@ export interface FeaturePick {
 
 export type Pick = CellPick | FeaturePick;
 
-/** What the chart publishes about itself, in the golden key names. */
+/** What the chart publishes about itself, in the diagnostics report's key names (docs/render-seam.md §8). */
 export interface ChartDiagnostics {
   coordinateSystem: string;
   zoom: number | null;
@@ -1029,8 +1029,7 @@ export class AtlasChart extends HTMLElement {
     // by a round trip, so the fit belongs to the arrival rather than to the
     // ask. A second fit fired off at the click would be the same arithmetic
     // said twice, racing its own confirmation and answering for a cell the
-    // server had not yet agreed to -- and it is precisely the fit the parity
-    // baselines pinned, so there is one of it.
+    // server had not yet agreed to -- so there is exactly one of it, here.
     //
     // AND A CELL MOVES WITHIN A SYSTEM. Cycling the system carries the held
     // cell across to whichever cell of the next system covers the same ground
@@ -1046,11 +1045,11 @@ export class AtlasChart extends HTMLElement {
       // out, and the camera goes there the same way it came in.
       //
       // The size is whatever the map has, and a map put away behind the sphere
-      // has none -- which OpenLayers reads as its own hundred-pixel default
-      // and which the recorded tours are a reading of: a cell fitted into no
-      // window at all lands at the deepest zoom the lens allows, over the
-      // middle of the ground. Refusing to fit at all would leave the camera
-      // somewhere the reference never left it.
+      // has none -- which OpenLayers reads as its own hundred-pixel default:
+      // a cell fitted into no window at all lands at the deepest zoom the
+      // lens allows, over the middle of the ground. That is still an answer;
+      // refusing to fit at all would leave the camera standing over ground
+      // the reader has already asked to leave.
       if (this.gridExtent && this.view && context.lens) {
         // THE LATEST ASK WINS, and saying so costs a line because OpenLayers
         // says the opposite. Concurrent animation series are applied oldest
@@ -1396,7 +1395,7 @@ function wind(line: readonly (readonly [number, number])[], counter: boolean): [
   return (area < 0) === counter ? copy : copy.reverse();
 }
 
-/** A count as the chrome writes it: thousands separated, as the goldens read. */
+/** A count as the chrome writes it: thousands separated, the same words the server renders. */
 function count(value: number): string {
   return value.toLocaleString("en-US");
 }

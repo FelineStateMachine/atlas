@@ -291,7 +291,7 @@ function overMap(target: EventTarget | null): boolean {
  * A select counts, and that is not an oversight: a select answers the space
  * bar and the arrow keys itself, and a shortcut that took them would make the
  * control unusable. Anything that is not an Element at all -- the window,
- * which is what a synthetic key from the parity tour is dispatched at -- is
+ * which is what a synthetic key from a headless driver is dispatched at -- is
  * nobody's typing.
  */
 function editable(target: EventTarget | null): boolean {

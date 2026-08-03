@@ -84,9 +84,9 @@ export function drawGrid(
         : planned.childIndex,
     });
     // Every planned cell becomes a feature, drawn or not: a cell whose label
-    // does not fit answers `null` tokens and paints nothing, and the parity
-    // baselines record it all the same. What the grid *holds* and what it
-    // *paints* are two questions, and the plan is the answer to the first.
+    // does not fit answers `null` tokens and paints nothing, and the
+    // diagnostics report carries it all the same. What the grid *holds* and
+    // what it *paints* are two questions, and the plan answers the first.
     (planned.role === "neighbor" ? context : chosen).addFeature(feature);
     cells.push({ hash: planned.hash, extent: planned.extent, role: planned.role, count,
       contextDistance: planned.contextDistance });

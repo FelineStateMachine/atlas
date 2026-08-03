@@ -3,8 +3,8 @@
 // Two custom elements are the whole surface. The lane stands on exactly three
 // published contracts — the `/data` plane (docs/format.md), the scene
 // description (docs/app.md §4), the analysis API (docs/analysis.md) — plus
-// the diagnostics duty (golden/parity/SCHEMA.md). Nothing imports this
-// package; `golden/depcheck` and the ESLint boundary rules say so, and
+// the diagnostics duty (docs/render-seam.md §8). Nothing imports this
+// package; `tools/depcheck` and the ESLint boundary rules say so, and
 // `docs/render-seam.md` is the brief to rewrite it from those contracts
 // alone.
 //

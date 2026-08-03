@@ -6,7 +6,7 @@
 //   is an unknown tag that renders nothing and breaks nothing — which is what
 //   makes the seam deletable rather than merely small.
 //
-//   OPENS the diagnostics seams the parity harness reads.
+//   OPENS the diagnostics seams a headless driver reads (docs/render-seam.md §8).
 //
 //   HOOKS the one after-swap rescan issue #5 §4.3 allows. A morph swap can
 //   replace the scene node whole; the seam has to be told to look again. That

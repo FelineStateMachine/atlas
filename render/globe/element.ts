@@ -30,8 +30,8 @@
 // nothing on the far side shines through.
 //
 // WHAT A PIN IS CULLED BY IS NOT `visible`. That boolean is the filters'
-// answer and the harness counts it (`visibleSprites`, 2048 on Mars at every
-// recorded step), so a pin over the horizon is taken off the camera's layer
+// answer and the diagnostics count it (`visibleSprites`), so a pin over the
+// horizon is taken off the camera's layer
 // instead and the standing count stays a reading of what the legend left
 // rather than of where the camera happens to be pointing.
 //
@@ -79,27 +79,27 @@ export { initialsOf } from "../chart/markers.ts";
 
 const log = logger("globe");
 
-// THE PAIRING, calibrated against the recorded tours rather than guessed.
+// THE PAIRING, calibrated rather than guessed.
 //
 // The two cameras answer to one another as a power law anchored at one point:
 // the whole disc at altitude 2.5 reads like the whole chart at zoom 2, and
 // each halving of altitude reads like one more zoom. It is deliberately *not*
 // a field-of-view calculation -- an earlier draft of this seam derived the
 // altitude from the resolution, the viewport height and the declared degree
-// span, which is defensible arithmetic and reproduces none of the recorded
-// numbers. The retired mars parity baseline settled it: its `globe-left`
-// step recorded a chart zoom of 1.3219 = 2 + log2(2.5 / 4) after the camera
-// had been pushed out to the farthest distance, and `globe-labels-held` an
-// altitude of 0.68 = 2.5 / 2^(1.8826 - 2) / 4 after the zoom buttons had
-// halved it twice. Both fall out of the four constants below and nothing
-// else does.
+// span, which is defensible arithmetic that pairs the cameras somewhere else
+// entirely. The constants are calibrated against the reference's own recorded
+// cameras (archived on the golden-reference tag): pushed out to the farthest
+// distance, the chart reads a zoom of 1.3219 = 2 + log2(2.5 / 4), and two
+// presses of the zoom-out button read an altitude of
+// 0.68 = 2.5 / 2^(1.8826 - 2) / 4. Both fall out of the four constants below
+// and nothing else does.
 const WHOLE_DISC_ALTITUDE = 2.5;
 const WHOLE_CHART_ZOOM = 2;
 
 // The camera keeps a respectful distance: never through the skin -- a camera
 // inside the sphere sees the world inside out -- and never so far the planet
-// is a dot. The clamps are load-bearing, not hygiene: the farthest is what
-// `globe-left`'s recorded zoom is a reading of.
+// is a dot. The clamps are load-bearing, not hygiene: the farthest is the
+// altitude the calibration's 1.3219 zoom above is a reading of.
 const NEAREST_ALTITUDE = 0.08;
 const FARTHEST_ALTITUDE = 4;
 
@@ -163,7 +163,7 @@ const ORDER = { tile: 0, fill: 1, line: 2, pin: 3, chip: 4, card: 5 } as const;
  *
  * A camera draws layer 0 and nothing else, so moving a sprite off it takes it
  * out of the frame as completely as hiding it would — and without touching
- * `visible`, which belongs to the filters and is what the recorded tours
+ * `visible`, which belongs to the filters and is what the diagnostics
  * count. The other two ways of hiding a pin are both closed: opacity lives on
  * a material shared by every pin of a collection, so dimming one dims twenty,
  * and scale is what a selection speaks with.
@@ -341,7 +341,7 @@ export class AtlasGlobe extends HTMLElement {
   /** Told when the camera moves, so the corner locator can follow it. */
   onCamera: ((pov: { lat: number; lng: number; altitude: number }) => void) | null = null;
 
-  /** The seam the parity harness reads, in the golden shape. */
+  /** The seam the diagnostics read, in the report's published shape (docs/render-seam.md §8). */
   readonly seam: GlobeSeam = {
     detail: { lens: "", tiles: new Map() },
     grid: { group: null, cell: null, fitKey: "" },
@@ -397,7 +397,7 @@ export class AtlasGlobe extends HTMLElement {
     this.lensKey = lensKey;
     // A different pyramid: the neighbourhood under the camera belonged to the
     // one being left and is dropped rather than re-drawn. It comes back when
-    // the camera next moves, which is exactly what the recorded tour saw.
+    // the camera next moves.
     this.clearDetail();
     void this.skin?.base(
       context.base, context.model.slug, context.lens,
@@ -480,7 +480,7 @@ export class AtlasGlobe extends HTMLElement {
    *
    * The pane's size is not asked for: the pairing between a distance and a
    * zoom is a property of the two cameras, not of the window they are seen
-   * through (§7, calibrated against the recorded tours).
+   * through (docs/render-seam.md §7, and THE PAIRING above).
    */
   leave(): ChartCamera | null {
     this.hidden = true;
@@ -733,8 +733,7 @@ export class AtlasGlobe extends HTMLElement {
    *
    * A press is one halving or doubling of the distance, read off the camera
    * where it stands rather than off a target this pane remembers -- two
-   * presses in one tick therefore move the camera once, which is what the
-   * recorded tour did and what its `globe-labels-held` altitude records.
+   * presses in one tick therefore move the camera once.
    */
   changeZoom(delta: number): void {
     const globe = this.globe;
@@ -928,7 +927,7 @@ export class AtlasGlobe extends HTMLElement {
    * that is ground nobody can see.
    *
    * THE PINS ARE HELD TO IT THROUGH A DIFFERENT DOOR. `visible` is spoken
-   * for: it is the filters' answer, and `visibleSprites` in six recorded tours
+   * for: it is the filters' answer, and the diagnostics' `visibleSprites`
    * is a count of it. So a pin beyond the rim is moved off the layer the
    * camera draws, and back onto it when the planet turns -- the same
    * silhouette, and the standing count never moves.
@@ -1234,7 +1233,7 @@ export class AtlasGlobe extends HTMLElement {
     // deeper than the chart zoom the camera reads as. Nothing is draped until
     // that is deeper than the skin already is -- a sphere seen whole is the
     // base skin and nothing else, which is what makes "past the base skin's
-    // depth, tiles actually arrive" a statement the tour can check rather
+    // depth, tiles actually arrive" a statement a driver can check rather
     // than a description of every frame.
     const z = detailLevel(
       zoomForAltitude(pov.altitude, this.ceiling()), context.lens.maxZoom);
@@ -1685,9 +1684,8 @@ export interface Placed {
  * A Phong material multiplies its map by its colour. Leave the colour black
  * and the skin is multiplied away: the texture is there, every count in the
  * snapshot is right, every sprite draws, and the planet under them is black.
- * That is the exact defect the picture step exists to catch
- * (golden/parity/SCHEMA.md §2.1.4), and it is invisible to every other
- * instrument the harness has.
+ * That is the exact defect only a picture catches: every counting instrument
+ * in the diagnostics reads a healthy scene over a black planet.
  *
  * White rather than `null`, which is what globe.gl writes: three reads a null
  * colour as "leave the shader's own default", and the shader's own default is

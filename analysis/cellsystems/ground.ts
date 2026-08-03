@@ -59,8 +59,9 @@ export type Coordinate = readonly [number, number];
  * raster window; failing that the whole world square. The sign flip is the
  * conversion from the y-down pixels a bundle declares to the y-negative-down
  * coordinates every other function here speaks — the top edge of a lens
- * anchored at y = 0 comes out as -0, which is a real double and a real part
- * of the recorded goldens.
+ * anchored at y = 0 comes out as -0, which is a real double and a deliberate
+ * output: the intent tests assert it, and the shared vectors normalize it
+ * away at the JSON boundary (analysis/test/vectors.test.ts).
  */
 export function surfaceExtent(ground: Ground): Extent {
   const surface = ground.lens?.surface;

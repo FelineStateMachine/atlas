@@ -860,8 +860,8 @@ func applyGrid(c *concernContext, form formValues) error {
 	}
 	if form.on("ascend") {
 		// Escape telescopes out: one level of the address at a time, and out
-		// of the grid altogether once there is no address left. The two
-		// presses the tours record are exactly these two answers.
+		// of the grid altogether once there is no address left. Two presses,
+		// two distinct answers, and app_test.go walks both.
 		//
 		// One level is not one character. What the parent of an address is, is
 		// the address's own system's business (grid.go, parentCell), and the

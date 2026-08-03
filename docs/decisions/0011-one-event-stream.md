@@ -34,7 +34,7 @@ one place.
 - `Setup` is called once, explicitly, from a command's `main`. There is no
   `init`.
 
-`internal/logging` is a **lane of its own** in `golden/depcheck`, so who may
+`internal/logging` is a **lane of its own** in `tools/depcheck`, so who may
 import it is answered by the import matrix rather than by where it happens to
 sit: everybody may, except `format/`, which depends on the standard library
 alone.

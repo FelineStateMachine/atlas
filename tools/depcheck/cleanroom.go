@@ -21,8 +21,7 @@ measures them.`,
 
 func cleanRoomEdge(from Lane, fromRel, importPath string) string {
 	switch from {
-	case LaneOutside, LaneGolden:
-		// golden/ captures fixtures *from* the old tree; that is its job.
+	case LaneOutside, LaneTests:
 		return ""
 	case LaneFormat:
 		// The stdlib-only rule already says something stricter and clearer.

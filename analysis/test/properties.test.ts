@@ -1,11 +1,8 @@
-// The properties that used to be recorded, now asserted.
+// The plan's invariants, written as properties.
 //
-// The golden layer once pinned twenty-eight recorded plans and re-checked
-// them against captured tours. The recordings are gone with the layer, and
-// what stands in their place is this file: the invariants the recordings were
-// evidence *of*, written as properties and run over invented grounds and
-// invented locations — numbers no capture ever contained, so nothing here can
-// be a transcript of an implementation agreeing with itself.
+// They run over invented grounds and invented locations — numbers no capture
+// ever contained, so nothing here can be a transcript of an implementation
+// agreeing with itself.
 //
 // Four properties, each over a plane and a sphere:
 //

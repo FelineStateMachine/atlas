@@ -31,7 +31,7 @@ twin of `internal/enrich`.
 ## 1. The seam: how `generate ⊕ enrich` is joined
 
 The two pipeline lanes never import each other (issue #5 §3.2, enforced by
-`golden/depcheck`). Generate owns the interchange document; enrich owns its own
+`tools/depcheck`). Generate owns the interchange document; enrich owns its own
 model of a volume under enrichment. Both carry the same information, because
 both are shaped by what the format needs.
 
@@ -468,11 +468,9 @@ roll up feature → collection → world → volume.
 
 **No denominators, no ceilings.** A share moves when its denominator moves, so a
 build that added five hundred features and described half of them could read as
-a regression. Percentages survive only as diagnostics. That also retires the
-known `DescribedPct`-above-100% defect by construction — and where the
-diagnostic still prints a share, it now divides by every feature rather than by
-the point features alone, which is what produced the 235% the reference tooling
-reported for the city fixture.
+a regression. Percentages survive only as diagnostics, and where a diagnostic
+prints a share it divides by every feature rather than by the point features
+alone, so a share cannot exceed its whole.
 
 The table is versioned data (`internal/enrich/maturity/points.json`, v1). A
 re-weighting is a **new version**, not a mass failure.
@@ -513,8 +511,8 @@ An enrichment build whose score declines fails.
 
 ### 6.3 The five axes, as diagnostics
 
-Annotation, cartography, structure, icons and conventions carry over from the
-reference tooling as the score's breakdown. They are absolute measurements of
+Annotation, cartography, structure, icons and conventions are the score's
+breakdown. They are absolute measurements of
 one build, never ranks within a library, and nothing gates on them. `atlas
 measure` prints the score first and the axes beneath it, with every merge ledger
 the payloads carry.
@@ -577,27 +575,26 @@ way to see a merge.
 
 ## 9. What is proven
 
+How the lane is judged overall is [testing.md](testing.md); every suite below
+runs under `make test`, over stated bundles and the committed corpus.
+
 | claim | held by |
 | --- | --- |
-| the merge reproduces the reference tree's judgement, pair by pair | `golden/pipeline`: re-runs the merge from the two committed translator fixtures and holds it to the merged fixture's recorded ledger — 99 anchors, median 26.0px, 270 matched, 37 added (7 adopted), 61 held, every pair to the same serving feature at the same distance, every hold for the same reason |
-| the membership join reproduces the reference tree's claims | `golden/pipeline`: re-runs the join over the city fixture's own payload and reproduces exactly the features it claims, with the same codes and the same sentences — 88 from 12 surveyed units when the fixture was captured. The test reads the world out of the fixture's manifest and compares against the fixture's own claims, so a re-capture that moves the capture day, the stamp or the survey moves the test with it rather than breaking it |
-| a standard glyph is byte-identical to what the reference shipped | `golden/pipeline`: the vendored `maki/monument` against the city fixture's icon hash |
-| enrichment raises the score, and the gate refuses the reverse | `golden/pipeline`: the city fixture with and without its membership claims |
-| every fixture volume scores, reproducibly, and a score is the sum of its worlds | `golden/pipeline` |
-| the seam is a copy, not a decision | `cmd/atlas`: a document adapted and adapted back is byte-identical |
-| the queue curation declares and the enrichers the binary offers are the same set | `golden/pipeline` |
-| the whole `generate ⊕ enrich` reproduction of the merged bundle | `golden/pipeline`: runs `atlas enrich` over the archived Piggyback and IGN captures into an empty registry and holds what lands there to the committed extractions — the world payload with its whole ledger, the packed locations, the prose, all 38 icons, both pyramids' 17,507 tiles, and the archive's entry order, byte for byte |
+| the merge decides by name and distance, a place is matched once, and a refused alignment is a refused merge | `internal/enrich/enrichers/merge`, with the fit itself in `internal/enrich/align` |
+| the membership join claims only what every sampled position agrees on, and the survey makes no claims about itself | `internal/enrich/enrichers/national` |
+| a standard glyph resolves only into an empty slot, once, under a provenance-spelling name, and an unanswerable declaration fails the build | `internal/enrich/enrichers/stdicons` |
+| a lens offer attaches what a world lacks and repoints nothing | `internal/enrich/enrichers/lenses` |
+| the score is unbounded, additive and monotone; shares cannot exceed their whole; the gate permits a decline only up to accounted corrections | `internal/enrich/maturity` |
+| contributions apply additively, refuse overwrites, and round-trip their canonical form; the gate audits every account both ways | `internal/enrich` |
+| the queue curation and the enrichers the binary offers are the same set | `internal/enrich` (`TestQueueHoldsCurationAndTheBinaryToEachOther`) |
+| the seam is a copy, not a decision | `cmd/atlas` (`TestAdaptationRoundTrips`): a document adapted and adapted back is byte-identical |
 
-The last row is the gate `golden/harness` calls `generate-enrich`, and it runs
-the shipped command rather than a test's own reassembly of the pipeline: the ⊕ is
-`atlas enrich`, and a gate that arranged the same library calls in the same order
-would be measuring a second implementation nobody ships.
+The deepest composed output of this lane in the tree is the corpus city:
+`testdata/corpus/bundles/bend-or` carries the national membership claims and a
+resolved standard glyph, and the format, island and browser suites all read it.
 
-One divergence from the goldens is declared in `golden/waivers.json`: an
-enriched build's manifest revision, and therefore its stamp and file name,
-cannot equal the reference tree's, because the reference merged inside
-composition at the plain revision and §2 above requires the enrich write to bump
-past it. Canonical content is unaffected, and the gate asserts the shape of the
-difference — capture time unmoved, revision exactly this lane's bump of the
-fixture's own, stamp and file name following from it — so a second, unrelated
-divergence could not hide inside the first.
+An enriched build's manifest revision — and therefore its stamp and file
+name — differs by construction from a plain build of the same captures; §2 is
+the mechanism, and
+[decision 18](decisions/0018-divergences-from-the-reference.md) records it
+among the accepted divergences from the archived reference.

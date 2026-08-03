@@ -11,10 +11,11 @@
 // Two planes share the mux and answer to different rules.
 //
 // The **data plane** (/data) is byte-compatible with the implementation this
-// one replaces. The catalog is composed from whatever is installed right now
-// and is never cached; volume content sits under a URL carrying the build's
-// stamp, so it may be cached forever and a new build arrives at new URLs. The
-// golden HTTP transcript replays against it (golden/http).
+// one replaces (docs/app.md §2.1; the differences accepted against the
+// reference are decision 18). The catalog is composed from whatever is
+// installed right now and is never cached; volume content sits under a URL
+// carrying the build's stamp, so it may be cached forever and a new build
+// arrives at new URLs. app_test.go is the gate on the plane's shape.
 //
 // The **app plane** is hypermedia: real URLs for volume and world, one POST
 // per interaction concern, an SSE stream that says when the library moved, and

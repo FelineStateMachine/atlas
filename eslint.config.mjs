@@ -1,6 +1,6 @@
 // The TypeScript half of the guardrails (issue #5 §9).
 //
-// Same boundaries as golden/depcheck, where they cross into TS: analysis/
+// Same boundaries as tools/depcheck, where they cross into TS: analysis/
 // imports no DOM and nothing app-shaped; render/ imports only analysis/ and
 // itself; fetch lives in render's data layer; console lives in the log module.
 // Most of these rules exist to say "we don't do that here" — the message is
@@ -62,7 +62,7 @@ const consoleRule = {
   message: cite(
     "bare console.* is not the log stream",
     "9",
-    "the system narrates itself through one leveled, structured stream; the TS log module is the browser end of it, and the headless parity runner captures it — a failing tour step ships its console context for free only if everything goes through the module",
+    "the system narrates itself through one leveled, structured stream; the TS log module is the browser end of it, and a headless driver captures it — a failing e2e step ships its console context for free only if everything goes through the module",
   ),
 };
 
@@ -109,7 +109,7 @@ export default tseslint.config(
               ),
             },
             {
-              group: ["**/internal/**", "**/format/**", "**/golden/**", "htmx*", "**/app/**"],
+              group: ["**/internal/**", "**/format/**", "**/tests/**", "htmx*", "**/app/**"],
               message: cite(
                 "analysis/ must not import anything app-shaped",
                 "3.2",
@@ -134,7 +134,7 @@ export default tseslint.config(
               // workspace name, `@atlas/analysis`; the
               // pinned dependency surface (OpenLayers, globe.gl / three,
               // s2js through analysis) is the rest of it, and it grows only
-              // behind a green parity tour. Relative imports are allowed at
+              // by a deliberate, reviewed decision. Relative imports are allowed at
               // any depth — the lane is one package and its own directories
               // are not a boundary.
               //
@@ -164,7 +164,7 @@ export default tseslint.config(
               ),
             },
             {
-              group: ["**/internal/**", "**/format/**", "**/golden/**", "**/app/**", "htmx*"],
+              group: ["**/internal/**", "**/format/**", "**/tests/**", "**/app/**", "htmx*"],
               message: cite(
                 "render/ must not import the application",
                 "5.5",
@@ -178,7 +178,7 @@ export default tseslint.config(
   },
 
   {
-    // The seam's own tests run in Node, against the golden fixtures. They may
+    // The seam's own tests run in Node, against the corpus. They may
     // reach for the standard library to read a file and hash bytes; they are
     // not shipped, and every other boundary still holds over them.
     files: ["render/test/**/*.ts"],

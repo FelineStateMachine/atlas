@@ -1,4 +1,4 @@
-// The camera's boundary discipline: parity of resilience.
+// The camera's boundary discipline: resilience at every door.
 //
 // THE DEFECT, in a reader's words: "we could end up too zoomed in that we
 // enter an invalid state that is corruptive across the 2d/3d transition. it

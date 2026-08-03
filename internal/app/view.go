@@ -90,8 +90,8 @@ type VolumeView struct {
 	Lenses []LensView
 
 	// Lens is the lens in view and LensIndex its place in the list, which
-	// is how the reference implementation's session recorded it and how the
-	// golden baselines still read it.
+	// is the number the session schema publishes as `lens` (docs/app.md
+	// §6).
 	Lens      string
 	LensIndex int
 

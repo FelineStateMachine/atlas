@@ -151,9 +151,9 @@ func TestTheLabelLadderReadsTheCuration(t *testing.T) {
 	}
 }
 
-// ladderOf reads the label ladder off the rendered legend, the way the parity
-// harness read it: off the aria-pressed state of every toggle, in the order
-// they appear, sorted.
+// ladderOf reads the label ladder off the rendered legend, the way a browser
+// wears it: the aria-pressed state of every toggle, in the order they
+// appear, sorted.
 func ladderOf(page string) (speaking, silent []string) {
 	const marker = `data-label-toggle="`
 	for at := 0; ; {
@@ -340,10 +340,9 @@ func TestTheLegendTreeIsOneTree(t *testing.T) {
 	}
 }
 
-// TestTheDockListsWhatTheMapDraws is the sync invariant the parity tour used
-// to check on every step, checked here on one: the footer, the panel's count
-// and the list under it all tell the same story, and the story is the
-// corpus's own arithmetic.
+// TestTheDockListsWhatTheMapDraws is the sync invariant: the footer, the
+// panel's count and the list under it all tell the same story, and the
+// story is the corpus's own arithmetic.
 func TestTheDockListsWhatTheMapDraws(t *testing.T) {
 	const slug = "bend-or"
 	volume := corpusVolume(t, slug)
@@ -406,7 +405,7 @@ func TestSearchNarrowsPointsAndNeverTheGround(t *testing.T) {
 // "open" in every state, and the list is hidden under an empty card forever.
 //
 // Only the attribute can be checked from here; whether the browser then draws
-// the list was the parity tour's to see. So this walks the four states the
+// the list is a real browser's to see. So this walks the four states the
 // rule distinguishes and reads the attribute off both places the card is
 // rendered -- the dock's own re-render and the card's own region -- because
 // two answers that disagree are the same bug wearing a hat.
