@@ -302,6 +302,14 @@ export class AtlasGlobe extends HTMLElement {
    * the thing an element leaving the page has to stop being reachable from.
    */
   private moving: (() => void) | null = null;
+  /**
+   * The pane's own size, watched: globe.gl measures once and has to be told.
+   *
+   * Held rather than forgotten for the same reason the chart holds its own
+   * (`chart/element.ts`): a `ResizeObserver` belongs to the browser, not to
+   * this element, so one left running outlives the pane it was watching.
+   */
+  private sizes: ResizeObserver | null = null;
   /** Told when the camera moves, so the corner locator can follow it. */
   onCamera: ((pov: { lat: number; lng: number; altitude: number }) => void) | null = null;
 
@@ -485,6 +493,66 @@ export class AtlasGlobe extends HTMLElement {
   }
 
   /**
+   * Come back to the page, and start measuring it again.
+   *
+   * Only a *re*-connect has anything to rewire, exactly as on the chart: on
+   * the first connect there is no globe yet -- nothing is built until the
+   * sphere is entered -- and an observer wired before there is a planet to
+   * resize would push dimensions at nothing.
+   */
+  connectedCallback(): void {
+    if (!this.globe) return;
+    this.watchSize();
+  }
+
+  /**
+   * Keep the sphere the size of its pane.
+   *
+   * globe.gl is told its dimensions once, at entry, out of the pane it was
+   * given -- and on this page the pane moves without the window doing
+   * anything: the dock folds under a keystroke, the panel beside the map
+   * comes out the first time a search has something to say. A sphere that did
+   * not hear about it went on drawing at the old size until something else
+   * poked it, which is the defect this exists for.
+   *
+   * THREE THINGS MOVE WITH THE BOX, and only the first is globe.gl's:
+   *
+   *   THE RENDERER, which is the picture itself and the camera's aspect.
+   *   THE FAT LINES. A `Line2` carries its width in *pixels*, which it can
+   *   only do by being told the size of the window it is measured against
+   *   (`cellBoundary`). Every boundary standing was told at the size the pane
+   *   had when the grid was drawn, so a resize that did not refresh them
+   *   leaves the whole hierarchy of line weights mis-scaled.
+   *   THE HORIZON. The cull is a question about where the camera is and how
+   *   much of the planet it can see, and a new aspect is a new answer.
+   */
+  private watchSize(): void {
+    if (this.sizes || typeof ResizeObserver === "undefined") return;
+    this.sizes = new ResizeObserver(() => this.resize());
+    this.sizes.observe(this);
+  }
+
+  /** One box change, pushed everywhere a box is remembered. */
+  private resize(): void {
+    const globe = this.globe;
+    if (!globe) return;
+    // A pane put away behind the chart is zero across, and so is one measured
+    // mid-transition. Neither is a size to draw a planet at: a globe told it
+    // is zero pixels wide throws its dimensions away, and the reader coming
+    // back to the sphere would find nothing on it.
+    const width = this.clientWidth;
+    const height = this.clientHeight;
+    if (!width || !height) return;
+    globe.width(width);
+    globe.height(height);
+    for (const child of this.cells.children) {
+      const material = (child as { material?: unknown }).material;
+      if (material instanceof LineMaterial) material.resolution.set(width, height);
+    }
+    this.cull();
+  }
+
+  /**
    * The world stopped declaring a sphere.
    *
    * A volume or a world change can land on ground no globe can be draped
@@ -515,6 +583,10 @@ export class AtlasGlobe extends HTMLElement {
   }
 
   private dismantle(): void {
+    // Stopped, not merely forgotten: the callback closes over this element,
+    // and through it over the scene, the skin and the world context.
+    this.sizes?.disconnect();
+    this.sizes = null;
     const globe = this.globe;
     if (globe && this.moving) globe.controls().removeEventListener("change", this.moving);
     this.moving = null;
@@ -635,6 +707,9 @@ export class AtlasGlobe extends HTMLElement {
 
     this.buildSprites(context);
     this.watchCamera(this.globe);
+    // The observer arrives with the planet, from here, the way the chart's
+    // arrives with its world: before this there is no globe to be resized.
+    this.watchSize();
     this.globe.onGlobeClick(({ lat, lng }) => this.pick(lat, lng));
   }
 

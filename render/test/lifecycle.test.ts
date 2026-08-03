@@ -30,6 +30,7 @@
 import test from "node:test";
 import { strict as assert } from "node:assert";
 import * as THREE from "three";
+import { LineMaterial } from "three/examples/jsm/lines/LineMaterial.js";
 import { setLevel } from "../log.ts";
 
 setLevel("error");
@@ -52,8 +53,16 @@ const observers: StubObserver[] = [];
 class StubObserver {
   readonly targets: unknown[] = [];
   live = true;
-  constructor() {
+  private readonly told: () => void;
+
+  constructor(told: () => void) {
+    this.told = told;
     observers.push(this);
+  }
+
+  /** The browser saying the box moved, which is the only thing it ever says. */
+  fire(): void {
+    this.told();
   }
 
   observe(target: unknown): void {
@@ -134,6 +143,7 @@ function charted(element: object): Charted {
 function stubGlobe() {
   const handlers = new Set<() => void>();
   const scene = new THREE.Scene();
+  const dimensions: [string, number][] = [];
   let destructed = 0;
   const controls = {
     addEventListener: (_type: string, handler: () => void) => { handlers.add(handler); },
@@ -145,7 +155,10 @@ function stubGlobe() {
     camera: () => ({ position: { x: 0, y: 0, z: 300 } }),
     pointOfView: () => ({ lat: 12, lng: 34, altitude: 0.5 }),
     _destructor: () => { destructed += 1; },
+    width: (px: number) => { dimensions.push(["width", px]); },
+    height: (px: number) => { dimensions.push(["height", px]); },
     /** The test's own handles on the stub. */
+    dimensions,
     handlers,
     graph: scene,
     destructs: () => destructed,
@@ -287,6 +300,90 @@ test("a sphere that comes back is built afresh rather than wired twice", () => {
   next.move();
   globe.move();
   assert.equal(seen.length, 1, "one report per move, from the sphere that is live");
+});
+
+// ---- the sphere, and the box it is drawn in ---------------------------
+//
+// The pane moves without the window doing anything: the dock folds under a
+// keystroke and the panel beside the map comes out the first time a search has
+// something to say. globe.gl is told its dimensions once, at entry, so a
+// sphere that did not hear about the fold went on drawing at the old size
+// until something else poked it -- which is the defect. The chart has watched
+// its own box since the lifecycle work; this is the same duty on the sphere,
+// and it carries two more units that remember a size: a `Line2` carries its
+// width in pixels and can only do it by being told the window it is measured
+// against, and the horizon cull is a question about the camera's aspect.
+
+/** A pane with a box, which is what a stub element otherwise has no idea of. */
+function sized(element: object, width: number, height: number): void {
+  Object.assign(element, { clientWidth: width, clientHeight: height });
+}
+
+/** A grid boundary as `cellBoundary` leaves one: an object wearing a fat line. */
+function boundary(width: number, height: number): { material: LineMaterial } {
+  const material = new LineMaterial({ linewidth: 2 });
+  material.resolution.set(width, height);
+  const line = new THREE.Object3D() as THREE.Object3D & { material: LineMaterial };
+  line.material = material;
+  return line;
+}
+
+test("a sphere whose pane changed size is told, in every unit that remembers one", () => {
+  observers.length = 0;
+  const { element, globe } = built();
+  sized(element, 900, 600);
+  // A re-connect is what puts the observer back; the first one is the build's,
+  // and there is no globe to measure before there is a globe.
+  element.connectedCallback();
+  assert.equal(observers.length, 1, "one observer");
+  assert.deepEqual(observers[0]?.targets, [element], "watching its own pane");
+
+  const line = boundary(900, 600);
+  inside(element).cells.add(line as unknown as THREE.Object3D);
+  const card = nameCard("Elysium", { x: 0, y: 0, z: -101 });
+  card.visible = true;
+  inside(element).cells.add(card);
+
+  sized(element, 1280, 720);
+  observers[0]?.fire();
+  assert.deepEqual(globe.dimensions, [["width", 1280], ["height", 720]],
+    "globe.gl measures once and has to be told");
+  assert.deepEqual([line.material.resolution.x, line.material.resolution.y], [1280, 720],
+    "a fat line not told the new window draws at the old scale");
+  assert.equal(card.visible, false,
+    "and the horizon is asked again: a new aspect is a new answer");
+});
+
+test("a sphere put away behind the chart is not told it is zero pixels wide", () => {
+  observers.length = 0;
+  const { element, globe } = built();
+  sized(element, 0, 0);
+  element.connectedCallback();
+  observers[0]?.fire();
+  assert.deepEqual(globe.dimensions, [],
+    "a pane measured mid-transition, or hidden, has no size to draw a planet at");
+});
+
+test("the sphere's size observer comes off with the element and goes back on", () => {
+  observers.length = 0;
+  const { element } = built();
+  sized(element, 900, 600);
+  element.connectedCallback();
+  assert.equal(observers.length, 1);
+
+  element.disconnectedCallback();
+  assert.equal(observers[0]?.live, false, "the observer is stopped, not merely forgotten");
+
+  // A disconnect took the globe with it, so the element that comes back has
+  // nothing to measure until it is entered again -- exactly the chart's rule.
+  element.connectedCallback();
+  assert.equal(observers.length, 1, "there is no planet yet to resize");
+
+  const next = built();
+  sized(next.element, 900, 600);
+  next.element.connectedCallback();
+  assert.equal(observers.filter((seen) => seen.live).length, 1,
+    "and there is never more than one live: a pane measured twice is a pane counted twice");
 });
 
 // ---- the chart --------------------------------------------------------
