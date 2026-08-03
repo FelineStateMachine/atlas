@@ -83,6 +83,25 @@ func (v *Volumes) Volumes() []hostenv.Volume {
 	return out
 }
 
+// Close closes every reader the current snapshot holds and leaves the store
+// empty. The desktop host never calls it — a process done with its library is
+// a process that is exiting — but a caller that opened a library it must
+// later delete has to let the files go first, which on Windows is a rule
+// rather than a courtesy.
+func (v *Volumes) Close() error {
+	v.scanning.Lock()
+	defer v.scanning.Unlock()
+	previous := v.snap.Load()
+	v.snap.Store(&snapshot{serving: map[string]bundle.Descriptor{}, open: map[string]*volume{}})
+	var first error
+	for _, held := range previous.open {
+		if err := held.reader.Close(); err != nil && first == nil {
+			first = err
+		}
+	}
+	return first
+}
+
 // Rescan reads the directory whole and swaps in what it finds, reporting the
 // volumes whose serving build moved. A bundle that will not open is logged
 // and passed over rather than failing the scan: one bad download should not

@@ -87,6 +87,7 @@ func TestVolumesServesTheFoldsWinner(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	t.Cleanup(func() { store.Close() })
 
 	volumes := store.Volumes()
 	if len(volumes) != 2 {
@@ -124,6 +125,7 @@ func TestVolumesRescanReportsWhatMoved(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	t.Cleanup(func() { store.Close() })
 
 	if changed, err := store.Rescan(); err != nil || len(changed) != 0 {
 		t.Fatalf("a rescan over an unchanged library reported %v, %v", changed, err)
@@ -148,6 +150,7 @@ func TestVolumesInstall(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	t.Cleanup(func() { store.Close() })
 	if len(store.Volumes()) != 0 {
 		t.Fatal("an empty library is not empty")
 	}
