@@ -165,42 +165,42 @@ func TestApplicableSystemsAsksTheWorldTwoQuestions(t *testing.T) {
 	}{
 		{"a world that says nothing is a plane", nil, []string{"geohash"}},
 		{"and so is one that says so", map[string]string{
-			"atlas.geometry.surface": "plane",
+			semconv.KeyGeometrySurface: "plane",
 		}, []string{"geohash"}},
 		{"a sphere with a flattening takes both", marsAttrs, []string{"geohash", "s2"}},
 		{"a sphere that declares no flattening takes neither but geohash", map[string]string{
-			"atlas.geometry.surface": "sphere",
+			semconv.KeyGeometrySurface: "sphere",
 		}, []string{"geohash"}},
 		{"nor one whose window is unreadable", map[string]string{
-			"atlas.geometry.surface":      "sphere",
-			"atlas.geometry.projection":   "equirect",
-			"atlas.geometry.equirect.px":  "0,0,0,0",
-			"atlas.geometry.equirect.deg": "-180,90,180,-90",
+			semconv.KeyGeometrySurface:     "sphere",
+			semconv.KeyGeometryProjection:  "equirect",
+			semconv.KeyGeometryEquirectPx:  "0,0,0,0",
+			semconv.KeyGeometryEquirectDeg: "-180,90,180,-90",
 		}, []string{"geohash"}},
 		{"nor one that pictures no ground", map[string]string{
-			"atlas.geometry.surface":      "sphere",
-			"atlas.geometry.projection":   "equirect",
-			"atlas.geometry.equirect.px":  "0,0,8192,4096",
-			"atlas.geometry.equirect.deg": "-180,90,-180,-90",
+			semconv.KeyGeometrySurface:     "sphere",
+			semconv.KeyGeometryProjection:  "equirect",
+			semconv.KeyGeometryEquirectPx:  "0,0,8192,4096",
+			semconv.KeyGeometryEquirectDeg: "-180,90,-180,-90",
 		}, []string{"geohash"}},
 		{"nor one whose numbers are not numbers", map[string]string{
-			"atlas.geometry.surface":      "sphere",
-			"atlas.geometry.projection":   "equirect",
-			"atlas.geometry.equirect.px":  "0,0,8192",
-			"atlas.geometry.equirect.deg": "-180,90,180,-90",
+			semconv.KeyGeometrySurface:     "sphere",
+			semconv.KeyGeometryProjection:  "equirect",
+			semconv.KeyGeometryEquirectPx:  "0,0,8192",
+			semconv.KeyGeometryEquirectDeg: "-180,90,180,-90",
 		}, []string{"geohash"}},
 		// The window is only read when the world says which flattening the
 		// numbers are for, which is the reader's rule in the seam too
 		// (analysis/semconv/geometry.ts, declaredWindow).
 		{"nor one that does not say what its numbers are", map[string]string{
-			"atlas.geometry.surface":      "sphere",
-			"atlas.geometry.equirect.px":  "0,0,8192,4096",
-			"atlas.geometry.equirect.deg": "-180,90,180,-90",
+			semconv.KeyGeometrySurface:     "sphere",
+			semconv.KeyGeometryEquirectPx:  "0,0,8192,4096",
+			semconv.KeyGeometryEquirectDeg: "-180,90,180,-90",
 		}, []string{"geohash"}},
 		{"a flattening without a sphere is a picture of nothing in particular", map[string]string{
-			"atlas.geometry.projection":   "equirect",
-			"atlas.geometry.equirect.px":  "0,0,8192,4096",
-			"atlas.geometry.equirect.deg": "-180,90,180,-90",
+			semconv.KeyGeometryProjection:  "equirect",
+			semconv.KeyGeometryEquirectPx:  "0,0,8192,4096",
+			semconv.KeyGeometryEquirectDeg: "-180,90,180,-90",
 		}, []string{"geohash"}},
 	}
 	for _, test := range tests {
