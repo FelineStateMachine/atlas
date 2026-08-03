@@ -57,6 +57,18 @@ type blueMarblePin struct {
 	// Quality is the JPEG setting the reference tiles are encoded at. It is
 	// spelled here, once, because two runs of one pipeline may not disagree.
 	Quality int
+	// FeaturesEdition names the vector publication the capture marries to the
+	// raster, and Borders and Places pin its two files: country polygons and
+	// populated places, each held to its own digest exactly as the image is.
+	FeaturesEdition string
+	Borders, Places blueMarbleAsset
+}
+
+// blueMarbleAsset is one pinned file: where it is, and what its bytes must
+// hash to.
+type blueMarbleAsset struct {
+	Asset  string
+	SHA256 string
 }
 
 // blueMarble is the shipped pin: Blue Marble Next Generation with topography
@@ -68,10 +80,23 @@ var blueMarble = blueMarblePin{
 	Page:       "https://science.nasa.gov/earth/earth-observatory/blue-marble-next-generation/base-topography-bathymetry/",
 	Asset:      "https://assets.science.nasa.gov/content/dam/science/esd/eo/images/bmng/bmng-topography-bathymetry/july/world.topo.bathy.200407.3x21600x10800.jpg",
 	SHA256:     "d225f1f35a6448a4d1d8f6de6e48f3433e470085b70a35800e64f384f269a7b0",
-	CapturedAt: "2026-08-03T15:27:26Z",
+	CapturedAt: "2026-08-03T16:21:07Z",
 	Width:      21600,
 	Height:     10800,
 	Quality:    85,
+	// The feature data is Natural Earth, public domain, at a tagged release:
+	// country polygons at 1:110m -- the light cut, made for whole-planet maps
+	// -- and the populated places its capitals are read from. Boundaries and
+	// capital designations are carried as Natural Earth draws them, de facto.
+	FeaturesEdition: "Natural Earth 1:110m cultural vectors v5.1.2",
+	Borders: blueMarbleAsset{
+		Asset:  "https://raw.githubusercontent.com/nvkelso/natural-earth-vector/v5.1.2/geojson/ne_110m_admin_0_countries.geojson",
+		SHA256: "6866c877d39cba9c357620878839b336d569f8c662d3cfab4cb1dbe2d39c977f",
+	},
+	Places: blueMarbleAsset{
+		Asset:  "https://raw.githubusercontent.com/nvkelso/natural-earth-vector/v5.1.2/geojson/ne_110m_populated_places_simple.geojson",
+		SHA256: "0dbd25c9ad8bd797ddf164b067f563be5c16be2c002254eb594862377963f9dc",
+	},
 }
 
 // blueMarbleResampler names the cut for the capture body: the resampler beside
@@ -133,34 +158,48 @@ func (c blueMarbleCrawler) Crawl(ctx context.Context, run Run) error {
 	if err != nil {
 		return err
 	}
-	source, err := c.source(ctx, run, worldDir, log)
+	source, err := c.asset(ctx, run, worldDir, blueMarble.Asset, blueMarble.SHA256, ".jpg", log)
 	if err != nil {
 		return err
 	}
-	if err := writeBlueMarble(run.Archive, worldDir, world.ID, blueMarble, source, log); err != nil {
+	borders, err := c.asset(ctx, run, worldDir, blueMarble.Borders.Asset, blueMarble.Borders.SHA256, ".geojson", log)
+	if err != nil {
+		return err
+	}
+	places, err := c.asset(ctx, run, worldDir, blueMarble.Places.Asset, blueMarble.Places.SHA256, ".geojson", log)
+	if err != nil {
+		return err
+	}
+	features, err := distillBlueMarbleFeatures(blueMarble, borders, places)
+	if err != nil {
+		return err
+	}
+	if err := writeBlueMarble(run.Archive, worldDir, world.ID, blueMarble, source, features, log); err != nil {
 		return err
 	}
 	return nil
 }
 
-// source answers the pinned image's bytes: the copy already kept beside the
+// asset answers one pinned file's bytes: the copy already kept beside the
 // capture when there is one, the origin exactly once when there is not. Either
 // way the bytes are held to the pinned digest before anything is derived from
 // them.
-func (c blueMarbleCrawler) source(ctx context.Context, run Run, worldDir string, log *slog.Logger) ([]byte, error) {
-	cached := blueMarbleSourcePath(worldDir, blueMarble)
+func (c blueMarbleCrawler) asset(
+	ctx context.Context, run Run, worldDir, url, sha256, extension string, log *slog.Logger,
+) ([]byte, error) {
+	cached := filepath.Join(worldDir, "source", sha256+extension)
 	if data, err := os.ReadFile(cached); err == nil {
-		if err := verifyBlueMarble(data, blueMarble); err != nil {
+		if err := verifyBlueMarble(data, sha256); err != nil {
 			return nil, fmt.Errorf("cached source %s: %w", cached, err)
 		}
 		log.Info("source already captured", logging.Path(cached), "bytes", len(data))
 		return data, nil
 	}
-	data, _, err := run.Fetch.Get(ctx, blueMarble.Asset, nil)
+	data, _, err := run.Fetch.Get(ctx, url, nil)
 	if err != nil {
-		return nil, fmt.Errorf("fetch %s: %w", blueMarble.Asset, err)
+		return nil, fmt.Errorf("fetch %s: %w", url, err)
 	}
-	if err := verifyBlueMarble(data, blueMarble); err != nil {
+	if err := verifyBlueMarble(data, sha256); err != nil {
 		return nil, err
 	}
 	if err := writeFile(cached, data); err != nil {
@@ -170,29 +209,114 @@ func (c blueMarbleCrawler) source(ctx context.Context, run Run, worldDir string,
 	return data, nil
 }
 
-// blueMarbleSourcePath is where the downloaded source sits: beside the world's
-// captures, content-addressed by the pinned digest.
-func blueMarbleSourcePath(worldDir string, pin blueMarblePin) string {
-	return filepath.Join(worldDir, "source", pin.SHA256+".jpg")
-}
-
-// verifyBlueMarble holds bytes to the pin. It runs before any decode: bytes
-// that are not the pinned publication are not decoded, not derived from, and
-// not archived.
-func verifyBlueMarble(data []byte, pin blueMarblePin) error {
-	if sum := Hash(data); sum != pin.SHA256 {
+// verifyBlueMarble holds bytes to a pinned digest. It runs before any decode:
+// bytes that are not the pinned publication are not decoded, not derived from,
+// and not archived.
+func verifyBlueMarble(data []byte, sha256 string) error {
+	if sum := Hash(data); sum != sha256 {
 		return fmt.Errorf(
 			"source digest mismatch: fetched bytes hash to %s where the pin requires %s; "+
-				"refusing changed upstream bytes", sum, pin.SHA256)
+				"refusing changed upstream bytes", sum, sha256)
 	}
 	return nil
+}
+
+// distillBlueMarbleFeatures reads the two verified Natural Earth files down to
+// what the capture keeps: each country's name, code, continent, label point
+// and rings, and each primary capital's name, country and place. Coordinates
+// travel verbatim, as published; putting them on the picture is the reader's
+// work. Order is the publication's own.
+func distillBlueMarbleFeatures(pin blueMarblePin, borders, places []byte) (blueMarbleFeatures, error) {
+	out := blueMarbleFeatures{
+		Edition:       pin.FeaturesEdition,
+		BordersSHA256: pin.Borders.SHA256,
+		PlacesSHA256:  pin.Places.SHA256,
+	}
+
+	var countries struct {
+		Features []struct {
+			Properties struct {
+				Name      string  `json:"NAME"`
+				A3        string  `json:"ADM0_A3"`
+				Continent string  `json:"CONTINENT"`
+				LabelLon  float64 `json:"LABEL_X"`
+				LabelLat  float64 `json:"LABEL_Y"`
+			} `json:"properties"`
+			Geometry struct {
+				Type        string          `json:"type"`
+				Coordinates json.RawMessage `json:"coordinates"`
+			} `json:"geometry"`
+		} `json:"features"`
+	}
+	if err := json.Unmarshal(borders, &countries); err != nil {
+		return out, fmt.Errorf("decode country borders: %w", err)
+	}
+	for _, feature := range countries.Features {
+		country := blueMarbleCountry{
+			Name:      feature.Properties.Name,
+			A3:        feature.Properties.A3,
+			Continent: feature.Properties.Continent,
+			LabelLon:  feature.Properties.LabelLon,
+			LabelLat:  feature.Properties.LabelLat,
+		}
+		switch feature.Geometry.Type {
+		case "Polygon":
+			var rings [][][2]float64
+			if err := json.Unmarshal(feature.Geometry.Coordinates, &rings); err != nil {
+				return out, fmt.Errorf("country %q: %w", country.Name, err)
+			}
+			country.Polygons = [][][][2]float64{rings}
+		case "MultiPolygon":
+			if err := json.Unmarshal(feature.Geometry.Coordinates, &country.Polygons); err != nil {
+				return out, fmt.Errorf("country %q: %w", country.Name, err)
+			}
+		default:
+			return out, fmt.Errorf("country %q draws a %s; borders are ground",
+				country.Name, feature.Geometry.Type)
+		}
+		out.Countries = append(out.Countries, country)
+	}
+
+	var placed struct {
+		Features []struct {
+			Properties struct {
+				Class   string  `json:"featurecla"`
+				Name    string  `json:"name"`
+				Country string  `json:"adm0name"`
+				A3      string  `json:"adm0_a3"`
+				Lat     float64 `json:"latitude"`
+				Lon     float64 `json:"longitude"`
+			} `json:"properties"`
+		} `json:"features"`
+	}
+	if err := json.Unmarshal(places, &placed); err != nil {
+		return out, fmt.Errorf("decode populated places: %w", err)
+	}
+	for _, feature := range placed.Features {
+		// Only the primary designations: the alternates are second seats and
+		// former capitals, which is more editorial weight than a demo carries.
+		if feature.Properties.Class != "Admin-0 capital" {
+			continue
+		}
+		out.Capitals = append(out.Capitals, blueMarbleCapital{
+			Name:    feature.Properties.Name,
+			Country: feature.Properties.Country,
+			A3:      feature.Properties.A3,
+			Lat:     feature.Properties.Lat,
+			Lon:     feature.Properties.Lon,
+		})
+	}
+	return out, nil
 }
 
 // writeBlueMarble derives the capture from verified source bytes: the image
 // decoded, held to its declared size, cut to the capture level through the
 // deterministic resampler, tiled, and recorded -- and the capture body written
 // last, carrying the product's identity and the policy the cut was made under.
-func writeBlueMarble(store *Archive, worldDir string, worldID int64, pin blueMarblePin, source []byte, log *slog.Logger) error {
+func writeBlueMarble(
+	store *Archive, worldDir string, worldID int64,
+	pin blueMarblePin, source []byte, features blueMarbleFeatures, log *slog.Logger,
+) error {
 	decoded, kind, err := image.Decode(bytes.NewReader(source))
 	if err != nil {
 		return fmt.Errorf("decode source: %w", err)
@@ -259,6 +383,7 @@ func writeBlueMarble(store *Archive, worldDir string, worldID int64, pin blueMar
 			Resampler:   blueMarbleResampler,
 			JPEGQuality: pin.Quality,
 		},
+		Features: features,
 	}, "", "  ")
 	if err != nil {
 		return err
@@ -299,6 +424,7 @@ type blueMarbleCapture struct {
 	Height      int                  `json:"height"`
 	Map         blueMarbleMosaic     `json:"map"`
 	Derive      blueMarbleDerivation `json:"derive"`
+	Features    blueMarbleFeatures   `json:"features"`
 }
 
 type blueMarbleMosaic struct {
@@ -310,6 +436,37 @@ type blueMarbleMosaic struct {
 type blueMarbleDerivation struct {
 	Resampler   string `json:"resampler"`
 	JPEGQuality int    `json:"jpegQuality"`
+}
+
+// blueMarbleFeatures is the vector half of the capture: the publication it was
+// distilled from, the digests its files carried, and the distillation itself.
+type blueMarbleFeatures struct {
+	Edition       string              `json:"edition"`
+	BordersSHA256 string              `json:"bordersSha256"`
+	PlacesSHA256  string              `json:"placesSha256"`
+	Countries     []blueMarbleCountry `json:"countries"`
+	Capitals      []blueMarbleCapital `json:"capitals"`
+}
+
+// blueMarbleCountry is one country as the capture keeps it: identity, the
+// continent the publication files it under, its label point, and its rings --
+// polygons, then rings, then positions, longitude first, all verbatim.
+type blueMarbleCountry struct {
+	Name      string           `json:"name"`
+	A3        string           `json:"a3"`
+	Continent string           `json:"continent"`
+	LabelLon  float64          `json:"labelLon"`
+	LabelLat  float64          `json:"labelLat"`
+	Polygons  [][][][2]float64 `json:"polygons"`
+}
+
+// blueMarbleCapital is one primary capital as the capture keeps it.
+type blueMarbleCapital struct {
+	Name    string  `json:"name"`
+	Country string  `json:"country"`
+	A3      string  `json:"a3"`
+	Lat     float64 `json:"lat"`
+	Lon     float64 `json:"lon"`
 }
 
 func blueMarbleArchiveID(name string) int64 {

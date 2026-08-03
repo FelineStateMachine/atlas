@@ -285,13 +285,19 @@ Nomenclature's feature list for the same body.
 ### 2.4 The Blue Marble reader
 
 `internal/generate/sources/nasabluemarble` reads the included Earth volume's
-one capture: NASA Earth Observatory's Blue Marble Next Generation base map, a
-single pinned publication rather than a live endpoint.
+one capture: NASA Earth Observatory's Blue Marble Next Generation base map
+married to Natural Earth's 1:110m cultural vectors — pinned publications
+rather than live endpoints.
 
-- Capture kind `blue-marble-map`, one per capture of the pinned image.
-- The volume is its picture. One world (`earth`), one lens (`Blue Marble`), no
-  collections and no features: pins, layers and enrichment are later sources'
-  work, folded in by the enrich lane.
+- Capture kind `blue-marble-map`, one per capture of the pinned files.
+- One world (`earth`), one lens (`Blue Marble`), and the lightest cut of
+  ground truth: the primary capitals as a point collection per continent,
+  each pin a member of the country it stands in, and the country borders as
+  one quiet area collection. Continents are Natural Earth's own filing; a
+  capital whose microstate the 1:110m borders leave out takes the nearest
+  drawn ground's continent, computed from the captured polygons at translate
+  time the way the city source computes its watershed join. Everything else
+  is later sources' work, folded in by the enrich lane.
 - The coordinate design is the shared whole-sphere window NASA Trek also rides
   (`doc.EquirectPx` and friends): a 2:1 global image filling the top half of
   the world square, declared as registered conventions — surface, projection,
@@ -303,17 +309,19 @@ single pinned publication rather than a live endpoint.
   cut under, so a policy change reads as a new capture rather than the same
   one wearing new bytes.
 - The gates: another kind's capture, another source's name, another body, a
-  missing digest, a missing size, or a capture declaring no pyramid are
+  missing digest, a missing size, a capture declaring no pyramid or carrying
+  no features, a country with no identity, or a capital off the planet are
   refused by name.
 - `idSpace: "derived"`: nothing in the publication numbers a base map.
 
 The crawler half (`internal/generate/crawl/bluemarble.go`) is the one place
-the pinned URL, digest and capture time are spelled. It fetches the source
-image exactly once into the staged archive, refuses any digest but the pinned
+the pinned URLs, digests and capture time are spelled. It fetches each pinned
+file exactly once into the staged archive, refuses any digest but the pinned
 one, cuts the pyramid's deepest level through the deterministic fixed-point
-Catmull-Rom resampler beside it, and records the capture under the pinned
-time, so the archive — and everything stamped downstream of it — reproduces on
-any machine. `included/README.md` is the recipe and the provenance, and
+Catmull-Rom resampler beside it, distills the Natural Earth files into the
+capture body — names, codes, continents, label points and rings, coordinates
+verbatim — and records the capture under the pinned time, so the archive — and
+everything stamped downstream of it — reproduces on any machine. `included/README.md` is the recipe and the provenance, and
 `make included-earth` is the whole run.
 
 ### 2.5 The IGN reader
