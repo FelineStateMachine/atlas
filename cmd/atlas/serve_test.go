@@ -36,10 +36,19 @@ func TestLibraryDir(t *testing.T) {
 	t.Run("then the application's own data directory", func(t *testing.T) {
 		t.Setenv(bundlesDirEnv, "")
 		got, err := libraryDir("")
-		if err != nil {
-			t.Skipf("this machine has no config directory: %v", err)
+		// Both faces of the fallback are the contract: a machine with a
+		// config directory gets the application's own path under it, and a
+		// machine without one gets a refusal, never an invented path.
+		base, baseErr := os.UserConfigDir()
+		if baseErr != nil {
+			if err == nil {
+				t.Fatalf("libraryDir(\"\") = %q on a machine with no config directory; want an error", got)
+			}
+			return
 		}
-		base, _ := os.UserConfigDir()
+		if err != nil {
+			t.Fatalf("libraryDir(\"\") errored on a machine with a config directory: %v", err)
+		}
 		if want := filepath.Join(base, appIdentifier, "bundles"); got != want {
 			t.Errorf("libraryDir(\"\") = %q, want %q", got, want)
 		}

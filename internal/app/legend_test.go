@@ -57,7 +57,10 @@ func TestACityCollectionWearsTheColourTheMapDraws(t *testing.T) {
 		t.Errorf("Historic Resources wears %q; the chart draws it %q", got, want)
 	}
 	if colorFor(historic.ID) == collectionColor(historic) {
-		t.Skip("the feature hash happens to agree here, so this world proves nothing")
+		// The test stands on the two paths disagreeing for this id. If a
+		// palette change ever makes them agree, this data proves nothing and
+		// must be re-picked -- loudly, not quietly.
+		t.Fatal("the feature hash agrees with the wheel here, so this world proves nothing: pick an id whose two colours differ")
 	}
 }
 
