@@ -1,6 +1,7 @@
 package bundle
 
 import (
+	"bytes"
 	"fmt"
 	"io"
 	"os"
@@ -109,6 +110,61 @@ func Install(dir, source string) (Descriptor, error) {
 	}
 	if err := copyInto(dir, source, target); err != nil {
 		return Descriptor{}, err
+	}
+	descriptor, err := Describe(target)
+	if err != nil {
+		return Descriptor{}, fmt.Errorf("installed %s: %w", filepath.Base(target), err)
+	}
+	installed, err := Open(target)
+	if err != nil {
+		return Descriptor{}, fmt.Errorf("installed %s: %w", filepath.Base(target), err)
+	}
+	defer installed.Close()
+	if err := installed.Validate(); err != nil {
+		return Descriptor{}, fmt.Errorf("installed %s: %w", filepath.Base(target), err)
+	}
+	return descriptor, nil
+}
+
+// InstallBytes installs a bundle held in memory -- an embedded asset, a
+// download -- into dir under its versioned name, and reports the descriptor of
+// the installed build. It keeps every promise [Install] makes: the bytes are
+// validated before anything is written, the copy stages under a temporary name
+// a concurrent scan passes over, an already-present build is a no-op, and the
+// installed file is reopened and validated because the copy is what will serve.
+func InstallBytes(dir string, source []byte) (Descriptor, error) {
+	opened, err := NewReader(bytes.NewReader(source), int64(len(source)))
+	if err != nil {
+		return Descriptor{}, err
+	}
+	manifest := opened.Manifest
+	if err := opened.Validate(); err != nil {
+		return Descriptor{}, err
+	}
+
+	target := filepath.Join(dir, VersionedFileName(manifest))
+	if _, err := os.Stat(target); err == nil {
+		// This exact build is already installed under its own name.
+		return Describe(target)
+	}
+	staged, err := os.CreateTemp(dir, ".installing-*")
+	if err != nil {
+		return Descriptor{}, fmt.Errorf("stage %s: %w", filepath.Base(target), err)
+	}
+	defer os.Remove(staged.Name())
+	if _, err := staged.Write(source); err != nil {
+		staged.Close()
+		return Descriptor{}, fmt.Errorf("stage %s: %w", filepath.Base(target), err)
+	}
+	if err := staged.Close(); err != nil {
+		return Descriptor{}, fmt.Errorf("stage %s: %w", filepath.Base(target), err)
+	}
+	// CreateTemp opens private files; a bundle is an artifact anyone may copy.
+	if err := os.Chmod(staged.Name(), 0o644); err != nil {
+		return Descriptor{}, fmt.Errorf("stage %s: %w", filepath.Base(target), err)
+	}
+	if err := os.Rename(staged.Name(), target); err != nil {
+		return Descriptor{}, fmt.Errorf("install %s: %w", filepath.Base(target), err)
 	}
 	descriptor, err := Describe(target)
 	if err != nil {

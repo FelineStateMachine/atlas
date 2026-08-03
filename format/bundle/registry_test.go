@@ -313,3 +313,95 @@ func TestInstallRefusesABrokenBundle(t *testing.T) {
 		t.Errorf("a refused install left %d files behind", len(entries))
 	}
 }
+
+// TestInstallBytesKeepsInstallsPromises: the in-memory door -- an embedded
+// asset, a download -- keeps every promise the path door makes. A valid bundle
+// lands under its versioned name; the same bytes again are a no-op that adds
+// no second file; a distinct build of the same volume lands beside the first
+// rather than over it; and broken bytes are refused before anything is
+// written.
+func TestInstallBytesKeepsInstallsPromises(t *testing.T) {
+	library := t.TempDir()
+	staging := t.TempDir()
+	source := fixture{slug: "earth", title: "Earth", createdAt: "2026-08-03T14:30:39Z", stamp: "aa"}.build(t, staging)
+	data, err := os.ReadFile(source)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	first, err := bundle.InstallBytes(library, data)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if want := "earth-20260803-aa.atlas"; filepath.Base(first.Locator) != want {
+		t.Errorf("installed as %s, want %s", filepath.Base(first.Locator), want)
+	}
+	firstInfo, err := os.Stat(first.Locator)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	again, err := bundle.InstallBytes(library, data)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if again.Locator != first.Locator {
+		t.Errorf("a second install landed at %s", again.Locator)
+	}
+	afterInfo, err := os.Stat(first.Locator)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !afterInfo.ModTime().Equal(firstInfo.ModTime()) || afterInfo.Size() != firstInfo.Size() {
+		t.Error("a no-op install touched the installed file")
+	}
+
+	other := fixture{slug: "earth", title: "Earth", createdAt: "2026-08-02T00:00:00Z", stamp: "bb"}.build(t, staging)
+	otherData, err := os.ReadFile(other)
+	if err != nil {
+		t.Fatal(err)
+	}
+	beside, err := bundle.InstallBytes(library, otherData)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if beside.Locator == first.Locator {
+		t.Error("a distinct build overwrote the installed one")
+	}
+	entries, err := os.ReadDir(library)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(entries) != 2 {
+		t.Errorf("the library holds %d files; two builds sit side by side", len(entries))
+	}
+	if held, err := os.ReadFile(first.Locator); err != nil || len(held) != int(firstInfo.Size()) {
+		t.Errorf("the first build did not survive the second: %v", err)
+	}
+}
+
+func TestInstallBytesRefusesBrokenBytes(t *testing.T) {
+	library := t.TempDir()
+	if _, err := bundle.InstallBytes(library, []byte("not a bundle")); err == nil {
+		t.Error("broken bytes were let in")
+	}
+	staging := t.TempDir()
+	broken := fixture{
+		slug: "earth", title: "Earth",
+		worlds: []fixtureWorld{{slug: "overworld", points: 7, countsStated: true}},
+	}.build(t, staging)
+	data, err := os.ReadFile(broken)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := bundle.InstallBytes(library, data); err == nil {
+		t.Error("an invalid bundle was let in")
+	}
+	entries, err := os.ReadDir(library)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(entries) != 0 {
+		t.Errorf("a refused install left %d files behind", len(entries))
+	}
+}
