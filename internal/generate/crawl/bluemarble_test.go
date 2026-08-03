@@ -21,13 +21,13 @@ import (
 // the digest decides which bytes are accepted, the capture time decides the
 // bundle's name, and the credit is what NASA asks a republisher to keep.
 func TestBlueMarblePinsTheSpecifiedPublication(t *testing.T) {
-	if blueMarble.Asset != "https://assets.science.nasa.gov/content/dam/science/esd/eo/images/bmng/bmng-base/july/world.200407.3x21600x10800.jpg" {
+	if blueMarble.Asset != "https://assets.science.nasa.gov/content/dam/science/esd/eo/images/bmng/bmng-topography-bathymetry/july/world.topo.bathy.200407.3x21600x10800.jpg" {
 		t.Errorf("asset URL %q is not the pinned publication", blueMarble.Asset)
 	}
-	if blueMarble.SHA256 != "dea8b4dc8a4f93f5f8bce0c8c85a508a178e7901e9ed8e6bf86e6ce7ef6d61e2" {
+	if blueMarble.SHA256 != "d225f1f35a6448a4d1d8f6de6e48f3433e470085b70a35800e64f384f269a7b0" {
 		t.Errorf("digest %q is not the pinned digest", blueMarble.SHA256)
 	}
-	if blueMarble.CapturedAt != "2026-08-03T14:30:39Z" {
+	if blueMarble.CapturedAt != "2026-08-03T15:27:26Z" {
 		t.Errorf("capture time %q is not the recorded first capture", blueMarble.CapturedAt)
 	}
 	if blueMarble.Width != 21600 || blueMarble.Height != 10800 {

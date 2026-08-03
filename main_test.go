@@ -113,7 +113,7 @@ func TestIncludedEarthIsAValidOrdinaryBundle(t *testing.T) {
 	if m.Worlds[0].Points != 0 || m.Worlds[0].Paths != 0 || m.Worlds[0].Areas != 0 {
 		t.Errorf("the manifest counts features on a raster-only world: %+v", m.Worlds[0])
 	}
-	if m.Version.CreatedAt != "2026-08-03T14:30:39Z" {
+	if m.Version.CreatedAt != "2026-08-03T15:27:26Z" {
 		t.Errorf("createdAt %s is not the pinned capture time", m.Version.CreatedAt)
 	}
 }
@@ -135,12 +135,12 @@ func TestIncludedEarthDeclaresTheWholeSphere(t *testing.T) {
 	if lens.Name != "Blue Marble" {
 		t.Errorf("lens %q", lens.Name)
 	}
-	if lens.MinZoom != 0 || lens.MaxZoom != 5 || lens.FullZoom != 5 || lens.SourceZoom != 5 {
-		t.Errorf("zooms min %d max %d full %d source %d, want 0/5/5/5",
+	if lens.MinZoom != 0 || lens.MaxZoom != 6 || lens.FullZoom != 6 || lens.SourceZoom != 6 {
+		t.Errorf("zooms min %d max %d full %d source %d, want 0/6/6/6",
 			lens.MinZoom, lens.MaxZoom, lens.FullZoom, lens.SourceZoom)
 	}
-	if len(lens.Formats) != 6 {
-		t.Errorf("%d formats for 6 levels", len(lens.Formats))
+	if len(lens.Formats) != 7 {
+		t.Errorf("%d formats for 7 levels", len(lens.Formats))
 	}
 	for _, format := range lens.Formats {
 		if format != "jpg" {
@@ -190,7 +190,7 @@ func TestIncludedEarthPyramidOpensAtEveryLevel(t *testing.T) {
 			t.Fatalf("%s is compressed; format v3 stores tiles", name)
 		}
 	}
-	wantPerLevel := map[string]int{"0": 1, "1": 2, "2": 8, "3": 32, "4": 128, "5": 512}
+	wantPerLevel := map[string]int{"0": 1, "1": 2, "2": 8, "3": 32, "4": 128, "5": 512, "6": 2048}
 	for level, want := range wantPerLevel {
 		if perLevel[level] != want {
 			t.Errorf("level %s holds %d tiles, want %d", level, perLevel[level], want)
@@ -200,6 +200,7 @@ func TestIncludedEarthPyramidOpensAtEveryLevel(t *testing.T) {
 	for _, name := range []string{
 		"tiles/earth/0/0/0.jpg", "tiles/earth/1/1/0.jpg", "tiles/earth/2/3/1.jpg",
 		"tiles/earth/3/7/3.jpg", "tiles/earth/4/15/7.jpg", "tiles/earth/5/31/15.jpg",
+		"tiles/earth/6/63/31.jpg",
 	} {
 		data, err := reader.ReadEntry(name)
 		if err != nil {

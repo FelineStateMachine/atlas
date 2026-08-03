@@ -16,12 +16,12 @@ collections, no features, and no runtime network dependency of any kind.
 
 | Fact | Value |
 |---|---|
-| Product | Blue Marble: Next Generation, July 2004 — NASA Earth Observatory's global, cloud-free, true-color base map |
-| Product page | <https://science.nasa.gov/earth/earth-observatory/blue-marble-next-generation/base-map/> |
-| Source image | <https://assets.science.nasa.gov/content/dam/science/esd/eo/images/bmng/bmng-base/july/world.200407.3x21600x10800.jpg> |
+| Product | Blue Marble: Next Generation w/ Topography and Bathymetry, July 2004 — NASA Earth Observatory's global, cloud-free, true-color composite with shaded relief and ocean-floor bathymetry |
+| Product page | <https://science.nasa.gov/earth/earth-observatory/blue-marble-next-generation/base-topography-bathymetry/> |
+| Source image | <https://assets.science.nasa.gov/content/dam/science/esd/eo/images/bmng/bmng-topography-bathymetry/july/world.topo.bathy.200407.3x21600x10800.jpg> |
 | Source dimensions | 21600 × 10800 |
-| Source SHA-256 | `dea8b4dc8a4f93f5f8bce0c8c85a508a178e7901e9ed8e6bf86e6ce7ef6d61e2` |
-| First captured | `2026-08-03T14:30:39Z` |
+| Source SHA-256 | `d225f1f35a6448a4d1d8f6de6e48f3433e470085b70a35800e64f384f269a7b0` |
+| First captured | `2026-08-03T15:27:26Z` |
 | Credit | NASA Earth Observatory |
 
 NASA imagery is free of copyright. NASA's media guidelines ask that the credit
@@ -32,17 +32,23 @@ runtime-URL prohibition holds for this volume exactly as for any other.
 
 ## Derivation
 
-The pinned source is downsampled to the 8192 × 4096 reference level — the top
-half of the world square, the shared whole-sphere equirectangular window
+The pinned source is downsampled to the pyramid's deepest level — local zoom
+6, a 16384 × 8192 picture the 21600-wide source still fills with real detail —
+through the deterministic fixed-point Catmull-Rom resampler in
+`internal/generate/crawl/resample.go` (`catmull-rom-fixed15`), cut into
+256-pixel tiles, and encoded as JPEG at quality **85**
+(`internal/generate/crawl/bluemarble.go` is the one place both settings are
+spelled). The world's ground is unchanged by the depth: the raster fills the
+top half of the world square, the shared whole-sphere equirectangular window
 (`atlas.geometry.equirect.px = 0,0,8192,4096`,
-`atlas.geometry.equirect.deg = -180,90,180,-90`) — through the deterministic
-fixed-point Catmull-Rom resampler in `internal/generate/crawl/resample.go`
-(`catmull-rom-fixed15`), cut into 256-pixel tiles, and encoded as JPEG at
-quality **90** (`internal/generate/crawl/bluemarble.go` is the one place that
-setting is spelled). The ordinary tile lane derives every shallower level,
-coverage, bounds and stamps from that reference level, and the ordinary compose
-lane writes and validates the bundle. The full extent survives uncropped, and
-tiles are stored, not deflated, as format v3 requires.
+`atlas.geometry.equirect.deg = -180,90,180,-90`), and zoom 6 is simply detail
+past the world-pixel resolution, the way every deep pyramid in the corpus is.
+The ordinary tile lane folds the reference level and everything shallower down
+from the cut and derives coverage, bounds and stamps; the ordinary compose lane
+writes and validates the bundle. The full extent survives uncropped, tiles are
+stored, not deflated, as format v3 requires, and the finished file is ~21 MiB —
+inside the 25 MiB budget the included volume keeps so the executable stays
+portable.
 
 ## Regeneration
 
