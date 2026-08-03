@@ -310,7 +310,7 @@ single pinned publication rather than a live endpoint.
 The crawler half (`internal/generate/crawl/bluemarble.go`) is the one place
 the pinned URL, digest and capture time are spelled. It fetches the source
 image exactly once into the staged archive, refuses any digest but the pinned
-one, cuts the reference level through the deterministic fixed-point
+one, cuts the pyramid's deepest level through the deterministic fixed-point
 Catmull-Rom resampler beside it, and records the capture under the pinned
 time, so the archive — and everything stamped downstream of it — reproduces on
 any machine. `included/README.md` is the recipe and the provenance, and

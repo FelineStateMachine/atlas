@@ -43,7 +43,7 @@ idempotent install.
 
 - A first launch opens onto a world, and the empty-library card becomes a
   state most readers never see.
-- The repository carries a ~5 MiB binary artifact, regenerable byte for byte
+- The repository carries a ~21 MiB binary artifact, regenerable byte for byte
   from the pin by `make included-earth`, with its provenance and recipe beside
   it in `included/README.md`.
 - The e2e registry gains its first volume with real rasters, so the data

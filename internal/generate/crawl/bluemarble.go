@@ -59,17 +59,19 @@ type blueMarblePin struct {
 	Quality int
 }
 
-// blueMarble is the shipped pin: Blue Marble Next Generation, July 2004, as
-// published by NASA Earth Observatory. included/README.md is the recipe that
-// carries these same facts for a person.
+// blueMarble is the shipped pin: Blue Marble Next Generation with topography
+// and bathymetry, July 2004, as published by NASA Earth Observatory -- the
+// variant whose shaded relief and ocean floor give the planet its texture,
+// which is also the rendering NASA's own maps lead with. included/README.md is
+// the recipe that carries these same facts for a person.
 var blueMarble = blueMarblePin{
-	Page:       "https://science.nasa.gov/earth/earth-observatory/blue-marble-next-generation/base-map/",
-	Asset:      "https://assets.science.nasa.gov/content/dam/science/esd/eo/images/bmng/bmng-base/july/world.200407.3x21600x10800.jpg",
-	SHA256:     "dea8b4dc8a4f93f5f8bce0c8c85a508a178e7901e9ed8e6bf86e6ce7ef6d61e2",
-	CapturedAt: "2026-08-03T14:30:39Z",
+	Page:       "https://science.nasa.gov/earth/earth-observatory/blue-marble-next-generation/base-topography-bathymetry/",
+	Asset:      "https://assets.science.nasa.gov/content/dam/science/esd/eo/images/bmng/bmng-topography-bathymetry/july/world.topo.bathy.200407.3x21600x10800.jpg",
+	SHA256:     "d225f1f35a6448a4d1d8f6de6e48f3433e470085b70a35800e64f384f269a7b0",
+	CapturedAt: "2026-08-03T15:27:26Z",
 	Width:      21600,
 	Height:     10800,
-	Quality:    90,
+	Quality:    85,
 }
 
 // blueMarbleResampler names the cut for the capture body: the resampler beside
@@ -77,9 +79,12 @@ var blueMarble = blueMarblePin{
 // is cut renames this, and the renamed policy reads as a new capture.
 const blueMarbleResampler = "catmull-rom-fixed15"
 
-// blueMarbleZoom is the reference level the source is cut to: the level whose
-// pixels are the world square's own, holding the whole 8192×4096 picture.
-const blueMarbleZoom = doc.SyntheticZoom
+// blueMarbleZoom is the level the source is cut to: one deeper than the
+// reference level whose pixels are the world square's own, so the pyramid
+// holds a 16384×8192 picture the 21600-wide source still fills with real
+// detail. The deriver folds the reference level and everything shallower down
+// from this cut.
+const blueMarbleZoom = doc.SyntheticZoom + 1
 
 // blueMarbleIDBit marks Blue Marble identities in the archive register, beside
 // the bits the other sources' identities carry.
@@ -184,7 +189,7 @@ func verifyBlueMarble(data []byte, pin blueMarblePin) error {
 }
 
 // writeBlueMarble derives the capture from verified source bytes: the image
-// decoded, held to its declared size, cut to the reference level through the
+// decoded, held to its declared size, cut to the capture level through the
 // deterministic resampler, tiled, and recorded -- and the capture body written
 // last, carrying the product's identity and the policy the cut was made under.
 func writeBlueMarble(store *Archive, worldDir string, worldID int64, pin blueMarblePin, source []byte, log *slog.Logger) error {
@@ -240,7 +245,7 @@ func writeBlueMarble(store *Archive, worldDir string, worldID int64, pin blueMar
 	body, err := json.MarshalIndent(blueMarbleCapture{
 		Source:      nasabluemarble.SourceName,
 		Body:        nasabluemarble.Body,
-		Product:     "Blue Marble: Next Generation, July 2004",
+		Product:     "Blue Marble: Next Generation w/ Topography and Bathymetry, July 2004",
 		Credit:      "NASA Earth Observatory",
 		AssetSHA256: pin.SHA256,
 		Width:       pin.Width,
