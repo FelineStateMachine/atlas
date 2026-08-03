@@ -148,6 +148,15 @@ const GRID = { name: "grid" };
 const GRID_CONTEXT = { name: "gridContext" };
 const PINS = { name: "pins" };
 const ZONES = { name: "zones" };
+/**
+ * The layer the names are drawn in.
+ *
+ * It carries the same features the pin layers do, and for a collection
+ * curated as text it is the only layer that draws them at all: the name is
+ * the whole of the mark, so the written place is hit-tested through its text
+ * (chart/styles.ts).
+ */
+const LABELS = { name: "pinLabels" };
 
 /** A grid feature as `chart/grid.ts` mints one. */
 function cell(hash: string, role: string): { get(key: string): unknown } {
@@ -156,6 +165,8 @@ function cell(hash: string, role: string): { get(key: string): unknown } {
 
 const PIN = feature({ record: { id: "1849", index: 0 } });
 const ZONE = feature({ record: { id: "RS", kind: "area" } });
+/** A place its collection writes on the map rather than pinning to it. */
+const TEXT_PIN = feature({ record: { id: "8988", index: 0 } });
 
 /** A world where one pin stands and one piece of ground is drawn. */
 function context(gridOn: boolean): unknown {
@@ -314,6 +325,18 @@ test("a click on nothing posts neither", () => {
   const { seam, map } = chartOver([]);
   click(seam, map);
   assert.equal(events.length, 0);
+});
+
+test("a place written on the map is picked like any other, and opens its card", () => {
+  // A collection curated as text has no marker, so the only layer it is drawn
+  // in is the one carrying the names -- and the feature hit test asks every
+  // layer rather than the pin layers alone, which is what keeps a written
+  // place pickable at all. The record it answers with is the same either way.
+  const { seam, map } = chartOver([{ feature: TEXT_PIN, layer: LABELS }], false);
+  assert.deepEqual(hit(seam), { kind: "point", id: "8988" });
+  click(seam, map);
+  assert.equal(fields.get("#atlas-pick-feature")?.value, "8988");
+  assert.deepEqual(events.map((event) => event.type), ["atlas:pick"]);
 });
 
 test("the hover is about features and never about cells", () => {
