@@ -408,10 +408,11 @@ func sections(model *worldModel) []legendGroup {
 	return groups
 }
 
-// defaultCollapsed is the section set a world opens with. Zones are a
-// navigation aid, not the primary filter surface: keep the boundaries drawn
-// but fold their section away so pin groups stay above the fold.
-func defaultCollapsed() []string { return []string{sectionsKeyZones} }
+// defaultCollapsed is the section set a world opens with. Every section
+// opens the same way -- open -- because folding one kind of thing on the
+// reader's behalf assumed a proportion of data no world promises. A reader
+// folds what they are not using; a world does not guess for them.
+func defaultCollapsed() []string { return nil }
 
 // defaultExpanded is the collection set a world opens with unfolded: the
 // ungrouped shape collections, so their feature indexes are there the moment

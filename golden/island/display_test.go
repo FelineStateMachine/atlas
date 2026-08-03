@@ -264,11 +264,11 @@ func TestTheLegendTreeIsOneTree(t *testing.T) {
 	case zones > heritage:
 		t.Error("the viewer's own Zones section does not come first")
 	}
-	// Zones is folded on a world nobody has arranged, and its rows are
-	// nevertheless rendered, so anything reaching for a feature by name
-	// finds it without unfolding first.
-	if !strings.Contains(page, `class="layer-section is-collapsed" data-layer-section="zones"`) {
-		t.Error("the Zones section does not open folded")
+	// Every section opens the same way -- open -- on a world nobody has
+	// arranged: folding one kind of thing on the reader's behalf assumed a
+	// proportion of data no world promises (a user-decided alignment).
+	if strings.Contains(page, `class="layer-section is-collapsed" data-layer-section="zones"`) {
+		t.Error("the Zones section opens folded, and no section should")
 	}
 	if !strings.Contains(page, `data-feature-index="1951802496"`) {
 		t.Error("a shape row carries no feature index")
