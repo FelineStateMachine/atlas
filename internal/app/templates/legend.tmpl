@@ -135,6 +135,23 @@
               The row is the button and answers the click; the wrapper around
               it hears the contextmenu the click bubbles past and answers that.
               `prevent` is what keeps the platform's own menu out of the way.
+
+              AND A THIRD VERB, which is the one a right click cannot spell:
+              *only this ground*. Highlights accumulate, so asking after one
+              zone alone meant clearing the set by hand or isolating the whole
+              collection -- a different question, and a heavier one. The
+              crosshair is the same control a collection row and a section head
+              wear, asking the same thing one row further in, and it carries
+              the state it would leave: an exclusive zone's is pressed, and
+              pressing it again gives every highlight back.
+
+              IT IS A SIBLING OF THE ROW, NOT A CHILD OF IT, and that is the
+              whole of how the two clicks stay apart -- an event travels to its
+              ancestors and never to its siblings, so this one reaches the
+              wrapper, which listens for a contextmenu and hears no click. The
+              collection's own only-button needs no modifier either, for the
+              adjacent reason: a button is interactive content, so a label does
+              not forward its activation.
             */}}
             {{range .Index}}<div class="zone-index-row"
                  hx-post="/session/highlight" hx-trigger="contextmenu prevent"
@@ -146,6 +163,23 @@
                       hx-vals:append='{"feature":"{{.ID}}","focus":"1"}'>
                 <span class="zone-index-marker" aria-hidden="true"></span>
                 <span>{{.Title}}</span>
+              </button>
+              {{/*
+                THE MARK IS `data-zone-only` AND NOT `data-only-zone`, which
+                is not a taste: html/template infers an attribute's context
+                from its name, strips a `data-` prefix before it does, and
+                reads anything left beginning with `on` as an event handler --
+                so `data-only-zone` is JS context and its value comes out
+                quoted, `&#34;93&#34;`. The two older marks in this file wear
+                that quoting today; they are only ever selected on by presence,
+                and renaming them would reach outside this change.
+              */}}
+              <button type="button" class="only-button" data-zone-only="{{.ID}}"
+                      data-label="Exclusively {{.Title}}" aria-label="Exclusively {{.Title}}"
+                      aria-pressed="{{.Exclusive}}"
+                      hx-post="/session/highlight"
+                      hx-vals:append='{"feature":"{{.ID}}","only":"1"}'>
+                <svg viewBox="0 0 16 16" aria-hidden="true"><circle cx="8" cy="8" r="4.6"/><circle cx="8" cy="8" r="1.3" fill="currentColor" stroke="none"/><path d="M8 1v2M8 13v2M1 8h2M13 8h2"/></svg>
               </button>
             </div>
             {{end}}

@@ -683,6 +683,17 @@ func applySearch(c *concernContext, form formValues) error {
 // applyHighlight is the AND-across, OR-within filter: highlighting two
 // features of one collection widens the question, and one from each of two
 // collections narrows it to the ground they share.
+//
+// THE EXCLUSIVE FORM (`only`) is the third way to ask, and it is a move on the
+// highlight set rather than a state of its own -- the same shape as isolating
+// a collection, and for the same reason. Highlights accumulate: every press
+// adds ground, so a reader who wanted *this* district and nothing else had to
+// clear the set and start again, or reach for the collection's isolate button,
+// which answers a different question (it puts every other collection away).
+// `only` names one feature and makes the set exactly that feature. Pressing it
+// again on the feature that is already alone is the way back out, which is the
+// isolate button's own toggle and means the control never traps a reader in a
+// filter they cannot leave from the row they set it on.
 func applyHighlight(c *concernContext, form formValues) error {
 	s := c.session
 	if form.get("all") == "clear" {
@@ -694,10 +705,19 @@ func applyHighlight(c *concernContext, form formValues) error {
 		return errors.New("highlight: no feature named")
 	}
 	on := !setOf(s.Highlighted)[id]
-	if form.has("on") {
-		on = form.on("on")
+	switch {
+	case form.on("only"):
+		on = !soleHighlight(*s, id)
+		s.Highlighted = nil
+		if on {
+			s.Highlighted = []string{id}
+		}
+	default:
+		if form.has("on") {
+			on = form.on("on")
+		}
+		s.Highlighted = toggle(s.Highlighted, id, on)
 	}
-	s.Highlighted = toggle(s.Highlighted, id, on)
 	// Asking to look at a piece of ground and keeping its collection put away
 	// cannot both be meant, so a highlight brings the collection back.
 	if on && c.world != nil {
@@ -963,6 +983,18 @@ func applyView(c *concernContext, form formValues) error {
 func applySidebar(c *concernContext, form formValues) error {
 	c.session.Sidebar.Collapsed = !form.on("open")
 	return nil
+}
+
+// soleHighlight answers whether one feature is the whole of what is
+// highlighted. It is the exclusive control's own state, and it is derived
+// rather than stored for the same reason the isolate chip is: the set can be
+// arrived at by any route -- one press of `only`, or highlights added and
+// taken away one at a time -- and a reader looking at a lone highlighted zone
+// is looking at an exclusive one however they got there. Both the move
+// (applyHighlight) and the mark the control wears (legend.go) ask this, so
+// they cannot disagree about what pressing it would do.
+func soleHighlight(s Session, id string) bool {
+	return len(s.Highlighted) == 1 && s.Highlighted[0] == id
 }
 
 // toggle adds or removes one member of a set kept as a sorted slice.

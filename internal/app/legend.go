@@ -215,6 +215,14 @@ type IndexEntry struct {
 	Depth       int
 	Highlighted bool
 	Current     bool
+
+	// Exclusive is whether this feature is the whole of what is highlighted,
+	// which is the state the row's exclusive control wears. It is not a
+	// second highlight flag: a lone highlight is exclusive whether it was
+	// reached by the control or by highlighting one feature and taking the
+	// others away, and the control says what pressing it would do -- press an
+	// exclusive one again and the highlights are gone.
+	Exclusive bool
 }
 
 // legend builds the tree for one world under one session, seen through one
@@ -269,6 +277,7 @@ func legend(model *worldModel, session Session, shown visibility, lens *payloadL
 						Depth:       entry.depth,
 						Highlighted: highlighted[entry.shape.ID],
 						Current:     session.Focused == entry.shape.ID,
+						Exclusive:   soleHighlight(session, entry.shape.ID),
 					})
 				}
 			}

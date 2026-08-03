@@ -110,7 +110,7 @@ function mount(layers: StubLayers | null) {
   return page;
 }
 
-function row(kind: "category-row" | "layer-header" = "category-row"): StubRow {
+function row(kind: "category-row" | "layer-header" | "zone-index-row" = "category-row"): StubRow {
   return new StubRow(kind);
 }
 
@@ -131,6 +131,27 @@ test("the row under the pointer wears the mark, and no other", () => {
   layers.fire("pointermove", { clientX: 10, clientY: 4 });
   assert.equal(header.marked, true, "a section head marks like a row");
   assert.equal(second.marked, false, "the mark was left behind on the old row");
+  hover.stop();
+});
+
+// A row of a feature index wears an exclusive control of its own -- highlight
+// this zone and no other -- drawn at `opacity: 0` under the same carried rule
+// as the collection's. It is a third kind of row to the stylesheet and the same
+// kind of thing to the pointer, and leaving it out of the selector would have
+// shipped exactly the defect this module exists to have fixed: a control on
+// the page, wired to its route, and permanently invisible.
+test("a row of a feature index marks like any other row", () => {
+  const zone = row("zone-index-row");
+  const category = row();
+  const layers = new StubLayers([category, zone]);
+  const page = mount(layers);
+  const hover = new RowHover();
+  hover.start();
+
+  page.under = zone;
+  layers.fire("pointermove", { clientX: 10, clientY: 90 });
+  assert.equal(zone.marked, true, "a zone row never reveals its exclusive control");
+  assert.equal(category.marked, false);
   hover.stop();
 });
 
