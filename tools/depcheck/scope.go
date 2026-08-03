@@ -28,10 +28,10 @@ const (
 
 	// LaneShell is the desktop shell at the module root: the Wails host of
 	// issue #5 §3.4. It is a lane so that the rules which do apply to a host
-	// entry — the clean-room rule, network confinement, semconv discipline —
-	// apply to it, and so that the one that does not (hostenv purity, which a
-	// host entry exists to violate) says so by name rather than by the shell
-	// happening to sit outside the analysis.
+	// entry — network confinement, semconv discipline — apply to it, and so
+	// that the one that does not (hostenv purity, which a host entry exists
+	// to violate) says so by name rather than by the shell happening to sit
+	// outside the analysis.
 	LaneShell Lane = "shell"
 
 	// LaneLogging is the one shared clean-room package: the leveled event

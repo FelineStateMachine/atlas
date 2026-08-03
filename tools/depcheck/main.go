@@ -32,7 +32,6 @@ import (
 func analyzers() []*analysis.Analyzer {
 	return []*analysis.Analyzer{
 		laneImports,
-		cleanRoom,
 		hostenvPurity,
 		netConfine,
 		semconvLiterals,

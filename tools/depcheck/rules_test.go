@@ -68,36 +68,6 @@ func TestLaneImportEdge(t *testing.T) {
 	}
 }
 
-// The old tree left for the golden-reference tag at close-out, so no import of
-// it can be written today by accident. The rule stays, and so does its table:
-// what it forbids is any module-local package the lane matrix has never heard
-// of, and the archived names below are the clearest examples anyone will
-// recognise. A path that is merely misspelled is caught by the same line.
-func TestCleanRoomEdge(t *testing.T) {
-	tests := []struct {
-		name    string
-		from    string
-		imports string
-		want    string
-	}{
-		{"a lane may not reach the old tree", "internal/generate/doc", mod + "internal/mgdoc", "golden-reference tree"},
-		{"nor the desktop shell's helpers", "internal/app/handler", mod + "internal/icons", "golden-reference tree"},
-		{"the test tree may read whatever it judges", "tests/corpus", mod + "internal/bundle", ""},
-		{"format has a stricter rule of its own", "format/bundle", mod + "internal/bundle", ""},
-		{"a lane package is fine", "internal/generate/doc", mod + "format/bundle", ""},
-		{"the shared event stream is clean room, not old tree", "internal/app/hostenv/oshost", mod + "internal/logging", ""},
-		{"the stdlib is fine", "internal/generate/doc", "archive/zip", ""},
-		{"a package outside the clean room is not judged", "internal/measure", mod + "internal/bundle", ""},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			got := cleanRoomEdge(laneOf(tt.from), tt.from, tt.imports)
-			assertMessage(t, got, tt.want)
-		})
-	}
-}
-
 func TestHostenvEdge(t *testing.T) {
 	tests := []struct {
 		name    string

@@ -38,8 +38,8 @@ corpus-smoke:
 spec:
 	go run ./spec/gen
 
-# The guardrails alone: the lane import matrix, the clean-room rule, hostenv
-# purity, network confinement, semconv discipline.
+# The guardrails alone: the lane import matrix, hostenv purity, network
+# confinement, semconv discipline.
 depcheck:
 	go run ./tools/depcheck
 
