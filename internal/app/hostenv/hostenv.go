@@ -141,6 +141,13 @@ type SessionStore interface {
 	// Save writes a record whole, replacing whatever was there.
 	Save(name string, data []byte) error
 
+	// Delete forgets a record. A store that does not hold it has already done
+	// what was asked and answers nil: the caller wants the record gone, and a
+	// record that was never there is gone. It is the whole of the blunt reset
+	// -- the state a volume opens with is synthesized from the world itself,
+	// so deleting the record is how a reader gets it back.
+	Delete(name string) error
+
 	// Names lists the records held, sorted.
 	Names() ([]string, error)
 }

@@ -71,7 +71,26 @@ func TestMemorySessions(t *testing.T) {
 		t.Fatalf("Names = %v, want the two records sorted", names)
 	}
 
+	// Deleting is the contract the file-backed store answers too: the record
+	// goes, its neighbours stay, and a record that was never held is already
+	// what the caller asked for.
+	if err := store.Delete("volume.tunic.json"); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := store.Load("volume.tunic.json"); !errors.Is(err, hostenv.ErrNoSession) {
+		t.Errorf("the record survived a delete: %v", err)
+	}
+	if names, err := store.Names(); err != nil || len(names) != 1 || names[0] != "app.json" {
+		t.Errorf("Names = %v, %v, want the pointer left standing", names, err)
+	}
+	if err := store.Delete("volume.tunic.json"); err != nil {
+		t.Errorf("deleting a record twice = %v, want a quiet success", err)
+	}
+
 	if err := store.Save("volume/escape.json", nil); err == nil {
 		t.Error("a name with a separator was accepted")
+	}
+	if err := store.Delete("volume/escape.json"); err == nil {
+		t.Error("a name with a separator was accepted for deletion")
 	}
 }

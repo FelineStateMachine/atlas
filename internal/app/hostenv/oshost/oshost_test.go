@@ -227,6 +227,56 @@ func TestSessionsRoundTrip(t *testing.T) {
 	}
 }
 
+// Deleting a record, which is the whole of the blunt reset: the arrangement a
+// volume opens with is synthesized from the world itself, so a record that is
+// gone is a volume that comes back fresh.
+//
+// The half of the contract easiest to get wrong is the second one. A record
+// that is not there is already what the caller asked for, so a missing file is
+// success -- otherwise a reader who pressed reset twice would meet an error
+// about a file they were right to want gone.
+func TestSessionsDelete(t *testing.T) {
+	dir := filepath.Join(t.TempDir(), "sessions")
+	store, err := oshost.NewSessions(dir)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if err := store.Delete("volume.tunic.json"); err != nil {
+		t.Errorf("deleting a record nobody wrote = %v, want a quiet success", err)
+	}
+	if err := store.Save("volume.tunic.json", []byte(`{"world":"world"}`)); err != nil {
+		t.Fatal(err)
+	}
+	if err := store.Save("app.json", []byte(`{"volume":"tunic"}`)); err != nil {
+		t.Fatal(err)
+	}
+	if err := store.Delete("volume.tunic.json"); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := store.Load("volume.tunic.json"); !errors.Is(err, hostenv.ErrNoSession) {
+		t.Errorf("the record was still readable after a delete: %v", err)
+	}
+	if _, err := os.Stat(filepath.Join(dir, "volume.tunic.json")); !errors.Is(err, os.ErrNotExist) {
+		t.Errorf("the record's file is still on disk: %v", err)
+	}
+	// One record went, not the directory: which volume the reader was last in
+	// is a different fact, and it is nobody's to take away here.
+	names, err := store.Names()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(names) != 1 || names[0] != "app.json" {
+		t.Errorf("Names = %v, want the pointer left standing", names)
+	}
+	if err := store.Delete("volume.tunic.json"); err != nil {
+		t.Errorf("deleting a record twice = %v, want a quiet success", err)
+	}
+	if err := store.Delete("../escape.json"); err == nil {
+		t.Error("a name that climbs out of the directory was accepted")
+	}
+}
+
 func TestHeadlessHostCannotPickAFile(t *testing.T) {
 	host, err := oshost.New(oshost.Options{BundlesDir: t.TempDir()})
 	if err != nil {

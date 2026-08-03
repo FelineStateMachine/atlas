@@ -242,6 +242,15 @@ func (a *App) rememberVolume(slug string) error {
 type concern struct {
 	apply   func(c *concernContext, form formValues) error
 	regions []string
+
+	// whole marks the one concern whose answer is the page rather than a
+	// region set. It is the reset, and it earns the exception by deleting the
+	// record every other answer is computed from: there is no arrangement
+	// left to render partials out of, and nothing on the page is still
+	// standing for a partial to land in. A region list here would be a list
+	// of every region there is, which is a page-wide refresh wearing the
+	// envelope's clothes.
+	whole bool
 }
 
 // concernContext is what a concern gets to work with: the record it is
@@ -293,6 +302,13 @@ var concerns = map[string]concern{
 	// their very first step.
 	"view":    {apply: applyView},
 	"sidebar": {apply: applySidebar, regions: []string{"shell"}},
+	// The blunt reset, and the only line in this table with no function
+	// beside it: what it does is delete the record the functions above work
+	// on, which is resetSession's rather than a move on a Session nobody is
+	// going to write. It answers with the volume's own address again (see
+	// resetSession), and a reader gets back the arrangement the world asks
+	// for on a page they did not have to find their way to.
+	"reset": {whole: true},
 }
 
 // formValues is the parsed body of a session POST, read through accessors so
@@ -358,6 +374,11 @@ func (a *App) handleSession(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	if held.whole {
+		a.resetSession(w, volume, slug)
+		return
+	}
+
 	session := a.session(slug)
 	session.Stamp = bundle.ShortStamp(volume.Manifest().Version.Stamp)
 	a.arrange(volume, &session)
@@ -376,6 +397,58 @@ func (a *App) handleSession(w http.ResponseWriter, r *http.Request) {
 	// what makes the server's half of the joint diagnostics a reading of the
 	// record rather than a reading of the last page render.
 	a.writePartials(w, append(held.regions, "island"), a.view(library, volume, session))
+}
+
+// resetSession is the reset ⌘R presses: this volume's record is deleted, and
+// the reader is sent back into the volume they are already in.
+//
+// It is deliberately blunt. Everything a record holds goes at once -- what is
+// hidden, folded, unfolded, highlighted and labelled, the search, the panel,
+// the card, the grid, the index, the corner locator, every world's camera --
+// because the reason to reach for it is a record that has gone wrong in a way
+// nobody wants to diagnose one field at a time. Nothing synthesizes defaults
+// here: the next load reads no record, and arrange builds the arrangement the
+// world itself asks for, which is the one definition of fresh there is.
+//
+// WHAT IS NOT TOUCHED is the last-volume pointer. The reader is not leaving;
+// they are standing in the same volume with nothing remembered about it, and
+// deleting app.json as well would answer the next / with a library card.
+//
+// The answer is a redirect rather than a partial set, and the round trip is
+// the point twice over: after a reset every region is stale, and a reader who
+// pressed the refresh key is owed the thing refreshing does. It is spelled as
+// the header htmx acts on itself -- a 303 would be followed by fetch and
+// swapped into a page that asked for no swap, which is a request that appears
+// to do nothing at all.
+func (a *App) resetSession(w http.ResponseWriter, volume hostenv.Volume, slug string) {
+	// Where to land is read before the record goes, because the record is
+	// what knows which world the reader is standing in. A record that names a
+	// world this build no longer serves -- or no record at all, which is a
+	// reset pressed twice -- falls back to the volume's first world, and a
+	// volume with no worlds to fall back to falls all the way back to /,
+	// which sends the reader to the volume they were last in.
+	manifest := volume.Manifest()
+	world := a.session(slug).World
+	if _, serving := worldEntry(manifest, world); !serving {
+		world = ""
+		if len(manifest.Worlds) > 0 {
+			world = manifest.Worlds[0].Slug
+		}
+	}
+	where := "/"
+	if world != "" {
+		where = "/v/" + slug + "/" + world
+	}
+	if err := a.env.Sessions().Delete(sessionRecord(slug)); err != nil {
+		slog.Error("clearing a session record", logging.Op("session"),
+			slog.String("volume", slug), slog.Any("error", err))
+		http.Error(w, "the session could not be cleared", http.StatusInternalServerError)
+		return
+	}
+	slog.Info("session reset", logging.Op("session"),
+		slog.String("volume", slug), slog.String("back", where))
+	w.Header().Set("HX-Redirect", where)
+	w.WriteHeader(http.StatusNoContent)
 }
 
 // arrange fills a fresh record with the arrangement the world itself asks for

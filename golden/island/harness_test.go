@@ -72,6 +72,14 @@ func (s *memorySessions) Save(name string, data []byte) error {
 	return nil
 }
 
+func (s *memorySessions) Delete(name string) error {
+	if err := hostenv.ValidName(name); err != nil {
+		return err
+	}
+	delete(s.held, name)
+	return nil
+}
+
 func (s *memorySessions) Names() ([]string, error) {
 	out := make([]string, 0, len(s.held))
 	for name := range s.held {

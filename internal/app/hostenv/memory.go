@@ -52,6 +52,18 @@ func (m *MemorySessions) Save(name string, data []byte) error {
 	return nil
 }
 
+// Delete forgets a record. One that was never held is already forgotten, so
+// there is nothing here to report.
+func (m *MemorySessions) Delete(name string) error {
+	if err := ValidName(name); err != nil {
+		return fmt.Errorf("session %q: %w", name, err)
+	}
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	delete(m.records, name)
+	return nil
+}
+
 // Names lists the records held, sorted.
 func (m *MemorySessions) Names() ([]string, error) {
 	m.mu.Lock()
