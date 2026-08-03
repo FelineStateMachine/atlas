@@ -172,6 +172,7 @@ func TestIncludedEarthDeclaresTheWholeSphere(t *testing.T) {
 	}
 
 	want := map[string]string{
+		semconv.KeyIconOutset:          "dark",
 		semconv.KeyGeometrySurface:     "sphere",
 		semconv.KeyGeometryProjection:  "equirect",
 		semconv.KeyGeometryEquirectPx:  "0,0,8192,4096",

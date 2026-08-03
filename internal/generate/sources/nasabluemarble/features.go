@@ -20,7 +20,7 @@ import (
 
 // capitalIcon is the library glyph every capital collection names, resolved to
 // embedded bytes by composition.
-const capitalIcon = "maki/monument"
+const capitalIcon = "maki/marker"
 
 // collectionsOf arranges the capture's features the way the legend reads:
 // capitals first -- one collection per continent, sorted, under one heading --

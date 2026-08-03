@@ -2,29 +2,31 @@
   "schema": 1,
   "what": "the editorial decisions the generate lane makes about particular volumes, as data rather than as tables in code. Every entry here is a judgement about a specific archive that no rule could derive: which map a game opens on, which rim its markers need against its art, which sheet holds several places at once, and where two sources spell one concept differently. A volume this file says nothing about is composed by the rules alone.",
   "schemaDoc": "docs/generate.md, the curation section, is normative for the shape of this file.",
-
   "window": {
     "what": "the source tile window every world is cut from unless it declares one of its own: the 32-tile square at zoom 13 beginning at tile 4064, which is 8192 world pixels across. It is a property of the corpus, not of the format, which is why it is here and not in format/bundle.",
     "sourceZoom": 13,
     "firstTile": 4064
   },
-
   "worldOrder": {
     "what": "a volume's primary world ahead of its secondary areas. Worlds this list does not name follow in title order, so one entry curates a volume without restating its whole archive.",
     "preferred": {
-      "fallout-new-vegas": ["mojave-wasteland"]
+      "fallout-new-vegas": [
+        "mojave-wasteland"
+      ]
     },
     "newestFirst": {
       "what": "volumes whose worlds are dated captures of one ground: a version history. The picker's first entry is the world a reader opens, and a version history opens on the present, so these sort their date-titled worlds newest first.",
-      "volumes": ["bend-or"]
+      "volumes": [
+        "bend-or"
+      ]
     }
   },
-
   "iconOutset": {
     "what": "which rim a world's markers wear so they stay legible against its art. The raster beneath a marker decides which outline reads, so this is declared rather than derived. A volume drawn one way throughout says so once; a single world that differs overrides it.",
     "byVolume": {
       "clair-obscur-expedition-33": "dark",
       "cyberpunk-2077": "dark",
+      "earth": "dark",
       "fallout-new-vegas": "dark",
       "fallout76": "dark",
       "la-noire": "dark",
@@ -33,6 +35,7 @@
     },
     "byVolumeWhy": {
       "cyberpunk-2077": "Night City's neon-on-black art, either source",
+      "earth": "the Blue Marble raster is dark ocean and shaded ground; a light rim vanishes into ice caps, a dark one reads everywhere else",
       "fallout-new-vegas": "pale Pip-Boy rasters throughout",
       "fallout76": "a parchment survey map, pale throughout",
       "mars": "Viking's pale ochre and MOLA's bright relief wash out a light rim"
@@ -42,13 +45,14 @@
       "skyrim/solstheim": "dark"
     }
   },
-
   "pixelArt": {
     "what": "volumes drawn on a pixel grid. Their pyramids are folded down nearest-neighbour and normalized to lossless PNG, and a reader draws them without interpolation, so the grid survives instead of being blurred into itself. Everything else is a photograph as far as the deriver is concerned.",
     "why": "a box filter over a sprite map turns a two-pixel wall into a four-pixel smear, and a JPEG of it stores the smear",
-    "volumes": ["pokemon-red-blue-yellow", "pokemon-firered-leafgreen"]
+    "volumes": [
+      "pokemon-red-blue-yellow",
+      "pokemon-firered-leafgreen"
+    ]
   },
-
   "shard": {
     "what": "the sheets that hold several separate places at once, and what to do with them. A sheet is declared here and never detected: guessing wrong divides a whole map into pieces nobody asked for. \"worlds\" gives each piece its own entry in the picker; \"lenses\" keeps one world and offers the pieces one at a time.",
     "worlds": {
@@ -60,7 +64,6 @@
       "zelda-tears-of-the-kingdom/hyrule": "the Sky, Surface and Depths of one ground"
     }
   },
-
   "collectionEquivalents": {
     "what": "the shared concept where two sources spell one collection differently, per volume, keyed by the collection's artwork key. Composition writes the shared name onto the collection as atlas.collection.key, so the payload itself carries the merge identity and a later merge reads only the attribute. Collections whose keys already agree pair by themselves; everything else stays source-specific rather than being guessed together.",
     "cyberpunk-2077": {
