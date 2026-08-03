@@ -40,3 +40,4 @@ Decisions taken while building the lanes, which issue #5 §10 does not record.
 | [15](0015-the-ground-descriptor.md) | A cell system is handed a `Ground`, not an application |
 | [16](0016-uncurated-captures-are-passed-over.md) | A capture a reader cannot answer for is passed over, not refused |
 | [17](0017-the-host-follows-redirects.md) | The desktop host follows the application's redirects |
+| [19](0019-an-earth-volume-is-included.md) | The desktop ships with an included Earth volume |

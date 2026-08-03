@@ -111,7 +111,7 @@ wails.Run(&options.App{
 })
 ```
 
-Four things about it are worth knowing.
+Five things about it are worth knowing.
 
 **Where the library is.** `$ATLAS_DATA_DIR`, else `os.UserConfigDir()` +
 `dev.felinestatemachine.atlas` — the identifier existing libraries already
@@ -120,6 +120,21 @@ holds the volumes and `sessions/` the session records. `$ATLAS_BUNDLES_DIR`
 moves the library alone, which is what a development run points at a freshly
 composed `dist/bundles`. The headless host reads the same two variables
 (`cmd/atlas/serve.go`).
+
+**The included Earth volume.** The shell embeds the committed bundle at
+`included/` (`//go:embed included/*.atlas`) and installs it into the library
+before the host is constructed, so the first scan already serves Earth and a
+first launch opens onto a world instead of the empty-library card. The install
+goes through `format/bundle`'s own path — validated, versioned, staged,
+idempotent — so a second launch is a no-op and another Earth build in the
+library stays beside it for the fold to order; a built-in that cannot be
+installed is a startup error, never a silent absence. After installation the
+embedded copy is done with: everything reads the installed file, exactly as if
+the reader had imported it
+([decision 19](decisions/0019-an-earth-volume-is-included.md);
+`included/README.md` carries the provenance and the recipe). The headless host
+installs nothing: `atlas serve` uses exactly the registry the operator gives
+it.
 
 **Where the seam is.** `//go:embed static` — the root `static/` directory,
 holding the seam's built bundle as `app.js`. `make static` puts the same bytes

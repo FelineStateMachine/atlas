@@ -36,6 +36,7 @@ import (
 	"github.com/wailsapp/wails/v2/pkg/options"
 	"github.com/wailsapp/wails/v2/pkg/options/assetserver"
 
+	"github.com/FelineStateMachine/atlas/format/bundle"
 	"github.com/FelineStateMachine/atlas/internal/app"
 	"github.com/FelineStateMachine/atlas/internal/app/hostenv/oshost"
 	"github.com/FelineStateMachine/atlas/internal/app/hostenv/wailshost"
@@ -56,6 +57,17 @@ import (
 //
 //go:embed static
 var seam embed.FS
+
+// The included Earth volume: a real, ordinary .atlas bundle -- NASA's Blue
+// Marble base map, composed by `make included-earth` and committed at
+// included/ -- embedded so a first launch opens onto a world instead of an
+// empty library. It is embedded here and only here: the desktop shell is the
+// host that owns a library, where `atlas serve` and the CLI use exactly the
+// registry the operator gives them. included/README.md is the provenance and
+// the regeneration recipe.
+//
+//go:embed included/*.atlas
+var included embed.FS
 
 // appIdentifier is the directory the application keeps its data under, on
 // whichever configuration directory the machine calls its own. It is the
@@ -98,6 +110,17 @@ func run() error {
 	// bundle into, not an error about a directory nobody has made yet.
 	if err := os.MkdirAll(library, 0o755); err != nil {
 		return fmt.Errorf("creating the library at %s: %w", library, err)
+	}
+	// The included Earth build lands before the host is constructed, so the
+	// host's first scan of the library already sees it. Installation goes
+	// through format/bundle's own path -- validated, versioned, staged,
+	// idempotent -- so an already-installed build is a no-op and another Earth
+	// build in the library is left exactly where it is, side by side, for the
+	// registry fold to order. A built-in that cannot be installed is a startup
+	// error rather than a silent absence: the application would be shipping a
+	// broken asset, and that has to be heard about.
+	if err := installIncluded(library); err != nil {
+		return fmt.Errorf("installing the included Earth volume: %w", err)
 	}
 
 	// The window is declared before the host because the host holds its
@@ -142,6 +165,31 @@ func run() error {
 		MinWidth:         900,
 		MinHeight:        600,
 	})
+}
+
+// installIncluded installs every embedded bundle into the library. After it
+// returns, the embedded copies are done with: opening, rendering, analysis and
+// export all read the installed files through the same paths any imported
+// bundle is read through.
+func installIncluded(library string) error {
+	names, err := fs.Glob(included, "included/*.atlas")
+	if err != nil {
+		return err
+	}
+	for _, name := range names {
+		data, err := included.ReadFile(name)
+		if err != nil {
+			return fmt.Errorf("%s: %w", name, err)
+		}
+		installed, err := bundle.InstallBytes(library, data)
+		if err != nil {
+			return fmt.Errorf("%s: %w", name, err)
+		}
+		slog.Info("included volume installed", logging.Op("desktop"),
+			logging.Volume(installed.Slug), logging.Stamp(bundle.ShortStamp(installed.Stamp)),
+			logging.Path(installed.Locator))
+	}
+	return nil
 }
 
 // dataDir is where the application keeps what is its own: the library of

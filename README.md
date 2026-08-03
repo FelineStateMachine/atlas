@@ -22,6 +22,12 @@ make desktop                  # the desktop app (macOS; see .github/workflows/re
 make serve-static             # the application over HTTP, with the seam mounted
 ```
 
+The desktop application ships with one included volume — Earth, NASA's Blue
+Marble base map as an ordinary `.atlas` bundle — installed into the library at
+first launch, so a fresh install opens onto a world
+([`included/README.md`](included/README.md) carries the provenance and the
+regeneration recipe).
+
 The library lives under the application's own data directory —
 `~/Library/Application Support/dev.felinestatemachine.atlas/bundles` on macOS,
 `%AppData%\dev.felinestatemachine.atlas\bundles` on Windows,
