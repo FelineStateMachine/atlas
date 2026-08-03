@@ -313,19 +313,15 @@ func TestTheLabelLedgerKeepsOnlyDisagreements(t *testing.T) {
 	}
 
 	// Every toggle over and back restores the ladder exactly and leaves no
-	// overrides behind.
+	// overrides behind. The rows that wear a toggle here are the areas: a
+	// path collection has no policy to flip, and the city's points draw as
+	// plain pins.
 	flip(quiet.ID.String())
-	for _, collection := range payload.Collections {
-		if collection.Kind == "point" {
-			continue
-		}
-		if collection.Kind == "area" {
-			flip(collection.ID.String())
-		}
-	}
-	for _, collection := range payload.Collections {
-		if collection.Kind == "area" {
-			flip(collection.ID.String())
+	for turn := 0; turn < 2; turn++ {
+		for _, collection := range payload.Collections {
+			if collection.Kind == "area" {
+				flip(collection.ID.String())
+			}
 		}
 	}
 	if got := ledger(); len(got) != 0 {
@@ -405,11 +401,16 @@ func TestALensIsRecordedAsItsIndex(t *testing.T) {
 
 // TestWhatIsNotTheIslandsLeavesItUntouched is the other half of the contract:
 // the island speaks for the arrangement, and the interactions that are not
-// arrangement -- a search, a highlight set raised and cleared, the sidebar,
-// the grid -- must neither move its values nor teach it new keys. It is what
-// the recorded search-a, and-cleared, sidebar-collapsed and grid-ascended
-// steps were really saying: the entry those steps recorded was the entry the
-// step before them recorded.
+// arrangement -- a search raised and cleared, a highlight set raised and
+// cleared, the sidebar, the grid -- must neither move its values nor teach it
+// new keys. It is what the recorded search-a, and-cleared, sidebar-collapsed
+// and grid-ascended steps were really saying: the entry those steps recorded
+// was the entry the step before them recorded.
+//
+// One move is the arrangement's, and it is asserted first rather than worked
+// around: the first search with something to say brings the panel out, once,
+// and dockFolded records it. Everything after runs against a panel already
+// out, which is the state every recorded step past "initial" was in too.
 func TestWhatIsNotTheIslandsLeavesItUntouched(t *testing.T) {
 	const slug = "bend-or"
 	volume := corpusVolume(t, slug)
@@ -418,9 +419,18 @@ func TestWhatIsNotTheIslandsLeavesItUntouched(t *testing.T) {
 	handler := newApp(t, volume)
 	openExplorer(t, handler, slug, world)
 
-	before := entryOf(t, openExplorer(t, handler, slug, world))
-
+	if entry := entryOf(t, openExplorer(t, handler, slug, world)); entry["dockFolded"] != true {
+		t.Fatalf("the panel did not open folded: dockFolded = %v", entry["dockFolded"])
+	}
 	arrange(t, handler, slug, "search", "q", "a")
+	arrange(t, handler, slug, "search", "q", "")
+	before := entryOf(t, openExplorer(t, handler, slug, world))
+	if before["dockFolded"] != false {
+		t.Fatalf("the first search did not bring the panel out: dockFolded = %v",
+			before["dockFolded"])
+	}
+
+	arrange(t, handler, slug, "search", "q", "mill")
 	arrange(t, handler, slug, "search", "q", "")
 	arrange(t, handler, slug, "highlight", "feature", featureNamed(t, payload, "MPO Boundary"))
 	arrange(t, handler, slug, "highlight", "feature", featureNamed(t, payload, "Baker Lake"))

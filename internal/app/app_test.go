@@ -1077,7 +1077,7 @@ func TestDetailFragment(t *testing.T) {
 	// This volume's payload holds no features, so nothing resolves and the
 	// card comes back closed -- which it says with the `hidden` the carried
 	// assets/css/pin-detail.css reads, not by being empty. The states a reader
-	// walks through are held in golden/island; this is the one the fragment
+	// walks through are held in tests/island; this is the one the fragment
 	// route reaches on its own.
 	if !strings.Contains(got.Body.String(), `class="pin-detail" hidden>`) {
 		t.Errorf("a card with nothing to show does not say it is closed:\n%s", got.Body)
@@ -1387,5 +1387,106 @@ func TestSessionResetKeepsTheWorldAndTheLens(t *testing.T) {
 	if len(after.Hidden) != 0 || len(after.Highlighted) != 0 || after.Arranged ||
 		after.Search != "" || len(after.Cameras) != 0 || after.Selected != "" {
 		t.Errorf("the reset kept more than the place: %+v", after)
+	}
+}
+
+// The retired HTTP transcript held the catalog byte for byte; what those bytes
+// were saying is held here instead. A client plans its whole session off this
+// one document -- the stamp is how it knows a build moved, the tile grid is
+// how it addresses the pyramid before any payload has arrived, and the world's
+// counts and updatedAt are what the library card prints -- so each is checked
+// as the manifest's own value carried through, not as a recorded string.
+func TestCatalogCarriesTheBuildAndItsGrid(t *testing.T) {
+	handler, _ := newApp(t, volume("tunic", "TUNIC", tunicStamp))
+	got := get(t, handler, "/data/catalog.json", nil)
+	if got.Code != http.StatusOK {
+		t.Fatalf("catalog answered %d", got.Code)
+	}
+	var catalog struct {
+		Volumes []struct {
+			Stamp    string          `json:"stamp"`
+			TileGrid bundle.TileGrid `json:"tileGrid"`
+			Worlds   []struct {
+				Title     string `json:"title"`
+				Points    int    `json:"points"`
+				Paths     int    `json:"paths"`
+				Areas     int    `json:"areas"`
+				UpdatedAt string `json:"updatedAt"`
+			} `json:"worlds"`
+		} `json:"volumes"`
+	}
+	if err := json.Unmarshal(got.Body.Bytes(), &catalog); err != nil {
+		t.Fatal(err)
+	}
+	if len(catalog.Volumes) != 1 {
+		t.Fatalf("catalog lists %d volumes", len(catalog.Volumes))
+	}
+	held := catalog.Volumes[0]
+	// The whole stamp, not the twelve characters the base URL carries: the
+	// short form names a directory and the long form names the build.
+	if held.Stamp != tunicStamp {
+		t.Errorf("stamp = %q, want the manifest's own", held.Stamp)
+	}
+	if want := (bundle.TileGrid{SourceZoom: 13, FirstTile: 4064, TileSize: 256, Size: 8192}); held.TileGrid != want {
+		t.Errorf("tileGrid = %+v, want the manifest's %+v", held.TileGrid, want)
+	}
+	if len(held.Worlds) != 1 {
+		t.Fatalf("the volume lists %d worlds", len(held.Worlds))
+	}
+	world := held.Worlds[0]
+	if world.Title != "Overworld" || world.Points != 3 || world.Paths != 0 || world.Areas != 0 {
+		t.Errorf("the world's card reads %+v, not the manifest's counts", world)
+	}
+	if world.UpdatedAt != "2026-01-01T00:00:00Z" {
+		t.Errorf("updatedAt = %q, want the manifest's own", world.UpdatedAt)
+	}
+}
+
+// A climb out of the volume. The retired transcript recorded this exchange
+// through an ordinary client, so the 404 it holds sits at the end of the
+// redirect the router's own path cleaning answers first; the recorder here
+// sees the walk one hop at a time, and reproduces it: every hop stays on this
+// application, and the end of it is a refusal, never a file.
+func TestDataPlaneRefusesAClimbOutOfTheVolume(t *testing.T) {
+	handler, _ := newApp(t, volume("tunic", "TUNIC", tunicStamp))
+	path := "/data/v/tunic/" + bundle.ShortStamp(tunicStamp) + "/worlds/../../../../etc/passwd"
+
+	got := get(t, handler, path, nil)
+	for hop := 0; got.Code >= 300 && got.Code < 400; hop++ {
+		if hop == 5 {
+			t.Fatal("the climb is still being redirected after five hops")
+		}
+		where := got.Header().Get("Location")
+		if !strings.HasPrefix(where, "/") {
+			t.Fatalf("the climb was redirected off the application, to %q", where)
+		}
+		got = get(t, handler, where, nil)
+	}
+	if got.Code != http.StatusNotFound {
+		t.Errorf("the climb ended at %d, want 404: %s", got.Code, got.Body)
+	}
+}
+
+// The redirect is really sent. The desktop host cannot show a redirect to its
+// webview, so it follows the handler's redirects itself (redirects.go) -- and
+// it only follows a Location that names a path on this application. Both
+// halves of that arrangement are the handler's to honor: / answers with an
+// actual 302 rather than the followed page, and the doorway it names is a
+// path, not an absolute URL that would belong to somebody else's document.
+func TestTheDoorwayIsARealRedirectToAPath(t *testing.T) {
+	handler, _ := newApp(t, volume("tunic", "TUNIC", tunicStamp))
+	got := get(t, handler, "/", nil)
+	if got.Code != http.StatusFound {
+		t.Fatalf("/ answered %d, want the 302 that is really sent", got.Code)
+	}
+	where := got.Header().Get("Location")
+	if !strings.HasPrefix(where, "/") || strings.HasPrefix(where, "//") {
+		t.Errorf("Location = %q, want a path on this application", where)
+	}
+	// The body is Go's own two words, not the page at the end of the doorway:
+	// a handler that pre-followed would be a second copy of the world page
+	// nobody asked for, painted over the one the client fetches next.
+	if body := got.Body.String(); strings.Contains(body, "<html") || strings.Contains(body, "atlas-shell") {
+		t.Errorf("the doorway answered with a whole page instead of a redirect:\n%s", body)
 	}
 }

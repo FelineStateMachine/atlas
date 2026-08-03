@@ -150,6 +150,29 @@ func repack(t *testing.T, path string) []byte {
 	return bundle.PackLocations(held.Locations)
 }
 
+// corpusBundleOf builds a servable volume out of nothing, for the one test
+// whose fixture is not in the public corpus: a payload written in the test
+// itself, empty locations, empty prose.
+func corpusBundleOf(slug, title, world string) *corpusBundle {
+	const stamp = "13d5657ed9038808e5fe12ef44e769b40297e9d720e53376f430f224128f2dfc"
+	return &corpusBundle{
+		manifest: bundle.Manifest{
+			Format:        bundle.Format,
+			FormatVersion: bundle.FormatVersion,
+			Conventions:   2,
+			Volume:        bundle.Volume{Slug: slug, Title: title},
+			Version:       bundle.Version{Stamp: stamp, CreatedAt: "2026-01-01T00:00:00Z"},
+			TileGrid:      bundle.TileGrid{SourceZoom: 13, FirstTile: 4064, TileSize: 256, Size: 8192},
+			Worlds:        []bundle.WorldEntry{{Slug: world, Title: title, UpdatedAt: "2026-01-01T00:00:00Z"}},
+		},
+		entries: map[string][]byte{
+			bundle.WorldEntryName(world, bundle.WorldSuffix):  []byte(`{"lenses":[],"collections":[]}`),
+			bundle.WorldEntryName(world, bundle.PackedSuffix): bundle.PackLocations(nil),
+			bundle.WorldEntryName(world, bundle.TextSuffix):   []byte(`{}`),
+		},
+	}
+}
+
 type corpusBundle struct {
 	manifest bundle.Manifest
 	entries  map[string][]byte
@@ -258,6 +281,29 @@ func featureNamed(t *testing.T, world corpusWorld, title string) string {
 	}
 	t.Fatalf("the corpus payload holds no feature titled %q", title)
 	return ""
+}
+
+// firstPoint is one point the corpus packs -- the first location of a world,
+// its id and its title -- for the tests that need a card about somewhere.
+func firstPoint(t *testing.T, slug, world string) (id, title string) {
+	t.Helper()
+	body, err := os.ReadFile(filepath.Join(corpusDir, slug, "worlds", world+".locations.json"))
+	if err != nil {
+		t.Fatalf("the corpus packs no locations for %s/%s: %v", slug, world, err)
+	}
+	var held struct {
+		Locations []struct {
+			ID    json.Number `json:"id"`
+			Title string      `json:"title"`
+		} `json:"locations"`
+	}
+	if err := json.Unmarshal(body, &held); err != nil {
+		t.Fatal(err)
+	}
+	if len(held.Locations) == 0 {
+		t.Fatalf("the corpus packs an empty location list for %s/%s", slug, world)
+	}
+	return held.Locations[0].ID.String(), held.Locations[0].Title
 }
 
 // collectionNamed finds one collection by title, for the same reason.

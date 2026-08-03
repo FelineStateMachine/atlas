@@ -1,5 +1,0 @@
-# Fixtures captured on this machine that may not be committed: a volume
-# curated from a gitignored source is a personal location, and the capture
-# writes it here rather than beside the public fixtures. README.md says what
-# the set loses by it.
-/private/
