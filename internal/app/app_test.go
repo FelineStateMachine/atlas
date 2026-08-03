@@ -1087,6 +1087,185 @@ func TestDetailFragment(t *testing.T) {
 	}
 }
 
+// zonedVolume is a volume whose world is two shape collections with named
+// features, which is what a feature index needs to have rows: a shape is
+// indexed only once it has ground to draw (internal/app/world.go, Drawn).
+func zonedVolume() *fakeVolume {
+	held := volume("tunic", "TUNIC", tunicStamp)
+	ring := func(west, east string) string {
+		return `[{"type":"Polygon","coordinates":[[[` + west + `,44.00],[` + east +
+			`,44.00],[` + east + `,44.05],[` + west + `,44.05],[` + west + `,44.00]]]}]`
+	}
+	held.entries["worlds/overworld.json"] = []byte(`{"lenses":[],"collections":[
+		{"id":900,"title":"Zoning","kind":"area","attrs":{"atlas.geometry.kind":"area"},"features":[
+			{"id":91,"title":"R1","geometry":` + ring("-121.30", "-121.25") + `},
+			{"id":92,"title":"R2","geometry":` + ring("-121.20", "-121.15") + `},
+			{"id":93,"title":"R3","geometry":` + ring("-121.10", "-121.05") + `}]},
+		{"id":901,"title":"Watersheds","kind":"area","attrs":{"atlas.geometry.kind":"area"},"features":[
+			{"id":94,"title":"Tumalo","geometry":` + ring("-121.00", "-120.95") + `}]}
+	]}`)
+	return held
+}
+
+// zoneOnlyButton is one zone row's exclusive control, from the attribute that
+// names the zone to the end of the button that carries it.
+func zoneOnlyButton(page, zone string) string {
+	at := strings.Index(page, `data-zone-only="`+zone+`"`)
+	if at < 0 {
+		return ""
+	}
+	rest := page[at:]
+	if end := strings.Index(rest, "</button>"); end >= 0 {
+		return rest[:end]
+	}
+	return rest
+}
+
+// The exclusive control on a zone row: this ground, and no other.
+//
+// It is a post-parity addition rather than a port. The reference implementation
+// gave the only-button to collections and to sections alone, and its zone
+// highlights only ever accumulated (frontend/src/areas.js, toggleZoneHighlight)
+// -- so a reader who wanted one zone had to clear the set by hand, or isolate
+// the collection, which answers the different and heavier question of putting
+// every other collection away.
+//
+// What this holds is the whole of the move: an accumulated set is replaced
+// rather than added to, the press that made a zone exclusive is the press that
+// gives the highlights back, and a highlight still brings its own collection
+// out of hiding on the way -- asking to look at a piece of ground and keeping
+// it put away cannot both be meant, however the asking was spelled.
+func TestOneZoneCanBeAskedForExclusively(t *testing.T) {
+	handler, host := newApp(t, zonedVolume())
+	session := func(t *testing.T) app.Session {
+		t.Helper()
+		held, err := host.sessions.Load("volume.tunic.json")
+		if err != nil {
+			t.Fatalf("no session was written: %v", err)
+		}
+		var out app.Session
+		if err := json.Unmarshal(held, &out); err != nil {
+			t.Fatal(err)
+		}
+		return out
+	}
+	highlight := func(t *testing.T, form url.Values) *httptest.ResponseRecorder {
+		t.Helper()
+		form["volume"] = []string{"tunic"}
+		got := post(t, handler, "/session/highlight", form)
+		if got.Code != http.StatusOK {
+			t.Fatalf("/session/highlight answered %d: %s", got.Code, got.Body)
+		}
+		return got
+	}
+
+	// The accumulating form, which is what the row's right button asks and
+	// what this control is not: two zones highlighted is two zones.
+	highlight(t, url.Values{"feature": {"91"}})
+	highlight(t, url.Values{"feature": {"92"}})
+	if held := session(t).Highlighted; len(held) != 2 {
+		t.Fatalf("highlighting twice did not accumulate: %v", held)
+	}
+	// The collection the exclusive zone belongs to is away, so the ride-along
+	// has something to do.
+	if got := post(t, handler, "/session/collections",
+		url.Values{"volume": {"tunic"}, "collection": {"901"}, "visible": {"0"}}); got.Code != http.StatusOK {
+		t.Fatalf("hiding a collection answered %d", got.Code)
+	}
+
+	// The exclusive form replaces the set rather than joining it.
+	answer := highlight(t, url.Values{"feature": {"94"}, "only": {"1"}})
+	held := session(t)
+	if len(held.Highlighted) != 1 || held.Highlighted[0] != "94" {
+		t.Errorf("the exclusive press did not replace the set: %v", held.Highlighted)
+	}
+	if contains(held.Hidden, "901") {
+		t.Errorf("the exclusive press left its own collection hidden: %v", held.Hidden)
+	}
+	// It moves what a highlight moves, and nothing else: the same three
+	// regions the accumulating form declares (docs/app.md §4.3).
+	for _, target := range []string{"#atlas-legend", "#atlas-dock", "#atlas-viewport-state"} {
+		if !strings.Contains(answer.Body.String(), `target="`+target+`"`) {
+			t.Errorf("the answer carries no partial for %s", target)
+		}
+	}
+
+	// Pressing it again on the zone that is already alone is the way out. It
+	// is the isolate chip's own toggle, one row further in: a control that set
+	// a filter is the control that lifts it.
+	highlight(t, url.Values{"feature": {"94"}, "only": {"1"}})
+	if held := session(t).Highlighted; len(held) != 0 {
+		t.Errorf("pressing the exclusive control again did not clear the highlights: %v", held)
+	}
+
+	// And a zone that is alone by another route -- highlighted one at a time
+	// until one was left -- is exclusive too, because the state is derived
+	// from the set rather than from which button reached it.
+	highlight(t, url.Values{"feature": {"93"}})
+	highlight(t, url.Values{"feature": {"93"}, "only": {"1"}})
+	if held := session(t).Highlighted; len(held) != 0 {
+		t.Errorf("a lone highlight was not treated as an exclusive one: %v", held)
+	}
+}
+
+// The control on the page: every zone row wears one, it says what it would do,
+// and the zone that is the whole of the highlight is the one that reads as
+// pressed.
+func TestAZoneRowWearsItsExclusiveControl(t *testing.T) {
+	handler, _ := newApp(t, zonedVolume())
+	if got := post(t, handler, "/session/highlight",
+		url.Values{"volume": {"tunic"}, "feature": {"93"}, "only": {"1"}}); got.Code != http.StatusOK {
+		t.Fatalf("/session/highlight answered %d: %s", got.Code, got.Body)
+	}
+	page := get(t, handler, "/v/tunic/overworld", nil)
+	if page.Code != http.StatusOK {
+		t.Fatalf("the explorer answered %d", page.Code)
+	}
+	shell := page.Body.String()
+
+	// One control per zone, and the request it carries is the exclusive form
+	// of the highlight concern -- not the isolate route the collection rows
+	// use, which would put every other collection away.
+	for _, zone := range []string{"91", "92", "93", "94"} {
+		markup := zoneOnlyButton(shell, zone)
+		if markup == "" {
+			t.Fatalf("the zone %s has no exclusive control:\n%s", zone, legendOf(t, shell))
+		}
+		if !strings.Contains(markup, `hx-post="/session/highlight"`) {
+			t.Errorf("the zone %s control does not ask the highlight concern:\n%s", zone, markup)
+		}
+		if !strings.Contains(markup, `"only":"1"`) {
+			t.Errorf("the zone %s control does not ask exclusively:\n%s", zone, markup)
+		}
+		if !strings.Contains(markup, `"feature":"`+zone+`"`) {
+			t.Errorf("the zone %s control names another feature:\n%s", zone, markup)
+		}
+	}
+	// It is the same control the collection rows wear, so it reads and draws
+	// as one: the carried `.only-button` rule is what reveals it.
+	if !strings.Contains(zoneOnlyButton(shell, "91"), `aria-label="Exclusively R1"`) {
+		t.Errorf("the control does not say what it does:\n%s", zoneOnlyButton(shell, "91"))
+	}
+	// And the pressed state is the state, not the press: R3 is the whole of
+	// what is highlighted, so its control is the one that reads pressed.
+	if !strings.Contains(zoneOnlyButton(shell, "93"), `aria-pressed="true"`) {
+		t.Errorf("the exclusive zone's control does not read pressed:\n%s", zoneOnlyButton(shell, "93"))
+	}
+	for _, zone := range []string{"91", "92", "94"} {
+		if !strings.Contains(zoneOnlyButton(shell, zone), `aria-pressed="false"`) {
+			t.Errorf("the zone %s reads exclusive while %s is:\n%s", zone, "93", zoneOnlyButton(shell, zone))
+		}
+	}
+	// The control is a sibling of the row's own button and not a child of it,
+	// which is the whole of how one click cannot be the other: an event
+	// reaches its ancestors and never its siblings.
+	row := shell[strings.Index(shell, `data-zone="93"`):]
+	row = row[:strings.Index(row, `data-zone-only="93"`)]
+	if strings.Count(row, "</button>") != 1 {
+		t.Errorf("the exclusive control is nested inside the row's own button:\n%s", row)
+	}
+}
+
 // A legend row wears the collection's artwork, and only a collection with no
 // artwork wears its initials.
 //

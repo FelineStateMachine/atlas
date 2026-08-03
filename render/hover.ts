@@ -31,8 +31,13 @@
 // wore before the swap. One rule covers both: every pass clears every mark in
 // the container before it writes one, and a rescan is a pass.
 
-/** The two things a mark may land on: a collection's row, or a section's head. */
-const ROWS = ".category-row, .layer-header";
+/**
+ * The three things a mark may land on: a collection's row, a section's head,
+ * or a row of a feature index -- which reveals an action of its own (ask after
+ * this ground and no other) and is therefore the same kind of thing to the
+ * pointer, however differently it is built.
+ */
+const ROWS = ".category-row, .layer-header, .zone-index-row";
 
 /** The class the carried stylesheet reads. */
 const MARK = "is-hovered";

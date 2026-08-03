@@ -443,7 +443,7 @@ thinks is coupled to what.
 | `labels` | `collection` + `flip`, or `collection`+`policy` (empty clears) | legend, viewport |
 | `solo` | `collection` or `section`; neither means show everything | legend, dock, viewport |
 | `search` | `q` | legend, dock, viewport |
-| `highlight` | `feature` (+ optional `on`), or `all`=`clear` | legend, dock, viewport |
+| `highlight` | `feature` (+ optional `on`, or `only`=`1`), or `all`=`clear` | legend, dock, viewport |
 | `dock` | `open`, `byHand`, `section` | dock |
 | `select` | `feature` (empty closes), `focus` | legend, dock, detail, viewport |
 | `grid` | `system`, `cell`, `subgrid` | grid-navigator, dock, viewport |
@@ -681,6 +681,21 @@ extracted from the reference implementation's behaviour:
 3. **Containment is boundary-inclusive with a pixel of grace.** A pin dropped
    on a zone's border was put there to mean the zone, and exact point-in-polygon
    arithmetic would flip it out over the width of the line it stands on.
+
+**One zone, exclusively, is a fourth way to ask — and the one thing here the
+reference implementation did not have.** Its only-button belonged to collections
+and to sections; a zone highlight only ever accumulated, so a reader who wanted
+one district and no other had to clear the set by hand, or isolate the whole
+collection, which answers the different and heavier question of putting every
+other collection away. `only`=`1` names one feature and makes the highlight set
+exactly that feature (`session.go`, `applyHighlight`), and it is a move on the
+set rather than a state of its own — the same shape as isolating, and derived
+the same way, so a zone that is alone *by any route* wears the pressed control
+and pressing it gives every highlight back. The ride-along is unchanged: an
+exclusive highlight still brings its own collection out of hiding, because
+asking to look at a piece of ground and keeping it put away cannot both be
+meant. It is spelled as an extension in the commit that added it rather than as
+parity, and no recorded tour step touches it.
 
 The label ladder is the one place a convention helper had to move. The
 reference implementation gave a point collection curated as `atlas.render.as =

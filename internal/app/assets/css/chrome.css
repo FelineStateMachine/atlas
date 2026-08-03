@@ -123,15 +123,52 @@ atlas-globe[hidden] { display: none; }
 }
 
 /*
-  4. A feature index row is two elements.
+  4. A feature index row is three elements.
 
-  One element carries one request, and a row of a feature index answers two:
-  the left button goes to the ground, the right button highlights it
+  One element carries one request, and a row of a feature index answers three:
+  the left button goes to the ground, the right button highlights it, and the
+  crosshair asks for that ground and no other
   (internal/app/templates/legend.tmpl). The wrapper is the one that hears the
-  contextmenu, and it lays out as the row the carried system already styles.
+  contextmenu, and it is the row itself: the name flexes, the action stands in
+  a gutter beside it.
+
+  The gutter is reserved whether or not the control is showing, which is the
+  rule the carried system states where it reserves the same column on a
+  collection row (layer-header.css) — a row that grew on hover would push the
+  one under the cursor out from under it.
 */
 .zone-index-row {
-  display: block;
+  display: flex;
+  align-items: center;
+}
+
+.zone-index-row .zone-index-item {
+  flex: 1;
+  min-width: 0;
+}
+
+.zone-index-row .only-button {
+  flex: none;
+}
+
+/*
+  The reveal is the carried rule's own, said again for a row the carried system
+  never had. `.only-button` is drawn at `opacity: 0` and revealed under
+  `.is-hovered` — the class the seam writes from where the pointer actually is
+  rather than from `:hover`, because a list that scrolls under a still cursor
+  is exactly what `:hover` gets wrong (render/hover.ts).
+
+  A zone that IS the highlight keeps its crosshair lit unasked. The control is
+  the way back out of the filter it set, and a way out that only appears once
+  the reader has found it is not one.
+*/
+.zone-index-row.is-hovered .only-button,
+.zone-index-row .only-button[aria-pressed="true"] {
+  opacity: 1;
+}
+
+.zone-index-row .only-button[aria-pressed="true"] {
+  background: rgba(58, 165, 201, 0.14);
 }
 
 /*
