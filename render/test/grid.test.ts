@@ -17,10 +17,12 @@
 // four, row = 4·b16 + 2·b4 + b1 of eight.
 //
 // The ground is real: mars, whose lens declares an 8192 × 4096 surface, so
-// its level-1 cells are 1024 × 1024 — and bend-or, a plane city on the whole
-// 8192 square, whose level-1 cells are 1024 × 2048. The pin counts are the
-// corpus's own locations, recounted here by an independent sweep against the
-// hand-derived boxes.
+// its level-1 cells are 1024 × 1024 — and bend-or, a plane city anchored to
+// real earth by its Mercator window, whose grid is therefore REAL geohash:
+// base-depth-4 WGS84 cells put on the picture through the declared
+// flattening (its own derivation, at the bend-or section below). The pin
+// counts are the corpus's own locations, recounted here by an independent
+// sweep against the hand-derived boxes.
 
 import test from "node:test";
 import { strict as assert } from "node:assert";
@@ -223,21 +225,102 @@ test("descending into a cell holds its neighbours as context", () => {
     "the children refine the held address by one character");
 });
 
-test("a plane city's root grid divides the whole world square", () => {
-  // bend-or's Basemap declares the full 8192 square as its surface, so a
-  // level-1 cell here is 1024 × 2048 — same alphabet, different ground.
-  const surface: Extent = [0, -8192, 8192, 0];
+// ---- the earth-anchored city: REAL geohash --------------------------------
+//
+// bend-or declares a plane, `atlas.geometry.body: earth` and a Mercator
+// window — px 0,0,8192,8192 picturing -121.48204667177453 … -121.1529533282255
+// east-west and 44.17572950664809 … 43.93922950850393 north-south — so its
+// grid is genuine WGS84 geohash. THE HAND DERIVATION: cell spans halve from
+// 360°/180° per the 5-bit alternation, so depth 4 is 0.3515625° × 0.17578125°;
+// depth 3 (1.40625° both ways) fits neither of the window's spans (0.32909°
+// × 0.23650°) and depth 4's latitude does, so the base depth is 4. The window
+// crosses columns 166–167 and rows 761–763 of the depth-4 grid counted from
+// (-180°, -90°) — 58.51795/0.3515625 = 166.45 to 58.84705/0.3515625 = 167.39
+// in longitude, 133.93923/0.17578125 = 761.98 to 134.17573/0.17578125 =
+// 763.31 in latitude — six cells, whose ids read north to south then west to
+// east: 9rce 9rcg / 9rcd 9rcf / 9rc9 9rcc (encoded with the textbook
+// algorithm from each cell's centre, cross-checked in python).
+
+/** bend-or's declared window, transcribed from the corpus payload. */
+const BEND_WINDOW = {
+  west: -121.48204667177453, north: 44.17572950664809,
+  east: -121.1529533282255, south: 43.93922950850393,
+} as const;
+
+/**
+ * A depth-4 cell's box from its grid indices, through the window's own
+ * formulas: x = (lng − west) / (east − west) · 8192, y = (asinh(tan latN) −
+ * asinh(tan lat)) / (asinh(tan latN) − asinh(tan latS)) · 8192, then the
+ * sign flip — independent of the analysis lane, which must land on the same
+ * doubles.
+ */
+function realCell(column: number, row: number): Extent {
+  const { west, north, east, south } = BEND_WINDOW;
+  const project = (lat: number) => Math.asinh(Math.tan((lat * Math.PI) / 180));
+  const top = project(north);
+  const bottom = project(south);
+  const x = (lng: number) => ((lng - west) / (east - west)) * 8192;
+  const y = (lat: number) => ((top - project(lat)) / (top - bottom)) * 8192;
+  const cellWest = -180 + column * 0.3515625;
+  const cellSouth = -90 + row * 0.17578125;
+  return [
+    x(cellWest), -y(cellSouth),
+    x(cellWest + 0.3515625), -y(cellSouth + 0.17578125),
+  ];
+}
+
+test("an earth-anchored city's root grid is the window's own real cells", () => {
   const { cells, extent, standing } = draw(world("bend-or", "2026-08-02"), "");
-  assert.deepEqual(asRecorded(extent), [...surface]);
+  // The camera's root extent is still the lens's surface: the grid may
+  // overhang the picture, but the view opens on the picture.
+  assert.deepEqual(asRecorded(extent), [0, -8192, 8192, 0]);
   assert.equal(standing.length, 65, "the city corpus stands 65 pins");
-  assert.deepEqual(asRecorded([...(cells.find((cell) => cell.hash === "0")?.extent ?? [])]),
-    [0, -8192, 1024, -6144], "column 0, bottom row of four 2048-tall rows");
-  assert.deepEqual(asRecorded([...(cells.find((cell) => cell.hash === "z")?.extent ?? [])]),
-    [7168, -2048, 8192, 0], "column 7, top row");
-  for (const cell of cells) {
-    assert.equal(cell.count, sweep(standing, handCell(surface, cell.hash)),
-      `cell ${cell.hash}: the pins it holds, recounted independently`);
+  // Six cells — not thirty-two — in reading order, every one a root child.
+  const placed: [string, number, number][] = [
+    ["9rce", 166, 763], ["9rcg", 167, 763],
+    ["9rcd", 166, 762], ["9rcf", 167, 762],
+    ["9rc9", 166, 761], ["9rcc", 167, 761],
+  ];
+  assert.deepEqual(
+    cells.map((cell) => [cell.hash, cell.role, cell.contextDistance]),
+    placed.map(([hash]) => [hash, "child", 0]),
+    "the base-depth cells the window intersects, north to south, west to east");
+  for (const [hash, column, row] of placed) {
+    const box = realCell(column, row);
+    const drawn = cells.find((cell) => cell.hash === hash);
+    assert.ok(drawn);
+    assert.deepEqual(asRecorded([...drawn.extent]), asRecorded([...box]),
+      `cell ${hash}: the hand-derived Mercator box`);
+    assert.equal(drawn.count, sweep(standing, box),
+      `cell ${hash}: the pins it holds, recounted independently`);
   }
+  // The cells overhang the picture, honestly: the window's west edge sits
+  // inside column 166, so the west column starts west of the raster.
+  const west = realCell(166, 762);
+  assert.ok(west[0] < 0, `column 166 starts at x = ${west[0]}, west of the raster`);
+  // Two anchors read straight off the corpus, so the sweep itself is held to
+  // something: of the 65 city pins, 63 stand in 9rcd and 2 in 9rcf.
+  assert.equal(cells.find((cell) => cell.hash === "9rcd")?.count, 63);
+  assert.equal(cells.find((cell) => cell.hash === "9rcf")?.count, 2);
+});
+
+test("descending into a real cell holds the window's own context", () => {
+  const { cells } = draw(world("bend-or", "2026-08-02"), "9rcd");
+  const roles: Record<string, number> = {};
+  for (const cell of cells) roles[cell.role] = (roles[cell.role] ?? 0) + 1;
+  // Five window neighbours dimmed around the held cell — not thirty-one —
+  // and twenty children of the alphabet's thirty-two: 9rcd overhangs the
+  // window's west edge (-121.48204667° sits inside it), and a depth-5 child
+  // column is 0.3515625/8 = 0.0439453125° wide, so the three westmost
+  // columns end at -121.59668°, -121.55273° and -121.50879° — all west of
+  // the window — and their twelve cells picture none of it.
+  assert.deepEqual(roles, { neighbor: 5, scope: 1, child: 20 });
+  assert.deepEqual(
+    cells.filter((cell) => cell.role === "neighbor").map((cell) => cell.hash),
+    ["9rce", "9rcg", "9rcf", "9rc9", "9rcc"],
+    "the root's other five, in the plan's reading order");
+  assert.deepEqual(asRecorded([...(cells.find((cell) => cell.role === "scope")?.extent ?? [])]),
+    asRecorded([...realCell(166, 762)]), "the held cell is drawn at its real box");
 });
 
 test("the chosen path draws under the pins and the context over them", () => {

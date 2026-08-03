@@ -29,6 +29,17 @@ var sphere = map[string]string{
 // every game map: geohash divides it and nothing else offers to.
 var plane = map[string]string{semconv.KeyIconOutset: semconv.OutsetDark}
 
+// anchoredPlane is the shipped bend-or declaration: a plane city anchored to
+// real earth by a Mercator window, whose geohash is therefore REAL — base
+// depth 4 and floor 6 from the window's own degree spans (internal/app/cells,
+// GeohashBaseDepth; the same numbers the seam and the shared vectors hold).
+var anchoredPlane = map[string]string{
+	semconv.KeyGeometrySurface:     semconv.SurfacePlane,
+	semconv.KeyGeometryBody:        "earth",
+	semconv.KeyGeometryMercatorPx:  "0,0,8192,8192",
+	semconv.KeyGeometryMercatorDeg: "-121.48204667177453,44.17572950664809,-121.1529533282255,43.93922950850393",
+}
+
 // worldOn is a world standing on the ground the carry vectors are read on:
 // the top half of an 8192 world square, declared whole as the lens's
 // surface (`test/sphere-8192x4096` in analysis/testdata/cells/grounds.json).
@@ -337,6 +348,57 @@ func TestNormalizingTheNavigatorsField(t *testing.T) {
 	}
 }
 
+// TestTheNavigatorsFieldOnAnAnchoredCity is the input contract in real mode:
+// the field keeps six characters, an address shorter than the base depth is a
+// draft that moves nobody, and Escape from a base cell lands on the root --
+// the three-character hemisphere between them is not a place the window's
+// grid has. The addresses are the shared vectors' own (containment.json and
+// input.json, the real-* cases).
+func TestTheNavigatorsFieldOnAnAnchoredCity(t *testing.T) {
+	tests := []struct {
+		name string
+		held Grid
+		form map[string][]string
+		want Grid
+	}{
+		{"a whole real address travels",
+			Grid{System: "geohash"}, map[string][]string{"cell": {"9RCDXK!"}},
+			Grid{System: "geohash", Cell: "9rcdxk"}},
+		{"the field keeps six characters where a synthetic ground keeps three",
+			Grid{System: "geohash"}, map[string][]string{"cell": {"9rcdxkpb"}},
+			Grid{System: "geohash", Cell: "9rcdxk"}},
+		{"a base cell is a place",
+			Grid{System: "geohash"}, map[string][]string{"cell": {"9rcd"}},
+			Grid{System: "geohash", Cell: "9rcd"}},
+		{"a shorter spelling is a draft, and a draft moves nobody",
+			Grid{System: "geohash", Cell: "9rcd"}, map[string][]string{"cell": {"9rc"}},
+			Grid{System: "geohash", Cell: "9rcd"}},
+		{"an empty field is still the root",
+			Grid{System: "geohash", Cell: "9rcd"}, map[string][]string{"cell": {""}},
+			Grid{System: "geohash"}},
+		{"escape from a base cell lands on the root, not a hemisphere",
+			Grid{System: "geohash", Cell: "9rcd", Subgrid: 1},
+			map[string][]string{"ascend": {"1"}, "cell": {"9rcd"}},
+			Grid{System: "geohash", Subgrid: 1}},
+		{"and one layer down it drops a character as ever",
+			Grid{System: "geohash", Cell: "9rcdx", Subgrid: 1},
+			map[string][]string{"ascend": {"1"}, "cell": {"9rcdx"}},
+			Grid{System: "geohash", Cell: "9rcd", Subgrid: 1}},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			session := Session{Grid: test.held}
+			held := &concernContext{session: &session, world: worldOn(anchoredPlane)}
+			if err := applyGrid(held, formValues{values: test.form}); err != nil {
+				t.Fatalf("applyGrid: %v", err)
+			}
+			if session.Grid != test.want {
+				t.Errorf("grid = %+v, want %+v", session.Grid, test.want)
+			}
+		})
+	}
+}
+
 // TestAscendingTelescopesOutOfTheHeldSystem is the regression the S2 side was
 // written for: Escape steps one LEVEL out, and only the address's own system
 // knows what that is. A geohash drops a character; an S2 token does not --
@@ -432,6 +494,12 @@ func TestTheCycleButtonIsOfferedOnlyWhereItLeadsSomewhere(t *testing.T) {
 			Grid{System: "geohash", Subgrid: 1},
 			GridView{Enabled: true, System: "geohash", Name: "Geohash", Mark: "G", Length: 3,
 				Subgrid: true}},
+		// The field's maxlength is the ground's: a real geohash on an
+		// earth-anchored plane is six characters, and the navigator says so.
+		{"an earth-anchored city takes a whole real address", anchoredPlane,
+			Grid{System: "geohash", Subgrid: 1},
+			GridView{Enabled: true, System: "geohash", Name: "Geohash", Mark: "G", Length: 6,
+				Subgrid: true}},
 		{"a planet divides two ways and offers the step", sphere,
 			Grid{System: "geohash", Cell: "m6", Subgrid: 1},
 			GridView{Enabled: true, System: "geohash", Name: "Geohash", Mark: "G", Cell: "m6",
@@ -493,6 +561,23 @@ func TestHeldCellNarrowsForEverySystemTheSessionCanHold(t *testing.T) {
 		{"and not a point a level-10 cell away", Grid{System: "s2", Cell: "100001"}, world, inland, true, false},
 		{"a face on the other side of the body holds neither",
 			Grid{System: "s2", Cell: "9"}, world, middle, true, false},
+		// Real mode: the held cell is a genuine WGS84 geohash and the
+		// question is asked in degrees through the declared window. The
+		// raster centre is 9rcd's ground; 9rcf overhangs the window's east
+		// edge and holds a point OFF the raster, because the cell is the
+		// planet's even where the picture stops.
+		{"a real geohash cell holds the ground it names",
+			Grid{System: "geohash", Cell: "9rcd"},
+			&worldModel{Attrs: anchoredPlane, Grid: tileGrid{Size: 8192}},
+			[2]float64{4096, -4096}, true, true},
+		{"and not the window cell beside it",
+			Grid{System: "geohash", Cell: "9rcf"},
+			&worldModel{Attrs: anchoredPlane, Grid: tileGrid{Size: 8192}},
+			[2]float64{4096, -4096}, true, false},
+		{"a real cell holds real ground past the raster's edge",
+			Grid{System: "geohash", Cell: "9rcf"},
+			&worldModel{Attrs: anchoredPlane, Grid: tileGrid{Size: 8192}},
+			[2]float64{9000, -4096}, true, true},
 		{"a system this world does not divide narrows nothing",
 			Grid{System: "s2", Cell: "100001"},
 			&worldModel{Attrs: plane, Grid: tileGrid{Size: 8192}}, middle, false, false},

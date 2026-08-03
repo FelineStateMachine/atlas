@@ -180,6 +180,36 @@ func SurfaceExtent(surface, bounds *Rect, size float64) Extent {
 	return Extent{0, -size, size, 0}
 }
 
+// GeohashGround is the ground GEOHASH divides, which is not always
+// [SurfaceExtent]: a game map's grid must cover the full map area and stay
+// put across lens switches, and two lenses of one world may declare
+// different surfaces. So on a PLANE with no earth anchoring, geohash divides
+// the whole world square `[0, -size, size, 0]` whenever the volume declares
+// one, and only a ground with no volume at all falls back to the surface
+// ladder. Spheres keep the ladder — their surface is the body's own picture —
+// and every other consumer of [SurfaceExtent] (S2, the grid's own ground
+// question) keeps it too. An earth-anchored plane never reaches this: its
+// geohash is the real one ([EarthMercator], [GeohashRealHeld]) and divides
+// no rectangle of pixels at all.
+//
+// It is the seam's `geohashExtent` (analysis/cellsystems/geohash.ts), and the
+// shared vectors hold the two to one set of numbers.
+func GeohashGround(surface, bounds *Rect, size float64, attrs map[string]string) Extent {
+	if size > 0 && planeSurface(attrs) {
+		if _, anchored := EarthMercator(attrs); !anchored {
+			return Extent{MinX: 0, MinY: -size, MaxX: size, MaxY: 0}
+		}
+	}
+	return SurfaceExtent(surface, bounds, size)
+}
+
+// planeSurface reads the surface the way the seam's `worldSurface` does:
+// absent means plane, which every world was until the planets arrived.
+func planeSurface(attrs map[string]string) bool {
+	declared := attrs[semconv.KeyGeometrySurface]
+	return declared == "" || declared == semconv.SurfacePlane
+}
+
 // The axes alternate, five bits to a character, x first. A character outside
 // the alphabet is skipped without consuming a halving, so the axis does not
 // alternate past it — which is what the field's own normalization makes

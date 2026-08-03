@@ -40,11 +40,19 @@ func heldCell(session Session, model *worldModel, lens *payloadLens) cells.Held 
 	}
 	switch session.Grid.System {
 	case cells.SystemGeohash:
+		// Geohash has a mode per ground. On an earth-anchored plane the
+		// address is a genuine WGS84 geohash and the question is asked in
+		// degrees; on every other plane it halves the world square, so the
+		// grid covers the full map and stays put across lens switches; and a
+		// sphere keeps the surface ladder (internal/app/cells, GeohashGround).
+		if mapping, anchored := cells.EarthMercator(attrs); anchored {
+			return cells.GeohashRealHeld(mapping, session.Grid.Cell)
+		}
 		var surface, bounds *cells.Rect
 		if lens != nil {
 			surface, bounds = lens.Surface, lens.Bounds
 		}
-		return cells.GeohashHeld(cells.SurfaceExtent(surface, bounds, size), session.Grid.Cell)
+		return cells.GeohashHeld(cells.GeohashGround(surface, bounds, size, attrs), session.Grid.Cell)
 	case cells.SystemS2:
 		// The ground S2 divides is the body itself rather than the lens's
 		// window on it, which is why nothing here reads the surface: the
@@ -84,11 +92,16 @@ func heldCell(session Session, model *worldModel, lens *payloadLens) cells.Held 
 // its telescope stops at. Nothing here refuses -- a reader mid-word is not
 // making a mistake, and what they have typed so far is either a place or a
 // draft, which is [parseCell]'s question rather than this one's.
-func normalizeCell(system, text string) string {
+//
+// The depth is the WORLD'S, not the system's alone: geohash on an
+// earth-anchored plane takes six characters where a synthetic ground takes
+// three (internal/app/cells, GeohashDepthOf), which is why the attributes
+// ride along.
+func normalizeCell(system, text string, attrs map[string]string) string {
 	keep, depth := "", 0
 	switch system {
 	case cells.SystemGeohash:
-		keep, depth = cells.GeohashAlphabet, cells.GeohashMaxDepth
+		keep, depth = cells.GeohashAlphabet, cells.GeohashDepthOf(attrs)
 	case cells.SystemS2:
 		keep, depth = "0123456789abcdef", cells.S2InputLength
 	default:
@@ -116,9 +129,20 @@ func normalizeCell(system, text string) string {
 // of one names nothing at all -- so a partial token is a DRAFT the field holds
 // while the session stays exactly where it was, and only a whole token moves
 // the reader. A token past the floor clamps to it and comes back respelled.
-func parseCell(system, text string) (string, bool) {
+//
+// Real mode adds geohash's one refusal: on an earth-anchored plane the
+// grid's cells start at the window's base depth, so a shorter spelling names
+// a cell the grid never shows -- a hemisphere against a city -- and it is a
+// draft, exactly as the seam's `parseInput` holds it.
+func parseCell(system, text string, attrs map[string]string) (string, bool) {
 	switch system {
 	case cells.SystemGeohash:
+		if text != "" {
+			if mapping, anchored := cells.EarthMercator(attrs); anchored &&
+				len(text) < cells.GeohashBaseDepth(mapping) {
+				return "", false
+			}
+		}
 		return text, true
 	case cells.SystemS2:
 		return cells.S2ParseCell(text)
@@ -136,11 +160,19 @@ func parseCell(system, text string) (string, bool) {
 // character off an S2 token produces either a different cell somewhere else on
 // the body or no cell at all. Both were wrong in the same quiet way: the
 // reader pressed Escape and arrived somewhere they had never been.
-func parentCell(system, cell string) string {
+// Real mode moves geohash's own answer once more: a base-depth cell on an
+// earth-anchored plane telescopes out to the ROOT, because the level between
+// it and the root -- a three-character hemisphere slice -- is not a place the
+// window's grid has (analysis/cellsystems/geohash.ts, `parent`).
+func parentCell(system, cell string, attrs map[string]string) string {
 	switch system {
 	case cells.SystemGeohash:
 		runes := []rune(cell)
 		if len(runes) == 0 {
+			return ""
+		}
+		if mapping, anchored := cells.EarthMercator(attrs); anchored &&
+			len(runes) <= cells.GeohashBaseDepth(mapping) {
 			return ""
 		}
 		return string(runes[:len(runes)-1])
@@ -175,13 +207,15 @@ func systemMark(system string) string {
 }
 
 // inputLength is how many characters the navigator's field accepts, which is
-// the depth this system's telescope stops at. It is the same number
-// [normalizeCell] cuts at, and it is spelled on the input as well so that the
-// field and the record agree in front of the reader rather than behind them.
-func inputLength(system string) int {
+// the depth this system's telescope stops at ON THIS WORLD. It is the same
+// number [normalizeCell] cuts at, and it is spelled on the input as well so
+// that the field and the record agree in front of the reader rather than
+// behind them -- six characters for a real geohash on an earth-anchored
+// plane, three for a synthetic one, the seam's own `inputLength(ground)`.
+func inputLength(system string, attrs map[string]string) int {
 	switch system {
 	case cells.SystemGeohash:
-		return cells.GeohashMaxDepth
+		return cells.GeohashDepthOf(attrs)
 	case cells.SystemS2:
 		return cells.S2InputLength
 	}

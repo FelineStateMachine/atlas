@@ -124,6 +124,52 @@
       ],
       "expect": "47a1cb",
       "note": "A token deeper than the telescope's floor clamps to level 10 and comes back canonically spelled."
+    },
+    {
+      "name": "real-normalize-cuts-at-six",
+      "ground": "bend-or/2026-08-02/0",
+      "system": "geohash",
+      "call": "normalizeInput",
+      "args": [
+        "9RCDXKPB"
+      ],
+      "expect": "9rcdxk",
+      "note": "The anchored floor is six characters, so the field keeps six where a synthetic ground keeps three.",
+      "handDerived": true
+    },
+    {
+      "name": "real-parse-refuses-a-short-draft",
+      "ground": "bend-or/2026-08-02/0",
+      "system": "geohash",
+      "call": "parseInput",
+      "args": [
+        "9rc"
+      ],
+      "expect": null,
+      "note": "Whole or nothing: an address shorter than the base depth names a cell the window's grid never shows, so it is a draft the field holds while the session stays put.",
+      "handDerived": true
+    },
+    {
+      "name": "real-parse-accepts-a-base-cell",
+      "ground": "bend-or/2026-08-02/0",
+      "system": "geohash",
+      "call": "parseInput",
+      "args": [
+        "9rcd"
+      ],
+      "expect": "9rcd",
+      "handDerived": true
+    },
+    {
+      "name": "real-parse-the-root-is-a-place",
+      "ground": "bend-or/2026-08-02/0",
+      "system": "geohash",
+      "call": "parseInput",
+      "args": [
+        ""
+      ],
+      "expect": "",
+      "handDerived": true
     }
   ]
 }

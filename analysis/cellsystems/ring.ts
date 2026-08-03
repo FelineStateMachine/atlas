@@ -12,6 +12,7 @@ import type { Coordinate, Ground } from "./ground.ts";
 import { surfaceExtent } from "./ground.ts";
 import type { Ring } from "./contract.ts";
 import type { PlanCell } from "./plan.ts";
+import { worldSurface } from "../semconv/geometry.ts";
 
 /**
  * Cut a closed ring against two vertical edges — the standard
@@ -89,6 +90,11 @@ export function cellRings(ground: Ground, cell: PlanCell): Coordinate[][] {
     const poleY = cell.pole === "north" ? surface[3] : surface[1];
     ring = [...ring, [last[0], poleY], [first[0], poleY], first];
   }
+  // Only a sphere has a seam. A plane's cell that runs past the surface's
+  // x-range — a real geohash overhanging bend-or's window, a world-square
+  // cell beside a windowed lens — is honestly overhanging, not wrapping, and
+  // cutting it into shifted pieces would tile ghost cells over the map.
+  if (worldSurface(ground.world) !== "sphere") return [ring];
   if (ring.every(([x]) => x >= surface[0] && x <= surface[2])) return [ring];
   const width = surface[2] - surface[0];
   const pieces: Coordinate[][] = [];

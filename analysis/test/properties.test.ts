@@ -26,6 +26,7 @@ import { equivalentCell } from "../cellsystems/registry.ts";
 import { geohashSystem } from "../cellsystems/geohash.ts";
 import { s2System } from "../cellsystems/s2.ts";
 import { districtSystem } from "./districts.ts";
+import { anchored } from "./grounds.ts";
 
 // --- the invented worlds -----------------------------------------------------
 //
@@ -69,6 +70,16 @@ const globeProbes: readonly Coordinate[] = [
   [2048.5, -60.25],
 ];
 
+/**
+ * Invented locations on the earth-anchored plane (analysis/test/grounds.ts,
+ * `anchored`): inside its 4096 window, none of them a recorded number.
+ */
+const anchoredProbes: readonly Coordinate[] = [
+  [1111.25, -900.5],
+  [3300.5, -2800.125],
+  [512.0625, -3900.75],
+];
+
 /** The systems on trial, each with the ground it divides and the points that drive it. */
 const subjects: readonly {
   name: string;
@@ -80,6 +91,10 @@ const subjects: readonly {
   { name: "districts on the plane", system: districtSystem, ground: field, probes: fieldProbes },
   { name: "geohash on the sphere", system: geohashSystem, ground: globe, probes: globeProbes },
   { name: "s2 on the sphere", system: s2System, ground: globe, probes: globeProbes },
+  // Real mode: the same four families over an earth-anchored plane, where
+  // geohash is genuine WGS84 and the plan is the window's.
+  { name: "geohash on the anchored plane", system: geohashSystem, ground: anchored, probes: anchoredProbes },
+  { name: "districts on the anchored plane", system: districtSystem, ground: anchored, probes: anchoredProbes },
 ];
 
 /** The descent chain under a probe, root first, down to the telescope's floor. */
@@ -286,6 +301,8 @@ const crossings: readonly {
   { name: "districts to geohash on the plane", ground: field, from: districtSystem, to: geohashSystem, probes: fieldProbes },
   { name: "geohash to s2 on the sphere", ground: globe, from: geohashSystem, to: s2System, probes: globeProbes },
   { name: "s2 to geohash on the sphere", ground: globe, from: s2System, to: geohashSystem, probes: globeProbes },
+  { name: "real geohash to districts on the anchored plane", ground: anchored, from: geohashSystem, to: districtSystem, probes: anchoredProbes },
+  { name: "districts to real geohash on the anchored plane", ground: anchored, from: districtSystem, to: geohashSystem, probes: anchoredProbes },
 ];
 
 for (const { name, ground, from, to, probes } of crossings) {
@@ -302,7 +319,18 @@ for (const { name, ground, from, to, probes } of crossings) {
         for (const held of chainUnder(source, probe, from.maxLevel(ground))) {
           if (held === "") continue;
           const carried = equivalentCell(ground, from, to, held);
-          assert.ok(carried, `"${held}" carried to nowhere on a ground both systems divide`);
+          if (carried === "") {
+            // A carry to nowhere is lawful in exactly one case: the old
+            // cell's centre is off the ground the target system divides —
+            // the two systems no longer share one rectangle (geohash divides
+            // the world square or real earth; districts divide the lens's
+            // window), and a cell overhanging the shared ground can centre
+            // outside it. The caller's answer is to hold no cell rather
+            // than a wrong one, and this asserts the excuse is real.
+            assert.equal(target.descendTarget("", source.center(held)), "",
+              `"${held}" carried to nowhere though its centre is on the target's ground`);
+            continue;
+          }
           assert.ok(target.contains(carried, source.center(held)),
             `"${carried}" does not hold the centre of "${held}", which is the place that was carried`);
         }

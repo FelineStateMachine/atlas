@@ -34,12 +34,26 @@ export type {
 export type { Coordinate, Extent, Ground, Lens, Rect } from "./ground.ts";
 export { extentArea, surfaceExtent, surfaceWidth } from "./ground.ts";
 
-export type { GeoMapping, World, WorldAttrs } from "../semconv/geometry.ts";
-export { equirectMapping, geoMapping, mercatorMapping, worldSurface } from "../semconv/geometry.ts";
+export type { GeoMapping, ProjectedWindow, World, WorldAttrs } from "../semconv/geometry.ts";
+export {
+  equirectMapping,
+  geoMapping,
+  mercatorMapping,
+  mercatorWindow,
+  worldSurface,
+} from "../semconv/geometry.ts";
 
 export { CellSystemRegistry, applicableSystems, cellSystems, equivalentCell } from "./registry.ts";
 
-export { geohashAlphabet, geohashCellAt, geohashMaxDepth, geohashSystem } from "./geohash.ts";
+export {
+  geohashAlphabet,
+  geohashBaseDepth,
+  geohashCellAt,
+  geohashDepth,
+  geohashExtent,
+  geohashMaxDepth,
+  geohashSystem,
+} from "./geohash.ts";
 export { s2System } from "./s2.ts";
 
 export type { PlanCell } from "./plan.ts";

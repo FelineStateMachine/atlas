@@ -876,11 +876,11 @@ func applyGrid(c *concernContext, form formValues) error {
 			s.Grid = Grid{Subgrid: s.Grid.Subgrid}
 			return nil
 		}
-		s.Grid.Cell = parentCell(s.Grid.System, s.Grid.Cell)
+		s.Grid.Cell = parentCell(s.Grid.System, s.Grid.Cell, worldAttrs(c.world))
 		return nil
 	}
 	if cell, sent := form.values["cell"]; sent {
-		selectGridCell(s, first(cell))
+		selectGridCell(c, first(cell))
 	}
 	if form.get("subgrid") == "flip" {
 		if s.Grid.Subgrid > 0 {
@@ -908,12 +908,17 @@ func applyGrid(c *concernContext, form formValues) error {
 // starting over, which is the one thing that separates this from the G key
 // (`selectGridCell` in the reference, which sets `gridEnabled` by hand for
 // exactly this reason).
-func selectGridCell(s *Session, raw string) {
+func selectGridCell(c *concernContext, raw string) {
+	s := c.session
 	system := s.Grid.System
 	if system == "" {
 		system = defaultCellSystem
 	}
-	cell, place := parseCell(system, normalizeCell(system, raw))
+	// The world's attributes ride along because the depth of an address is
+	// the ground's: six characters of real geohash on an earth-anchored
+	// plane, three on anything synthetic (grid.go, normalizeCell).
+	attrs := worldAttrs(c.world)
+	cell, place := parseCell(system, normalizeCell(system, raw, attrs), attrs)
 	if !place {
 		return
 	}

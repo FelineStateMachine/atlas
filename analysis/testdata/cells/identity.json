@@ -782,6 +782,54 @@
         "47a1cb"
       ],
       "expect": 1
+    },
+    {
+      "name": "real-level-root",
+      "ground": "bend-or/2026-08-02/0",
+      "system": "geohash",
+      "call": "level",
+      "args": [
+        ""
+      ],
+      "expect": 0,
+      "handDerived": true
+    },
+    {
+      "name": "real-level-base-cell",
+      "ground": "bend-or/2026-08-02/0",
+      "system": "geohash",
+      "call": "level",
+      "args": [
+        "9rcd"
+      ],
+      "expect": 1,
+      "note": "Level counts LAYERS on real ground: the root's children are four characters long and level 1, so the telescope is still three deep.",
+      "handDerived": true
+    },
+    {
+      "name": "real-level-floor",
+      "ground": "bend-or/2026-08-02/0",
+      "system": "geohash",
+      "call": "level",
+      "args": [
+        "9rcdxk"
+      ],
+      "expect": 3,
+      "handDerived": true
+    },
+    {
+      "name": "real-label",
+      "ground": "bend-or/2026-08-02/0",
+      "system": "geohash",
+      "call": "label",
+      "args": [
+        "9rcdxk"
+      ],
+      "expect": {
+        "context": "9rcdx",
+        "principal": "k"
+      },
+      "handDerived": true
     }
   ]
 }

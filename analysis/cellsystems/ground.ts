@@ -53,7 +53,10 @@ export type Extent = readonly [number, number, number, number];
 export type Coordinate = readonly [number, number];
 
 /**
- * The ground every cell system divides, as one extent.
+ * The declared surface, resolved as one extent. S2, the ring clip and the
+ * ground questions divide this; geohash makes its own ground choice on
+ * planes (`geohashExtent` in geohash.ts), so a game map's grid can cover the
+ * full map whatever window a lens declares.
  *
  * Three branches, in order: the lens's declared surface; failing that its
  * raster window; failing that the whole world square. The sign flip is the

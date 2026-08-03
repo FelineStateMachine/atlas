@@ -32,7 +32,7 @@ import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 
 import type { CellID, CellSystem, GroundedCellSystem } from "../cellsystems/contract.ts";
-import type { Coordinate, Ground } from "../cellsystems/ground.ts";
+import type { Coordinate, Extent, Ground } from "../cellsystems/ground.ts";
 import { surfaceExtent, surfaceWidth } from "../cellsystems/ground.ts";
 import { cellPlan } from "../cellsystems/plan.ts";
 import { gridCellVisual } from "../cellsystems/visual.ts";
@@ -46,6 +46,14 @@ export interface ConformanceSubject {
 
   /** A point well inside the ground, used to drive descent. */
   readonly probe: Coordinate;
+
+  /**
+   * What the root's bbox must be, when it is not `surfaceExtent(ground)`:
+   * geohash on a plane divides the world square rather than the lens's
+   * window, and on an earth-anchored plane the root is the union of the
+   * base cells the window intersects. Omitted, the surface is the ground.
+   */
+  readonly rootExtent?: Extent;
 
   /**
    * Points this system's own geometry puts exactly on a cell boundary, as
@@ -246,8 +254,8 @@ export function describeConformance(name: string, subject: ConformanceSubject): 
       }
     });
 
-    it("the root's bbox is the ground", () => {
-      assert.deepEqual([...on.bbox("")], [...surfaceExtent(ground)]);
+    it("the root's bbox is the ground this system divides", () => {
+      assert.deepEqual([...on.bbox("")], [...(subject.rootExtent ?? surfaceExtent(ground))]);
     });
 
     it("a cell circles at most one pole, and its parent circles the same one", () => {

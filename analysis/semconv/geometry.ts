@@ -136,18 +136,47 @@ export function mercatorMapping(world: World | null | undefined): GeoMapping | n
 
 type Quad = readonly [number, number, number, number];
 
+/** One declared window: the raster it fills and the ground it pictures. */
+export interface ProjectedWindow {
+  /** `x, y, w, h` — world pixels, y down. */
+  readonly px: Quad;
+  /** `west, north, east, south` — degrees at the window's edges. */
+  readonly deg: Quad;
+}
+
+/**
+ * The Mercator window itself, degrees and all, for the one consumer that
+ * needs more than the two functions: an earth-anchored plane's geohash sizes
+ * its grid from the window's degree spans (analysis/cellsystems/geohash.ts).
+ */
+export function mercatorWindow(world: World | null | undefined): ProjectedWindow | null {
+  return declaredWindow(world, "mercator");
+}
+
 /**
  * The px/deg pair of one declared projection, or null when the world declares
  * a different projection, none at all, or a pair that cannot be read. A window
  * with no width, no height, or a degenerate degree range is not a mapping:
  * inverting it would divide by zero, and silence beats a plausible NaN.
+ *
+ * The projection key gates the equirect pair outright — "required when
+ * surface is `sphere`", and numbers under an undeclared flattening are
+ * numbers this cannot read. The MERCATOR pair alone is also readable when no
+ * projection is declared at all: the registry's projection enum names only
+ * `equirect`, so a plane georeferenced by a real-world tile window (bend-or)
+ * carries `atlas.geometry.mercator.*` with no projection key, and the keys
+ * themselves say what the numbers are.
  */
 function declaredWindow(
   world: World | null | undefined,
   projection: Projection,
-): { px: Quad; deg: Quad } | null {
+): ProjectedWindow | null {
   const attrs = world?.attrs;
-  if (!attrs || attrs[KEY_GEOMETRY_PROJECTION] !== projection) return null;
+  if (!attrs) return null;
+  const declared = attrs[KEY_GEOMETRY_PROJECTION];
+  if (declared !== projection && !(projection === "mercator" && declared === undefined)) {
+    return null;
+  }
   const px = quad(attrs[WINDOW[projection].px]);
   const deg = quad(attrs[WINDOW[projection].deg]);
   if (!px || !deg) return null;

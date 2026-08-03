@@ -85,9 +85,20 @@ func Equivalent(ground Extent, attrs map[string]string, from, to, id string) str
 }
 
 // boundTo stands a system on a ground, or refuses one that does not divide it.
+//
+// The geohash the carry walks is the ground's own mode: real on an
+// earth-anchored plane, the halving of the rectangle it was handed
+// everywhere else. The rectangle is the caller's reading of the world —
+// today every carry the application can make is on a sphere, where the
+// surface ladder is the geohash ground too — and the anchored check is here
+// so the day a second system divides a plane, the carry does not quietly
+// halve a picture whose addresses are the planet's.
 func boundTo(system string, ground Extent, attrs map[string]string) (bound, bool) {
 	switch system {
 	case SystemGeohash:
+		if mapping, anchored := EarthMercator(attrs); anchored {
+			return realGeohashOn{mapping: mapping, base: GeohashBaseDepth(mapping)}, true
+		}
 		return geohashOn{ground: ground}, true
 	case SystemS2:
 		mapping, mapped := MappingOf(attrs)
@@ -120,6 +131,41 @@ func (g geohashOn) extent(id string) Extent { return GeohashExtent(g.ground, id)
 
 func (g geohashOn) center(id string) (x, y float64) {
 	held := GeohashExtent(g.ground, id)
+	return (held.MinX + held.MaxX) / 2, (held.MinY + held.MaxY) / 2
+}
+
+// realGeohashOn is geohash on an earth-anchored plane: level counts LAYERS —
+// the root's children are base-depth cells — and the floor is still three of
+// them, exactly as the seam's real mode counts (analysis/cellsystems/
+// geohash.ts, `realGrounded`).
+type realGeohashOn struct {
+	mapping Mercator
+	base    int
+}
+
+func (g realGeohashOn) level(id string) int {
+	if id == "" {
+		return 0
+	}
+	return len(id) - g.base + 1
+}
+
+func (g realGeohashOn) floor() int { return 3 }
+
+func (g realGeohashOn) descend(id string, x, y float64) string {
+	depth := g.base
+	if id != "" {
+		depth = len(id) + 1
+	}
+	return GeohashRealCellAt(g.mapping, x, y, depth)
+}
+
+func (g realGeohashOn) extent(id string) Extent {
+	return GeohashRealExtent(g.mapping, id)
+}
+
+func (g realGeohashOn) center(id string) (x, y float64) {
+	held := GeohashRealExtent(g.mapping, id)
 	return (held.MinX + held.MaxX) / 2, (held.MinY + held.MaxY) / 2
 }
 

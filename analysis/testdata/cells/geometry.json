@@ -456,6 +456,74 @@
       ],
       "note": "A ring entirely inside comes back whole, closed, in its own order.",
       "handDerived": true
+    },
+    {
+      "name": "geohash-bbox-root-on-a-bounds-lens",
+      "ground": "test/square-1024-bounds",
+      "system": "geohash",
+      "call": "bbox",
+      "args": [
+        ""
+      ],
+      "expect": [
+        0,
+        -1024,
+        1024,
+        0
+      ],
+      "note": "Part 1: the root is the world square, not the 512x256 raster window the lens declares.",
+      "handDerived": true
+    },
+    {
+      "name": "geohash-bbox-m6-on-a-bounds-lens",
+      "ground": "test/square-1024-bounds",
+      "system": "geohash",
+      "call": "bbox",
+      "args": [
+        "m6"
+      ],
+      "expect": [
+        672,
+        -704,
+        704,
+        -672
+      ],
+      "note": "Re-derived on the full 1024 square: m is column 5 of 8, row 1 of 4 from the bottom (128x256 at 640,-768); 6 = 00110 splits y first inside it, landing the 32x32 box at 672,-704 - the same box the whole-surface lens answers.",
+      "handDerived": true
+    },
+    {
+      "name": "real-bbox-9rcd",
+      "ground": "bend-or/2026-08-02/0",
+      "system": "geohash",
+      "call": "bbox",
+      "args": [
+        "9rcd"
+      ],
+      "expect": [
+        -3947.432211218598,
+        -7981.703605508047,
+        4803.884266171338,
+        -1895.4089537724801
+      ],
+      "note": "9rcd is -121.640625..-121.2890625 by 43.9453125..44.12109375. x = (lng - west)/(east - west) * 8192; y = (asinh(tan latN) - asinh(tan lat))/(asinh(tan latN) - asinh(tan latS)) * 8192, then the sign flip. The west edge lands off the raster at x = -3947.43...: real cells are drawn at their full extents, overhang and all. Cross-checked in python to 1e-10.",
+      "handDerived": true
+    },
+    {
+      "name": "real-bbox-9rcdx",
+      "ground": "bend-or/2026-08-02/0",
+      "system": "geohash",
+      "call": "bbox",
+      "args": [
+        "9rcdx"
+      ],
+      "expect": [
+        3709.969706497596,
+        -4940.812877376354,
+        4803.884266171338,
+        -3418.6763501123382
+      ],
+      "note": "One layer down: -121.3330078125..-121.2890625 by 44.033203125..44.0771484375, fully inside the raster.",
+      "handDerived": true
     }
   ]
 }

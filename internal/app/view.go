@@ -374,7 +374,8 @@ func gridView(session Session, model *worldModel) GridView {
 		Subgrid: session.Grid.Subgrid > 0,
 		Offered: model != nil,
 	}
-	out.Name, out.Mark, out.Length = systemName(out.System), systemMark(out.System), inputLength(out.System)
+	out.Name, out.Mark, out.Length = systemName(out.System), systemMark(out.System),
+		inputLength(out.System, worldAttrs(model))
 	// Which systems divide this world is the world's own answer, and the
 	// button is offered only when there is a second one to step to.
 	offered := cells.ApplicableSystems(worldAttrs(model))

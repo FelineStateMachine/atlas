@@ -113,7 +113,7 @@
     },
     "bend-or/2026-08-02/0": {
       "key": "bend-or/2026-08-02/0",
-      "about": "Bend, Oregon — 2026-08-02, lens \"Basemap\". Read from the public corpus bundle at testdata/corpus/bundles/bend-or: a city window that declares itself a plane, so geohash divides it and nothing else offers to — even though it carries a Mercator window for its own georeferencing.",
+      "about": "Bend, Oregon — 2026-08-02, lens \"Basemap\". Read from the public corpus bundle at testdata/corpus/bundles/bend-or: a plane city that declares an earth Mercator window and names its body, so geohash divides it FOR REAL — genuine WGS84 addresses of the pictured ground, base depth 4 and floor 6 from the window's own 0.32909 x 0.23650 degree spans — and nothing else offers to.",
       "tileGridSize": 8192,
       "lens": {
         "surface": {

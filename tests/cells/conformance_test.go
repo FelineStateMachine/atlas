@@ -66,6 +66,17 @@ func (g ground) extent() cells.Extent {
 	return cells.SurfaceExtent(surface, bounds, g.Size)
 }
 
+// geohashExtent is the ground GEOHASH divides -- the world square on a plane
+// with no earth anchoring, the surface ladder everywhere else (Part 1 of the
+// plane ruling; internal/app/cells, GeohashGround).
+func (g ground) geohashExtent() cells.Extent {
+	var surface, bounds *cells.Rect
+	if g.Lens != nil {
+		surface, bounds = g.Lens.Surface, g.Lens.Bounds
+	}
+	return cells.GeohashGround(surface, bounds, g.Size, g.World.Attrs)
+}
+
 // TestGroundsAgreeOnSurfaceAndSystems holds the two derived fields every
 // recorded ground carries: the rectangle it hands its systems, and which
 // systems are willing to take it. The second is the answer the session's
@@ -340,7 +351,10 @@ func answer(t *testing.T, at ground, held vector) (any, bool) {
 		var point [2]float64
 		var depth int
 		args(t, held, &point, &depth)
-		return cells.GeohashCellAt(at.extent(), point[0], point[1], depth), true
+		if mapping, anchored := cells.EarthMercator(at.World.Attrs); anchored {
+			return cells.GeohashRealCellAt(mapping, point[0], point[1], depth), true
+		}
+		return cells.GeohashCellAt(at.geohashExtent(), point[0], point[1], depth), true
 	case "equivalentCell":
 		// The carry is server arithmetic now: cycling the grid system moves
 		// the held cell through cells.Equivalent, so the recorded pairs bind
@@ -350,19 +364,41 @@ func answer(t *testing.T, at ground, held vector) (any, bool) {
 		return cells.Equivalent(at.extent(), at.World.Attrs, from, to, id), true
 	}
 
+	// The navigator's field length is a server fact -- grid.go answers it to
+	// the template -- so the vector binds the Go side too, per system.
+	if held.Call == "inputLength" {
+		switch held.System {
+		case cells.SystemGeohash:
+			return cells.GeohashDepthOf(at.World.Attrs), true
+		case cells.SystemS2:
+			return cells.S2InputLength, true
+		}
+	}
+
 	switch held.System {
 	case cells.SystemGeohash:
+		mapping, anchored := cells.EarthMercator(at.World.Attrs)
 		switch held.Call {
 		case "contains":
 			var hash string
 			var point [2]float64
 			args(t, held, &hash, &point)
-			return cells.GeohashHeld(at.extent(), hash)(point[0], point[1]), true
+			if anchored {
+				return cells.GeohashRealHeld(mapping, hash)(point[0], point[1]), true
+			}
+			return cells.GeohashHeld(at.geohashExtent(), hash)(point[0], point[1]), true
 		case "descendTarget":
 			var hash string
 			var point [2]float64
 			args(t, held, &hash, &point)
-			return cells.GeohashCellAt(at.extent(), point[0], point[1], len(hash)+1), true
+			if anchored {
+				depth := cells.GeohashBaseDepth(mapping)
+				if hash != "" {
+					depth = len(hash) + 1
+				}
+				return cells.GeohashRealCellAt(mapping, point[0], point[1], depth), true
+			}
+			return cells.GeohashCellAt(at.geohashExtent(), point[0], point[1], len(hash)+1), true
 		}
 	case cells.SystemS2:
 		mapping, mapped := cells.MappingOf(at.World.Attrs)

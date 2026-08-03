@@ -8,7 +8,7 @@ should be able to write a conforming system, register it, and pass the
 conformance suite from this document and nothing else.
 
 The reference implementation is `analysis/cellsystems`. The judge is the
-executable conformance suite in `analysis/test/conformance.ts`, plus the 178
+executable conformance suite in `analysis/test/conformance.ts`, plus the 212
 shared contract vectors in `analysis/testdata/cells/` — compared as JSON text,
 positionally, and read by the Go twin (`tests/cells`) as well, so the two
 copies of the arithmetic answer to one set of numbers. Where this document and
@@ -51,10 +51,10 @@ mistake that produces plausible wrong answers.
 | **OL world coordinates** | everything in `analysis/cellsystems` | x east, y **negative-down**: the top edge of the world square is `y = 0` (or `-0`), the bottom is `y = -height`. This is the space a pin's `coordinate` lives in. |
 | **y-down world pixels** | a `Rect` in a `Ground`, and `atlas.geometry.*.px` | x east, y **positive-down**, from the world square's top-left. This is the space a bundle declares itself in. |
 
-The conversion happens in exactly two places — `surfaceExtent`, which flips the
-sign of a declared `Rect`, and the `GeoMapping` calls in `s2.ts`, which flip it
-again on the way to degrees. Nothing else in the lane converts, and nothing
-outside it should have to.
+The conversion happens in exactly three places — `surfaceExtent`, which flips
+the sign of a declared `Rect`, and the `GeoMapping` calls in `s2.ts` and in
+`geohash.ts`'s real mode (§4.3), which flip it again on the way to degrees.
+Nothing else in the lane converts, and nothing outside it should have to.
 
 A degree pair is always `[lat, lng]`, latitude first, degrees, north and east
 positive.
@@ -85,7 +85,7 @@ both lanes' vector suites.
 
 ### 3.1 `surfaceExtent(ground): [minX, minY, maxX, maxY]`
 
-The ground every system divides. Three branches, in order:
+The declared surface, resolved. Three branches, in order:
 
 1. the lens's declared **surface**, when it has one;
 2. failing that, the lens's raster **bounds**;
@@ -97,6 +97,13 @@ double. JSON cannot carry it, which is why the shared vectors are compared as
 JSON text on both sides — the serialization forces the negative zero to be
 normalized away rather than the comparison loosened.
 
+S2, the ring clip, and every ground question read this ladder. **Geohash does
+not always**: on a plane with no earth anchoring it divides the whole world
+square `[0, -size, size, 0]` whenever the volume declares one
+(`geohashExtent`, in `geohash.ts`), so a game map's grid covers the full map
+and stays put across lens switches; on an earth-anchored plane it divides no
+pixel rectangle at all (§4.3). Spheres keep the ladder.
+
 ### 3.2 What is deliberately not in it
 
 The active system, the held cell, and whether the subgrid is showing. Those are
@@ -107,7 +114,8 @@ session values per call rather than folding them into the ground.
 
 ### 3.3 The attribute vocabulary it reads
 
-`analysis/semconv/geometry.ts` is the lane's reader for four keys:
+`analysis/semconv/geometry.ts` is the lane's reader for four keys, and
+`geohash.ts` reads one more:
 
 | Key | Read by | Meaning |
 |---|---|---|
@@ -115,9 +123,18 @@ session values per call rather than folding them into the ground.
 | `atlas.geometry.projection` | `geoMapping` | `equirect` or `mercator` |
 | `atlas.geometry.<p>.px` | `geoMapping` | `x,y,w,h` — the raster window, y-down pixels |
 | `atlas.geometry.<p>.deg` | `geoMapping` | `west,north,east,south` — what it pictures |
+| `atlas.geometry.body` | geohash's real mode (§4.3) | the body pictured |
 
 A declaration that cannot be read — wrong arity, a non-number, a zero-sized
 window, a degenerate degree range — produces `null`, never a plausible NaN.
+
+The projection key gates the equirect pair outright — the registry requires
+it of a sphere. The **Mercator pair alone is also readable when no projection
+is declared at all**: the registry's projection enum names only `equirect`,
+so a plane georeferenced by a real-world tile window (bend-or) carries
+`atlas.geometry.mercator.*` with no projection key, and the keys themselves
+say what the numbers are. `mercatorWindow(world)` answers the window's px/deg
+pair whole, for the one consumer that needs more than the two functions.
 
 The reader is the lane's own; the **keys it reads are not**. They come from
 `analysis/semconv/keys.ts`, generated from `spec/registry.yaml` — the one
@@ -228,6 +245,49 @@ offered on in practice, and false of, say, a Web-Mercator city window — where
 narrowing `appliesTo` is a curation decision for the app or a future `Ground`
 field, not this lane's to make unilaterally.
 
+### 4.3 Geohash's two modes
+
+Geohash still divides any ground, but WHAT it divides is the ground's own
+question, answered once in `geohash.ts` and mirrored in the Go twin:
+
+**Synthetic** — every sphere, and every plane with no earth anchoring. The
+recursive halving in world pixels, over `geohashExtent(ground)` (§3.1):
+thirty-two children to a cell, `level(id) = id.length`, the floor at three
+characters.
+
+**Real** — a plane whose world declares `atlas.geometry.body: earth` AND an
+invertible Mercator window (`mercatorMapping`). The picture is OF somewhere,
+so cell ids are genuine WGS84 geohashes: the classic arithmetic — longitude
+first, five bits per character, the same alphabet in the same order — run in
+degrees, with each cell put on the picture through the flattening. Mercator
+keeps latitude lines horizontal, so cells stay world-pixel rectangles.
+
+Real mode moves four things and nothing else:
+
+- **Depths.** The window is city-sized, so the three layers start at
+  `baseDepth(window)`: the smallest depth ≥ 1 whose cell **longitude span
+  fits the window's or whose latitude span does** (spans halve from
+  360°/180° per the 5-bit alternation), capped at 9. The floor is
+  `baseDepth + 2`; `inputLength(ground)` answers it (6 for bend-or, whose
+  window derives base 4) and `maxLevel` stays 3 — **level counts layers**,
+  so the root's children are base-depth cells at level 1.
+- **The plan is the window's.** `children("")` are the base-depth cells that
+  intersect the window with real area (strict on every edge), in reading
+  order — north to south, west to east; a held cell's children are likewise
+  filtered. `childIndex` is the position among those siblings. Cells are
+  drawn at their **full real extents** — they may overhang the window, which
+  is honest and never clipped.
+- **Addresses are the planet's.** `cellAt`/`locate`/`descendTarget` answer a
+  real geohash for ANY point — outside the window is still real ground — and
+  `contains` is the cell's own degree rectangle, boundaries inclusive.
+- **Parsing gains geohash's one refusal.** An address shorter than
+  `baseDepth` names a cell the window's grid never shows, so it is a draft;
+  the root is still a place, and a base-depth cell's `parent` is the root.
+
+S2 on these grounds stays refused exactly as before: the surface says plane.
+Mars — a sphere with an equirect window and no earth body — never enters real
+mode at all.
+
 ---
 
 ## 5. The registry, and carrying a place between systems
@@ -328,10 +388,15 @@ ringClosesOn(ground, ring): boolean
 ```
 
 `cellRings` is the whole of what a renderer would otherwise have to work out,
-and it is three rules in one place:
+and it is four rules in one place:
 
+- Only a **sphere has a seam**. On a plane every ring comes back as a single
+  piece untouched, even where it runs past the surface's x-range — a real
+  geohash overhanging bend-or's window, a world-square cell beside a windowed
+  lens — because an overhang is not a wrap, and cutting it into shifted
+  pieces would tile ghost cells over the map.
 - Most rings lie within the surface and come back as a **single piece,
-  untouched** — every geohash ring does.
+  untouched** — every synthetic geohash ring does.
 - A cell circling a **pole** has its loop closed along the picture's own top or
   bottom edge, *closing point included*: a pole cell's walk ends a world over
   from where it began, and that closure spans the last tessellation step.

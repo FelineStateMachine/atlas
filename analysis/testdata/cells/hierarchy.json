@@ -221,6 +221,59 @@
         "5c"
       ],
       "note": "The north-polar face's four children — the ids that do not refine by appending."
+    },
+    {
+      "name": "real-children-of-the-root-are-the-window",
+      "ground": "bend-or/2026-08-02/0",
+      "system": "geohash",
+      "call": "children",
+      "args": [
+        ""
+      ],
+      "expect": [
+        "9rce",
+        "9rcg",
+        "9rcd",
+        "9rcf",
+        "9rc9",
+        "9rcc"
+      ],
+      "note": "The root plan: the six depth-4 cells the window intersects (columns 166-167, rows 761-763 of the 0.3515625 x 0.17578125 degree grid), in reading order - north to south, west to east. Cells are the planet's; the PLAN is the window's.",
+      "handDerived": true
+    },
+    {
+      "name": "real-parent-of-a-base-cell-is-the-root",
+      "ground": "bend-or/2026-08-02/0",
+      "system": "geohash",
+      "call": "parent",
+      "args": [
+        "9rcd"
+      ],
+      "expect": "",
+      "handDerived": true
+    },
+    {
+      "name": "real-parent-one-layer-down",
+      "ground": "bend-or/2026-08-02/0",
+      "system": "geohash",
+      "call": "parent",
+      "args": [
+        "9rcdx"
+      ],
+      "expect": "9rcd",
+      "handDerived": true
+    },
+    {
+      "name": "real-childindex-is-the-window-position",
+      "ground": "bend-or/2026-08-02/0",
+      "system": "geohash",
+      "call": "childIndex",
+      "args": [
+        "9rcd"
+      ],
+      "expect": 2,
+      "note": "Position among the window's own cells in reading order, not the last character's alphabet ordinal: with absent siblings filtered out, the ordinal would leave holes in the palette walk.",
+      "handDerived": true
     }
   ]
 }

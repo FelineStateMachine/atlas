@@ -138,6 +138,56 @@
       "args": [],
       "expect": 6,
       "handDerived": true
+    },
+    {
+      "name": "geohash-applies-to-the-anchored-city",
+      "ground": "bend-or/2026-08-02/0",
+      "system": "geohash",
+      "call": "appliesTo",
+      "args": [],
+      "expect": true,
+      "note": "Geohash divides anything; here it divides it for REAL — the plane declares an earth Mercator window, so its hashes are genuine WGS84 addresses.",
+      "handDerived": true
+    },
+    {
+      "name": "s2-still-refuses-the-anchored-city",
+      "ground": "bend-or/2026-08-02/0",
+      "system": "s2",
+      "call": "appliesTo",
+      "args": [],
+      "expect": false,
+      "note": "The earth anchoring changes nothing for S2: the surface says plane, and S2 divides only spheres.",
+      "handDerived": true
+    },
+    {
+      "name": "systems-on-the-anchored-city",
+      "ground": "bend-or/2026-08-02/0",
+      "call": "applicableSystems",
+      "args": [],
+      "expect": [
+        "geohash"
+      ],
+      "handDerived": true
+    },
+    {
+      "name": "geohash-max-level-on-the-anchored-city",
+      "ground": "bend-or/2026-08-02/0",
+      "system": "geohash",
+      "call": "maxLevel",
+      "args": [],
+      "expect": 3,
+      "note": "Three layers of precision on every ground; only where the layers START moves.",
+      "handDerived": true
+    },
+    {
+      "name": "geohash-input-length-on-the-anchored-city",
+      "ground": "bend-or/2026-08-02/0",
+      "system": "geohash",
+      "call": "inputLength",
+      "args": [],
+      "expect": 6,
+      "note": "The ground-aware floor: baseDepth 4 (the smallest depth whose cell spans fit the window's 0.32909 by 0.23650 degrees — depth 4's latitude span 0.17578125 fits where its longitude span 0.3515625 misses) plus the two layers under it. The navigator's maxlength follows this number.",
+      "handDerived": true
     }
   ]
 }

@@ -9,8 +9,16 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { geohashAlphabet, geohashCellAt, geohashMaxDepth, geohashSystem } from "../cellsystems/geohash.ts";
-import { square, squareFromBounds } from "./grounds.ts";
+import {
+  geohashAlphabet,
+  geohashBaseDepth,
+  geohashCellAt,
+  geohashDepth,
+  geohashExtent,
+  geohashMaxDepth,
+  geohashSystem,
+} from "../cellsystems/geohash.ts";
+import { bendOr, sphere, square, squareFromBounds, squareNoLens } from "./grounds.ts";
 
 const on = geohashSystem.on(square);
 
@@ -22,7 +30,9 @@ test("the alphabet drops the four characters a reader would mishear", () => {
 });
 
 test("bbox halves the way geohash always has", () => {
-  assert.deepEqual([...on.bbox("")], [0, -1024, 1024, -0]);
+  // The root is the world square — a plane's own [0, -size, size, 0], whose
+  // top edge is a plain 0 rather than the surface ladder's -0.
+  assert.deepEqual([...on.bbox("")], [0, -1024, 1024, 0]);
   // m = alphabet index 19 = 10011: x right, y bottom, x left, y up, x right.
   assert.deepEqual([...on.bbox("m")], [640, -768, 768, -512]);
   // 6 = 00110, continuing on the alternate axis.
@@ -95,12 +105,125 @@ test("the plan primitives stay where they were", () => {
   assert.equal(on.locate([-1, -1]), null);
 });
 
-test("the ground is an argument: the same hash names different ground on a different lens", () => {
-  const elsewhere = geohashSystem.on(squareFromBounds);
+test("the ground is an argument: the same hash names different ground on a different world", () => {
+  const elsewhere = geohashSystem.on(sphere);
   assert.notDeepEqual([...elsewhere.bbox("m6")], [...on.bbox("m6")]);
-  // Which is the whole point of de-globalizing: two lenses can be divided at
+  // Which is the whole point of de-globalizing: two grounds can be divided at
   // once, by two callers who never meet.
   assert.deepEqual([...on.bbox("m6")], [672, -704, 704, -672]);
+});
+
+test("a plane's grid divides the world square and stays put across lenses", () => {
+  // The maintainer's ruling: a game map's grid covers the FULL map area,
+  // whatever window the open lens declares, so switching lenses moves no
+  // hash. The lens-window ground and the whole-square ground answer the same
+  // boxes, and the bounds-only lens does too.
+  assert.deepEqual([...geohashExtent(square)], [0, -1024, 1024, 0]);
+  assert.deepEqual([...geohashExtent(squareFromBounds)], [0, -1024, 1024, 0]);
+  assert.deepEqual([...geohashExtent(squareNoLens)], [0, -1024, 1024, 0]);
+  const windowed = geohashSystem.on(squareFromBounds);
+  assert.deepEqual([...windowed.bbox("m6")], [...on.bbox("m6")]);
+  assert.equal(windowed.descendTarget("m", [688, -688]), "m6");
+  // A sphere keeps the surface ladder: its picture IS the ground.
+  assert.deepEqual([...geohashExtent(sphere)], [0, -4096, 8192, -0]);
+});
+
+// ---- the real mode: an earth-anchored plane -------------------------------
+//
+// bend-or declares a plane, an earth body and a Mercator window of
+// -121.48204667177453 … -121.1529533282255 east-west (0.32909° of longitude)
+// and 44.17572950664809 … 43.93922950850393 north-south (0.23650° of
+// latitude), over the whole 8192 square. Its geohashes are the real ones.
+
+const real = geohashSystem.on(bendOr);
+
+test("bend-or's window comes out base depth 4, floor 6 — exactly", () => {
+  // Cell spans halve from 360°/180° per the 5-bit alternation: depth 3 is
+  // 1.40625° both ways (too coarse for either axis), depth 4 is 0.3515625°
+  // of longitude (misses 0.32909°) by 0.17578125° of latitude (fits
+  // 0.23650°). The OR fires at 4, and the three layers end at 6.
+  assert.equal(geohashBaseDepth(bendOr), 4);
+  assert.equal(geohashDepth(bendOr), 6);
+  assert.equal(geohashSystem.inputLength(bendOr), 6);
+  // Three layers of precision on every ground: maxLevel does not move.
+  assert.equal(geohashSystem.maxLevel(bendOr), 3);
+  // And the synthetic grounds keep their 3.
+  assert.equal(geohashBaseDepth(square), 1);
+  assert.equal(geohashDepth(square), geohashMaxDepth);
+});
+
+test("bend-or's cell ids are genuine WGS84 geohashes", () => {
+  // Derived independently with the textbook algorithm (python) before the
+  // implementation existed: the raster centre (4096, 4096 y-down) is
+  // lat 44.05759758…, lng -121.3175 — geohash 9rcdxk; (1024, 2048) is
+  // 9rcdux; and (9000, 4096), EAST of the declared window, still has a real
+  // address: 9rcfeu. The ground is real earth, so no point is refused.
+  assert.equal(geohashCellAt(bendOr, [4096, -4096]), "9rcdxk");
+  assert.equal(geohashCellAt(bendOr, [1024, -2048]), "9rcdux");
+  assert.equal(geohashCellAt(bendOr, [9000, -4096]), "9rcfeu");
+  assert.equal(geohashCellAt(bendOr, [4096, -4096], 4), "9rcd");
+  assert.deepEqual(real.locate([4096, -4096]), { label: "Geohash", value: "9rcdxk" });
+});
+
+test("the root plan is the six depth-4 cells the window intersects, reading order", () => {
+  // Depth-4 cells are 0.3515625° × 0.17578125° from (-180, -90). The window
+  // spans columns 166–167 and rows 761–763 of that grid — two columns, three
+  // rows, north to south then west to east — and every one of the six
+  // intersects with real area (the bottom row by 0.0061°, the top by
+  // 0.0546°).
+  assert.deepEqual(real.children(""), ["9rce", "9rcg", "9rcd", "9rcf", "9rc9", "9rcc"]);
+  // The sibling ordinal is the position among the window's own cells.
+  assert.equal(real.childIndex("9rcd"), 2);
+  assert.equal(real.childIndex("9rce"), 0);
+});
+
+test("real cells are drawn at their full extents, overhang and all", () => {
+  // Hand-derived through the window's own formulas (x linear in longitude,
+  // y linear in asinh(tan lat)), cross-checked in python to 1e-10:
+  // 9rcd is [-121.640625, 43.9453125] … [-121.2890625, 44.12109375], which
+  // lands west of the raster (x -3947.43…) — honest overhang, not clipped.
+  assert.deepEqual([...real.bbox("9rcd")],
+    [-3947.432211218598, -7981.703605508047, 4803.884266171338, -1895.4089537724801]);
+  // 9rcdx, one layer down: [-121.3330078125, 44.033203125] …
+  // [-121.2890625, 44.0771484375], fully inside the raster.
+  assert.deepEqual([...real.bbox("9rcdx")],
+    [3709.969706497596, -4940.812877376354, 4803.884266171338, -3418.6763501123382]);
+  const ring = real.ring("9rcd");
+  assert.equal(ring.length, 5);
+  assert.deepEqual(ring[0], ring[4], "the ring closes");
+});
+
+test("level counts layers on real ground, so the telescope is still three deep", () => {
+  assert.equal(real.level(""), 0);
+  assert.equal(real.level("9rcd"), 1);
+  assert.equal(real.level("9rcdx"), 2);
+  assert.equal(real.level("9rcdxk"), 3);
+  assert.equal(real.parent("9rcdx"), "9rcd");
+  assert.equal(real.parent("9rcd"), "", "a base cell telescopes out to the root");
+  assert.equal(real.descendTarget("", [4096, -4096]), "9rcd",
+    "descending from the root lands on a base cell, not a hemisphere");
+  assert.equal(real.descendTarget("9rcd", [4096, -4096]), "9rcdx");
+});
+
+test("a real address is whole at base depth, and a shorter one is a draft", () => {
+  assert.equal(real.normalizeInput("9RCDXK!"), "9rcdxk");
+  assert.equal(real.normalizeInput("9rcdxkpb"), "9rcdxk", "the field stops at the floor");
+  assert.equal(real.parseInput(""), "", "the root is a place");
+  assert.equal(real.parseInput("9rc"), null, "a hemisphere-to-city prefix is a draft");
+  assert.equal(real.parseInput("9rcd"), "9rcd");
+});
+
+test("real containment is the cell's own degree rectangle, boundaries inclusive", () => {
+  assert.equal(real.contains("9rcd", [4096, -4096]), true);
+  assert.equal(real.contains("9rcf", [4096, -4096]), false);
+  assert.equal(real.contains("9rcf", [9000, -4096]), true,
+    "a point outside the window is still on real ground");
+  assert.equal(real.contains("", [9000, -4096]), true, "the root is the whole earth");
+  const children = real.children("9rcd");
+  assert.ok(children.length > 0 && children.length <= 32);
+  for (const child of children) {
+    assert.equal(real.parent(child), "9rcd");
+  }
 });
 
 test("geohash keeps halving past its own floor, and S2 does not", () => {

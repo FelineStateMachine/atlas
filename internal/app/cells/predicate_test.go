@@ -258,6 +258,137 @@ func TestS2ParseCellRefusesWhatIsNotAPlace(t *testing.T) {
 	}
 }
 
+// bendAttrs is the declaration the shipped bend-or bundle makes
+// (testdata/corpus/bundles/bend-or, and `bend-or/2026-08-02/0` in the shared
+// grounds): a plane city anchored to real earth by a Mercator window.
+var bendAttrs = map[string]string{
+	semconv.KeyGeometrySurface:     semconv.SurfacePlane,
+	semconv.KeyGeometryBody:        "earth",
+	semconv.KeyGeometryMercatorPx:  "0,0,8192,8192",
+	semconv.KeyGeometryMercatorDeg: "-121.48204667177453,44.17572950664809,-121.1529533282255,43.93922950850393",
+}
+
+// TestBendOrComesOutBaseDepthFourFloorSix pins the anchored telescope to the
+// window it was derived from: cell spans halve from 360°/180° per the 5-bit
+// alternation, depth 3 is 1.40625° both ways (too coarse for either axis of
+// the 0.32909° × 0.23650° window), and depth 4's latitude span (0.17578125°)
+// fits where its longitude span (0.3515625°) just misses. Base 4, floor 6 --
+// exactly, and the seam's geohash.test.ts asserts the same two numbers.
+func TestBendOrComesOutBaseDepthFourFloorSix(t *testing.T) {
+	mapping, anchored := cells.EarthMercator(bendAttrs)
+	if !anchored {
+		t.Fatal("the bend-or declaration is an earth anchoring and the reader refused it")
+	}
+	if got := cells.GeohashBaseDepth(mapping); got != 4 {
+		t.Errorf("base depth = %d, want 4", got)
+	}
+	if got := cells.GeohashDepthOf(bendAttrs); got != 6 {
+		t.Errorf("depth floor = %d, want 6", got)
+	}
+	// And a synthetic plane keeps the constant.
+	if got := cells.GeohashDepthOf(nil); got != cells.GeohashMaxDepth {
+		t.Errorf("a synthetic plane answers %d, want %d", got, cells.GeohashMaxDepth)
+	}
+}
+
+// TestEarthMercatorAsksAllThreeQuestions: a plane, an invertible Mercator
+// window, and a body that says earth -- drop any one and real mode never
+// starts. Mars is a sphere with an equirect window and no earth body, and
+// must be completely unaffected.
+func TestEarthMercatorAsksAllThreeQuestions(t *testing.T) {
+	without := func(key string) map[string]string {
+		out := map[string]string{}
+		for k, v := range bendAttrs {
+			if k != key {
+				out[k] = v
+			}
+		}
+		return out
+	}
+	if _, anchored := cells.EarthMercator(bendAttrs); !anchored {
+		t.Error("the whole declaration anchors, and was refused")
+	}
+	// Surface ABSENT still means plane; the other clauses hold it up.
+	if _, anchored := cells.EarthMercator(without(semconv.KeyGeometrySurface)); !anchored {
+		t.Error("an undeclared surface is a plane, and was refused")
+	}
+	for _, key := range []string{
+		semconv.KeyGeometryBody,
+		semconv.KeyGeometryMercatorPx,
+		semconv.KeyGeometryMercatorDeg,
+	} {
+		if _, anchored := cells.EarthMercator(without(key)); anchored {
+			t.Errorf("dropping %s still anchored", key)
+		}
+	}
+	if _, anchored := cells.EarthMercator(marsAttrs); anchored {
+		t.Error("mars anchored to earth")
+	}
+	// A world that declares its numbers are a DIFFERENT flattening is
+	// declaring something this cannot read.
+	contradicted := map[string]string{}
+	for k, v := range bendAttrs {
+		contradicted[k] = v
+	}
+	contradicted[semconv.KeyGeometryProjection] = semconv.ProjectionEquirect
+	if _, anchored := cells.EarthMercator(contradicted); anchored {
+		t.Error("a contradicting projection was read as a Mercator window")
+	}
+}
+
+// TestRealGeohashHoldsItsBoundaries is [TestGeohashHoldsItsBoundaries] in the
+// real mode: the cell's ground is a degree rectangle, the question travels
+// through the flattening, and the boundaries are inclusive in DEGREES. The
+// probes are the shared vectors' own (analysis/testdata/cells,
+// containment.json, the real-* cases), plus the edges a fixture never quite
+// reaches.
+func TestRealGeohashHoldsItsBoundaries(t *testing.T) {
+	mapping, anchored := cells.EarthMercator(bendAttrs)
+	if !anchored {
+		t.Fatal("bend-or did not anchor")
+	}
+	tests := []struct {
+		name  string
+		hash  string
+		x, y  float64
+		holds bool
+	}{
+		{"the raster centre is in its own base cell", "9rcd", 4096, -4096, true},
+		{"and in its own floor cell", "9rcdxk", 4096, -4096, true},
+		{"and not in the neighbour", "9rcf", 4096, -4096, false},
+		{"a point east of the window is still on real ground", "9rcf", 9000, -4096, true},
+		{"the root is the whole earth", "", 9000, -4096, true},
+		{"the north-west quarter probe", "9rcdux", 1024, -2048, true},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			if got := cells.GeohashRealHeld(mapping, test.hash)(test.x, test.y); got != test.holds {
+				t.Errorf("%q holds (%g, %g) = %v, want %v", test.hash, test.x, test.y, got, test.holds)
+			}
+		})
+	}
+
+	// The address under a point at every layer, against the vectors' own
+	// derivation: 9rcd / 9rcdx / 9rcdxk under the raster centre.
+	for depth, want := range map[int]string{4: "9rcd", 5: "9rcdx", 6: "9rcdxk"} {
+		if got := cells.GeohashRealCellAt(mapping, 4096, -4096, depth); got != want {
+			t.Errorf("the centre at depth %d = %q, want %q", depth, got, want)
+		}
+	}
+
+	// The drawn rectangle overhangs the window, honestly: 9rcd's west edge
+	// (-121.640625°) is west of the raster, so its extent starts at a
+	// negative x. The shared geometry vectors carry the full-precision
+	// numbers; this holds the shape of the fact.
+	extent := cells.GeohashRealExtent(mapping, "9rcd")
+	if extent.MinX >= 0 {
+		t.Errorf("9rcd's west edge is on the raster (MinX %g); it belongs west of it", extent.MinX)
+	}
+	if !extent.Holds(4096, -4096) {
+		t.Error("9rcd's own extent does not hold the raster centre")
+	}
+}
+
 // faceOf telescopes an address all the way out to the face it is on.
 func faceOf(cell string) string {
 	for cells.S2Level(cell) > 1 {
