@@ -17,8 +17,8 @@
 // Nothing else, ever.
 
 import { KEY_ICON_OUTSET } from "@atlas/analysis/semconv/keys";
-import { applicableSystems, cellSystems } from "@atlas/analysis";
-import type { CellSystem } from "@atlas/analysis";
+import { applicableSystems, cellSystems, geohashCellAt } from "@atlas/analysis";
+import type { CellSystem, Coordinate, Ground, LocatedCell } from "@atlas/analysis";
 import { logger } from "./log.ts";
 import { wireKeyboard } from "./keys.ts";
 import { RowHover } from "./hover.ts";
@@ -113,6 +113,10 @@ export class AtlasViewport extends HTMLElement {
     // And the same duty for the corner: the shelf hides itself when the whole
     // map is on screen, and a swap that re-rendered it has just un-hidden it.
     this.chart?.redrawOverview();
+    // The open card is the same shape of duty as the footer's sentence: the
+    // application renders the row and leaves it empty, and only this lane can
+    // say what a point's address is.
+    this.writeCell();
   }
 
   /** The panes, looked up rather than held: a morph may not touch them, but
@@ -190,6 +194,11 @@ export class AtlasViewport extends HTMLElement {
       if (!sphere) this.dropSphere();
       this.chart?.show(context);
       if (sphere) this.globe?.show(context);
+      // The card's rows are written from the model, so they cannot be written
+      // before there is one: a rescan runs the moment the swap lands, and the
+      // payload it is about may still be in flight. This is the same duty
+      // asked again on the other side of the wait.
+      this.writeCell();
     } catch (error) {
       log.error("the scene could not be drawn", {
         op: "render", volume: scene.volume, world: scene.world, error: String(error),
@@ -269,6 +278,91 @@ export class AtlasViewport extends HTMLElement {
       known: cellSystems.get(scene.gridSystem) !== undefined,
     });
     return null;
+  }
+
+  /**
+   * The open card's cell addresses.
+   *
+   * WHOSE HALF THIS IS. Where a point stands is the application's -- the card
+   * renders the coordinates out of the payload -- and *what that place is
+   * called* is the analysis lane's, which the server has no access to. So the
+   * card is rendered with the row present and empty, hidden, and this fills
+   * it: the same division `writeCount` makes over the footer's sentence, and
+   * the same lifecycle, because the card is an outerMorph region and every
+   * swap replaces it whole. There is nothing to keep in step -- a swap takes
+   * the last answer away with the node it was written on, and the rescan that
+   * follows writes this one.
+   *
+   * GEOHASH IS THE FIRST ROW AND IT IS FIXED. The address shown is the one at
+   * depth 3, not at whatever depth the grid currently stands: the row says
+   * where this point *is*, and a reader descending the navigator did not ask
+   * for every open card to be re-spelled behind them. Every other system this
+   * ground offers adds a row of its own, in registry order, out of the one
+   * question the contract has for a point (`locate`).
+   *
+   * The rows are inert text. Nothing here is a control, and the reference's
+   * were not either.
+   */
+  private writeCell(): void {
+    const context = this.context;
+    const field = document.querySelector<HTMLElement>("#detail-cell-field");
+    const value = document.querySelector<HTMLElement>("#detail-cell");
+    // The strays go first and unconditionally. Every other row on the card is
+    // the server's and leaves with the swap that replaced it; these are this
+    // lane's, and a card that has just become a shape's -- or nobody's -- must
+    // not keep the last point's second address under it.
+    for (const row of [...document.querySelectorAll("[data-cell-system-row]")]) row.remove();
+    // No card on the page at all, which is most of the application's states.
+    if (!field || !value) return;
+    // THE LIVE SCENE, not the reconciled one. A rescan runs the moment the
+    // swap lands and the reconcile it starts is a payload away; the context
+    // still names the selection *before* this swap, and writing that here
+    // would put the last point's address on the card now open about another.
+    // The model is the same model either way -- a selection does not change
+    // the world -- and a selection this one has never heard of resolves to
+    // nothing, which is a hidden row until the reconcile fills it.
+    const selected = this.watcher?.scene.selected ?? context?.scene.selected ?? "";
+    const point = context?.model.pointByID.get(selected) ?? null;
+    if (!context || !point) {
+      value.textContent = "";
+      field.hidden = true;
+      return;
+    }
+    const address = geohashCellAt(context.ground, point.coordinate);
+    value.textContent = address;
+    field.hidden = address === "";
+    if (!address) return;
+    let after: Element = field;
+    for (const system of applicableSystems(context.ground)) {
+      if (system.slug === "geohash") continue;
+      const located = this.addressOf(system, context.ground, point.coordinate);
+      if (!located) continue;
+      const row = cellRow(system.slug, located.label, located.value);
+      after.after(row);
+      after = row;
+    }
+  }
+
+  /**
+   * One system's name for a point, or nothing.
+   *
+   * Fenced for the reason every call into a system on this element is fenced:
+   * the systems are exact rather than approximate, and S2 asked about a ground
+   * with no invertible flattening throws outright. `applicableSystems` above
+   * is the asking that should make this unreachable; this is the second fence,
+   * and it costs a row and a line on the stream rather than the card.
+   */
+  private addressOf(
+    system: CellSystem, ground: Ground, at: Coordinate,
+  ): LocatedCell | null {
+    try {
+      return system.on(ground).locate(at);
+    } catch (error) {
+      log.warn("the system cannot name the place this card is about", {
+        op: "render", system: system.slug, error: String(error),
+      });
+      return null;
+    }
   }
 
   /**
@@ -556,6 +650,30 @@ export class AtlasViewport extends HTMLElement {
  * Weak, so a control that leaves the page leaves this with it.
  */
 const wired = new WeakSet<Element>();
+
+/**
+ * One system's row for the open card, in the card's own shape.
+ *
+ * A bare `<div><dt>…</dt><dd>…</dd></div>`, which is what every other row in
+ * that list is: the carried assets/css/pin-detail.css lays the definition list
+ * out from the divs and asks nothing of them, so a row this lane inserts and a
+ * row the server rendered are the same row to the stylesheet. The mark is how
+ * the next pass finds it again, and it is the only thing that distinguishes
+ * them.
+ *
+ * Text, not markup: a cell address is a value, and `textContent` is the one
+ * way to put a value on a page without asking what is in it.
+ */
+function cellRow(slug: string, label: string, value: string): HTMLElement {
+  const row = document.createElement("div");
+  row.setAttribute("data-cell-system-row", slug);
+  const term = document.createElement("dt");
+  term.textContent = label;
+  const said = document.createElement("dd");
+  said.textContent = value;
+  row.append(term, said);
+  return row;
+}
 
 function outsetOf(model: WorldModel): string {
   return model.payload.attrs?.[KEY_ICON_OUTSET] ?? "";

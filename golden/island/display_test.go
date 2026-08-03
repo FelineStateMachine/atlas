@@ -456,6 +456,72 @@ func TestTheCardSaysWhetherItIsOpen(t *testing.T) {
 	}
 }
 
+// TestTheCardCarriesAnEmptyCellRow holds the one row of the card the server
+// renders and does not fill.
+//
+// Where a point stands is in the payload and the card writes it; what that
+// place is *called* is the analysis lane's, and the server has no access to
+// it. So the row is rendered present, empty and hidden, and the seam fills it
+// and un-hides it after every swap (render/viewport.ts, writeCell) -- the same
+// division the footer's "N of M" sentence is written across, and the reason
+// this can only be checked to the edge of the markup from here: what a reader
+// then reads in it is the parity tour's.
+//
+// A shape has no point to name and gets no row at all, which is the branch the
+// reference hid by hand. Both cards are asked for, because a row that appears
+// on a shape's card is a row that would sit there empty forever.
+func TestTheCardCarriesAnEmptyCellRow(t *testing.T) {
+	handler, _ := newApp(t, fixtureVolume(t, "bend-or"))
+	if page := get(t, handler, "/v/bend-or/2026-08-02", nil); page.Code != http.StatusOK {
+		t.Fatalf("the explorer answered %d", page.Code)
+	}
+
+	for _, tt := range []struct {
+		name    string
+		feature string
+		// carries is whether the card is about somewhere a cell system can
+		// name, which is what earns it the row.
+		carries bool
+	}{
+		{name: "a point", feature: "890910106", carries: true},
+		{name: "a shape", feature: "1469115845", carries: false},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			answer := post(t, handler, "/session/select", url.Values{
+				"volume": {"bend-or"}, "feature": {tt.feature},
+			})
+			if answer.Code != http.StatusOK {
+				t.Fatalf("/session/select answered %d: %s", answer.Code, answer.Body)
+			}
+			body := answer.Body.String()
+			if !strings.Contains(body, `id="detail-title"`) {
+				t.Fatalf("no card came back for %s:\n%s", tt.feature, body)
+			}
+			held := strings.Contains(body, `id="detail-cell-field"`)
+			if held != tt.carries {
+				t.Fatalf("the cell row is present = %v, want %v:\n%s", held, tt.carries, body)
+			}
+			if !tt.carries {
+				return
+			}
+			// Empty, and hidden while it is empty: a row wearing an address
+			// out of the session would be an address nothing keeps current.
+			if !strings.Contains(body, `<div id="detail-cell-field" hidden>`) {
+				t.Errorf("the row is rendered open over nothing:\n%s", body)
+			}
+			if !strings.Contains(body, `<dd id="detail-cell"></dd>`) {
+				t.Errorf("the server filled a row it cannot answer:\n%s", body)
+			}
+			// And it stands where the reference put it: after the coordinates,
+			// which is the fact it is a second reading of.
+			cell := strings.Index(body, `id="detail-cell-field"`)
+			if at := strings.Index(body, `id="detail-coordinates-field"`); at < 0 || at > cell {
+				t.Errorf("the cell row does not follow the coordinates it names")
+			}
+		})
+	}
+}
+
 // openingTags collects every opening tag in a rendered answer that starts with
 // the given prefix, as far as its own `>`. A region can be rendered more than
 // once in one answer -- the card is inside the dock and is also its own swap --

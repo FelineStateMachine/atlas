@@ -27,16 +27,59 @@ import { setLevel } from "../log.ts";
 
 setLevel("error");
 
-/** A stub node: enough of one for `globe.gl` to load over. */
+/**
+ * A stub node: enough of one for `globe.gl` to load over, and enough of one
+ * for the card's definition list to be walked, inserted into and cleared.
+ *
+ * The list a node sits in is the node's own `row`, because the only structure
+ * anything here reads is order: what a row was inserted after, and which rows
+ * are still standing.
+ */
+class StubEl {
+  readonly width = 0;
+  readonly height = 0;
+  readonly style = {};
+  readonly classList = { add: () => {} };
+  readonly attrs: Record<string, string> = {};
+  readonly kids: StubEl[] = [];
+  hidden = false;
+  textContent = "";
+  /** The list this node stands in, if it stands in one. */
+  row: StubEl[] | null = null;
+
+  getContext(): null { return null; }
+  appendChild(): void {}
+  insertBefore(): void {}
+  addEventListener(): void {}
+
+  setAttribute(name: string, value: string): void {
+    this.attrs[name] = value;
+  }
+
+  append(...kids: StubEl[]): void {
+    this.kids.push(...kids);
+  }
+
+  after(node: StubEl): void {
+    if (!this.row) return;
+    this.row.splice(this.row.indexOf(this) + 1, 0, node);
+    node.row = this.row;
+  }
+
+  remove(): void {
+    if (!this.row) return;
+    this.row.splice(this.row.indexOf(this), 1);
+    this.row = null;
+  }
+}
+
 function stubNode(): Record<string, unknown> {
-  return {
-    width: 0, height: 0, style: {}, classList: { add: () => {} },
-    getContext: () => null, appendChild: () => {}, insertBefore: () => {},
-    setAttribute: () => {}, addEventListener: () => {},
-  };
+  return new StubEl() as unknown as Record<string, unknown>;
 }
 
 const nodes = new Map<string, unknown>();
+/** The open card's definition list, in the order it is rendered. */
+let list: StubEl[] = [];
 
 const host = globalThis as unknown as Record<string, unknown>;
 host.HTMLElement = class {
@@ -49,7 +92,9 @@ host.Image = class { src = ""; crossOrigin = ""; };
 host.window = globalThis;
 host.document = {
   querySelector: (selector: string) => nodes.get(selector) ?? null,
-  querySelectorAll: () => [],
+  querySelectorAll: (selector: string) => (selector === "[data-cell-system-row]"
+    ? list.filter((node) => node.attrs["data-cell-system-row"] !== undefined)
+    : []),
   createElement: stubNode,
   createElementNS: stubNode,
   createTextNode: stubNode,
@@ -65,6 +110,7 @@ interface Seam { [key: string]: unknown }
 
 function viewport(): Seam {
   nodes.clear();
+  list = [];
   return new AtlasViewport() as unknown as Seam;
 }
 
@@ -197,6 +243,139 @@ test("with no system dividing the world the field is nobody's to rewrite", () =>
   const node = field("M6");
   normalize(seam, node);
   assert.equal(node.value, "M6");
+});
+
+// ---- the open card's cell addresses ------------------------------------
+//
+// Half of that card is the application's and half is this lane's, exactly as
+// the footer's "N of M" sentence is: where a point stands is in the payload
+// and the server writes it, and what that place is *called* only the analysis
+// lane can say. So the row is rendered present, empty and hidden, and this
+// fills it after every swap -- there is nothing to keep in step, because the
+// card is an outerMorph region and the swap takes the last answer away with
+// the node it was written on.
+//
+// The address is the fixed-depth one and not the grid's: the row says where
+// this point is, and a reader descending the navigator did not ask for every
+// open card to be re-spelled behind them.
+
+/** A sphere with an invertible flattening: the ground S2 will divide. */
+const SPHERE: Ground = {
+  tileGridSize: 8192,
+  lens: { surface: { x: 0, y: 0, width: 8192, height: 4096 }, bounds: null },
+  world: {
+    attrs: {
+      "atlas.geometry.surface": "sphere",
+      "atlas.geometry.projection": "equirect",
+      "atlas.geometry.equirect.px": "0,0,8192,4096",
+      "atlas.geometry.equirect.deg": "-180,90,180,-90",
+    },
+  },
+};
+
+/** The point every card below is about, and where it stands. */
+const AT: [number, number] = [3000, -1500];
+
+/** The card as the server renders it: the row present, empty and hidden. */
+function card(): { field: StubEl; value: StubEl } {
+  const field = new StubEl();
+  field.hidden = true;
+  field.row = list;
+  list.push(field);
+  const value = new StubEl();
+  nodes.set("#detail-cell-field", field);
+  nodes.set("#detail-cell", value);
+  return { field, value };
+}
+
+/** A viewport standing over a world, with something selected on it. */
+function selecting(ground: Ground, selected: string): Seam {
+  const seam = viewport();
+  seam.context = {
+    ground,
+    scene: { selected, volume: "bend-or", world: "city" },
+    model: { pointByID: new Map([["1849", { id: "1849", coordinate: AT }]]) },
+  };
+  return seam;
+}
+
+function written(seam: Seam): void {
+  (seam.writeCell as () => void).call(seam);
+}
+
+/** The rows this lane inserted, as the term and value a reader sees. */
+function rows(): [string, string, string][] {
+  return list
+    .filter((node) => node.attrs["data-cell-system-row"] !== undefined)
+    .map((node) => [
+      node.attrs["data-cell-system-row"] ?? "",
+      node.kids[0]?.textContent ?? "",
+      node.kids[1]?.textContent ?? "",
+    ]);
+}
+
+test("a point's card is given the fixed-depth address, and shown", () => {
+  const seam = selecting(SPHERE, "1849");
+  const { field, value } = card();
+  written(seam);
+  // Three characters, which is the exported helper's own depth. The grid's
+  // depth is somewhere else entirely and moves under the reader's feet: at
+  // depth 1 this point is "d" and at 2 it is "du".
+  assert.equal(value.textContent, "dum");
+  assert.equal(field.hidden, false, "a row with an address in it is a row to show");
+});
+
+test("every other system this ground offers names the place too", () => {
+  const seam = selecting(SPHERE, "1849");
+  card();
+  written(seam);
+  assert.deepEqual(rows(), [["s2", "S2", "8b3b07"]],
+    "the second system's row is missing, or is not the system's own answer");
+});
+
+test("a ground S2 refuses is never asked", () => {
+  // A game map says nothing about what its picture is of, so S2 does not apply
+  // -- and S2 asked anyway throws rather than shrugging. `applicableSystems` is
+  // the asking, and the card is geohash's alone.
+  const seam = selecting(PLANE, "1849");
+  const { field, value } = card();
+  written(seam);
+  assert.equal(value.textContent, "ffj", "the same point, on the ground it is actually on");
+  assert.equal(field.hidden, false);
+  assert.deepEqual(rows(), []);
+});
+
+test("a card that is now about a shape keeps nothing of the point before it", () => {
+  const seam = selecting(SPHERE, "1849");
+  const { field, value } = card();
+  written(seam);
+  assert.equal(rows().length, 1, "a row to be left behind");
+
+  // The swap that opened the shape's card rendered no cell field, and the
+  // rows this lane inserted are not the server's to take away.
+  (seam.context as { scene: { selected: string } }).scene.selected = "1469115845";
+  written(seam);
+  assert.deepEqual(rows(), [], "the shape's card is wearing the point's address");
+  assert.equal(field.hidden, true);
+  assert.equal(value.textContent, "");
+});
+
+test("the swap that just landed decides, not the reconcile still in flight", () => {
+  // A rescan runs the moment the card is swapped in; the context it is read
+  // against still names the selection *before* the swap, because reconciling
+  // is a payload away. The address written is the open card's.
+  const seam = selecting(SPHERE, "");
+  seam.watcher = { scene: { selected: "1849" } };
+  const { field, value } = card();
+  written(seam);
+  assert.equal(value.textContent, "dum");
+  assert.equal(field.hidden, false);
+});
+
+test("with no card on the page there is nothing to write and nothing to clear", () => {
+  const seam = selecting(SPHERE, "1849");
+  assert.doesNotThrow(() => written(seam));
+  assert.doesNotThrow(() => written(viewport()));
 });
 
 // ---- wiring the field --------------------------------------------------

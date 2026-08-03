@@ -145,9 +145,15 @@ type DetailView struct {
 	Glyph       string
 	Icon        string
 	Coordinates string
-	Source      string
-	Links       []DetailLink
-	Rows        []DetailRow
+	// Point is whether the card is about a point rather than a shape. The
+	// card asks it about one row only: the grid cell, which is a name for
+	// somewhere a *point* stands and which the seam fills in
+	// (render/viewport.ts, writeCell). A shape has no such place, and the
+	// reference hid the row on exactly that branch.
+	Point  bool
+	Source string
+	Links  []DetailLink
+	Rows   []DetailRow
 }
 
 // DetailLink is one feature the open one points at.
@@ -465,6 +471,9 @@ func (a *App) detail(volume hostenv.Volume, model *worldModel, session Session, 
 		out.Icon = pin.Collection.Icon
 		out.Coordinates = strconv.FormatFloat(pin.Lat, 'f', 6, 64) + ", " +
 			strconv.FormatFloat(pin.Lng, 'f', 6, 64)
+		// Which is what earns this card the empty cell row: a place a point
+		// stands is a place the cell systems can name.
+		out.Point = true
 		out.Source = model.Origin
 	default:
 		shape, isShape := model.ShapeByID[id]
