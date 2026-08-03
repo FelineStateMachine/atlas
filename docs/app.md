@@ -69,6 +69,7 @@ catalog reports as `bundlesDir` and what the empty-library page shows.
 ```go
 Load(name string) ([]byte, error)   // hostenv.ErrNoSession when absent
 Save(name string, data []byte) error
+Delete(name string) error           // a record that is not there is already gone
 Names() ([]string, error)
 ```
 
@@ -76,6 +77,12 @@ Bytes under a name. What the bytes mean is §3 of this document, which is what
 lets a file, an OPFS handle, and a test's map all be the same store. Names are
 held to `hostenv.ValidName` — lowercase, digits, `-`, `_`, `.`, no separators —
 before they reach any store.
+
+`Delete` is the whole of the blunt reset (§4.3): the arrangement a volume opens
+with is synthesized from the world itself, so forgetting the record *is* the
+way back to it. Deleting a record the store does not hold is success, not
+`ErrNoSession` — the caller wants the record gone, and a record that was never
+there is gone.
 
 ### 1.3 `PickFile`
 
@@ -200,6 +207,7 @@ changing it is a deliberate act with a waiver in the same commit.
 | `GET /v/{volume}/{world}` | The whole explorer page, server rendered, in its remembered state. Also records that this is where the reader is. |
 | `GET /fragments/detail/{id}?volume=` | One feature's card. |
 | `POST /session/{concern}` | The partial set for the regions that concern touches (§4). |
+| `POST /session/reset` | Deletes this volume's record and answers `204` with `HX-Redirect` back into the volume (§4.3). The one concern whose answer is a page. |
 | `POST /bundles/import` | One progress row, streamed through its states (§4.1); picks, installs, rescans, announces. |
 | `GET /events?volume=` | The SSE stream (§5). |
 | `GET /assets/{app.css,htmx.js}` | The application's own chrome, out of the binary. |
@@ -325,6 +333,12 @@ reader:
 empty hide set — a reader who asked to see everything — is the same bytes as a
 record nobody has touched, and the next request would put the curation back.
 
+A record can also go away entirely. `POST /session/reset` (§4.3), which ⌘R
+presses, deletes it; the next load reads nothing and builds the table above out
+of the world again. It is the one operation on the record that is not a move on
+a field, and that is the point: a record that has gone wrong is not something a
+reader should have to diagnose a field at a time.
+
 ---
 
 ## 4. Regions, templates, and the partial envelope
@@ -436,6 +450,7 @@ thinks is coupled to what.
 | `overview` | `docked` | overview |
 | `sidebar` | `open` | shell |
 | `view` | `world`, `x`, `y`, `zoom`, `rotation` | — answers `204` |
+| `reset` | — | — answers `204` and `HX-Redirect` back into the volume |
 
 Every request carries `volume`, declared once on the shell as
 `hx-vals:inherited`. A volume that is not installed is a `404`; a malformed
@@ -446,6 +461,23 @@ with `204 No Content`, because swapping anything in response to a settling
 camera would fight the reader's own hand. The other upward flow is the pick:
 the seam resolves a canvas hit and submits the *identity* through an ordinary
 `POST /session/select`.
+
+**`reset` is the one concern that answers with a page**, and it earns the
+exception by deleting the record every other answer is rendered from. It is the
+blunt reset behind ⌘R (§4.5): the volume's `volume.<slug>.json` goes whole —
+what is hidden, folded, unfolded, highlighted and labelled, the search, the
+panel, the card, the grid, the index, the corner locator, every world's camera
+— and the next load reads no record at all, so §3.1's arrangement is
+synthesized fresh. Nothing here writes defaults; forgetting *is* the reset.
+
+The last-volume pointer is deliberately **not** touched: the reader is not
+leaving the volume, they are standing in it with nothing remembered, so
+`app.json` stays and the answer sends them back to `/v/{volume}/{world}` — the
+world read out of the record before it goes, the volume's first world when the
+record named none, and `/` when the volume has no world to name. It is spelled
+as the `HX-Redirect` header htmx acts on itself, because a `303` would be
+followed by `fetch` and swapped into a page that asked for no swap, which is a
+reset that appears to do nothing at all.
 
 **`labels` is spelled as a flip, not a destination.** The policy turns over,
 and if the other word is what the producer curated anyway the override has
@@ -467,6 +499,44 @@ the route needs the world, not just the id.
   envelope and the viewport state node are all framework-neutral, so replacing
   HTMX would be an afternoon in one directory rather than an architecture
   event.
+
+### 4.5 The keyboard
+
+Every shortcut that moves discrete state is a route rather than a handler: an
+`hx-trigger` naming the key and the element it is heard on, declared once in
+`shell.tmpl` — the one region a swap never replaces from underneath — and
+nothing else. There is no `hx-on` on the page and no listener behind it.
+
+| Key | Route | Does |
+|---|---|---|
+| `⌘G` | `grid` | cycles which cell system divides the map — **above the editable guard** |
+| `⌘R` | `reset` | throws this volume's remembered state away and reloads it fresh — **above the editable guard** |
+| `⌘⌥B` | `dock` | folds the panel beside the map, and unfolds it; two spans, each asking the fold button which way it is pointing |
+| `⌘B` | `sidebar` | puts the index away |
+| `G` | `grid` | opens the grid and closes it |
+| `Space` | `grid` | divides the chosen cell, or stops dividing it; also from inside the address field |
+| `Escape` (on `#map`) | `select` | closes the card |
+| `Escape` (on the window) | `grid` | telescopes the grid out one level, then out of the grid |
+
+Every filter says three things, and the page was broken for want of all three:
+**whose keystroke it is** (`kbd-editable`, the reference's `isEditableTarget` as
+an expression, so a reader typing "g" into the search field does not put a grid
+up); **that the key is answered** (`prevent`, which htmx runs only when the
+filter passed, so a shortcut swallows the keystroke it acts on and nothing
+else); and **that the key was pressed rather than held** (`!event.repeat`, so an
+autorepeating key is not sixty writes a second down a route that writes a file).
+
+Two shortcuts stand **above** the guard, both as the reference had them. ⌘G
+because switching cell systems is most wanted from inside the token field; ⌘R
+because a reader whose page is misbehaving reaches for reload from wherever the
+cursor happens to be. ⌘R is also the one place `prevent` takes something away
+and hands it straight back: the browser's own reload is suppressed, and the
+route answers with the same page fetched again over a record that is now gone.
+
+The other half of the keyboard — holding `Z` for labels, `⌘K` to focus the
+search, flipping panes, stepping the zoom, swallowing the webview's context
+menu — is **not here and must not be**: none of it moves discrete state, and
+one of them cannot be a request at all ([render-seam.md](render-seam.md)).
 
 ---
 

@@ -126,8 +126,10 @@
     It says the key is answered. `prevent` is htmx's own preventDefault, and
     htmx runs it only when the filter passed -- so a shortcut suppresses the
     keystroke it acts on and nothing else, which is what stops macOS sounding
-    the rejection tone at every press. ⌘R is nowhere here on purpose: reload
-    is the browser's and the session is restored on the way back.
+    the rejection tone at every press. ⌘R is the one place `prevent` takes
+    something away and hands it straight back: the browser's own reload is
+    swallowed, and the answer to the post is the same page fetched again --
+    over a record that has just been thrown away.
 
     And it says the key was pressed rather than held. `!event.repeat` keeps an
     autorepeating key from posting sixty times a second down a route that
@@ -145,6 +147,25 @@
     */}}
     <span hx-post="/session/grid" hx-vals:append='{"system":"cycle"}'
           hx-trigger="keydown[(metaKey||ctrlKey)&&key.toLowerCase()=='g'&&!event.repeat] from:window prevent"></span>
+    {{/*
+      ⌘R throws this volume's remembered state away and comes straight back to
+      it: the refresh key doing what a reader already believes refreshing does,
+      and the one way out of a record that has gone wrong -- five highlights
+      culled at every pin, a filter nobody can find the row for -- without
+      knowing which field is at fault.
+
+      ABOVE THE GUARD, exactly where the reference had it: a reader whose page
+      is misbehaving reaches for reload from wherever the cursor is, including
+      a field they were typing in, and a reload that answers everywhere but
+      there is a reload that has been half taken away.
+
+      The answer is a redirect back into the volume (resetSession,
+      internal/app/session.go) rather than a partial set: the record every
+      region is rendered from is gone, so there is nothing to patch and the
+      round trip is the refresh `prevent` just swallowed.
+    */}}
+    <span hx-post="/session/reset"
+          hx-trigger="keydown[(metaKey||ctrlKey)&&key.toLowerCase()=='r'&&!event.repeat] from:window prevent"></span>
     {{/*
       ⌘⌥B folds the panel beside the map, the shortcut editors give their
       secondary sidebar. BY PHYSICAL KEY: Option rewrites event.key on a Mac

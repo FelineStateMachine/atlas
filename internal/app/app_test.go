@@ -543,6 +543,147 @@ func TestSessionConcerns(t *testing.T) {
 	}
 }
 
+// The blunt reset, which is ⌘R's whole job: this volume's record is deleted
+// and the reader is put back into the volume with nothing remembered about it.
+//
+// It exists because a record that has gone wrong is not a thing anybody wants
+// to diagnose one field at a time -- highlights culled at every pin, a filter
+// with no row to press -- and the state a volume opens with is synthesized
+// from the world itself, so throwing the record away *is* the way back.
+//
+// Two things this test holds that are easy to lose. The answer is a full round
+// trip rather than a partial set, because after a reset there is no record for
+// a region to be rendered from; and the last-volume pointer survives, because
+// the reader is not leaving the volume, they are standing in it with a clean
+// record.
+func TestSessionResetForgetsTheVolumeAndComesBack(t *testing.T) {
+	handler, host := newApp(t, volume("tunic", "TUNIC", tunicStamp))
+
+	// A reader who has been somewhere: the page opened, a collection put away,
+	// a feature highlighted, a search typed, a grid opened and a camera
+	// settled. Every one of these is a field the reset has to take with it.
+	if page := get(t, handler, "/v/tunic/overworld", nil); page.Code != http.StatusOK {
+		t.Fatalf("the explorer answered %d", page.Code)
+	}
+	for _, step := range []struct {
+		concern string
+		form    url.Values
+	}{
+		{"collections", url.Values{"collection": {"7"}, "visible": {"0"}}},
+		{"highlight", url.Values{"feature": {"1849"}}},
+		{"search", url.Values{"q": {"mill"}}},
+		{"grid", url.Values{"system": {"toggle"}}},
+		{"view", url.Values{"world": {"overworld"}, "x": {"120.5"}, "y": {"-40"}, "zoom": {"6.25"}}},
+	} {
+		form := url.Values{"volume": {"tunic"}}
+		for name, values := range step.form {
+			form[name] = values
+		}
+		if got := post(t, handler, "/session/"+step.concern, form); got.Code != http.StatusOK {
+			t.Fatalf("/session/%s answered %d: %s", step.concern, got.Code, got.Body)
+		}
+	}
+	before := sessionRecord(t, host, "volume.tunic.json")
+	if len(before.Hidden) == 0 || len(before.Highlighted) == 0 || before.Search == "" ||
+		before.Grid.System == "" || len(before.Cameras) == 0 {
+		t.Fatalf("the record under test was never arranged: %+v", before)
+	}
+
+	got := post(t, handler, "/session/reset", url.Values{"volume": {"tunic"}})
+	if got.Code != http.StatusNoContent {
+		t.Fatalf("the reset answered %d: %s", got.Code, got.Body)
+	}
+	// The full refresh, as the header htmx acts on itself. A partial set would
+	// be rendered out of a record that no longer exists, and a 303 would be
+	// followed by fetch and swapped into a page that asked for no swap.
+	if back := got.Header().Get("HX-Redirect"); back != "/v/tunic/overworld" {
+		t.Errorf("the reset answers HX-Redirect %q, want the volume's own world back", back)
+	}
+	if got.Body.Len() != 0 {
+		t.Errorf("the reset answers with a body:\n%s", got.Body)
+	}
+	if strings.Contains(got.Body.String(), "<hx-partial") {
+		t.Errorf("the reset answers with partials over a record it just deleted:\n%s", got.Body)
+	}
+
+	// The record is gone from the store, which is the whole of the reset.
+	if _, err := host.sessions.Load("volume.tunic.json"); !errors.Is(err, hostenv.ErrNoSession) {
+		t.Errorf("the volume's record survived the reset: %v", err)
+	}
+	// And the pointer did not go with it: the reader is still in this volume.
+	if _, err := host.sessions.Load("app.json"); err != nil {
+		t.Errorf("the reset forgot which volume the reader is in: %v", err)
+	}
+
+	// What the redirect lands on: a page synthesized out of the world's own
+	// arrangement. The island is the server's account of it, and it says the
+	// three things the reader lost their hour to -- nothing hidden, nothing
+	// highlighted, and a camera nobody has reported, which is the chart
+	// fitting the world again.
+	page := get(t, handler, "/v/tunic/overworld", nil)
+	if page.Code != http.StatusOK {
+		t.Fatalf("the page the reset comes back to answered %d", page.Code)
+	}
+	for _, want := range []string{`"hidden":[]`, `"center":null`, `"zoom":null`, `"dockFolded":true`} {
+		if !strings.Contains(page.Body.String(), want) {
+			t.Errorf("the island after a reset does not say %s:\n%s", want, page.Body)
+		}
+	}
+	after := sessionRecord(t, host, "volume.tunic.json")
+	if len(after.Hidden) != 0 || len(after.Highlighted) != 0 || after.Search != "" ||
+		after.Grid.System != "" || after.Grid.Cell != "" || len(after.Cameras) != 0 ||
+		after.Selected != "" || after.Detail.Open || after.Dock.Open || after.Overview.Docked ||
+		after.Sidebar.Collapsed || len(after.Labels) != 0 {
+		t.Errorf("the record the reset came back to is not fresh: %+v", after)
+	}
+	// The subdivision is the one field a fresh record does not leave at its
+	// zero value: a grid a reader opens is a grid with its next level drawn.
+	if after.Grid.Subgrid != 1 {
+		t.Errorf("the fresh record's subgrid = %d, want the arrangement's own 1", after.Grid.Subgrid)
+	}
+}
+
+// A reset with nothing to reset. Pressing ⌘R twice, or on a volume opened and
+// never arranged, is the same request against a store that holds no record for
+// it -- and deleting what is not there is what the caller asked for, so it
+// answers exactly as the first press did and writes nothing behind it.
+func TestSessionResetWithNoRecordIsANoOp(t *testing.T) {
+	handler, host := newApp(t, volume("tunic", "TUNIC", tunicStamp))
+
+	got := post(t, handler, "/session/reset", url.Values{"volume": {"tunic"}})
+	if got.Code != http.StatusNoContent {
+		t.Fatalf("a reset with nothing to reset answered %d: %s", got.Code, got.Body)
+	}
+	// The world came from the manifest rather than from the record, because
+	// there was no record to read it out of.
+	if back := got.Header().Get("HX-Redirect"); back != "/v/tunic/overworld" {
+		t.Errorf("HX-Redirect = %q, want the volume's first world", back)
+	}
+	names, err := host.sessions.Names()
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, name := range names {
+		if name == "volume.tunic.json" {
+			t.Errorf("a reset wrote the record it was asked to delete: %v", names)
+		}
+	}
+}
+
+// sessionRecord reads one volume's record out of the store under test.
+func sessionRecord(t *testing.T, host *fakeHost, name string) app.Session {
+	t.Helper()
+	held, err := host.sessions.Load(name)
+	if err != nil {
+		t.Fatalf("no session record %s: %v", name, err)
+	}
+	var session app.Session
+	if err := json.Unmarshal(held, &session); err != nil {
+		t.Fatal(err)
+	}
+	return session
+}
+
 // The camera is the one continuous thing the server keeps, and it answers with
 // nothing a reader can see: a swap of any of the chrome in response to a
 // settling camera would fight the reader's own hand. What it does answer with
@@ -805,10 +946,16 @@ func TestKeyboardShortcutsAreHardened(t *testing.T) {
 		filter string
 		guard  bool
 	}{
-		// ⌘G is the one shortcut deliberately above the guard: cycling the
-		// cell system is most wanted from inside the token field.
+		// ⌘G is one of the two shortcuts deliberately above the guard:
+		// cycling the cell system is most wanted from inside the token field.
 		{"⌘G cycles the cell system",
 			`keydown[(metaKey||ctrlKey)&&key.toLowerCase()=='g'&&!event.repeat] from:window prevent`, false},
+		// ⌘R is the other, and for the reference's own reason: a reader whose
+		// page is misbehaving reaches for reload from wherever the cursor is,
+		// and a reload that answers everywhere except the field they happen to
+		// be typing in is a reload half taken away.
+		{"⌘R resets this volume's session",
+			`keydown[(metaKey||ctrlKey)&&key.toLowerCase()=='r'&&!event.repeat] from:window prevent`, false},
 		// ⌘⌥B by physical key, because Option rewrites event.key on a Mac. Two
 		// spans, each asking the fold button which way it is pointing, so
 		// neither can go stale while the shell is not re-rendered with it.
@@ -859,6 +1006,7 @@ func TestKeyboardShortcutsAreHardened(t *testing.T) {
 		`hx-post="/session/dock" hx-vals:append='{"open":"0","byHand":"1"}'`,
 		`hx-post="/session/select" hx-vals:append='{"feature":""}'`,
 		`hx-post="/session/sidebar"`,
+		`hx-post="/session/reset"`,
 	} {
 		if !strings.Contains(block, want) {
 			t.Errorf("the shortcuts block posts no %s:\n%s", want, block)
@@ -873,11 +1021,26 @@ func TestKeyboardShortcutsAreHardened(t *testing.T) {
 			got, block)
 	}
 
-	// Reload is the browser's. The session is restored on the way back, so the
-	// view returns as it was, and a page that swallowed ⌘R would only be
-	// taking a shortcut away.
-	if strings.Contains(block, "'r'") || strings.Contains(block, `'R'`) {
-		t.Errorf("a shortcut swallows the browser's own reload:\n%s", block)
+	// ⌘R takes the browser's reload and hands it back. The keystroke the page
+	// swallows is answered with the volume's own address again, over a record
+	// that has just been deleted -- so the shortcut has to stand above the
+	// editable guard, where the reference put it, and the span that claims it
+	// must carry no guard at all.
+	reset := strings.Index(block, `hx-post="/session/reset"`)
+	if reset < 0 {
+		t.Fatalf("nothing claims ⌘R; the blunt reset has no key:\n%s", block)
+	}
+	span := block[reset:]
+	if closes := strings.Index(span, "</span>"); closes >= 0 {
+		span = span[:closes]
+	}
+	if strings.Contains(span, guard) {
+		t.Errorf("⌘R carries the editable-target guard, so a page a reader is "+
+			"typing in cannot be reset:\n%s", span)
+	}
+	if !strings.Contains(span, ` prevent"`) {
+		t.Errorf("⌘R does not swallow the browser's own reload, which would "+
+			"race the redirect:\n%s", span)
 	}
 
 	// Every filter says the key was pressed rather than held. A key held down

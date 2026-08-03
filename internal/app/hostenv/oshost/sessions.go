@@ -76,6 +76,20 @@ func (s *Sessions) Save(name string, data []byte) error {
 	return nil
 }
 
+// Delete forgets a record by removing its file. A record that is not there is
+// already what the caller asked for, so a missing file is success rather than
+// an fs.ErrNotExist travelling up to a reader with nothing to do about it.
+func (s *Sessions) Delete(name string) error {
+	path, err := s.path(name)
+	if err != nil {
+		return err
+	}
+	if err := os.Remove(path); err != nil && !errors.Is(err, fs.ErrNotExist) {
+		return fmt.Errorf("delete session %s: %w", name, err)
+	}
+	return nil
+}
+
 // Names lists the records held, sorted. The staged files a concurrent save
 // leaves behind are not records and are not listed.
 func (s *Sessions) Names() ([]string, error) {
