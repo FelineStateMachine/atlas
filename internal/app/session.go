@@ -405,6 +405,8 @@ func (a *App) handleSession(w http.ResponseWriter, r *http.Request) {
 // It is deliberately blunt. Everything a record holds goes at once -- what is
 // hidden, folded, unfolded, highlighted and labelled, the search, the panel,
 // the card, the grid, the index, the corner locator, every world's camera --
+// with one exception written back afterwards: the world and lens the reader
+// was standing in, because a refresh is not a departure --
 // because the reason to reach for it is a record that has gone wrong in a way
 // nobody wants to diagnose one field at a time. Nothing synthesizes defaults
 // here: the next load reads no record, and arrange builds the arrangement the
@@ -428,7 +430,8 @@ func (a *App) resetSession(w http.ResponseWriter, volume hostenv.Volume, slug st
 	// volume with no worlds to fall back to falls all the way back to /,
 	// which sends the reader to the volume they were last in.
 	manifest := volume.Manifest()
-	world := a.session(slug).World
+	held := a.session(slug)
+	world := held.World
 	if _, serving := worldEntry(manifest, world); !serving {
 		world = ""
 		if len(manifest.Worlds) > 0 {
@@ -444,6 +447,16 @@ func (a *App) resetSession(w http.ResponseWriter, volume hostenv.Volume, slug st
 			slog.String("volume", slug), slog.Any("error", err))
 		http.Error(w, "the session could not be cleared", http.StatusInternalServerError)
 		return
+	}
+	// The one thing a reset keeps is the reader's place: the world and the
+	// lens they were looking at. Everything about HOW they were looking at it
+	// goes; WHERE they stood does not -- a refresh that also teleported would
+	// be answering a question nobody pressed the key to ask.
+	if world != "" && held.Lens != "" {
+		if err := a.saveSession(&Session{Volume: slug, World: world, Lens: held.Lens}); err != nil {
+			slog.Warn("keeping the place through a reset", logging.Op("session"),
+				slog.String("volume", slug), slog.Any("error", err))
+		}
 	}
 	slog.Info("session reset", logging.Op("session"),
 		slog.String("volume", slug), slog.String("back", where))

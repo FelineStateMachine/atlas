@@ -1349,3 +1349,43 @@ func TestStaticWithoutASeam(t *testing.T) {
 			got.Code)
 	}
 }
+
+// The one thing a reset keeps is the reader's place. A record that named a
+// lens comes back as a record naming only the world and that lens -- the
+// arrangement, the filters, the cameras and the rest go, and the next load
+// arranges a fresh record around the place the reader was already standing.
+func TestSessionResetKeepsTheWorldAndTheLens(t *testing.T) {
+	handler, host := newApp(t, volume("tunic", "TUNIC", tunicStamp))
+	if page := get(t, handler, "/v/tunic/overworld", nil); page.Code != http.StatusOK {
+		t.Fatalf("the explorer answered %d", page.Code)
+	}
+	for _, step := range []struct {
+		concern string
+		form    url.Values
+	}{
+		{"lens", url.Values{"lens": {"second-look"}}},
+		{"collections", url.Values{"collection": {"7"}, "visible": {"0"}}},
+		{"highlight", url.Values{"feature": {"1849"}}},
+	} {
+		form := url.Values{"volume": {"tunic"}}
+		for name, values := range step.form {
+			form[name] = values
+		}
+		if got := post(t, handler, "/session/"+step.concern, form); got.Code != http.StatusOK {
+			t.Fatalf("/session/%s answered %d: %s", step.concern, got.Code, got.Body)
+		}
+	}
+
+	if got := post(t, handler, "/session/reset", url.Values{"volume": {"tunic"}}); got.Code != http.StatusNoContent {
+		t.Fatalf("the reset answered %d: %s", got.Code, got.Body)
+	}
+
+	after := sessionRecord(t, host, "volume.tunic.json")
+	if after.World != "overworld" || after.Lens != "second-look" {
+		t.Errorf("the reset lost the reader's place: world %q lens %q", after.World, after.Lens)
+	}
+	if len(after.Hidden) != 0 || len(after.Highlighted) != 0 || after.Arranged ||
+		after.Search != "" || len(after.Cameras) != 0 || after.Selected != "" {
+		t.Errorf("the reset kept more than the place: %+v", after)
+	}
+}
