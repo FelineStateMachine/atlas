@@ -11,8 +11,8 @@ import (
 
 // The pairing policy, stated on readings a test can hold in its head.
 //
-// What the deriver does with a warp is measured against the reference cache in
-// golden/pipeline. What is measured here is the decision before it: which
+// What the deriver does with a warp is exercised whole by the pipeline test in
+// this package. What is measured here is the decision before it: which
 // readings are paired at all, which of them is the frame the other is brought
 // into, and what happens when two readings of one ground share too few names to
 // align.

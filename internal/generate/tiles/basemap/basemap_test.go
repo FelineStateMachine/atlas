@@ -9,10 +9,10 @@ import (
 )
 
 // These tests say what the drawing is for. What it *is* -- byte for byte -- is
-// settled elsewhere: golden/pipeline derives the proof city's whole deepest
-// level and holds every tile against the capture that witnessed it, which is a
-// stronger statement than any assertion here could make. What a golden cannot
-// say is why the renderer is shaped the way it is, so that is what these are.
+// settled elsewhere: the pipeline test in cmd/atlas derives a drawn level and
+// holds every tile against the capture that witnessed it, which is a stronger
+// statement than any assertion here could make. What that gate cannot say is
+// why the renderer is shaped the way it is, so that is what these are.
 
 // The zoom every test draws at: the zoom the style table's widths are spelled
 // at, so a width in the table is a width in pixels and a test can count them.
