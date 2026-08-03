@@ -109,6 +109,13 @@ test.describe("the explorer page", () => {
         message: "the island never recorded the lens change",
       })
       .toBe(1);
+    // And the keyboard goes back to the map: a crumb that kept focus would
+    // spend the reader's next letter walking its own options.
+    await expect
+      .poll(() => page.evaluate(() => document.activeElement?.id ?? ""), {
+        message: "the crumb kept the keyboard after it was answered",
+      })
+      .toBe("map");
 
     // A fresh visit to the same world resumes the same lens.
     await page.goto(`/v/${MARS.slug}/${MARS.world}`);

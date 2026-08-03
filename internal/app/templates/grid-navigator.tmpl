@@ -8,15 +8,6 @@
 */}}
 {{define "grid-navigator"}}<div id="atlas-grid-navigator" class="grid-navigator"{{if not .Grid.Enabled}} hidden{{end}}>
   {{/*
-    One small button wearing the current system's mark, cycling to the next on
-    click -- and nothing at all when geohash is the only system this world
-    offers. The full name lives on the field label beside it.
-  */}}
-  <button type="button" class="grid-system" id="grid-system"{{if not .Grid.Cycles}} hidden{{end}}
-          title="Dividing by {{.Grid.Name}} · ⌘G for {{.Grid.Next}}"
-          aria-label="Cell system: {{.Grid.Name}}. Switch to {{.Grid.Next}}"
-          hx-post="/session/grid" hx-vals:append='{"system":"cycle"}'>{{.Grid.Mark}}</button>
-  {{/*
     Escape and the arrow telescope out one level. At the root there is no
     level left, so the same press closes the grid -- which is what the title
     says rather than leaving a reader to find out.
@@ -24,6 +15,16 @@
   <button type="button" id="grid-back" aria-label="Back one cell level"
           title="{{if .Grid.Cell}}Back one {{.Grid.System}} level{{else}}Close {{.Grid.System}} grid{{end}}"
           hx-post="/session/grid" hx-vals:append='{"cell":"{{.Grid.Cell}}","ascend":"1"}'>←</button>
+  {{/*
+    One small mark beside the field it qualifies, saying which system the
+    hash is written in. Always there -- a hash without its system is half an
+    address -- and a button only when this world offers another system to
+    cycle to; a world that divides one way wears the mark inert.
+  */}}
+  <button type="button" class="grid-system" id="grid-system"{{if not .Grid.Cycles}} disabled{{end}}
+          title="{{if .Grid.Cycles}}Dividing by {{.Grid.Name}} · ⌘G for {{.Grid.Next}}{{else}}Dividing by {{.Grid.Name}}{{end}}"
+          aria-label="{{if .Grid.Cycles}}Cell system: {{.Grid.Name}}. Switch to {{.Grid.Next}}{{else}}Cell system: {{.Grid.Name}}{{end}}"
+          hx-post="/session/grid" hx-vals:append='{"system":"cycle"}'>{{.Grid.Mark}}</button>
   {{/*
     NO `changed` ON THIS FIELD, and the reason is that the server writes into
     it. `changed` remembers the value the last event carried and refuses one
@@ -37,10 +38,9 @@
     address, every time (`frontend/src/events.js`).
   */}}
   <label>
-    <span id="grid-system-name">{{.Grid.Name}}</span>
     <input type="text" id="grid-input" name="cell" value="{{.Grid.Cell}}"{{if .Grid.Length}} maxlength="{{.Grid.Length}}"{{end}}
            inputmode="text" autocomplete="off" autocapitalize="none" spellcheck="false"
-           aria-label="Grid cell"
+           aria-label="{{.Grid.Name}} cell"
            hx-post="/session/grid" hx-trigger="input delay:150ms">
   </label>
   <button type="button" class="subgrid-toggle" id="subgrid-toggle"

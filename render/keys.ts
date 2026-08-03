@@ -81,6 +81,9 @@ export function wireKeyboard(host: KeyboardHost): () => void {
     if (editable(event.target)) return;
     event.preventDefault();
   }, { signal });
+  // A crumb that has just been answered hands the keyboard back to the map.
+  window.addEventListener("change", (event) => followCrumb(event, signal),
+    { capture: true, signal });
 
   return () => stop.abort();
 }
@@ -270,6 +273,37 @@ function followGrid(signal: AbortSignal): void {
   following = stop;
   window.addEventListener("htmx:after:settle", answered, { signal });
   signal.addEventListener("abort", () => { following = null; }, { once: true });
+}
+
+/**
+ * Hand the keyboard back to the map once a crumb is answered.
+ *
+ * The volume, world and lens crumbs are selects, and a select keeps the
+ * keyboard after it is used: the next typed letter walks its options -- a
+ * "g" jumping the reader to a volume that starts with one -- instead of
+ * speaking to the map the pick just changed. A change on a crumb arms a
+ * one-shot follow, and the next settle is the page answering that pick.
+ * One press at a time, exactly as followGrid: a second pick before the
+ * first was answered replaces the follow rather than stacking one.
+ */
+let followingCrumb: (() => void) | null = null;
+
+function followCrumb(event: Event, signal: AbortSignal): void {
+  const target = event.target;
+  if (!(target instanceof HTMLSelectElement)) return;
+  if (!/^(volume|world|lens)-select$/.test(target.id)) return;
+  followingCrumb?.();
+  const answered = () => {
+    stop();
+    find<HTMLElement>("#map")?.focus({ preventScroll: true });
+  };
+  const stop = () => {
+    window.removeEventListener("htmx:after:settle", answered);
+    followingCrumb = null;
+  };
+  followingCrumb = stop;
+  window.addEventListener("htmx:after:settle", answered, { signal });
+  signal.addEventListener("abort", () => { followingCrumb = null; }, { once: true });
 }
 
 /** Whether the page is offering a sphere, asked of the control that says so. */

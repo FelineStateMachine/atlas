@@ -1,8 +1,9 @@
-/* The system picker: one small button wearing the current divider's mark,
-   cycling to the next on click, shown only when the map offers a choice.
-   It keeps the navigator's 36px rhythm; the icon type shrinks to carry a
-   word-mark instead of a glyph, at the specificity the shared button rule
-   would otherwise win. */
+/* The system mark: one small button beside the field, wearing the current
+   divider's mark, cycling to the next on click -- and inert, not absent,
+   when this world divides only one way: a hash without its system is half
+   an address. It keeps the navigator's 36px rhythm; the icon type shrinks
+   to carry a word-mark instead of a glyph, at the specificity the shared
+   button rule would otherwise win. */
 .grid-navigator .grid-system {
   color: var(--accent);
   font-size: 10px;
@@ -11,8 +12,9 @@
   text-transform: uppercase;
 }
 
-.grid-navigator .grid-system[hidden] {
-  display: none;
+.grid-navigator .grid-system:disabled {
+  color: var(--muted);
+  cursor: default;
 }
 
 .grid-navigator {
@@ -44,7 +46,7 @@
   cursor: pointer;
 }
 
-.grid-navigator button:hover {
+.grid-navigator button:hover:enabled {
   color: var(--accent);
 }
 
