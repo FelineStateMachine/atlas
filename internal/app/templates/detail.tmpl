@@ -8,6 +8,14 @@
   hidden card, which is the same fact the reference implementation's script set
   by hand after each render; here the server says it, out of the session, and
   there is nothing left to fall out of step with.
+
+  ONE ROW IS RENDERED EMPTY, and only one: the grid cell. Where a point stands
+  is the payload's and is written here; what that place is *called* is the
+  analysis lane's, and the server has no access to it. So the row is rendered
+  present, empty and hidden for a point, and the seam fills it and un-hides it
+  after every swap (render/viewport.ts, writeCell) -- the same division the
+  footer's "N of M" sentence is written across. A shape has no point to name,
+  so it has no row at all, which is the branch the reference hid.
 */}}
 {{define "detail"}}<article id="atlas-detail" class="pin-detail"{{if not .Detail.Open}} hidden{{end}}>{{with .Detail}}{{if .Open}}
   <button type="button" class="detail-back" id="close-detail" aria-label="Back to results"
@@ -29,7 +37,8 @@
   <dl>
     <div><dt>ID</dt><dd id="detail-id">{{.ID}}</dd></div>
     <div id="detail-coordinates-field"{{if not .Coordinates}} hidden{{end}}><dt>Coordinates</dt><dd id="detail-coordinates">{{.Coordinates}}</dd></div>
-    <div id="detail-source-field"{{if not .Source}} hidden{{end}}><dt>Source</dt><dd id="detail-source">{{.Source}}</dd></div>
+    {{if .Point}}<div id="detail-cell-field" hidden><dt>Grid cell</dt><dd id="detail-cell"></dd></div>
+    {{end}}<div id="detail-source-field"{{if not .Source}} hidden{{end}}><dt>Source</dt><dd id="detail-source">{{.Source}}</dd></div>
     {{range .Rows}}<div data-feature-row="{{.Key}}"><dt>{{.Label}}</dt><dd>{{.Value}}</dd></div>
     {{end}}
   </dl>
