@@ -4,10 +4,13 @@
 // The capture is one pinned publication: Blue Marble Next Generation, NASA
 // Earth Observatory's global, cloud-free, true-color composite of the whole
 // planet. Where the NASA Trek reader marries a mosaic to a gazetteer, this
-// reader carries a picture and nothing else -- the volume it emits holds one
-// world, one lens, no collections and no features. It exists so that Earth can
-// travel as an ordinary raster-only volume: the included build every library
-// starts with, and the ground later readings enrich.
+// reader marries a picture to the lightest cut of ground truth: one world, one
+// lens, the primary capitals as a point collection per continent, and the
+// country borders as one quiet area collection -- Natural Earth's 1:110m
+// public-domain vectors, distilled into the capture beside the raster. It
+// exists so that Earth can travel as an ordinary volume: the included build
+// every library starts with, a working demo of pins and ground, and the base
+// later readings enrich.
 //
 // # The coordinate design
 //
@@ -74,9 +77,12 @@ func (Source) Describe() doc.Provenance {
 		Name:  SourceName,
 		Label: "NASA Earth Observatory",
 		License: "Public domain. NASA imagery carries no copyright; NASA's media guidelines " +
-			"ask that NASA Earth Observatory be credited and that no NASA endorsement be implied.",
+			"ask that NASA Earth Observatory be credited and that no NASA endorsement be implied. " +
+			"Natural Earth data is in the public domain.",
 		Attribution: "Blue Marble: Next Generation, a global true-color base map by " +
-			"NASA Earth Observatory, from NASA Goddard Space Flight Center imagery.",
+			"NASA Earth Observatory, from NASA Goddard Space Flight Center imagery. " +
+			"Country borders and capitals from Natural Earth, drawn de facto as that " +
+			"project draws them.",
 		// Nothing in the publication numbers a base map, so every identity here
 		// is derived from a stable name.
 		IDSpace: doc.IDSpaceDerived,
@@ -174,9 +180,12 @@ func (s Source) translateWorld(a *archive.Archive, ref archive.WorldRef, log *sl
 			TileSet: TileSet,
 			Frame:   doc.EquirectFrame(raw.Map.MaxZoom, raw.Map.Extension),
 		}},
-		// No collections: the volume is its picture. Features are later
-		// sources' work, folded in by the enrich lane.
 	}
+	collections, err := collectionsOf(&raw, ids)
+	if err != nil {
+		return doc.World{}, err
+	}
+	world.Collections = collections
 	log.Debug("world translated", logging.World(world.Slug), "capture", archived.ContentHash)
 	return world, nil
 }
@@ -194,6 +203,21 @@ func check(raw *capture) error {
 		return errors.New("capture names no source image size")
 	case raw.Map.MaxZoom < 1:
 		return errors.New("capture declares no pyramid")
+	case len(raw.Features.Countries) == 0 || len(raw.Features.Capitals) == 0:
+		return errors.New("capture carries no features")
+	}
+	for _, entry := range raw.Features.Countries {
+		if entry.Name == "" || entry.A3 == "" || entry.Continent == "" {
+			return fmt.Errorf("country %q carries no identity", entry.Name)
+		}
+	}
+	for _, entry := range raw.Features.Capitals {
+		switch {
+		case entry.Name == "":
+			return errors.New("a capital carries no name")
+		case entry.Lat < -90 || entry.Lat > 90 || entry.Lon < -180 || entry.Lon > 180:
+			return fmt.Errorf("capital %q sits at %v, %v", entry.Name, entry.Lat, entry.Lon)
+		}
 	}
 	return nil
 }

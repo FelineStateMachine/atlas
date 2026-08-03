@@ -27,11 +27,71 @@ func TestBlueMarblePinsTheSpecifiedPublication(t *testing.T) {
 	if blueMarble.SHA256 != "d225f1f35a6448a4d1d8f6de6e48f3433e470085b70a35800e64f384f269a7b0" {
 		t.Errorf("digest %q is not the pinned digest", blueMarble.SHA256)
 	}
-	if blueMarble.CapturedAt != "2026-08-03T15:27:26Z" {
+	if blueMarble.CapturedAt != "2026-08-03T16:21:07Z" {
 		t.Errorf("capture time %q is not the recorded first capture", blueMarble.CapturedAt)
 	}
 	if blueMarble.Width != 21600 || blueMarble.Height != 10800 {
 		t.Errorf("source size %d×%d is not the published image's", blueMarble.Width, blueMarble.Height)
+	}
+	if blueMarble.Borders.SHA256 != "6866c877d39cba9c357620878839b336d569f8c662d3cfab4cb1dbe2d39c977f" ||
+		blueMarble.Places.SHA256 != "0dbd25c9ad8bd797ddf164b067f563be5c16be2c002254eb594862377963f9dc" {
+		t.Error("the Natural Earth digests are not the pinned ones")
+	}
+	if !strings.Contains(blueMarble.Borders.Asset, "/v5.1.2/") ||
+		!strings.Contains(blueMarble.Places.Asset, "/v5.1.2/") ||
+		!strings.Contains(blueMarble.FeaturesEdition, "v5.1.2") {
+		t.Error("the feature pins do not agree on the tagged edition")
+	}
+}
+
+// TestBlueMarbleDistillsTheFeatureFiles: the distillation keeps exactly what
+// the capture needs -- names, codes, continents, label points, rings
+// normalized to multipolygons, and only the primary capitals -- with every
+// coordinate verbatim.
+func TestBlueMarbleDistillsTheFeatureFiles(t *testing.T) {
+	borders := []byte(`{"features":[
+		{"properties":{"NAME":"Vale","ADM0_A3":"VAL","CONTINENT":"Europe","LABEL_X":10.5,"LABEL_Y":50.25},
+		 "geometry":{"type":"Polygon","coordinates":[[[5,45],[15,45],[15,55],[5,45]]]}},
+		{"properties":{"NAME":"Mar","ADM0_A3":"MAR2","CONTINENT":"Oceania","LABEL_X":150,"LABEL_Y":-20},
+		 "geometry":{"type":"MultiPolygon","coordinates":[[[[145,-25],[155,-25],[155,-15],[145,-25]]]]}}]}`)
+	places := []byte(`{"features":[
+		{"properties":{"featurecla":"Admin-0 capital","name":"Vale City","adm0name":"Vale","adm0_a3":"VAL","latitude":50.1,"longitude":10.2}},
+		{"properties":{"featurecla":"Admin-0 capital alt","name":"Old Seat","adm0name":"Vale","adm0_a3":"VAL","latitude":49,"longitude":9}},
+		{"properties":{"featurecla":"Populated place","name":"Just A Town","adm0name":"Vale","adm0_a3":"VAL","latitude":48,"longitude":8}}]}`)
+	pin := blueMarblePin{FeaturesEdition: "stated",
+		Borders: blueMarbleAsset{SHA256: "bb"}, Places: blueMarbleAsset{SHA256: "pp"}}
+	out, err := distillBlueMarbleFeatures(pin, borders, places)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if out.Edition != "stated" || out.BordersSHA256 != "bb" || out.PlacesSHA256 != "pp" {
+		t.Errorf("the distillation does not carry its provenance: %+v", out)
+	}
+	if len(out.Countries) != 2 {
+		t.Fatalf("%d countries", len(out.Countries))
+	}
+	vale := out.Countries[0]
+	if vale.Name != "Vale" || vale.A3 != "VAL" || vale.Continent != "Europe" ||
+		vale.LabelLon != 10.5 || vale.LabelLat != 50.25 {
+		t.Errorf("country did not travel verbatim: %+v", vale)
+	}
+	if len(vale.Polygons) != 1 || len(vale.Polygons[0]) != 1 || vale.Polygons[0][0][0] != [2]float64{5, 45} {
+		t.Errorf("a Polygon did not normalize to one multipolygon part: %+v", vale.Polygons)
+	}
+	if len(out.Countries[1].Polygons) != 1 {
+		t.Errorf("a MultiPolygon did not pass through: %+v", out.Countries[1].Polygons)
+	}
+	if len(out.Capitals) != 1 || out.Capitals[0].Name != "Vale City" {
+		t.Fatalf("the distillation kept %+v; only primary capitals ride", out.Capitals)
+	}
+	if out.Capitals[0].Lat != 50.1 || out.Capitals[0].Lon != 10.2 {
+		t.Errorf("a capital's coordinates did not travel verbatim: %+v", out.Capitals[0])
+	}
+
+	if _, err := distillBlueMarbleFeatures(pin, []byte(`{"features":[
+		{"properties":{"NAME":"Line","ADM0_A3":"LIN","CONTINENT":"Europe"},
+		 "geometry":{"type":"LineString","coordinates":[[0,0],[1,1]]}}]}`), places); err == nil {
+		t.Error("a line among the borders was distilled anyway")
 	}
 }
 
@@ -39,7 +99,7 @@ func TestBlueMarblePinsTheSpecifiedPublication(t *testing.T) {
 // behind: bytes that do not hash to the pin are refused by name, and bytes that
 // do pass.
 func TestBlueMarbleRefusesAWrongDigest(t *testing.T) {
-	err := verifyBlueMarble([]byte("not the publication"), blueMarble)
+	err := verifyBlueMarble([]byte("not the publication"), blueMarble.SHA256)
 	if err == nil {
 		t.Fatal("changed upstream bytes were accepted")
 	}
@@ -48,8 +108,7 @@ func TestBlueMarbleRefusesAWrongDigest(t *testing.T) {
 	}
 
 	stated := []byte("a stated source")
-	pin := blueMarblePin{SHA256: Hash(stated)}
-	if err := verifyBlueMarble(stated, pin); err != nil {
+	if err := verifyBlueMarble(stated, Hash(stated)); err != nil {
 		t.Errorf("the pinned bytes themselves were refused: %v", err)
 	}
 }
@@ -77,6 +136,26 @@ func statedSource(t *testing.T, width, height int) []byte {
 	return out.Bytes()
 }
 
+// statedFeatures is the smallest sound vector half: two countries on two
+// continents, a capital in one of them, and a microstate capital no border
+// draws.
+func statedFeatures() blueMarbleFeatures {
+	return blueMarbleFeatures{
+		Edition:       "stated",
+		BordersSHA256: "bb", PlacesSHA256: "pp",
+		Countries: []blueMarbleCountry{
+			{Name: "Vale", A3: "VAL", Continent: "Europe", LabelLon: 10, LabelLat: 50,
+				Polygons: [][][][2]float64{{{{5, 45}, {15, 45}, {15, 55}, {5, 55}, {5, 45}}}}},
+			{Name: "Mar", A3: "MAR2", Continent: "Oceania", LabelLon: 150, LabelLat: -20,
+				Polygons: [][][][2]float64{{{{145, -25}, {155, -25}, {155, -15}, {145, -15}, {145, -25}}}}},
+		},
+		Capitals: []blueMarbleCapital{
+			{Name: "Vale City", Country: "Vale", A3: "VAL", Lat: 50, Lon: 10},
+			{Name: "Atoll", Country: "Atoll", A3: "ATL", Lat: -18, Lon: 152},
+		},
+	}
+}
+
 // writeStated runs the capture's write path over a stated pin into a fresh
 // archive, and answers the world directory it wrote.
 func writeStated(t *testing.T, pin blueMarblePin, source []byte) (root, worldDir string) {
@@ -96,7 +175,7 @@ func writeStated(t *testing.T, pin blueMarblePin, source []byte) (root, worldDir
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err := writeBlueMarble(store, worldDir, 43, pin, source, slog.New(slog.DiscardHandler)); err != nil {
+	if err := writeBlueMarble(store, worldDir, 43, pin, source, statedFeatures(), slog.New(slog.DiscardHandler)); err != nil {
 		t.Fatal(err)
 	}
 	return root, worldDir

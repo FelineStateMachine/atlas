@@ -27,6 +27,10 @@ type capture struct {
 	Height int        `json:"height"`
 	Map    mosaic     `json:"map"`
 	Derive derivation `json:"derive"`
+	// Features is the vector half of the capture: country borders and primary
+	// capitals, distilled from Natural Earth's public-domain files at crawl
+	// time, coordinates verbatim.
+	Features features `json:"features"`
 }
 
 // mosaic is the pyramid as captured: the deepest square-world level the source
@@ -44,4 +48,36 @@ type mosaic struct {
 type derivation struct {
 	Resampler   string `json:"resampler"`
 	JPEGQuality int    `json:"jpegQuality"`
+}
+
+// features is the vector publication the capture marries to the raster: which
+// edition it was, the digests its files carried, and the distillation itself.
+type features struct {
+	Edition       string    `json:"edition"`
+	BordersSHA256 string    `json:"bordersSha256"`
+	PlacesSHA256  string    `json:"placesSha256"`
+	Countries     []country `json:"countries"`
+	Capitals      []capital `json:"capitals"`
+}
+
+// country is one country as the capture keeps it: identity, the continent the
+// publication files it under, its label point, and its rings -- polygons, then
+// rings, then positions, longitude first, split at the antimeridian as the
+// publication splits them.
+type country struct {
+	Name      string           `json:"name"`
+	A3        string           `json:"a3"`
+	Continent string           `json:"continent"`
+	LabelLon  float64          `json:"labelLon"`
+	LabelLat  float64          `json:"labelLat"`
+	Polygons  [][][][2]float64 `json:"polygons"`
+}
+
+// capital is one primary capital as the capture keeps it.
+type capital struct {
+	Name    string  `json:"name"`
+	Country string  `json:"country"`
+	A3      string  `json:"a3"`
+	Lat     float64 `json:"lat"`
+	Lon     float64 `json:"lon"`
 }

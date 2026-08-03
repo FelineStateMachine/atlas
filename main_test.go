@@ -69,7 +69,14 @@ type earthPayload struct {
 			X, Y, Width, Height int
 		} `json:"bounds"`
 	} `json:"lenses"`
-	Collections []json.RawMessage `json:"collections"`
+	Collections []struct {
+		Title     string            `json:"title"`
+		Group     string            `json:"group"`
+		Kind      string            `json:"kind"`
+		IconAsset string            `json:"iconAsset"`
+		Attrs     map[string]string `json:"attrs"`
+		Features  []json.RawMessage `json:"features"`
+	} `json:"collections"`
 	Attrs       map[string]string `json:"attrs"`
 	Merged      []struct {
 		Source string `json:"source"`
@@ -110,23 +117,36 @@ func TestIncludedEarthIsAValidOrdinaryBundle(t *testing.T) {
 	if len(m.Worlds) != 1 || m.Worlds[0].Slug != "earth" || m.Worlds[0].Title != "Earth" {
 		t.Fatalf("worlds %+v, want exactly the one earth", m.Worlds)
 	}
-	if m.Worlds[0].Points != 0 || m.Worlds[0].Paths != 0 || m.Worlds[0].Areas != 0 {
-		t.Errorf("the manifest counts features on a raster-only world: %+v", m.Worlds[0])
+	if m.Worlds[0].Points != 202 || m.Worlds[0].Paths != 0 || m.Worlds[0].Areas != 177 {
+		t.Errorf("the manifest counts %+v; the demo carries 202 capitals and 177 countries", m.Worlds[0])
 	}
-	if m.Version.CreatedAt != "2026-08-03T15:27:26Z" {
+	if m.Version.CreatedAt != "2026-08-03T16:21:07Z" {
 		t.Errorf("createdAt %s is not the pinned capture time", m.Version.CreatedAt)
 	}
 }
 
 // TestIncludedEarthDeclaresTheWholeSphere: one Blue Marble lens over the
-// complete 8192×4096 Earth surface, no collections, and exactly the spherical
-// equirectangular declarations the analysis contracts recognise.
+// complete 8192×4096 Earth surface, the demo's capitals and countries, and
+// exactly the spherical equirectangular declarations the analysis contracts
+// recognise.
 func TestIncludedEarthDeclaresTheWholeSphere(t *testing.T) {
 	reader := openIncluded(t)
 	payload := readEarthPayload(t, reader)
 
-	if len(payload.Collections) != 0 {
-		t.Errorf("%d collections; the included volume is raster-only", len(payload.Collections))
+	if len(payload.Collections) != 7 {
+		t.Fatalf("%d collections, want six continents of capitals and the countries", len(payload.Collections))
+	}
+	for _, held := range payload.Collections[:6] {
+		if held.Group != "Capitals" || held.Kind != "point" || held.IconAsset == "" {
+			t.Errorf("capitals collection %q arrives as %s/%s with icon %q",
+				held.Title, held.Group, held.Kind, held.IconAsset)
+		}
+	}
+	countries := payload.Collections[6]
+	if countries.Title != "Countries" || countries.Kind != "area" ||
+		countries.Attrs[semconv.KeyLabelPolicy] != semconv.LabelQuiet || len(countries.Features) != 177 {
+		t.Errorf("the ground arrives as %q %s (%d features, %v)",
+			countries.Title, countries.Kind, len(countries.Features), countries.Attrs)
 	}
 	if len(payload.Lenses) != 1 {
 		t.Fatalf("%d lenses, want the one Blue Marble", len(payload.Lenses))

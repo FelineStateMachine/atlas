@@ -9,8 +9,12 @@ installation — opening, rendering, analysis, export, registry ordering — rea
 the installed file, never the embedded copy. `atlas serve` and the CLI embed
 nothing: they use exactly the registry the operator gives them.
 
-The volume is raster-only: one world (`earth`), one lens (`Blue Marble`), no
-collections, no features, and no runtime network dependency of any kind.
+The volume is one world (`earth`) with one lens (`Blue Marble`) and the
+lightest cut of ground truth: the primary capitals as a point collection per
+continent (202 pins, each linked to the country it stands in), and the country
+borders as one quiet area collection (177 areas) — enough to jump somewhere
+real and see the legend, pins and ground working. No runtime network
+dependency of any kind.
 
 ## Provenance
 
@@ -23,12 +27,20 @@ collections, no features, and no runtime network dependency of any kind.
 | Source SHA-256 | `d225f1f35a6448a4d1d8f6de6e48f3433e470085b70a35800e64f384f269a7b0` |
 | First captured | `2026-08-03T15:27:26Z` |
 | Credit | NASA Earth Observatory |
+| Features | Natural Earth 1:110m cultural vectors, v5.1.2 — public domain |
+| Borders file | <https://raw.githubusercontent.com/nvkelso/natural-earth-vector/v5.1.2/geojson/ne_110m_admin_0_countries.geojson> |
+| Borders SHA-256 | `6866c877d39cba9c357620878839b336d569f8c662d3cfab4cb1dbe2d39c977f` |
+| Places file | <https://raw.githubusercontent.com/nvkelso/natural-earth-vector/v5.1.2/geojson/ne_110m_populated_places_simple.geojson> |
+| Places SHA-256 | `0dbd25c9ad8bd797ddf164b067f563be5c16be2c002254eb594862377963f9dc` |
 
 NASA imagery is free of copyright. NASA's media guidelines ask that the credit
 be preserved, that no NASA logo be used, and that no NASA endorsement be
 implied; the bundle's provenance ledger carries the credit, and nothing here
-does the other two. No source URL appears inside the bundle — format v3's
-runtime-URL prohibition holds for this volume exactly as for any other.
+does the other two. Natural Earth is in the public domain; its boundaries and
+its primary-capital designations are carried exactly as that project draws
+them, de facto, with no editorial judgement added here. No source URL appears
+inside the bundle — format v3's runtime-URL prohibition holds for this volume
+exactly as for any other.
 
 ## Derivation
 
