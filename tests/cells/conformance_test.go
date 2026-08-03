@@ -1,3 +1,21 @@
+// Package cells_test holds the server's cell arithmetic to the shared
+// contract vectors -- the same language-neutral fixtures the TypeScript lane
+// answers in analysis/test/vectors.test.ts.
+//
+// It lives here, outside internal/app, because it reads files and the hostenv
+// rule says nothing under internal/app may know what a filesystem is. The
+// arithmetic on trial is internal/app/cells; this package is only the reader
+// standing between it and the fixtures.
+//
+// This is what makes a second implementation of a cell system tolerable. The
+// TypeScript one at analysis/cellsystems owns the contract; the Go copy
+// exists so the server can answer the held-cell question without asking the
+// seam, and the two agree because both are held to
+// analysis/testdata/cells/*.json rather than to each other's company. The
+// hand-derived cases there are marked as such -- the geohash numbers halved
+// out on paper, the S2 ones the Go library's own test values -- and the
+// corpus grounds are read back against the shipped bundles below, so neither
+// lane's descriptor can drift from the declaration a reader really meets.
 package cells_test
 
 import (
@@ -7,34 +25,16 @@ import (
 	"os"
 	"path/filepath"
 	"sort"
+	"strings"
 	"testing"
 
 	"github.com/FelineStateMachine/atlas/internal/app/cells"
 )
 
-// The Go S2 side is held to the analysis vectors -- the same language-neutral
-// oracle the TypeScript lane is held to, read out of the same files by the
-// same rules (golden/analysis/README.md).
-//
-// This is what makes a second implementation of a cell system tolerable. The
-// geohash test beside this one reproduces extents the reference implementation
-// actually drew; S2 has no such recording in the parity baselines, because the
-// tour never cycles to it, and the hand-derived vectors are what stands in
-// their place. They are the Go library's own test values -- leaf
-// 0x47a1cbd595522b39 and its ancestors -- read through a declared flattening,
-// which is exactly the arithmetic the server now has to do for itself.
-//
-// The Go side answers a subset of the eighteen contract methods: containment,
-// the address arithmetic around it, and the two questions about the ground.
-// Everything a plan, a ring or a style token needs stays in the seam, and a
-// case naming one of those methods is skipped by name rather than silently --
-// the counts are logged, and a family that suddenly answers nothing is a
-// difference a reader of the log can see.
-
-// ground is one entry of vectors/grounds.json: what the seam's `Ground`
-// descriptor carries, and the two derived facts the gate checks. `lens` is
-// null when the application had no lens open, and its two fields are
-// independently nullable, which is the whole of the surface ladder's input.
+// ground is one entry of grounds.json: what the seam's `Ground` descriptor
+// carries, and the two derived facts every consumer re-checks. `lens` is null
+// when the application had no lens open, and its two fields are independently
+// nullable, which is the whole of the surface ladder's input.
 type ground struct {
 	Key   string  `json:"key"`
 	Size  float64 `json:"tileGridSize"`
@@ -42,6 +42,12 @@ type ground struct {
 	World struct {
 		Attrs map[string]string `json:"attrs"`
 	} `json:"world"`
+	Provenance *struct {
+		Volume    string `json:"volume"`
+		World     string `json:"world"`
+		Lens      string `json:"lens"`
+		LensIndex int    `json:"lensIndex"`
+	} `json:"provenance"`
 	Surface [4]float64 `json:"surfaceExtent"`
 	Systems []string   `json:"systems"`
 }
@@ -67,8 +73,21 @@ func (g ground) extent() cells.Extent {
 // accept and the navigator would never have offered, or the reverse.
 func TestGroundsAgreeOnSurfaceAndSystems(t *testing.T) {
 	grounds := loadGrounds(t)
-	if len(grounds) < 9 {
-		t.Fatalf("read %d grounds, the fixture records nine", len(grounds))
+	keys := make([]string, 0, len(grounds))
+	for key := range grounds {
+		keys = append(keys, key)
+	}
+	sort.Strings(keys)
+	want := []string{
+		"bend-or/2026-08-02/0",
+		"mars/global/0",
+		"test/sphere-8192x4096",
+		"test/square-1024",
+		"test/square-1024-bounds",
+		"test/square-1024-no-lens",
+	}
+	if fmt.Sprint(keys) != fmt.Sprint(want) {
+		t.Fatalf("the fixture records grounds %v, want %v", keys, want)
 	}
 	for key, at := range grounds {
 		got := at.extent()
@@ -82,6 +101,61 @@ func TestGroundsAgreeOnSurfaceAndSystems(t *testing.T) {
 		}
 	}
 	t.Logf("%d grounds reproduced", len(grounds))
+}
+
+// TestCorpusGroundsMatchTheShippedBundles ties the recorded descriptors back
+// to the public corpus: a ground naming a bundle in its provenance must carry
+// exactly the declaration that bundle ships, read from the payload rather
+// than trusted. This is the fixture's anchor now that the recorded tours are
+// gone -- a descriptor edited to make a test pass would stop matching a file
+// nobody edits by hand.
+func TestCorpusGroundsMatchTheShippedBundles(t *testing.T) {
+	corpus := filepath.Join("..", "..", "testdata", "corpus", "bundles")
+	tied := 0
+	for key, at := range loadGrounds(t) {
+		if at.Provenance == nil {
+			continue
+		}
+		from := at.Provenance
+		var payload struct {
+			Attrs  map[string]string `json:"attrs"`
+			Lenses []struct {
+				Name    string      `json:"name"`
+				Surface *cells.Rect `json:"surface"`
+				Bounds  *cells.Rect `json:"bounds"`
+			} `json:"lenses"`
+		}
+		readInto(t, filepath.Join(corpus, from.Volume, "worlds", from.World+".payload.json"), &payload)
+		if fmt.Sprint(payload.Attrs) != fmt.Sprint(at.World.Attrs) {
+			t.Errorf("%s: the recorded attrs %v are not the bundle's %v",
+				key, at.World.Attrs, payload.Attrs)
+		}
+		if from.LensIndex >= len(payload.Lenses) {
+			t.Fatalf("%s: the bundle has no lens %d", key, from.LensIndex)
+		}
+		lens := payload.Lenses[from.LensIndex]
+		if lens.Name != from.Lens {
+			t.Errorf("%s: lens %d is %q, the ground says %q", key, from.LensIndex, lens.Name, from.Lens)
+		}
+		if at.Lens == nil ||
+			fmt.Sprint(lens.Surface) != fmt.Sprint(at.Lens.Surface) ||
+			fmt.Sprint(lens.Bounds) != fmt.Sprint(at.Lens.Bounds) {
+			t.Errorf("%s: the recorded lens does not match the bundle's", key)
+		}
+		var volume struct {
+			TileGrid struct {
+				Size float64 `json:"size"`
+			} `json:"tileGrid"`
+		}
+		readInto(t, filepath.Join(corpus, from.Volume, "volume.json"), &volume)
+		if volume.TileGrid.Size != at.Size {
+			t.Errorf("%s: tileGridSize %g, the bundle declares %g", key, at.Size, volume.TileGrid.Size)
+		}
+		tied++
+	}
+	if tied < 2 {
+		t.Fatalf("only %d grounds are tied to the corpus; bend-or and mars both should be", tied)
+	}
 }
 
 // TestVectorsHoldTheGoSide walks every case of every family the server has an
@@ -113,9 +187,9 @@ func TestVectorsHoldTheGoSide(t *testing.T) {
 	// The floor is not a target. It is there so that a dispatch that quietly
 	// stopped recognizing a call -- a renamed method, a family that moved --
 	// fails instead of passing with nothing to say.
-	if total(checked) < 70 || checked["s2.contains"] < 10 {
-		t.Fatalf("only %d vectors were answered (%d of them S2 containment); the dispatch has come loose",
-			total(checked), checked["s2.contains"])
+	if total(checked) < 80 || checked["s2.contains"] < 10 || checked["s2.descendTarget"] < 5 {
+		t.Fatalf("only %d vectors were answered (%d s2.contains, %d s2.descendTarget); the dispatch has come loose",
+			total(checked), checked["s2.contains"], checked["s2.descendTarget"])
 	}
 	t.Logf("%d vectors reproduced", total(checked))
 	for _, line := range tally(checked) {
@@ -125,6 +199,92 @@ func TestVectorsHoldTheGoSide(t *testing.T) {
 	for _, line := range tally(skipped) {
 		t.Logf("  seam: %s", line)
 	}
+}
+
+// TestGeohashHalvingUndoesItself replaces the retired tour reproduction: the
+// recorded grids are gone with the parity layer, and what stood behind them
+// was always this arithmetic fact. The halving forward (an address to its
+// rectangle) and the halving backward (a point to its address) are one walk,
+// and undoing the halving character by character lands exactly on the ground
+// -- every division is a halving of a finite float, so the inverse is a
+// doubling and the comparison is exact, no epsilon.
+func TestGeohashHalvingUndoesItself(t *testing.T) {
+	grounds := loadGrounds(t)
+	checked := 0
+	for key, at := range grounds {
+		surface := at.extent()
+		for _, hash := range sampleHashes() {
+			held := cells.GeohashExtent(surface, hash)
+			// The centre of the cell, asked back at the same depth, spells
+			// the same address.
+			centre := [2]float64{(held.MinX + held.MaxX) / 2, (held.MinY + held.MaxY) / 2}
+			if got := cells.GeohashCellAt(surface, centre[0], centre[1], len(hash)); got != hash {
+				t.Fatalf("%s: the centre of %q addresses to %q", key, hash, got)
+			}
+			// And undoing the halvings recovers the ground, exactly.
+			if got := grow(held, hash); got != surface {
+				t.Fatalf("%s: undoing %q gives %+v, the ground is %+v", key, hash, got, surface)
+			}
+			checked++
+		}
+	}
+	t.Logf("%d cells halved and un-halved across %d grounds", checked, len(grounds))
+}
+
+// sampleHashes is a deterministic spread of addresses: every depth-1 cell,
+// and a diagonal of deeper ones so every character of the alphabet appears at
+// every position at least once.
+func sampleHashes() []string {
+	alphabet := cells.GeohashAlphabet
+	out := make([]string, 0, 3*len(alphabet))
+	for at := 0; at < len(alphabet); at++ {
+		first := alphabet[at]
+		second := alphabet[(at+7)%len(alphabet)]
+		third := alphabet[(at+19)%len(alphabet)]
+		out = append(out,
+			string(first),
+			string([]byte{first, second}),
+			string([]byte{first, second, third}),
+		)
+	}
+	return out
+}
+
+// grow finds the ground whose halving by `hash` is `held`, by undoing the two
+// candidate directions of each halving. It is exact: every halving is a
+// division by two of a finite float, so the inverse is a doubling.
+func grow(held cells.Extent, hash string) cells.Extent {
+	// One character, five halvings: undo them in reverse, choosing the side
+	// the character's bits name.
+	out := held
+	for i := len(hash) - 1; i >= 0; i-- {
+		value := strings.IndexByte(cells.GeohashAlphabet, hash[i])
+		if value < 0 {
+			continue
+		}
+		splitX := (i*5)%2 == 0
+		for m := 4; m >= 0; m-- {
+			// Walk the masks backwards, alternating from where this
+			// character's last halving left off.
+			axisX := splitX == (m%2 == 0)
+			width := out.MaxX - out.MinX
+			height := out.MaxY - out.MinY
+			if axisX {
+				if value&cells.Masks[m] != 0 {
+					out.MinX -= width
+				} else {
+					out.MaxX += width
+				}
+			} else {
+				if value&cells.Masks[m] != 0 {
+					out.MinY -= height
+				} else {
+					out.MaxY += height
+				}
+			}
+		}
+	}
+	return out
 }
 
 func callOf(held vector) string {
@@ -177,6 +337,11 @@ func answer(t *testing.T, at ground, held vector) (any, bool) {
 		return cells.ApplicableSystems(at.World.Attrs), true
 	case "appliesTo":
 		return cells.Applicable(at.World.Attrs, held.System), true
+	case "geohashCellAt":
+		var point [2]float64
+		var depth int
+		args(t, held, &point, &depth)
+		return cells.GeohashCellAt(at.extent(), point[0], point[1], depth), true
 	case "equivalentCell":
 		// The carry is server arithmetic now: cycling the grid system moves
 		// the held cell through cells.Equivalent, so the recorded pairs bind
@@ -188,11 +353,17 @@ func answer(t *testing.T, at ground, held vector) (any, bool) {
 
 	switch held.System {
 	case cells.SystemGeohash:
-		if held.Call == "contains" {
+		switch held.Call {
+		case "contains":
 			var hash string
 			var point [2]float64
 			args(t, held, &hash, &point)
 			return cells.GeohashHeld(at.extent(), hash)(point[0], point[1]), true
+		case "descendTarget":
+			var hash string
+			var point [2]float64
+			args(t, held, &hash, &point)
+			return cells.GeohashCellAt(at.extent(), point[0], point[1], len(hash)+1), true
 		}
 	case cells.SystemS2:
 		mapping, mapped := cells.MappingOf(at.World.Attrs)
@@ -205,6 +376,11 @@ func answer(t *testing.T, at ground, held vector) (any, bool) {
 			var point [2]float64
 			args(t, held, &token, &point)
 			return cells.S2Held(mapping, token)(point[0], point[1]), true
+		case "descendTarget":
+			var token string
+			var point [2]float64
+			args(t, held, &token, &point)
+			return cells.S2Descend(mapping, token, point[0], point[1]), true
 		case "locate":
 			var point [2]float64
 			args(t, held, &point)
@@ -275,14 +451,14 @@ func args(t *testing.T, held vector, into ...any) {
 // Reading the fixtures
 // ---------------------------------------------------------------------------
 
-const vectorsDir = "../analysis/vectors"
+const vectorsDir = "../../analysis/testdata/cells"
 
 func loadGrounds(t *testing.T) map[string]ground {
 	t.Helper()
 	var file struct {
 		Grounds map[string]ground `json:"grounds"`
 	}
-	read(t, "grounds", &file)
+	readInto(t, filepath.Join(vectorsDir, "grounds.json"), &file)
 	return file.Grounds
 }
 
@@ -291,21 +467,21 @@ func loadCases(t *testing.T, family string) []vector {
 	var file struct {
 		Cases []vector `json:"cases"`
 	}
-	read(t, family, &file)
+	readInto(t, filepath.Join(vectorsDir, family+".json"), &file)
 	if len(file.Cases) == 0 {
 		t.Fatalf("%s.json records no cases", family)
 	}
 	return file.Cases
 }
 
-func read(t *testing.T, name string, into any) {
+func readInto(t *testing.T, path string, into any) {
 	t.Helper()
-	body, err := os.ReadFile(filepath.Join(vectorsDir, name+".json"))
+	body, err := os.ReadFile(path)
 	if err != nil {
-		t.Fatalf("the analysis vectors are the oracle and could not be read: %v", err)
+		t.Fatalf("the shared vectors are the oracle and could not be read: %v", err)
 	}
 	if err := json.Unmarshal(body, into); err != nil {
-		t.Fatalf("%s.json: %v", name, err)
+		t.Fatalf("%s: %v", path, err)
 	}
 }
 
@@ -379,3 +555,5 @@ func nearAll(got cells.Extent, want [4]float64) bool {
 	return near(got.MinX, want[0]) && near(got.MinY, want[1]) &&
 		near(got.MaxX, want[2]) && near(got.MaxY, want[3])
 }
+
+func near(got, want float64) bool { return math.Abs(got-want) < 1e-6 }

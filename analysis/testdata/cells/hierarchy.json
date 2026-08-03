@@ -1,6 +1,6 @@
 {
   "family": "hierarchy",
-  "about": "children() in its STABLE order, and the parent link back. Order is contractual: the plan emits children in it, the palette indexes into it, and the parity harness compares the result positionally.",
+  "about": "children() in its STABLE order, and the parent link back. Order is contractual: the plan emits children in it, the palette indexes into it, and the conformance suites in both lanes compare the result positionally.",
   "cases": [
     {
       "name": "geohash-children-of-m",

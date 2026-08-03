@@ -5,8 +5,9 @@
 // volume's tile grid, the open lens, the current world — and a system that
 // reaches for them is a system that cannot be run without a browser holding an
 // application. A Ground is exactly those three reads, written down and handed
-// in, and nothing else. `golden/analysis/vectors/grounds.json` records the
-// same shape, and the vectors gate holds this module to its numbers.
+// in, and nothing else. `analysis/testdata/cells/grounds.json` records the
+// same shape, and both lanes' conformance suites hold this module to its
+// numbers.
 //
 // What is deliberately NOT here: the active system, the held cell, whether
 // the subdivision is showing. Those are session state (§4.1) and they arrive

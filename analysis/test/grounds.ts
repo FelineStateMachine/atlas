@@ -1,9 +1,9 @@
 // The grounds the tests stand on.
 //
-// Written here rather than read from `golden/analysis/vectors/grounds.json`
-// on purpose: the goldens judge this lane and must stay something this lane
-// cannot reach for. These are the clean design's own fixtures, and they say
-// what a Ground is by being one.
+// Written here rather than read from `analysis/testdata/cells/grounds.json`
+// on purpose: the shared vectors judge this lane (vectors.test.ts) and must
+// stay something the property tests cannot quietly become. These are the
+// clean design's own fixtures, and they say what a Ground is by being one.
 
 import type { Ground } from "../cellsystems/ground.ts";
 

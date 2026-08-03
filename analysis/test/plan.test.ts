@@ -1,8 +1,9 @@
 // The plan, and the order that is its contract.
 //
-// `golden/analysis/plans/` compares 28 recorded plans positionally, cell for
-// cell. These tests document what that order *is*, so a reader can learn the
-// rule without decoding a fixture.
+// The order is compared positionally wherever a plan is checked — here, and
+// in the property suite (properties.test.ts) that reconstructs it from the
+// rule alone. These tests document what that order *is*, so a reader can
+// learn the rule without decoding a reconstruction.
 
 import assert from "node:assert/strict";
 import test from "node:test";

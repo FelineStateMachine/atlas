@@ -1,11 +1,9 @@
 package cells_test
 
 import (
-	"encoding/json"
-	"os"
-	"path/filepath"
 	"testing"
 
+	"github.com/FelineStateMachine/atlas/format/semconv"
 	"github.com/FelineStateMachine/atlas/internal/app/cells"
 )
 
@@ -13,14 +11,33 @@ import (
 // it: points on a cell's edge, points a hair past it, and the same place
 // spelled twice at the two ends of a world that wraps.
 //
-// The vectors beside this file hold the arithmetic to the oracle both lanes
-// share. This file holds the *edges* of it -- the cases a recording of a tour
-// never contains, because a tour walks a map rather than trying to break one.
+// The shared vectors (analysis/testdata/cells, read by tests/cells) hold the
+// arithmetic to the oracle both lanes answer. This file holds the *edges* of
+// it -- the cases a vector file never quite reaches, because a fixture records
+// what a map did and these ask what a map must never do.
+//
+// Everything here is a table and nothing reads a file: this package lives
+// under internal/app, where the hostenv rule says the arithmetic may not know
+// what a filesystem is. The one declaration spelled out below -- the Mars
+// flattening -- is the corpus bundle's own, and tests/cells holds the shared
+// grounds fixture to the shipped payload so a drift in either copy is a
+// failure somewhere rather than a quiet disagreement.
 
-// The hand-derived square of the analysis suite: a 1024 world declaring the
-// whole of itself, which is the ground `m6` was halved out of. Its rectangle
-// is [672, -704] to [704, -672] (vectors/containment.json).
+// square is the hand-derived 1024 ground of the analysis suite: a world
+// declaring the whole of itself, which is the ground `m6` was halved out of.
+// Its rectangle is [672, -704] to [704, -672]
+// (analysis/testdata/cells/containment.json).
 var square = cells.Extent{MinX: 0, MinY: -1024, MaxX: 1024, MaxY: 0}
+
+// marsAttrs is the declaration the shipped Mars bundle makes
+// (testdata/corpus/bundles/mars, and `mars/global/0` in the shared grounds):
+// a sphere, flattened equirectangularly over the whole 8192x4096 square.
+var marsAttrs = map[string]string{
+	semconv.KeyGeometrySurface:     semconv.SurfaceSphere,
+	semconv.KeyGeometryProjection:  semconv.ProjectionEquirect,
+	semconv.KeyGeometryEquirectPx:  "0,0,8192,4096",
+	semconv.KeyGeometryEquirectDeg: "-180,90,180,-90",
+}
 
 func TestGeohashHoldsItsBoundaries(t *testing.T) {
 	tests := []struct {
@@ -61,11 +78,11 @@ func TestGeohashHoldsItsBoundaries(t *testing.T) {
 
 // TestS2HoldsOnMarsAsTheBundleDeclaresIt asks the predicate the questions a
 // reader standing on Mars asks it, through the flattening the shipped bundle
-// really declares rather than a copy of it written into this file.
+// declares.
 func TestS2HoldsOnMarsAsTheBundleDeclaresIt(t *testing.T) {
-	mapping, ok := cells.MappingOf(marsAttrs(t))
+	mapping, ok := cells.MappingOf(marsAttrs)
 	if !ok {
-		t.Fatal("the Mars fixture declares a flattening and the reader refused it")
+		t.Fatal("the Mars declaration is a flattening and the reader refused it")
 	}
 
 	// Mars's world square is 8192 x 4096 picturing the whole body, so the
@@ -141,7 +158,6 @@ func TestS2HoldsOnMarsAsTheBundleDeclaresIt(t *testing.T) {
 }
 
 func TestApplicableSystemsAsksTheWorldTwoQuestions(t *testing.T) {
-	sphere := marsAttrs(t)
 	tests := []struct {
 		name    string
 		attrs   map[string]string
@@ -151,7 +167,7 @@ func TestApplicableSystemsAsksTheWorldTwoQuestions(t *testing.T) {
 		{"and so is one that says so", map[string]string{
 			"atlas.geometry.surface": "plane",
 		}, []string{"geohash"}},
-		{"a sphere with a flattening takes both", sphere, []string{"geohash", "s2"}},
+		{"a sphere with a flattening takes both", marsAttrs, []string{"geohash", "s2"}},
 		{"a sphere that declares no flattening takes neither but geohash", map[string]string{
 			"atlas.geometry.surface": "sphere",
 		}, []string{"geohash"}},
@@ -240,28 +256,6 @@ func TestS2ParseCellRefusesWhatIsNotAPlace(t *testing.T) {
 			}
 		})
 	}
-}
-
-// marsAttrs reads the world attributes out of the shipped Mars bundle fixture,
-// so that what is tested is the declaration a reader really meets rather than
-// a copy of it that could drift.
-func marsAttrs(t *testing.T) map[string]string {
-	t.Helper()
-	body, err := os.ReadFile(filepath.Join(
-		"..", "fixtures", "bundles", "mars", "worlds", "global.payload.json"))
-	if err != nil {
-		t.Fatalf("the Mars fixture is the ground this test stands on: %v", err)
-	}
-	var payload struct {
-		Attrs map[string]string `json:"attrs"`
-	}
-	if err := json.Unmarshal(body, &payload); err != nil {
-		t.Fatalf("the Mars payload: %v", err)
-	}
-	if payload.Attrs["atlas.geometry.surface"] != "sphere" {
-		t.Fatalf("the Mars fixture no longer declares a sphere: %v", payload.Attrs)
-	}
-	return payload.Attrs
 }
 
 // faceOf telescopes an address all the way out to the face it is on.

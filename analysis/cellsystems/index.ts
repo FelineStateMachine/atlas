@@ -16,8 +16,10 @@
 //     subdivision shows are session state, and they arrive as arguments.
 //
 // The contract is written down in `docs/analysis.md`, including the
-// walkthrough for adding a third system. `golden/analysis/` is the judge:
-// 178 vectors and 28 plans recorded from the implementation this one replaces.
+// walkthrough for adding a third system. `analysis/testdata/cells/` is the
+// judge: the shared contract vectors both this lane and the server's Go twin
+// (internal/app/cells, via tests/cells) answer, so the two copies of the
+// arithmetic are held to one set of numbers.
 
 export type {
   CellID,

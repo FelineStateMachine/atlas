@@ -32,10 +32,10 @@ import type { CellRole } from "./tokens.ts";
 /**
  * One cell of a plan.
  *
- * The key order below is the order the goldens serialize: the fixtures are
- * compared as JSON text, so it is cheaper to keep than to explain. Only the
- * array order is contractual, but a diff nobody has to read is worth the
- * discipline.
+ * The key order below is the order the shared vectors serialize: the
+ * fixtures are compared as JSON text, so it is cheaper to keep than to
+ * explain. Only the array order is contractual, but a diff nobody has to
+ * read is worth the discipline.
  */
 export interface PlanCell {
   /** The cell's opaque id. The field keeps the name `hash` whatever system minted it. */

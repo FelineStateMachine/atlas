@@ -56,11 +56,13 @@ import (
 // which is an edge walk rather than a spherical area and says why at
 // [S2Extent].
 //
-// AND IT IS GATED. `golden/cells` reproduces every geohash cell extent
-// recorded in the parity baselines, and holds the S2 side, the surface ladder
-// and the applicable-systems answer to `golden/analysis/vectors` — the same
-// language-neutral oracle the TypeScript lane is held to. When a Go twin of
-// the analysis lane exists, this package is the first thing it deletes.
+// AND IT IS GATED. `tests/cells` holds the geohash halving, the S2 side, the
+// surface ladder, the carry and the applicable-systems answer to the shared
+// contract vectors in `analysis/testdata/cells` — the same language-neutral
+// oracle the TypeScript lane answers in analysis/test/vectors.test.ts. The
+// hand-derived edge cases live beside this file (predicate_test.go), pure
+// tables because nothing under internal/app may read a file. When a Go twin
+// of the analysis lane exists, this package is the first thing it deletes.
 //
 // COORDINATES. Everything exported here speaks world pixels in the orientation
 // the application's own projection produces: x east, y **negative-down**
@@ -257,7 +259,7 @@ func GeohashCellAt(ground Extent, x, y float64, depth int) string {
 // GeohashHeld is the held-cell question for a geohash address: the halving,
 // and then four comparisons. It is the fast path — an axis-aligned rectangle
 // asked about a point — and it is boundary-inclusive, which is the contract's
-// own word for it (golden/analysis/vectors/containment.json): a pin on the
+// own word for it (analysis/testdata/cells/containment.json): a pin on the
 // line between two cells is standing in both, because the line is drawn a
 // pixel wide and the reader put the pin on it.
 func GeohashHeld(ground Extent, hash string) Held {

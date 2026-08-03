@@ -10,7 +10,7 @@ import "math"
 // looking at, and how closely they were looking at it. [Equivalent] is that
 // sentence as arithmetic, and it is the seam's `equivalentCell`
 // (analysis/cellsystems/registry.ts) rather than a second idea of the same
-// thing: the recorded carry vectors in golden/analysis/vectors hold this
+// thing: the shared carry vectors in analysis/testdata/cells hold this
 // function to the answers the TypeScript lane gives.
 //
 // WHY THE SERVER CARRIES AT ALL. Cycling the system is a session write like any
