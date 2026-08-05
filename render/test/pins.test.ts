@@ -166,6 +166,7 @@ function world(slug: string, points: ReturnType<typeof point>[], standing: Stand
     },
     visibility: {
       at: (index: number) => ({ hidden: standing.hidden.has(points[index]?.id ?? "") }),
+      shapesShown: [], highlightedShapes: [],
     },
   } as unknown as WorldContext;
 }
@@ -273,7 +274,9 @@ test("a pin a filter lets back in is held to the horizon before it is drawn", ()
   assert.equal(pin(element, "hellas").visible, false, "filtered out to begin with");
 
   const shown = context as unknown as { visibility: { at: () => { hidden: boolean } } };
-  shown.visibility = { at: () => ({ hidden: false }) };
+  shown.visibility = {
+    at: () => ({ hidden: false }), shapesShown: [], highlightedShapes: [],
+  } as unknown as (typeof shown)["visibility"];
   element.update();
   assert.equal(pin(element, "hellas").visible, true, "the filter let it back in");
   assert.equal(drawn(pin(element, "hellas")), false, "and the planet is still in front of it");

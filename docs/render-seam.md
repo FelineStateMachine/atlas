@@ -426,6 +426,19 @@ and the `__atlasGlobe` global's absence until then is the observable (§8.3).
 - **Sprites** — one per pin, built once, afterwards only shown or hidden, so a
   filter costs a boolean per pin.
 
+**Zones ride the sphere as outlines.** Every shape the legend lets through
+draws its rings — outer rings and holes alike, paths open — as one
+`LineSegments2` per shape, in the same per-feature accent its chart drawing
+and its index row wear, thicker and fully opaque when highlighted or
+selected. Segments are subdivided by span exactly as the grid's boundaries
+are, so a border follows the curve instead of chording through the planet,
+and the layer sits above the grid's fills and below its boundaries
+(`ZONE_RADIUS`). Fills, scrims and area titles stay the chart's: a fill over
+an arbitrary concave, holed polygon needs a tessellation the cell fan cannot
+honestly give it, and an outline is what makes a border read over imagery.
+Rebuilt only when the world, the filter, the highlights or the selection
+move; the sphere's hit test remains points-only (§10).
+
 **The camera round trip** is the pane's one contract with the chart. Position
 is invertible arithmetic through the declared mapping; the distance is a
 **calibrated power law, not a field-of-view calculation**:
