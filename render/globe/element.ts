@@ -44,6 +44,8 @@ import * as THREE from "three";
 import { Line2 } from "three/examples/jsm/lines/Line2.js";
 import { LineGeometry } from "three/examples/jsm/lines/LineGeometry.js";
 import { LineMaterial } from "three/examples/jsm/lines/LineMaterial.js";
+import { LineSegments2 } from "three/examples/jsm/lines/LineSegments2.js";
+import { LineSegmentsGeometry } from "three/examples/jsm/lines/LineSegmentsGeometry.js";
 import Globe from "globe.gl";
 import type { GlobeInstance } from "globe.gl";
 import {
@@ -57,6 +59,7 @@ import {
 import type { GeoMapping, PlanCell, Ring } from "@atlas/analysis";
 import { logger } from "../log.ts";
 import type { WorldContext } from "../context.ts";
+import type { Line as ShapeLine, ShapeRecord } from "../world/model.ts";
 import type { Attrs, Collection, Lens } from "../data/payload.ts";
 import { iconURL } from "../data/plane.ts";
 import { LensCoverage } from "../data/pyramid.ts";
@@ -64,7 +67,7 @@ import { reportGridPick, reportPick } from "../data/report.ts";
 import { cellMoved } from "../chart/grid.ts";
 import { viewMaxZoom } from "../chart/projection.ts";
 import { saneCamera } from "../chart/element.ts";
-import { collectionColor } from "../chart/styles.ts";
+import { collectionColor, featureColor } from "../chart/styles.ts";
 import {
   iconIsPicture, initialsOf, legibleIconColor, markerKey, markerRasterReady, outsetColor,
 } from "../chart/markers.ts";
@@ -138,6 +141,17 @@ const DETAIL_SEGMENTS = 8;
 const FILL_RADIUS = DETAIL_RADIUS + 0.12;
 const LINE_RADIUS = DETAIL_RADIUS + 0.25;
 const CHIP_RADIUS = DETAIL_RADIUS + 0.35;
+
+/**
+ * The zones' own step on the same ladder: over the grid's sheet, under its
+ * boundary.
+ *
+ * A country's border is ground the reader is looking at; a grid cell is
+ * scaffolding laid over whatever ground is open. So a zone outline rides
+ * above a cell's tint and below its edge, and a held cell still reads over
+ * the borders inside it.
+ */
+const ZONE_RADIUS = DETAIL_RADIUS + 0.18;
 
 /**
  * The order the sphere paints in, the top of the ladder last.
@@ -309,7 +323,10 @@ export class AtlasGlobe extends HTMLElement {
   private readonly pins = new THREE.Group();
   private readonly labels = new THREE.Group();
   private readonly cells = new THREE.Group();
+  private readonly zones = new THREE.Group();
   private readonly tiles = new THREE.Group();
+  /** The zones last drawn: the world, the filter, and the emphasis. */
+  private zoneKey = "";
   private readonly sprites = new Map<string, THREE.Object3D>();
   /** The tiles draped under the camera, by `z/x/y`, and what each one is. */
   private readonly draped = new Map<string, THREE.Mesh>();
@@ -445,6 +462,7 @@ export class AtlasGlobe extends HTMLElement {
     this.cull();
     this.drawLabels();
     this.drawGrid();
+    this.drawZones();
   }
 
   /** Come up, taking the chart's camera with you. Builds on first entry. */
@@ -604,7 +622,7 @@ export class AtlasGlobe extends HTMLElement {
     if (!width || !height) return;
     globe.width(width);
     globe.height(height);
-    for (const child of this.cells.children) {
+    for (const child of [...this.cells.children, ...this.zones.children]) {
       const material = (child as { material?: unknown }).material;
       if (material instanceof LineMaterial) material.resolution.set(width, height);
     }
@@ -652,13 +670,15 @@ export class AtlasGlobe extends HTMLElement {
     this.onCamera = null;
     release(this.labels);
     release(this.cells);
+    release(this.zones);
     release(this.tiles);
     this.draped.clear();
     this.detailKey = "";
+    this.zoneKey = "";
     this.pins.clear();
     this.sprites.clear();
     if (globe) {
-      globe.scene().remove(this.pins, this.labels, this.cells, this.tiles);
+      globe.scene().remove(this.pins, this.labels, this.cells, this.zones, this.tiles);
       globe._destructor?.();
       // globe.gl's destructor gives back the renderer and empties the scene
       // and leaves its canvas exactly where it put it, holding the last frame
@@ -784,6 +804,7 @@ export class AtlasGlobe extends HTMLElement {
 
     const scene = this.globe.scene();
     scene.add(this.tiles);
+    scene.add(this.zones);
     scene.add(this.pins);
     scene.add(this.labels);
     scene.add(this.cells);
@@ -962,6 +983,50 @@ export class AtlasGlobe extends HTMLElement {
   }
 
   /** The grid, from the same plan and the same tokens the chart draws. */
+  /**
+   * The zones, on the sphere.
+   *
+   * The chart's zone layer says what a world's ground *is*; until this the
+   * sphere drew pins over bare imagery and the first volume to carry areas on
+   * a sphere — the included Earth's countries — rendered on one pane and
+   * vanished on the other. The sphere draws each shape's outlines: every ring
+   * in the feature's own accent, emphasized when the shape is highlighted or
+   * selected, exactly the colours its index row and its chart drawing wear.
+   * Fills, scrims and area titles stay the chart's — a fill over an arbitrary
+   * concave, holed polygon needs a tessellation the cell fan cannot honestly
+   * give it, and an outline is what makes a border read over imagery.
+   *
+   * Rebuilt only when its inputs move: the world, the legend's filter, the
+   * highlights, or the selection. One `LineSegments2` per shape, so a world
+   * of a couple hundred zones costs a couple hundred draw calls, not one per
+   * ring.
+   */
+  private drawZones(): void {
+    const context = this.context;
+    const globe = this.globe;
+    const equirect = this.equirect;
+    if (!context || !globe || !equirect) return;
+    const shown = context.visibility.shapesShown;
+    const highlighted = new Set(context.visibility.highlightedShapes.map((shape) => shape.id));
+    const key = [
+      this.worldKey, this.selected,
+      shown.map((shape) => shape.id).join(" "), [...highlighted].join(" "),
+    ].join("|");
+    if (key === this.zoneKey) return;
+    this.zoneKey = key;
+    release(this.zones);
+    const viewport = { width: this.clientWidth || 1, height: this.clientHeight || 1 };
+    for (const shape of shown) {
+      const emphasized = highlighted.has(shape.id) || shape.id === this.selected;
+      const mesh = zoneMesh(globe, shape, equirect.mapping, {
+        color: featureColor(shape.id),
+        opacity: emphasized ? 1 : 0.85,
+        widthPx: emphasized ? 2.4 : 1.4,
+      }, viewport);
+      if (mesh) this.zones.add(mesh);
+    }
+  }
+
   private drawGrid(): void {
     const context = this.context;
     const globe = this.globe;
@@ -1577,6 +1642,66 @@ export function cellBoundary(
   loop.computeLineDistances();
   loop.renderOrder = ORDER.line;
   return loop;
+}
+
+/**
+ * The outlines one shape draws: every outer ring, and every hole an area
+ * carries, each marked with whether it closes. An area's rings enclose ground
+ * and close; a path's lines lie as they lie.
+ */
+export function zoneOutlines(shape: ShapeRecord): { ring: ShapeLine; close: boolean }[] {
+  const close = shape.kind === "area";
+  const out: { ring: ShapeLine; close: boolean }[] = [];
+  shape.lines.forEach((line, index) => {
+    out.push({ ring: line, close });
+    for (const hole of shape.holes[index] ?? []) out.push({ ring: hole, close });
+  });
+  return out;
+}
+
+/**
+ * One shape's outlines, landed on the sphere as a single object.
+ *
+ * `LineSegments2` rather than one `Line2` per ring: a country is often an
+ * archipelago — many rings, some of them holes — and segments are what let
+ * every disjoint piece ride one geometry and one draw call. Each segment is
+ * subdivided by its span exactly as the grid's boundaries are, and for the
+ * same reason: a straight chord between two far corners passes through the
+ * planet, not along it. Payload rings arrive split at the antimeridian by
+ * their producer, so no segment spans the seam and the trigonometry drapes
+ * each piece where it belongs.
+ */
+export function zoneMesh(
+  globe: GlobeInstance,
+  shape: ShapeRecord,
+  mapping: GeoMapping,
+  line: { color: string; opacity: number; widthPx: number },
+  viewport: { width: number; height: number },
+): LineSegments2 | null {
+  const positions: number[] = [];
+  for (const { ring, close } of zoneOutlines(shape)) {
+    const dense = densifyRing(ringLatLng(ring as Ring, mapping), 4);
+    if (dense.length < 2) continue;
+    const loop = close ? [...dense, dense[0]!] : dense;
+    let from = surfacePoint(globe, loop[0]![0], loop[0]![1], ZONE_RADIUS);
+    for (let at = 1; at < loop.length; at++) {
+      const to = surfacePoint(globe, loop[at]![0], loop[at]![1], ZONE_RADIUS);
+      positions.push(from.x, from.y, from.z, to.x, to.y, to.z);
+      from = to;
+    }
+  }
+  if (!positions.length) return null;
+  const geometry = new LineSegmentsGeometry();
+  geometry.setPositions(positions);
+  const material = new LineMaterial({
+    color: line.color, transparent: true, opacity: line.opacity,
+    linewidth: line.widthPx, depthWrite: false,
+  });
+  material.resolution.set(viewport.width || 1, viewport.height || 1);
+  const drawn = new LineSegments2(geometry, material);
+  drawn.computeLineDistances();
+  drawn.renderOrder = ORDER.line;
+  return drawn;
 }
 
 /**

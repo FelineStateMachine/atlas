@@ -121,7 +121,7 @@ const {
   altitudeForZoom, angularDistance, boundsOf, cellBoundary, densifyRing, detailBlock,
   detailLevel, facesCamera, fillRows, holdControls, initialsOf, labelCandidates,
   markerMaterial, nameCard, release, ringFill, ringLatLng, tileGeometry, wearSkin,
-  zoomForAltitude,
+  zoneMesh, zoneOutlines, zoomForAltitude,
 } = await import("../globe/element.ts");
 type Placed = import("../globe/element.ts").Placed;
 
@@ -681,4 +681,68 @@ test("the wheel is held to the same clamps as every other door", () => {
   assert.ok(controls.minDistance > 100.6, `camera can reach ${controls.minDistance}`);
   // And the farthest keeps the planet bigger than a dot.
   assert.ok(controls.maxDistance <= 1000, `camera can leave to ${controls.maxDistance}`);
+});
+
+// ---- zones on the sphere ---------------------------------------------
+//
+// The chart has always drawn a world's area and path features; the sphere
+// grew its zone layer when the included Earth became the first volume to put
+// areas on a spherical world. What is contractual is small and exact: which
+// outlines a shape draws (holes ride their areas, paths stay open), and that
+// every vertex of the landed mesh sits on its own radius rather than on a
+// chord through the planet -- the same promise the grid's boundaries make.
+
+type ShapeRecord = import("../world/model.ts").ShapeRecord;
+
+/** The identity mapping: a ground whose world units are already degrees. */
+const degrees = {
+  toLatLng: (x: number, y: number): [number, number] => [y, x],
+  toWorld: (lat: number, lng: number): [number, number] => [lng, lat],
+};
+
+function zoneShape(overrides: Partial<ShapeRecord>): ShapeRecord {
+  return {
+    id: "9", title: "Vale", subtitle: "", kind: "area", shard: 0,
+    collection: { id: 1, title: "Countries", kind: "area", visible: true },
+    lines: [], holes: [], center: null, feature: { id: 9, title: "Vale", geometry: [] },
+    ...overrides,
+  } as ShapeRecord;
+}
+
+// A square area in world coordinates (y negative-down), with one hole.
+const zoneOuter = [[10, -10], [20, -10], [20, -20], [10, -20], [10, -10]] as [number, number][];
+const zoneHole = [[12, -12], [14, -12], [14, -14], [12, -14], [12, -12]] as [number, number][];
+
+test("an area's holes ride beside its outer rings, closed", () => {
+  const outlines = zoneOutlines(zoneShape({ lines: [zoneOuter], holes: [[zoneHole]] }));
+  assert.equal(outlines.length, 2);
+  assert.deepEqual(outlines.map((held) => held.close), [true, true]);
+  assert.equal(outlines[0]?.ring, zoneOuter);
+  assert.equal(outlines[1]?.ring, zoneHole);
+});
+
+test("a path's lines stay open", () => {
+  const walk = [[0, 0], [30, -5]] as [number, number][];
+  const outlines = zoneOutlines(zoneShape({ kind: "path", lines: [walk], holes: [[]] }));
+  assert.deepEqual(outlines.map((held) => held.close), [false]);
+});
+
+test("every landed zone vertex sits on its own radius, not on a chord", () => {
+  const mesh = zoneMesh(sphere, zoneShape({ lines: [zoneOuter], holes: [[zoneHole]] }),
+    degrees, { color: "#88aaff", opacity: 0.85, widthPx: 1.4 }, { width: 800, height: 600 });
+  assert.ok(mesh, "a shape with ground drew nothing");
+  const start = mesh.geometry.getAttribute("instanceStart");
+  assert.ok(start.count > 8, "the segments were not densified");
+  const radius = Math.hypot(start.getX(0), start.getY(0), start.getZ(0));
+  for (let at = 0; at < start.count; at++) {
+    const held = Math.hypot(start.getX(at), start.getY(at), start.getZ(at));
+    assert.ok(Math.abs(held - radius) < 0.01,
+      `vertex ${at} sits at radius ${held}, the surface is at ${radius}`);
+  }
+});
+
+test("a shape with no ground draws nothing on the sphere", () => {
+  const mesh = zoneMesh(sphere, zoneShape({ lines: [], holes: [] }),
+    degrees, { color: "#88aaff", opacity: 0.85, widthPx: 1.4 }, { width: 800, height: 600 });
+  assert.equal(mesh, null);
 });
