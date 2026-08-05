@@ -121,7 +121,7 @@ const {
   altitudeForZoom, angularDistance, boundsOf, cellBoundary, densifyRing, detailBlock,
   detailLevel, facesCamera, fillRows, holdControls, initialsOf, labelCandidates,
   markerMaterial, nameCard, release, ringFill, ringLatLng, tileGeometry, wearSkin,
-  zoneMesh, zoneOutlines, zoomForAltitude,
+  zoneFill, zoneMesh, zoneOutlines, zoomForAltitude,
 } = await import("../globe/element.ts");
 type Placed = import("../globe/element.ts").Placed;
 
@@ -745,4 +745,28 @@ test("a shape with no ground draws nothing on the sphere", () => {
   const mesh = zoneMesh(sphere, zoneShape({ lines: [], holes: [] }),
     degrees, { color: "#88aaff", opacity: 0.85, widthPx: 1.4 }, { width: 800, height: 600 });
   assert.equal(mesh, null);
+});
+
+test("a zone's ground is tessellated onto the sphere, every vertex on its radius", () => {
+  const mesh = zoneFill(sphere, zoneShape({ lines: [zoneOuter], holes: [[zoneHole]] }), degrees);
+  assert.ok(mesh, "an area with ground filled nothing");
+  const position = mesh.geometry.getAttribute("position");
+  assert.ok(position.count >= 3 && position.count % 3 === 0,
+    `${position.count} vertices is not a triangle list`);
+  const radius = Math.hypot(position.getX(0), position.getY(0), position.getZ(0));
+  for (let at = 0; at < position.count; at++) {
+    const held = Math.hypot(position.getX(at), position.getY(at), position.getZ(at));
+    assert.ok(Math.abs(held - radius) < 0.01,
+      `vertex ${at} sits at radius ${held}, the surface is at ${radius}`);
+  }
+  // The fill is dressed the way the chart dresses ground at rest, under the
+  // outline, writing no depth.
+  const worn = mesh.material as THREE.MeshBasicMaterial;
+  assert.equal(worn.opacity, 0.1);
+  assert.equal(worn.depthWrite, false);
+});
+
+test("a path fills nothing; only areas are ground", () => {
+  const walk = [[0, 0], [30, -5]] as [number, number][];
+  assert.equal(zoneFill(sphere, zoneShape({ kind: "path", lines: [walk], holes: [[]] }), degrees), null);
 });
