@@ -87,7 +87,13 @@ jobs:
             VERSION="${{ inputs.version }}"
             [[ -n "${VERSION}" ]] || VERSION="dev-$(git rev-parse --short HEAD)"
           fi
-          NAME="atlas-${VERSION}-${GOOS}-${GOARCH}"
+          # "atlas-cli-", not "atlas-": GitHub release asset names are
+          # case-insensitively unique, so a CLI archive spelled "atlas-…"
+          # collides with the desktop's "Atlas-…" wherever the two share a
+          # platform and an extension — which is exactly how v0.1.0's release
+          # job died half-published. The prefix also reads better to a person
+          # deciding which file they want.
+          NAME="atlas-cli-${VERSION}-${GOOS}-${GOARCH}"
           BINARY="atlas"
           if [[ "${GOOS}" == "windows" ]]; then BINARY="atlas.exe"; fi
           mkdir -p "dist/${NAME}"
