@@ -426,18 +426,23 @@ and the `__atlasGlobe` global's absence until then is the observable (§8.3).
 - **Sprites** — one per pin, built once, afterwards only shown or hidden, so a
   filter costs a boolean per pin.
 
-**Zones ride the sphere as outlines.** Every shape the legend lets through
-draws its rings — outer rings and holes alike, paths open — as one
-`LineSegments2` per shape, in the same per-feature accent its chart drawing
-and its index row wear, thicker and fully opaque when highlighted or
-selected. Segments are subdivided by span exactly as the grid's boundaries
-are, so a border follows the curve instead of chording through the planet,
-and the layer sits above the grid's fills and below its boundaries
-(`ZONE_RADIUS`). Fills, scrims and area titles stay the chart's: a fill over
-an arbitrary concave, holed polygon needs a tessellation the cell fan cannot
-honestly give it, and an outline is what makes a border read over imagery.
-Rebuilt only when the world, the filter, the highlights or the selection
-move; the sphere's hit test remains points-only (§10).
+**Zones ride the sphere as the chart draws them.** Every shape the legend
+lets through draws its ground and its rings in the same per-feature accent
+its chart drawing and its index row wear: the fill faint at rest and just
+over a quarter opaque when highlighted or selected, the outlines — outer
+rings and holes alike, paths open — thicker and opaque when emphasized, and
+an emphasized shape with a title wearing a name card at its centre, the
+sphere's spelling of the chart's promoted area title. Ground is triangulated
+part by part against its holes and every wide triangle is cut down before
+its vertices are lifted to the sphere; segments are subdivided by span
+exactly as the grid's boundaries are — both for the one reason, that a chord
+between far corners passes through the planet. The layer sits above the
+grid's fills and below its boundaries (`ZONE_FILL_RADIUS`, `ZONE_RADIUS`).
+Geometry rebuilds only when the world or the filter moves; a highlight or a
+selection restyles in place, and selecting a shape turns the planet to show
+it whole at the altitude its span asks for — the sphere's spelling of the
+chart's fit. The scrim stays the chart's (its even-odd hole-punching is a
+flat sheet's trick), and the sphere's hit test remains points-only (§10).
 
 **The camera round trip** is the pane's one contract with the chart. Position
 is invertible arithmetic through the declared mapping; the distance is a

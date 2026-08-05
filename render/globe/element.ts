@@ -143,15 +143,24 @@ const LINE_RADIUS = DETAIL_RADIUS + 0.25;
 const CHIP_RADIUS = DETAIL_RADIUS + 0.35;
 
 /**
- * The zones' own step on the same ladder: over the grid's sheet, under its
- * boundary.
+ * The zones' own steps on the same ladder: the wash, then the outline over
+ * it, both over the grid's sheet and under its boundary.
  *
  * A country's border is ground the reader is looking at; a grid cell is
- * scaffolding laid over whatever ground is open. So a zone outline rides
- * above a cell's tint and below its edge, and a held cell still reads over
- * the borders inside it.
+ * scaffolding laid over whatever ground is open. So a zone rides above a
+ * cell's tint and below its edge, and a held cell still reads over the
+ * borders inside it.
  */
+const ZONE_FILL_RADIUS = DETAIL_RADIUS + 0.15;
 const ZONE_RADIUS = DETAIL_RADIUS + 0.18;
+
+/**
+ * The widest a fill triangle's edge may span, in degrees, before it is
+ * subdivided. The same arithmetic as the rings': a straight edge between two
+ * far corners is a chord through the planet, and a triangle whose middle sags
+ * under the crust is a fill that renders perfectly, buried.
+ */
+const ZONE_TRIANGLE_SPAN = 3;
 
 /**
  * The order the sphere paints in, the top of the ladder last.
@@ -325,8 +334,10 @@ export class AtlasGlobe extends HTMLElement {
   private readonly cells = new THREE.Group();
   private readonly zones = new THREE.Group();
   private readonly tiles = new THREE.Group();
-  /** The zones last drawn: the world, the filter, and the emphasis. */
+  /** The zone geometry last built: the world and the legend's filter. */
   private zoneKey = "";
+  /** The dress the zones last wore: the selection and the highlights. */
+  private zoneStyleKey = "";
   private readonly sprites = new Map<string, THREE.Object3D>();
   /** The tiles draped under the camera, by `z/x/y`, and what each one is. */
   private readonly draped = new Map<string, THREE.Mesh>();
@@ -675,6 +686,7 @@ export class AtlasGlobe extends HTMLElement {
     this.draped.clear();
     this.detailKey = "";
     this.zoneKey = "";
+    this.zoneStyleKey = "";
     this.pins.clear();
     this.sprites.clear();
     if (globe) {
@@ -971,7 +983,7 @@ export class AtlasGlobe extends HTMLElement {
   private cull(): void {
     const camera = this.globe?.camera().position;
     if (!camera) return;
-    for (const group of [this.cells, this.labels]) {
+    for (const group of [this.cells, this.labels, this.zones]) {
       for (const child of group.children) {
         if (!(child as THREE.Sprite).isSprite) continue;
         child.visible = facesCamera(child.position, camera);
@@ -984,22 +996,23 @@ export class AtlasGlobe extends HTMLElement {
 
   /** The grid, from the same plan and the same tokens the chart draws. */
   /**
-   * The zones, on the sphere.
+   * The zones, on the sphere, as the chart draws them.
    *
    * The chart's zone layer says what a world's ground *is*; until this the
    * sphere drew pins over bare imagery and the first volume to carry areas on
    * a sphere — the included Earth's countries — rendered on one pane and
-   * vanished on the other. The sphere draws each shape's outlines: every ring
-   * in the feature's own accent, emphasized when the shape is highlighted or
-   * selected, exactly the colours its index row and its chart drawing wear.
-   * Fills, scrims and area titles stay the chart's — a fill over an arbitrary
-   * concave, holed polygon needs a tessellation the cell fan cannot honestly
-   * give it, and an outline is what makes a border read over imagery.
+   * vanished on the other. The sphere draws what the chart draws, in the same
+   * per-feature accents its index rows wear: every shown shape's fill, faint
+   * until the shape is highlighted or selected, and its outlines over it,
+   * thicker and opaque when emphasized. A shape emphasized with a title wears
+   * a name card at its centre, which is the sphere's spelling of the chart's
+   * promoted area title. The scrim stays the chart's: dimming everything
+   * *outside* the highlights needs the even-odd geometry a flat sheet gives
+   * away and a sphere does not.
    *
-   * Rebuilt only when its inputs move: the world, the legend's filter, the
-   * highlights, or the selection. One `LineSegments2` per shape, so a world
-   * of a couple hundred zones costs a couple hundred draw calls, not one per
-   * ring.
+   * Geometry is rebuilt only when the world or the legend's filter moves;
+   * a highlight or a selection restyles the meshes that already exist rather
+   * than tessellating a planet again.
    */
   private drawZones(): void {
     const context = this.context;
@@ -1007,24 +1020,61 @@ export class AtlasGlobe extends HTMLElement {
     const equirect = this.equirect;
     if (!context || !globe || !equirect) return;
     const shown = context.visibility.shapesShown;
-    const highlighted = new Set(context.visibility.highlightedShapes.map((shape) => shape.id));
-    const key = [
-      this.worldKey, this.selected,
-      shown.map((shape) => shape.id).join(" "), [...highlighted].join(" "),
-    ].join("|");
-    if (key === this.zoneKey) return;
-    this.zoneKey = key;
-    release(this.zones);
-    const viewport = { width: this.clientWidth || 1, height: this.clientHeight || 1 };
-    for (const shape of shown) {
-      const emphasized = highlighted.has(shape.id) || shape.id === this.selected;
-      const mesh = zoneMesh(globe, shape, equirect.mapping, {
-        color: featureColor(shape.id),
-        opacity: emphasized ? 1 : 0.85,
-        widthPx: emphasized ? 2.4 : 1.4,
-      }, viewport);
-      if (mesh) this.zones.add(mesh);
+    const key = [this.worldKey, shown.map((shape) => shape.id).join(" ")].join("|");
+    if (key !== this.zoneKey) {
+      this.zoneKey = key;
+      this.zoneStyleKey = "";
+      release(this.zones);
+      const viewport = { width: this.clientWidth || 1, height: this.clientHeight || 1 };
+      for (const shape of shown) {
+        const fill = zoneFill(globe, shape, equirect.mapping);
+        if (fill) this.zones.add(fill);
+        const line = zoneMesh(globe, shape, equirect.mapping, {
+          color: featureColor(shape.id), opacity: 0.85, widthPx: 1.4,
+        }, viewport);
+        if (line) this.zones.add(line);
+      }
     }
+    this.styleZones();
+  }
+
+  /**
+   * Dress the zones for the scene: the chart's own weights and washes —
+   * stroke 1.4 and a tenth of the accent at rest, 2.4 and just over a quarter
+   * emphasized — and a name card over each emphasized shape that has one.
+   */
+  private styleZones(): void {
+    const context = this.context;
+    const globe = this.globe;
+    const equirect = this.equirect;
+    if (!context || !globe || !equirect) return;
+    const highlighted = new Set(context.visibility.highlightedShapes.map((shape) => shape.id));
+    const styleKey = [this.selected, ...highlighted].join(" ");
+    if (styleKey === this.zoneStyleKey) return;
+    this.zoneStyleKey = styleKey;
+    const emphasized = (id: unknown): boolean =>
+      typeof id === "string" && (highlighted.has(id) || id === this.selected);
+    for (const child of [...this.zones.children]) {
+      const worn = emphasized(child.userData.zone);
+      const material = (child as { material?: unknown }).material;
+      if (child.userData.role === "card") {
+        this.zones.remove(child);
+        dispose(child);
+      } else if (material instanceof LineMaterial) {
+        material.opacity = worn ? 1 : 0.85;
+        material.linewidth = worn ? 2.4 : 1.4;
+      } else if (material instanceof THREE.MeshBasicMaterial) {
+        material.opacity = worn ? 0.28 : 0.1;
+      }
+    }
+    for (const shape of context.visibility.shapesShown) {
+      if (!emphasized(shape.id) || !shape.title || !shape.center) continue;
+      const [lat, lng] = equirect.mapping.toLatLng(shape.center[0], -shape.center[1]);
+      const card = nameCard(shape.title, surfacePoint(globe, lat, lng, CHIP_RADIUS));
+      card.userData = { zone: shape.id, role: "card" };
+      this.zones.add(card);
+    }
+    this.cull();
   }
 
   private drawGrid(): void {
@@ -1269,9 +1319,35 @@ export class AtlasGlobe extends HTMLElement {
     if (!globe || this.hidden || !id) return;
     const stood = this.sprites.get(id)?.userData as
       { lat?: number; lng?: number } | undefined;
-    if (stood?.lat === undefined || stood.lng === undefined) return;
-    this.steer(
-      { lat: stood.lat, lng: stood.lng, altitude: globe.pointOfView().altitude }, 600);
+    if (stood?.lat !== undefined && stood.lng !== undefined) {
+      this.steer(
+        { lat: stood.lat, lng: stood.lng, altitude: globe.pointOfView().altitude }, 600);
+      return;
+    }
+    // Ground is an area, not a point, so the planet turns to show it whole —
+    // the sphere's spelling of the chart's fit — at the altitude its span
+    // asks for rather than whatever depth the reader happened to be at.
+    const shape = this.context?.model.shapeByID?.get(id);
+    const mapping = this.equirect?.mapping;
+    if (!shape || !mapping) return;
+    let corners: Corners | null = null;
+    for (const { ring } of zoneOutlines(shape)) {
+      const frame = boundsOf(ringLatLng(ring as Ring, mapping));
+      if (!frame) continue;
+      corners = corners ? {
+        north: Math.max(corners.north, frame.north),
+        south: Math.min(corners.south, frame.south),
+        east: Math.max(corners.east, frame.east),
+        west: Math.min(corners.west, frame.west),
+      } : frame;
+    }
+    if (!corners) return;
+    const centre = shape.center
+      ? mapping.toLatLng(shape.center[0], -shape.center[1])
+      : [(corners.north + corners.south) / 2, (corners.east + corners.west) / 2];
+    const span = Math.max(corners.east - corners.west, corners.north - corners.south);
+    const altitude = clamp(span / 45, NEAREST_ALTITUDE, FARTHEST_ALTITUDE);
+    this.steer({ lat: centre[0] ?? 0, lng: centre[1] ?? 0, altitude }, 600);
   }
 
   private moved(): void {
@@ -1701,7 +1777,108 @@ export function zoneMesh(
   const drawn = new LineSegments2(geometry, material);
   drawn.computeLineDistances();
   drawn.renderOrder = ORDER.line;
+  drawn.userData = { zone: shape.id, role: "line" };
   return drawn;
+}
+
+/**
+ * One shape's ground, tessellated onto the sphere.
+ *
+ * The cell fills fan from a centre and cannot honestly cover a concave,
+ * holed, many-part country, so the ground is triangulated the way a flat
+ * renderer would — each part's outer ring against its holes, in degree space
+ * — and then every triangle wider than a few degrees is cut down before its
+ * vertices are lifted to the sphere, for the reason every ring is densified:
+ * a triangle's middle is a chord, and a chord through a planet is a fill
+ * buried under its own ground. Payload rings arrive split at the
+ * antimeridian, so degree space is honest for exactly the shapes that reach
+ * here.
+ */
+export function zoneFill(
+  globe: GlobeInstance,
+  shape: ShapeRecord,
+  mapping: GeoMapping,
+): THREE.Mesh | null {
+  if (shape.kind !== "area") return null;
+  const positions: number[] = [];
+  shape.lines.forEach((outer, index) => {
+    const contour = openRing(ringLatLng(outer as Ring, mapping));
+    if (contour.length < 3) return;
+    const holes = (shape.holes[index] ?? [])
+      .map((hole) => openRing(ringLatLng(hole as Ring, mapping)))
+      .filter((hole) => hole.length >= 3);
+    const flat = [contour, ...holes].flat();
+    const triangles = THREE.ShapeUtils.triangulateShape(
+      contour.map(([lat, lng]) => new THREE.Vector2(lng, lat)),
+      holes.map((hole) => hole.map(([lat, lng]) => new THREE.Vector2(lng, lat))));
+    for (const [a, b, c] of triangles) {
+      const held = [flat[a!], flat[b!], flat[c!]];
+      if (held.every(Boolean)) sinkTriangle(globe, held as [number, number][], positions);
+    }
+  });
+  if (!positions.length) return null;
+  const geometry = new THREE.BufferGeometry();
+  geometry.setAttribute("position", new THREE.Float32BufferAttribute(positions, 3));
+  const mesh = new THREE.Mesh(geometry, new THREE.MeshBasicMaterial({
+    color: featureColor(shape.id), transparent: true, opacity: 0.1,
+    side: THREE.DoubleSide, depthWrite: false,
+  }));
+  mesh.renderOrder = ORDER.fill;
+  mesh.userData = { zone: shape.id, role: "fill" };
+  return mesh;
+}
+
+/** A payload ring without its closing repeat, which a triangulation refuses. */
+function openRing(ring: [number, number][]): [number, number][] {
+  const first = ring[0];
+  const last = ring[ring.length - 1];
+  if (ring.length > 1 && first && last && first[0] === last[0] && first[1] === last[1]) {
+    return ring.slice(0, -1);
+  }
+  return ring;
+}
+
+/**
+ * One triangle of ground, subdivided by its span and landed on the sphere.
+ *
+ * Uniform barycentric rows: the longest edge decides how many, every corner
+ * of every piece is lifted to the fill radius, and the pieces are appended as
+ * plain position triples — an unindexed mesh, because sharing vertices across
+ * a subdivision saves less than it costs to book-keep.
+ */
+function sinkTriangle(
+  globe: GlobeInstance, corners: [number, number][], positions: number[],
+): void {
+  const [a, b, c] = corners as [[number, number], [number, number], [number, number]];
+  const span = Math.max(
+    Math.abs(a[0] - b[0]), Math.abs(a[1] - b[1]),
+    Math.abs(b[0] - c[0]), Math.abs(b[1] - c[1]),
+    Math.abs(c[0] - a[0]), Math.abs(c[1] - a[1]));
+  const rows = clamp(Math.ceil(span / ZONE_TRIANGLE_SPAN), 1, 32);
+  const at = (i: number, j: number): [number, number] => {
+    const u = i / rows;
+    const v = j / rows;
+    return [
+      a[0] + (b[0] - a[0]) * u + (c[0] - a[0]) * v,
+      a[1] + (b[1] - a[1]) * u + (c[1] - a[1]) * v,
+    ];
+  };
+  const push = (point: [number, number]): void => {
+    const landed = surfacePoint(globe, point[0], point[1], ZONE_FILL_RADIUS);
+    positions.push(landed.x, landed.y, landed.z);
+  };
+  for (let i = 0; i < rows; i++) {
+    for (let j = 0; j < rows - i; j++) {
+      push(at(i, j));
+      push(at(i + 1, j));
+      push(at(i, j + 1));
+      if (j < rows - i - 1) {
+        push(at(i + 1, j));
+        push(at(i + 1, j + 1));
+        push(at(i, j + 1));
+      }
+    }
+  }
 }
 
 /**
