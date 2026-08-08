@@ -61,10 +61,15 @@ Their defaults are the application-owned cache and library.
   reports validated cache presence, estimated bytes, and obligations; identical
   acquisitions may be shared across projects without merging their semantics.
 - Every plan resolves stable refusal budgets for request bytes, total evidence,
-  request count, raster tile count, and raster pixel count. The manifest may
-  state smaller or deliberately larger positive limits. Planning rejects tile
-  explosions before enumeration; capture rejects at `limit + 1`; offline and
-  exact replay apply the same limits. Atlas never truncates to fit a budget.
+  request count, raster tile count, raster pixel count, emitted feature count,
+  and emitted geometry positions. The `features` default is 2,000,000 fused
+  features and the `geometry-positions` default is 50,000,000 positions; the
+  manifest may state smaller or deliberately larger positive limits. Planning
+  rejects tile explosions before enumeration; capture rejects at `limit + 1`;
+  semantic assembly counts the
+  final fused output with checked arithmetic before native compilation. Online,
+  offline, and exact replay apply the same limits. Atlas never truncates to fit
+  a budget.
 - Capture envelopes retain request identity, body hash, media type, timestamp,
   licence, and attribution. Changed bodies append history instead of replacing
   evidence. Cache reads verify the envelope, body length, and body SHA-256;

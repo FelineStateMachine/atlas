@@ -238,23 +238,27 @@ type Release struct {
 // compiler default; a manifest can choose a smaller or deliberately larger
 // positive value, but evidence is never silently truncated.
 type BuildBudgets struct {
-	RequestBytes int64 `yaml:"request-bytes,omitempty" json:"requestBytes"`
-	TotalBytes   int64 `yaml:"total-bytes,omitempty" json:"totalBytes"`
-	Requests     int   `yaml:"requests,omitempty" json:"requests"`
-	RasterTiles  int64 `yaml:"raster-tiles,omitempty" json:"rasterTiles"`
-	RasterPixels int64 `yaml:"raster-pixels,omitempty" json:"rasterPixels"`
+	RequestBytes      int64 `yaml:"request-bytes,omitempty" json:"requestBytes"`
+	TotalBytes        int64 `yaml:"total-bytes,omitempty" json:"totalBytes"`
+	Requests          int   `yaml:"requests,omitempty" json:"requests"`
+	RasterTiles       int64 `yaml:"raster-tiles,omitempty" json:"rasterTiles"`
+	RasterPixels      int64 `yaml:"raster-pixels,omitempty" json:"rasterPixels"`
+	Features          int64 `yaml:"features,omitempty" json:"features"`
+	GeometryPositions int64 `yaml:"geometry-positions,omitempty" json:"geometryPositions"`
 }
 
 var defaultBuildBudgets = BuildBudgets{
-	RequestBytes: 512 << 20,
-	TotalBytes:   8 << 30,
-	Requests:     100_000,
-	RasterTiles:  90_000,
-	RasterPixels: 16_000_000_000,
+	RequestBytes:      512 << 20,
+	TotalBytes:        8 << 30,
+	Requests:          100_000,
+	RasterTiles:       90_000,
+	RasterPixels:      16_000_000_000,
+	Features:          2_000_000,
+	GeometryPositions: 50_000_000,
 }
 
 func (budgets BuildBudgets) resolved() (BuildBudgets, error) {
-	if budgets.RequestBytes < 0 || budgets.TotalBytes < 0 || budgets.Requests < 0 || budgets.RasterTiles < 0 || budgets.RasterPixels < 0 {
+	if budgets.RequestBytes < 0 || budgets.TotalBytes < 0 || budgets.Requests < 0 || budgets.RasterTiles < 0 || budgets.RasterPixels < 0 || budgets.Features < 0 || budgets.GeometryPositions < 0 {
 		return BuildBudgets{}, fmt.Errorf("build budgets must be positive")
 	}
 	resolved := budgets
@@ -272,6 +276,12 @@ func (budgets BuildBudgets) resolved() (BuildBudgets, error) {
 	}
 	if resolved.RasterPixels == 0 {
 		resolved.RasterPixels = defaultBuildBudgets.RasterPixels
+	}
+	if resolved.Features == 0 {
+		resolved.Features = defaultBuildBudgets.Features
+	}
+	if resolved.GeometryPositions == 0 {
+		resolved.GeometryPositions = defaultBuildBudgets.GeometryPositions
 	}
 	if resolved.RequestBytes > resolved.TotalBytes {
 		return BuildBudgets{}, fmt.Errorf("request byte budget %d exceeds total byte budget %d", resolved.RequestBytes, resolved.TotalBytes)

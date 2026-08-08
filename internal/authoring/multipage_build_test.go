@@ -36,6 +36,7 @@ func TestMultiPageBuildIsByteIdenticalOnlineOfflineAndExactReplay(t *testing.T) 
 	updated := strings.Replace(string(manifest), "adapter: geojson", "adapter: ogc-api-features", 1)
 	updated = strings.Replace(updated, "locator: sample-region.geojson", "locator: "+server.URL, 1)
 	updated = strings.Replace(updated, "    mapping:\n      feature-set: places", "    query:\n      collection: sample-points\n      limit: 1\n    mapping:\n      feature-set: places", 1)
+	updated = strings.Replace(updated, "presentation:\n", "budgets:\n  features: 4\n  geometry-positions: 11\n\npresentation:\n", 1)
 	if err := os.WriteFile(projectPath, []byte(updated), 0o644); err != nil {
 		t.Fatal(err)
 	}
@@ -75,8 +76,6 @@ func TestMultiPageBuildIsByteIdenticalOnlineOfflineAndExactReplay(t *testing.T) 
 	if !allCaptureEventsCached(repeatedEvents, true) {
 		t.Fatalf("repeated online build cache events = %+v", repeatedEvents)
 	}
-	server.Close()
-
 	offline, err := Build(context.Background(), BuildOptions{ProjectPath: projectPath, CacheDir: cacheDir, LibraryDir: filepath.Join(t.TempDir(), "offline"), Offline: true})
 	if err != nil {
 		t.Fatal(err)
@@ -101,6 +100,20 @@ func TestMultiPageBuildIsByteIdenticalOnlineOfflineAndExactReplay(t *testing.T) 
 			t.Fatalf("build %s is not byte-identical to online build", path)
 		}
 	}
+	tooSmall := strings.Replace(updated, "features: 4", "features: 3", 1)
+	if err := os.WriteFile(projectPath, []byte(tooSmall), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	for _, options := range []BuildOptions{
+		{ProjectPath: projectPath, CacheDir: cacheDir, LibraryDir: filepath.Join(t.TempDir(), "online-over")},
+		{ProjectPath: projectPath, CacheDir: cacheDir, LibraryDir: filepath.Join(t.TempDir(), "offline-over"), Offline: true},
+		{ProjectPath: projectPath, CacheDir: cacheDir, LibraryDir: filepath.Join(t.TempDir(), "replay-over"), ReplayPath: online.Path},
+	} {
+		if _, err := Build(context.Background(), options); err == nil || !strings.Contains(err.Error(), "emits 4 features, budget is 3") {
+			t.Fatalf("semantic budget mode error = %v", err)
+		}
+	}
+	server.Close()
 }
 
 func allCaptureEventsCached(events []Event, want bool) bool {

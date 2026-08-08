@@ -103,4 +103,10 @@ func TestBuildBudgetsResolveStableDefaultsAndRejectInversion(t *testing.T) {
 	if _, err := (BuildBudgets{RequestBytes: 2, TotalBytes: 1}).resolved(); err == nil {
 		t.Fatal("request budget larger than total was accepted")
 	}
+	if _, err := (BuildBudgets{Features: -1}).resolved(); err == nil {
+		t.Fatal("negative feature budget was accepted")
+	}
+	if _, err := (BuildBudgets{GeometryPositions: -1}).resolved(); err == nil {
+		t.Fatal("negative geometry-position budget was accepted")
+	}
 }

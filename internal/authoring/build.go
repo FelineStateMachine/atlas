@@ -102,6 +102,9 @@ func Build(ctx context.Context, options BuildOptions) (BuildResult, error) {
 	if err != nil {
 		return result, err
 	}
+	if err := enforceSemanticBudgets(volume, plan.Budgets); err != nil {
+		return result, err
+	}
 	if err := attachAssets(project, plan, captures, cache, &volume); err != nil {
 		return result, err
 	}
