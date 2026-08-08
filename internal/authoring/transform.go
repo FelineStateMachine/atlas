@@ -29,7 +29,24 @@ func transformGeometry(geometry vnext.Geometry, mapping GeometryMap, target Coor
 	if len(clipped.Parts) == 0 {
 		return vnext.Geometry{}, fmt.Errorf("transformed geometry falls outside target extent")
 	}
-	return clipped, nil
+	return clampGeometry(clipped, target.Extent), nil
+}
+
+// clampGeometry removes floating-point dust left by affine projection and
+// segment intersection at an exact target edge. Clipping has already decided
+// topology; this only makes its closed-bound promise exact on disk.
+func clampGeometry(geometry vnext.Geometry, extent [4]float64) vnext.Geometry {
+	for partIndex := range geometry.Parts {
+		for ringIndex := range geometry.Parts[partIndex].Rings {
+			for positionIndex, position := range geometry.Parts[partIndex].Rings[ringIndex] {
+				geometry.Parts[partIndex].Rings[ringIndex][positionIndex] = vnext.Position{
+					math.Max(extent[0], math.Min(extent[2], position[0])),
+					math.Max(extent[1], math.Min(extent[3], position[1])),
+				}
+			}
+		}
+	}
+	return geometry
 }
 
 func clipGeometry(geometry vnext.Geometry, extent [4]float64) vnext.Geometry {

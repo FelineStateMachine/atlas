@@ -92,3 +92,29 @@ func TestTransformGeometryClipsCrossingPathsAndAreasToTheTarget(t *testing.T) {
 		}
 	}
 }
+
+func TestTransformGeometryClampsFloatingPointDustAtTheClosedExtent(t *testing.T) {
+	target := CoordinateSpace{Extent: [4]float64{0, 0, 10, 10}}
+	mapping := GeometryMap{
+		Family: "path",
+		Transform: CoordinateTransform{Kind: "affine", Matrix: [6]float64{
+			0.1, 0, -0.1,
+			0, 0.1, -0.1,
+		}},
+	}
+	geometry := vnext.Geometry{Kind: vnext.GeometryLineString, Parts: []vnext.GeometryPart{{Rings: [][]vnext.Position{{
+		{1, 1}, {101, 101},
+	}}}}}
+	got, err := transformGeometry(geometry, mapping, target)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, position := range got.Parts[0].Rings[0] {
+		if position[0] < 0 || position[1] < 0 || position[0] > 10 || position[1] > 10 {
+			t.Fatalf("clipped position escaped the exact extent: %v", position)
+		}
+	}
+	if got.Parts[0].Rings[0][0] != (vnext.Position{0, 0}) || got.Parts[0].Rings[0][1] != (vnext.Position{10, 10}) {
+		t.Fatalf("closed extent was not exact: %v", got.Parts[0].Rings[0])
+	}
+}
