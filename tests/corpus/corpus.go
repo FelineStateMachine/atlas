@@ -18,6 +18,7 @@ import (
 	"path/filepath"
 
 	"github.com/FelineStateMachine/atlas/format/bundle"
+	"github.com/FelineStateMachine/atlas/format/vnext"
 )
 
 // Root answers the corpus bundles directory, relative to some caller-known
@@ -50,13 +51,13 @@ func Pack(fixture, dir string) (string, error) {
 		return "", err
 	}
 
-	path := filepath.Join(dir, bundle.VersionedFileName(manifest))
-	file, err := os.Create(path)
+	legacy, err := os.CreateTemp(dir, ".corpus-v3-*")
 	if err != nil {
 		return "", err
 	}
-	defer file.Close()
-	writer, err := bundle.NewWriter(file, manifest)
+	legacyPath := legacy.Name()
+	defer os.Remove(legacyPath)
+	writer, err := bundle.NewWriter(legacy, manifest)
 	if err != nil {
 		return "", err
 	}
@@ -85,6 +86,46 @@ func Pack(fixture, dir string) (string, error) {
 		}
 	}
 	if err := writer.Close(); err != nil {
+		return "", err
+	}
+	if err := legacy.Close(); err != nil {
+		return "", err
+	}
+	opened, err := bundle.Open(legacyPath)
+	if err != nil {
+		return "", err
+	}
+	semantic, err := vnext.ImportV3Volume(manifest, opened.ReadEntry)
+	opened.Close()
+	if err != nil {
+		return "", err
+	}
+	packed, err := vnext.Compile(semantic)
+	if err != nil {
+		return "", err
+	}
+	packed.Release.CreatedAt = manifest.Version.CreatedAt
+	packed.Release.Revision = manifest.Version.Revision
+	native, err := os.CreateTemp(dir, ".corpus-native-*")
+	if err != nil {
+		return "", err
+	}
+	nativePath := native.Name()
+	defer os.Remove(nativePath)
+	if err := vnext.Write(native, packed); err != nil {
+		native.Close()
+		return "", err
+	}
+	if err := native.Close(); err != nil {
+		return "", err
+	}
+	descriptor, err := vnext.Describe(nativePath, vnext.StandardSchema())
+	if err != nil {
+		return "", err
+	}
+	release := vnext.Release{Title: descriptor.Title, CreatedAt: descriptor.CreatedAt, Revision: descriptor.Revision, Stamp: descriptor.Stamp, Worlds: descriptor.Worlds}
+	path := filepath.Join(dir, vnext.VersionedFileName(descriptor.Slug, release))
+	if err := os.Rename(nativePath, path); err != nil {
 		return "", err
 	}
 	return path, nil

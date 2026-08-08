@@ -129,10 +129,10 @@ func (a *App) announce(changed []string) {
 		if !serving {
 			continue
 		}
-		manifest := volume.Manifest()
+		info := volume.Info()
 		world := a.session(slug).World
-		if _, ok := worldEntry(manifest, world); !ok {
-			world = manifest.Worlds[0].Slug
+		if _, ok := worldEntry(info, world); !ok {
+			world = info.Worlds[0].Slug
 		}
 		where := partialTargets["shell"]
 		directive := []byte("<hx-partial hx-target=\"" + where.target + "\" hx-swap=\"" + where.swap +

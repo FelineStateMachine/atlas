@@ -22,7 +22,7 @@ import (
 	"errors"
 	"io"
 
-	"github.com/FelineStateMachine/atlas/format/bundle"
+	"github.com/FelineStateMachine/atlas/format/vnext"
 )
 
 // ErrNoSession is what a [SessionStore] returns for a record it does not
@@ -62,11 +62,11 @@ var ErrNoSelection = errors.New("hostenv: nothing was chosen")
 // serving build of each volume, a way to open entries out of one, and the two
 // operations that change what is installed.
 //
-// The registry model is scan at launch, rescan on import -- no directory
-// watching (issue #5 §2, decision 15). A file dropped into the library from
-// outside appears at the next launch. The fold that decides which build of a
-// volume serves is pure and lives in format/bundle; a store only has to walk
-// whatever it keeps its bundles in and hand the fold its descriptors.
+// The registry model is scan at launch, rescan on install -- no directory
+// watching (issue #5 §2, decision 15). A file copied directly into the library
+// outside Atlas appears at the next launch. Desktop open and drop events use
+// Install instead. The serving-build fold is pure and lives in format/vnext;
+// a store only walks its library and hands the fold its descriptors.
 type VolumeStore interface {
 	// Volumes lists the serving build of every installed volume, one per
 	// slug, sorted by slug. The result is a snapshot: it does not change
@@ -94,13 +94,46 @@ type VolumeStore interface {
 // Volume is one serving build: what the bundle says about itself, and a door
 // to the entries inside it.
 type Volume interface {
-	// Manifest is the volume's own account of itself, already validated.
-	Manifest() bundle.Manifest
+	// Info is the small, schema-independent account used by navigation and
+	// catalog views without decoding physical blocks.
+	Info() VolumeInfo
 
-	// Open reads one entry of the archive by its full name --
-	// "worlds/hyrule.json", "tiles/hyrule/0/0/0.jpg" -- and reports its
-	// uncompressed size, so a server can announce a length before streaming.
-	Open(entry string) (io.ReadCloser, int64, error)
+	// Semantic is the canonical graph restored from typed blocks.
+	Semantic() vnext.Volume
+
+	// Blob reads one opaque payload such as a raster tile or image asset.
+	Blob(entry string) ([]byte, error)
+
+	// Schema and TableBlock expose the native typed data plane to clients that
+	// decode columns directly.
+	Schema() ([]byte, error)
+	TableBlock(entry string) ([]byte, error)
+}
+
+type VolumeInfo struct {
+	Slug     string        `json:"slug"`
+	Title    string        `json:"title"`
+	Stamp    string        `json:"stamp"`
+	Release  vnext.Release `json:"release"`
+	Worlds   []WorldInfo   `json:"worlds"`
+	TileGrid TileGrid      `json:"tileGrid"`
+}
+
+type WorldInfo struct {
+	Slug      string `json:"slug"`
+	Title     string `json:"title"`
+	Parent    string `json:"parent,omitempty"`
+	Points    int    `json:"points"`
+	Paths     int    `json:"paths"`
+	Areas     int    `json:"areas"`
+	UpdatedAt string `json:"updatedAt"`
+}
+
+type TileGrid struct {
+	SourceZoom int `json:"sourceZoom"`
+	FirstTile  int `json:"firstTile"`
+	TileSize   int `json:"tileSize"`
+	Size       int `json:"size"`
 }
 
 // Installed is what an import turned out to be: the volume it was a build of,

@@ -66,6 +66,7 @@ func TestVolumeTravelsFromDomainThroughBundleToPresentation(t *testing.T) {
 	if err != nil {
 		t.Fatalf("compile volume: %v", err)
 	}
+	packed.Release.CreatedAt = "2026-08-01T20:13:08Z"
 	var archive bytes.Buffer
 	if err := Write(&archive, packed); err != nil {
 		t.Fatalf("write bundle: %v", err)

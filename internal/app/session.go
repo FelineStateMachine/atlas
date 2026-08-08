@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"github.com/FelineStateMachine/atlas/format/bundle"
+	"github.com/FelineStateMachine/atlas/format/vnext"
 	"github.com/FelineStateMachine/atlas/internal/app/cells"
 	"github.com/FelineStateMachine/atlas/internal/app/hostenv"
 	"github.com/FelineStateMachine/atlas/internal/logging"
@@ -379,7 +380,7 @@ func (a *App) handleSession(w http.ResponseWriter, r *http.Request) {
 	}
 
 	session := a.session(slug)
-	session.Stamp = bundle.ShortStamp(volume.Manifest().Version.Stamp)
+	session.Stamp = vnext.ShortStamp(volume.Info().Stamp)
 	a.arrange(volume, &session)
 	ctx := &concernContext{session: &session, world: a.world(volume, session.World)}
 	if err := held.apply(ctx, form); err != nil {
@@ -428,13 +429,13 @@ func (a *App) resetSession(w http.ResponseWriter, volume hostenv.Volume, slug st
 	// reset pressed twice -- falls back to the volume's first world, and a
 	// volume with no worlds to fall back to falls all the way back to /,
 	// which sends the reader to the volume they were last in.
-	manifest := volume.Manifest()
+	info := volume.Info()
 	held := a.session(slug)
 	world := held.World
-	if _, serving := worldEntry(manifest, world); !serving {
+	if _, serving := worldEntry(info, world); !serving {
 		world = ""
-		if len(manifest.Worlds) > 0 {
-			world = manifest.Worlds[0].Slug
+		if len(info.Worlds) > 0 {
+			world = info.Worlds[0].Slug
 		}
 	}
 	where := "/"
@@ -477,11 +478,11 @@ func (a *App) arrange(volume hostenv.Volume, s *Session) {
 		return
 	}
 	if s.World == "" {
-		manifest := volume.Manifest()
-		if len(manifest.Worlds) == 0 {
+		info := volume.Info()
+		if len(info.Worlds) == 0 {
 			return
 		}
-		s.World = manifest.Worlds[0].Slug
+		s.World = info.Worlds[0].Slug
 	}
 	model := a.world(volume, s.World)
 	if model == nil {

@@ -4,12 +4,11 @@ import (
 	"bytes"
 	"context"
 	"errors"
-	"io"
 	"os"
 	"path/filepath"
 	"testing"
 
-	"github.com/FelineStateMachine/atlas/format/bundle"
+	"github.com/FelineStateMachine/atlas/format/vnext"
 	"github.com/FelineStateMachine/atlas/internal/app/hostenv"
 	"github.com/FelineStateMachine/atlas/internal/app/hostenv/oshost"
 )
@@ -29,52 +28,41 @@ func (b build) write(t *testing.T, dir string) string {
 	if b.world == "" {
 		b.world = "overworld"
 	}
-	manifest := bundle.Manifest{
-		Format:        bundle.Format,
-		FormatVersion: bundle.FormatVersion,
-		Volume:        bundle.Volume{Slug: b.slug, Title: b.title},
-		Version: bundle.Version{
-			Stamp:     bundle.HashBytes([]byte(b.slug + b.createdAt + b.world)),
-			CreatedAt: b.createdAt,
-			Revision:  b.revision,
-		},
-		TileGrid: bundle.TileGrid{SourceZoom: 13, FirstTile: 4064, TileSize: 256, Size: 8192},
-		Worlds: []bundle.WorldEntry{{
-			Slug: b.world, Title: b.title + " ground", Points: 1, UpdatedAt: b.createdAt,
+	volume := vnext.Volume{
+		ID: b.slug, Title: b.title,
+		Worlds: []vnext.World{{
+			ID: b.world, Title: b.title + " ground",
+			CoordinateSpace: vnext.CoordinateSpace{ID: "space", Kind: "synthetic", Unit: "pixel", Definition: "atlas:plane", SourceZoom: 13, FirstTile: 4064, TileSize: 256, Size: 8192, Extent: [4]float64{0, 0, 8192, 8192}},
+			FeatureSets: []vnext.FeatureSet{{ID: "markers", Title: "Markers", SemanticType: "geometry.point", Features: []vnext.Feature{{
+				ID: "origin", Title: "Origin", Geometry: vnext.Geometry{Kind: vnext.GeometryPoint, Parts: []vnext.GeometryPart{{Rings: [][]vnext.Position{{{0, 0}}}}}},
+			}}}},
+			RasterPyramids: []vnext.RasterPyramid{{ID: "base", Name: "Base", Codec: "image/jpeg", TileSize: 256, MinZoom: 0, MaxZoom: 0, FullZoom: 0, SourceZoom: 13, Template: "tiles/" + b.world + "/{z}/{x}/{y}.jpg", Formats: []string{"jpg"}}},
+			Presentation:   vnext.Presentation{ID: "default", Title: "Default", Styles: []vnext.Style{{ID: "marker"}}, Layers: []vnext.Layer{{ID: "markers", FeatureSet: "markers", Style: "marker", Visible: true}}},
 		}},
 	}
-	path := filepath.Join(dir, bundle.VersionedFileName(manifest))
+	packed, err := vnext.Compile(volume)
+	if err != nil {
+		t.Fatal(err)
+	}
+	packed.Release.CreatedAt = b.createdAt
+	packed.Release.Revision = b.revision
+	packed.Blobs = append(packed.Blobs, vnext.Blob{Name: "tiles/" + b.world + "/0/0/0.jpg", Data: []byte("raster")})
+	path := filepath.Join(dir, b.slug+"-"+b.createdAt[5:7]+b.createdAt[8:10]+".atlas")
 	file, err := os.Create(path)
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer file.Close()
-	writer, err := bundle.NewWriter(file, manifest)
-	if err != nil {
+	if err := vnext.Write(file, packed); err != nil {
+		file.Close()
 		t.Fatal(err)
 	}
-	detail := `{"lenses":[{"tiles":"` + b.world + `","minZoom":0,"maxZoom":0,"formats":["jpg"]}],` +
-		`"collections":[{"id":1,"title":"Marker","kind":"point","visible":true}]}`
-	if err := writer.AddDeflated(bundle.WorldEntryName(b.world, bundle.WorldSuffix), []byte(detail)); err != nil {
-		t.Fatal(err)
-	}
-	packed := bundle.PackLocations([]bundle.Location{{ID: 1, Title: "Origin"}})
-	if err := writer.AddStored(bundle.WorldEntryName(b.world, bundle.PackedSuffix), bytes.NewReader(packed)); err != nil {
-		t.Fatal(err)
-	}
-	if err := writer.AddDeflated(bundle.WorldEntryName(b.world, bundle.TextSuffix), []byte(`{}`)); err != nil {
-		t.Fatal(err)
-	}
-	if err := writer.AddStored(bundle.TilesPrefix+b.world+"/0/0/0.jpg", bytes.NewReader([]byte("raster"))); err != nil {
-		t.Fatal(err)
-	}
-	if err := writer.Close(); err != nil {
+	if err := file.Close(); err != nil {
 		t.Fatal(err)
 	}
 	return path
 }
 
-// The fold is format/bundle's; what this checks is that the walk hands it
+// The fold is format/vnext's; what this checks is that the walk hands it
 // every build and serves the one it picks.
 func TestVolumesServesTheFoldsWinner(t *testing.T) {
 	dir := t.TempDir()
@@ -93,27 +81,22 @@ func TestVolumesServesTheFoldsWinner(t *testing.T) {
 	if len(volumes) != 2 {
 		t.Fatalf("%d volumes serving, want 2", len(volumes))
 	}
-	if got := volumes[0].Manifest().Volume.Slug; got != "mars" {
+	if got := volumes[0].Info().Slug; got != "mars" {
 		t.Errorf("volumes are listed %q first, want them sorted by slug", got)
 	}
-	tunic := volumes[1].Manifest()
-	if tunic.Version.CreatedAt != "2026-02-01T00:00:00Z" {
-		t.Errorf("serving the build of %s, want the newest capture", tunic.Version.CreatedAt)
+	tunic := volumes[1].Info()
+	if tunic.Release.CreatedAt != "2026-02-01T00:00:00Z" {
+		t.Errorf("serving the build of %s, want the newest capture", tunic.Release.CreatedAt)
 	}
 
-	entry, size, err := volumes[1].Open(bundle.WorldEntryName("overworld", bundle.WorldSuffix))
+	payload, err := volumes[1].Blob("tiles/overworld/0/0/0.jpg")
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer entry.Close()
-	payload, err := io.ReadAll(entry)
-	if err != nil {
-		t.Fatal(err)
+	if string(payload) != "raster" {
+		t.Errorf("blob = %q", payload)
 	}
-	if int64(len(payload)) != size {
-		t.Errorf("entry announced %d bytes and read %d", size, len(payload))
-	}
-	if _, _, err := volumes[1].Open("worlds/not-a-world.json"); err == nil {
+	if _, err := volumes[1].Blob("worlds/not-a-world.json"); err == nil {
 		t.Error("an entry the bundle does not hold opened")
 	}
 }

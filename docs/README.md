@@ -17,7 +17,8 @@ pictures it, and [`decisions/`](decisions/) is why any of it is shaped this way.
 
 | Document | What it is |
 |---|---|
-| [`format.md`](format.md) | Normative `.atlas` v3 spec, sufficient alone to implement a reader: the container, the manifest, the world payload, the `ATLASLOC` bytes, stamps and ordering, validation, the registry directory, and a checklist for a new reader. |
+| [`format.md`](format.md) | Normative native schema-bundle spec: semantic graph, typed blocks, compatibility, release ordering, validation, and install. |
+| [`format-v3.md`](format-v3.md) | Historical specification for the retired document-shaped format; current readers do not install it. |
 | [`semconv/REGISTRY.md`](semconv/REGISTRY.md) | The attribute vocabulary, generated from `spec/registry.yaml`; `spec/gen`'s own test holds the committed copy up to date. |
 | [`generate.md`](generate.md) | The generate lane: the interchange document, the sources and their gates, the capture archive, tile derivation, composition, curation. §2.8 is the "add a source" walkthrough. |
 | [`enrich.md`](enrich.md) | The enrich lane: the enricher interface, the contribution format, the ledger vocabulary, the curated queue, the maturity score. |

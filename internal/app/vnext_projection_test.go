@@ -13,14 +13,14 @@ import (
 func TestVNextEarthProjectsToTheEstablishedRendererContract(t *testing.T) {
 	t.Parallel()
 
-	legacy, err := bundle.Open(includedEarthPath(t))
+	native, err := vnext.OpenFile(includedEarthPath(t), vnext.StandardSchema())
 	if err != nil {
-		t.Fatalf("open v3 Earth: %v", err)
+		t.Fatalf("open native Earth: %v", err)
 	}
-	defer legacy.Close()
-	semantic, err := vnext.ImportV3Volume(legacy.Manifest, legacy.ReadEntry)
+	defer native.Close()
+	semantic, err := native.Volume()
 	if err != nil {
-		t.Fatalf("import v3 Earth: %v", err)
+		t.Fatalf("restore native Earth: %v", err)
 	}
 
 	payload, locations, texts, err := presentVNextWorld(semantic.Worlds[0])
@@ -57,14 +57,14 @@ func TestVNextEarthProjectsToTheEstablishedRendererContract(t *testing.T) {
 func TestVNextEarthServesTheThreeRendererPayloads(t *testing.T) {
 	t.Parallel()
 
-	legacy, err := bundle.Open(includedEarthPath(t))
+	native, err := vnext.OpenFile(includedEarthPath(t), vnext.StandardSchema())
 	if err != nil {
-		t.Fatalf("open v3 Earth: %v", err)
+		t.Fatalf("open native Earth: %v", err)
 	}
-	defer legacy.Close()
-	semantic, err := vnext.ImportV3Volume(legacy.Manifest, legacy.ReadEntry)
+	defer native.Close()
+	semantic, err := native.Volume()
 	if err != nil {
-		t.Fatalf("import v3 Earth: %v", err)
+		t.Fatalf("restore native Earth: %v", err)
 	}
 	world := semantic.Worlds[0]
 
@@ -105,7 +105,11 @@ func includedEarthPath(t *testing.T) string {
 	if !ok {
 		t.Fatal("locate projection test")
 	}
-	return filepath.Join(filepath.Dir(file), "..", "..", "included", "earth-20260803-76633cb323ec.atlas")
+	paths, err := filepath.Glob(filepath.Join(filepath.Dir(file), "..", "..", "included", "earth-*.atlas"))
+	if err != nil || len(paths) != 1 {
+		t.Fatalf("locate native Earth: %v, %v", paths, err)
+	}
+	return paths[0]
 }
 
 func projectedCollection(payload worldPayload, title string) *payloadCollection {

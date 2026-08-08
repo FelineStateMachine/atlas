@@ -204,6 +204,18 @@ jobs:
             <key>CFBundlePackageType</key><string>APPL</string>
             <key>CFBundleInfoDictionaryVersion</key><string>6.0</string>
             <key>CFBundleShortVersionString</key><string>${VERSION#v}</string>
+            <key>CFBundleDocumentTypes</key><array><dict>
+              <key>CFBundleTypeName</key><string>Atlas Volume</string>
+              <key>CFBundleTypeRole</key><string>Viewer</string>
+              <key>LSItemContentTypes</key><array><string>dev.felinestatemachine.atlas.volume</string></array>
+            </dict></array>
+            <key>UTExportedTypeDeclarations</key><array><dict>
+              <key>UTTypeIdentifier</key><string>dev.felinestatemachine.atlas.volume</string>
+              <key>UTTypeConformsTo</key><array><string>public.data</string><string>public.archive</string></array>
+              <key>UTTypeDescription</key><string>Atlas Volume</string>
+              <key>UTTypeTagSpecification</key><dict><key>public.filename-extension</key><array><string>atlas</string></array></dict>
+            </dict></array>
+            <key>LSSupportsOpeningDocumentsInPlace</key><true/>
             <key>LSMinimumSystemVersion</key><string>12.0</string>
             <key>NSHighResolutionCapable</key><true/>
           </dict>

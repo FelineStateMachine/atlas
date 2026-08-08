@@ -374,7 +374,7 @@ func decodeAssets(reader *Reader, table Table) ([]Asset, error) {
 	assets := make([]Asset, table.Rows)
 	for row := 0; row < table.Rows; row++ {
 		path := requiredString(table, row, "asset.path")
-		data, err := reader.blob(path)
+		data, err := reader.Blob(path)
 		if err != nil {
 			return nil, err
 		}

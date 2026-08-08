@@ -1,7 +1,7 @@
 # The included Earth volume
 
 The one `.atlas` file in this directory is the included Earth volume: a real,
-ordinary format-v3 bundle the desktop shell embeds (`//go:embed included/*.atlas`
+ordinary native schema bundle the desktop shell embeds (`//go:embed included/*.atlas`
 in `main.go`) and installs into the reader's library at startup, through the
 same `format/bundle` path an imported bundle takes. A first launch therefore
 opens onto a world instead of an empty library, and everything after
@@ -39,7 +39,7 @@ implied; the bundle's provenance ledger carries the credit, and nothing here
 does the other two. Natural Earth is in the public domain; its boundaries and
 its primary-capital designations are carried exactly as that project draws
 them, de facto, with no editorial judgement added here. No source URL appears
-inside the bundle — format v3's runtime-URL prohibition holds for this volume
+inside the bundle — the native format's offline invariant holds for this volume
 exactly as for any other.
 
 ## Derivation
@@ -58,7 +58,7 @@ past the world-pixel resolution, the way every deep pyramid in the corpus is.
 The ordinary tile lane folds the reference level and everything shallower down
 from the cut and derives coverage, bounds and stamps; the ordinary compose lane
 writes and validates the bundle. The full extent survives uncropped, tiles are
-stored, not deflated, as format v3 requires, and the finished file is ~21 MiB —
+stored, not deflated, as the native format requires, and the finished file is ~21 MiB —
 inside the 25 MiB budget the included volume keeps so the executable stays
 portable.
 

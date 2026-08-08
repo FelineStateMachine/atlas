@@ -9,6 +9,7 @@ import (
 	"strings"
 
 	"github.com/FelineStateMachine/atlas/format/bundle"
+	"github.com/FelineStateMachine/atlas/format/vnext"
 	"github.com/FelineStateMachine/atlas/internal/logging"
 )
 
@@ -31,13 +32,13 @@ func (a *App) handleHome(w http.ResponseWriter, r *http.Request) {
 	if !serving {
 		volume = held.order[0]
 	}
-	manifest := volume.Manifest()
-	session := a.session(manifest.Volume.Slug)
+	info := volume.Info()
+	session := a.session(info.Slug)
 	world := session.World
-	if _, ok := worldEntry(manifest, world); !ok {
-		world = manifest.Worlds[0].Slug
+	if _, ok := worldEntry(info, world); !ok {
+		world = info.Worlds[0].Slug
 	}
-	http.Redirect(w, r, "/v/"+manifest.Volume.Slug+"/"+world, http.StatusFound)
+	http.Redirect(w, r, "/v/"+info.Slug+"/"+world, http.StatusFound)
 }
 
 // handleOpen is the doorway the volume and world selects go through.
@@ -59,15 +60,15 @@ func (a *App) handleOpen(w http.ResponseWriter, r *http.Request) {
 		}
 		volume = held.order[0]
 	}
-	manifest := volume.Manifest()
+	info := volume.Info()
 	world := r.URL.Query().Get("world")
-	if _, ok := worldEntry(manifest, world); !ok {
-		world = a.session(manifest.Volume.Slug).World
+	if _, ok := worldEntry(info, world); !ok {
+		world = a.session(info.Slug).World
 	}
-	if _, ok := worldEntry(manifest, world); !ok {
-		world = manifest.Worlds[0].Slug
+	if _, ok := worldEntry(info, world); !ok {
+		world = info.Worlds[0].Slug
 	}
-	http.Redirect(w, r, "/v/"+manifest.Volume.Slug+"/"+world, http.StatusFound)
+	http.Redirect(w, r, "/v/"+info.Slug+"/"+world, http.StatusFound)
 }
 
 // handleExplorer serves one world of one volume: the whole page, server
@@ -84,8 +85,8 @@ func (a *App) handleExplorer(w http.ResponseWriter, r *http.Request) {
 		http.NotFound(w, r)
 		return
 	}
-	manifest := volume.Manifest()
-	if _, ok := worldEntry(manifest, world); !ok {
+	info := volume.Info()
+	if _, ok := worldEntry(info, world); !ok {
 		http.NotFound(w, r)
 		return
 	}
@@ -117,7 +118,7 @@ func (a *App) handleExplorer(w http.ResponseWriter, r *http.Request) {
 		session.Focused = ""
 	}
 	session.World = world
-	session.Stamp = bundle.ShortStamp(manifest.Version.Stamp)
+	session.Stamp = vnext.ShortStamp(info.Stamp)
 	a.arrange(volume, &session)
 	if err := a.saveSession(&session); err != nil {
 		slog.Warn("the session could not be written", logging.Op("session"),

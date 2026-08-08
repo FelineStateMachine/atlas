@@ -13,7 +13,7 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/FelineStateMachine/atlas/format/bundle"
+	"github.com/FelineStateMachine/atlas/format/vnext"
 	"github.com/FelineStateMachine/atlas/tests/corpus"
 )
 
@@ -60,7 +60,7 @@ func run() error {
 	if len(included) != 1 {
 		return fmt.Errorf("included/ holds %d bundles, want exactly the one Earth", len(included))
 	}
-	installed, err := bundle.Install(dir, included[0])
+	installed, err := vnext.Install(dir, included[0], vnext.StandardSchema())
 	if err != nil {
 		return fmt.Errorf("installing %s: %w", included[0], err)
 	}

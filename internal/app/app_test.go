@@ -1,7 +1,6 @@
 package app_test
 
 import (
-	"bytes"
 	"context"
 	"encoding/json"
 	"errors"
@@ -13,6 +12,7 @@ import (
 	"testing"
 
 	"github.com/FelineStateMachine/atlas/format/bundle"
+	"github.com/FelineStateMachine/atlas/format/vnext"
 	"github.com/FelineStateMachine/atlas/internal/app"
 	"github.com/FelineStateMachine/atlas/internal/app/hostenv"
 )
@@ -26,15 +26,34 @@ type fakeVolume struct {
 	entries  map[string][]byte
 }
 
-func (v *fakeVolume) Manifest() bundle.Manifest { return v.manifest }
+func (v *fakeVolume) Info() hostenv.VolumeInfo {
+	manifest := v.manifest
+	info := hostenv.VolumeInfo{
+		Slug: manifest.Volume.Slug, Title: manifest.Volume.Title, Stamp: manifest.Version.Stamp,
+		Release:  vnext.Release{Title: manifest.Volume.Title, CreatedAt: manifest.Version.CreatedAt, Revision: manifest.Version.Revision, Stamp: manifest.Version.Stamp, Worlds: len(manifest.Worlds)},
+		TileGrid: hostenv.TileGrid{SourceZoom: manifest.TileGrid.SourceZoom, FirstTile: manifest.TileGrid.FirstTile, TileSize: manifest.TileGrid.TileSize, Size: manifest.TileGrid.Size},
+	}
+	for _, world := range manifest.Worlds {
+		info.Worlds = append(info.Worlds, hostenv.WorldInfo{Slug: world.Slug, Title: world.Title, Parent: world.Parent, Points: world.Points, Paths: world.Paths, Areas: world.Areas, UpdatedAt: world.UpdatedAt})
+	}
+	return info
+}
 
-func (v *fakeVolume) Open(name string) (io.ReadCloser, int64, error) {
+func (v *fakeVolume) Semantic() vnext.Volume {
+	semantic, _ := vnext.ImportV3Volume(v.manifest, func(name string) ([]byte, error) { return v.Blob(name) })
+	return semantic
+}
+
+func (v *fakeVolume) Blob(name string) ([]byte, error) {
 	held, ok := v.entries[name]
 	if !ok {
-		return nil, 0, errors.New("no such entry")
+		return nil, errors.New("no such entry")
 	}
-	return io.NopCloser(bytes.NewReader(held)), int64(len(held)), nil
+	return held, nil
 }
+
+func (v *fakeVolume) Schema() ([]byte, error)           { return vnext.StandardSchema().Canonical() }
+func (v *fakeVolume) TableBlock(string) ([]byte, error) { return nil, errors.New("no typed fixture") }
 
 type fakeVolumes struct {
 	volumes  []hostenv.Volume
@@ -66,14 +85,14 @@ func (s *fakeVolumes) Install(name string, content io.Reader) (hostenv.Installed
 	if s.arriving == nil {
 		return hostenv.Installed{}, errors.New("nothing to install")
 	}
-	manifest := s.arriving.Manifest()
+	info := s.arriving.Info()
 	s.volumes = append(s.volumes, s.arriving)
 	return hostenv.Installed{
-		Slug:    manifest.Volume.Slug,
-		Title:   manifest.Volume.Title,
-		Stamp:   manifest.Version.Stamp,
+		Slug:    info.Slug,
+		Title:   info.Title,
+		Stamp:   info.Stamp,
 		Already: s.already,
-		Changed: []string{manifest.Volume.Slug},
+		Changed: []string{info.Slug},
 	}, nil
 }
 

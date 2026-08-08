@@ -20,11 +20,14 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"sync"
 	"sync/atomic"
 
 	wailsruntime "github.com/wailsapp/wails/v2/pkg/runtime"
 
 	"github.com/FelineStateMachine/atlas/internal/app/hostenv"
+	"github.com/FelineStateMachine/atlas/internal/logging"
+	"log/slog"
 )
 
 // Window is the live window, or the absence of one.
@@ -36,11 +39,73 @@ import (
 // opened yet, which is a state a request can genuinely arrive in: the page is
 // served over the same asset server that the window is still starting.
 type Window struct {
-	live atomic.Pointer[context.Context]
+	live    atomic.Pointer[context.Context]
+	mu      sync.Mutex
+	install func(name string, content io.Reader) error
+	pending []string
 }
 
-// Opened records the window's context. It is the shell's OnStartup.
-func (w *Window) Opened(ctx context.Context) { w.live.Store(&ctx) }
+// Accept gives every native file-open surface the application's one install
+// command. Paths remain a window concern and never enter the application.
+func (w *Window) Accept(install func(name string, content io.Reader) error) {
+	w.mu.Lock()
+	w.install = install
+	w.mu.Unlock()
+}
+
+// QueuePaths accepts launch arguments and second-instance open events. Before
+// startup they wait; after startup they are installed immediately.
+func (w *Window) QueuePaths(paths []string) {
+	w.mu.Lock()
+	w.pending = append(w.pending, atlasPaths(paths)...)
+	live := w.live.Load() != nil
+	w.mu.Unlock()
+	if live {
+		w.flush()
+	}
+}
+
+// Opened records the window context and enables native drag/drop over the
+// entire application surface.
+func (w *Window) Opened(ctx context.Context) {
+	w.live.Store(&ctx)
+	wailsruntime.OnFileDrop(ctx, func(_, _ int, paths []string) { w.QueuePaths(paths) })
+	w.flush()
+}
+
+func (w *Window) flush() {
+	w.mu.Lock()
+	paths := append([]string(nil), w.pending...)
+	w.pending = nil
+	install := w.install
+	w.mu.Unlock()
+	if install == nil {
+		return
+	}
+	for _, path := range paths {
+		file, err := os.Open(path)
+		if err == nil {
+			err = install(filepath.Base(path), file)
+			closeErr := file.Close()
+			if err == nil {
+				err = closeErr
+			}
+		}
+		if err != nil {
+			slog.Warn("native file open refused", logging.Op("install"), logging.Path(path), slog.Any("error", err))
+		}
+	}
+}
+
+func atlasPaths(paths []string) []string {
+	accepted := make([]string, 0, len(paths))
+	for _, path := range paths {
+		if filepath.Ext(path) == ".atlas" {
+			accepted = append(accepted, path)
+		}
+	}
+	return accepted
+}
 
 // Pick puts the native file picker in front of the reader and opens what they
 // chose.

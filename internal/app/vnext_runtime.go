@@ -48,12 +48,10 @@ func (cache *semanticCache) load(key string, importVolume func() (vnext.Volume, 
 }
 
 func (a *App) semanticVolume(source hostenv.Volume) (vnext.Volume, error) {
-	manifest := source.Manifest()
-	key := manifest.Volume.Slug + "@" + bundle.ShortStamp(manifest.Version.Stamp)
+	info := source.Info()
+	key := info.Slug + "@" + vnext.ShortStamp(info.Stamp)
 	return a.semantic.load(key, func() (vnext.Volume, error) {
-		return vnext.ImportV3Volume(manifest, func(name string) ([]byte, error) {
-			return readEntry(source, name)
-		})
+		return source.Semantic(), nil
 	})
 }
 

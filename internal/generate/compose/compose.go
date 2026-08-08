@@ -51,7 +51,8 @@ import (
 //	7  attribute-level merge resolution; ledgers name canonical source slugs
 //	8  shape prose defers to the text payload; shapes mark hasText
 //	9  format v3: one collections array of point, path, and area features
-const PolicyRevision = 9
+//	10 native vNext semantic tables, embedded schema, and opaque raster blobs
+const PolicyRevision = 10
 
 // Options is one composition.
 type Options struct {

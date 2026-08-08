@@ -14,7 +14,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/FelineStateMachine/atlas/format/bundle"
+	"github.com/FelineStateMachine/atlas/format/vnext"
 	"github.com/FelineStateMachine/atlas/internal/enrich"
 	"github.com/FelineStateMachine/atlas/internal/generate/archive"
 	"github.com/FelineStateMachine/atlas/internal/generate/compose"
@@ -456,9 +456,9 @@ func verifyBundles(t *testing.T, registry string) {
 	if len(paths) != 2 {
 		t.Fatalf("the registry holds %d bundles, want the city and the merged game", len(paths))
 	}
-	byVolume := map[string]*bundle.Reader{}
+	byVolume := map[string]*vnext.File{}
 	for _, path := range paths {
-		reader, err := bundle.Open(path)
+		reader, err := vnext.OpenFile(path, vnext.StandardSchema())
 		if err != nil {
 			t.Fatalf("open %s: %v", filepath.Base(path), err)
 		}
@@ -466,7 +466,7 @@ func verifyBundles(t *testing.T, registry string) {
 		if err := reader.Validate(); err != nil {
 			t.Fatalf("validate %s: %v", filepath.Base(path), err)
 		}
-		byVolume[reader.Manifest.Volume.Slug] = reader
+		byVolume[reader.VolumeID] = reader
 	}
 
 	t.Run("the merged game", func(t *testing.T) {
@@ -476,55 +476,30 @@ func verifyBundles(t *testing.T, registry string) {
 		}
 		// The version is the capture, not the build clock, and an enriched
 		// build outranks the plain build of the same capture by revision.
-		if got := reader.Manifest.Version.CreatedAt; got != valeServingCapturedAt {
+		if got := reader.Release.CreatedAt; got != valeServingCapturedAt {
 			t.Errorf("createdAt %q, want the serving capture time %q", got, valeServingCapturedAt)
 		}
 		enriched, err := enrich.BuildRevision(compose.PolicyRevision)
 		if err != nil {
 			t.Fatal(err)
 		}
-		if reader.Manifest.Version.Revision != enriched {
-			t.Errorf("revision %d, want the enriched %d", reader.Manifest.Version.Revision, enriched)
+		if reader.Release.Revision != enriched {
+			t.Errorf("revision %d, want the enriched %d", reader.Release.Revision, enriched)
 		}
-
-		// The ledger records the merge: the origin account and the donor's,
-		// every anchor corroborated at no distance, and the donor's three own
-		// places added.
-		var payload struct {
-			Merged      []enrich.Account `json:"merged"`
-			Collections []struct {
-				Title string `json:"title"`
-				Group string `json:"group"`
-				Kind  string `json:"kind"`
-			} `json:"collections"`
+		semantic, err := reader.Volume()
+		if err != nil {
+			t.Fatal(err)
 		}
-		readBundleJSON(t, reader, bundle.WorldEntryName("world", bundle.WorldSuffix), &payload)
-		if len(payload.Merged) != 2 {
-			t.Fatalf("the ledger carries %d accounts, want origin and donor", len(payload.Merged))
-		}
-		origin, donor := payload.Merged[0], payload.Merged[1]
-		if !origin.Origin || origin.Slug != "mapgenie" {
-			t.Errorf("the first account is %s/origin=%t, want the serving reading's own", origin.Slug, origin.Origin)
-		}
-		if donor.Origin || donor.Slug != "ign-wiki" {
-			t.Errorf("the second account is %s/origin=%t, want the folded donor", donor.Slug, donor.Origin)
-		}
-		if donor.MatchedN() != len(valeAnchors) || donor.MedianMatchPx() != 0 {
-			t.Errorf("the donor matched %d places at median %dpx, want all %d anchors at 0",
-				donor.MatchedN(), donor.MedianMatchPx(), len(valeAnchors))
-		}
-		if donor.Added != len(donorOnly) || donor.HeldN() != 0 || donor.RejectedN() != 0 {
-			t.Errorf("the donor added %d, held %d, rejected %d; it offered exactly %d places of its own",
-				donor.Added, donor.HeldN(), donor.RejectedN(), len(donorOnly))
-		}
-		if donor.Alignment == "" {
-			t.Error("the donor's account names no alignment, and the merge stood on one")
-		}
-		// The donor-only collection travelled, filed under its source's name.
+		// The donor-only semantic feature set travelled, filed under its source.
 		var extras bool
-		for _, collection := range payload.Collections {
-			if collection.Title == "Extras" && collection.Group == "IGN Wiki" {
-				extras = true
+		world := semantic.Worlds[0]
+		sets := make(map[string]vnext.FeatureSet)
+		for _, set := range world.FeatureSets {
+			sets[set.ID] = set
+		}
+		for _, layer := range world.Presentation.Layers {
+			if sets[layer.FeatureSet].Title == "Extras" && layer.Group == "IGN Wiki" {
+				extras = len(sets[layer.FeatureSet].Features) == len(donorOnly)
 			}
 		}
 		if !extras {
@@ -537,19 +512,25 @@ func verifyBundles(t *testing.T, registry string) {
 		if reader == nil {
 			t.Fatal("no build of the city was installed")
 		}
-		if got := reader.Manifest.Version.CreatedAt; got != cityCapturedAt {
+		if got := reader.Release.CreatedAt; got != cityCapturedAt {
 			t.Errorf("createdAt %q, want the capture time %q", got, cityCapturedAt)
 		}
-		if reader.Manifest.Version.Revision != compose.PolicyRevision {
-			t.Errorf("revision %d, want the plain %d", reader.Manifest.Version.Revision, compose.PolicyRevision)
+		if reader.Release.Revision != compose.PolicyRevision {
+			t.Errorf("revision %d, want the plain %d", reader.Release.Revision, compose.PolicyRevision)
 		}
 		// The standard glyph the pins declare was resolved from the vendored
 		// library into the bundle's own artwork.
 		var monument, drawn bool
-		for _, name := range reader.Names() {
-			if name == "icons/std--maki-monument.svg" {
+		semantic, err := reader.Volume()
+		if err != nil {
+			t.Fatal(err)
+		}
+		for _, asset := range semantic.Assets {
+			if asset.ID == "std--maki-monument.svg" {
 				monument = true
 			}
+		}
+		for _, name := range reader.BlobNames() {
 			if strings.HasPrefix(name, "tiles/"+cityDay+"/") && strings.HasSuffix(name, ".png") {
 				drawn = true
 			}
@@ -562,34 +543,25 @@ func verifyBundles(t *testing.T, registry string) {
 		}
 		// All three feature kinds crossed the pipeline: pins, the multipart
 		// zoning ground, and the trail path.
-		var payload struct {
-			Collections []struct {
-				Title    string `json:"title"`
-				Kind     string `json:"kind"`
-				Features []struct {
-					Title    string            `json:"title"`
-					Geometry []json.RawMessage `json:"geometry"`
-				} `json:"features"`
-			} `json:"collections"`
-		}
-		readBundleJSON(t, reader, bundle.WorldEntryName(cityDay, bundle.WorldSuffix), &payload)
-		for _, collection := range payload.Collections {
-			if collection.Title == "Zoning" {
-				for _, zone := range collection.Features {
-					if zone.Title == "RS" && len(zone.Geometry) != 1 {
-						t.Errorf("the RS zone draws %d parts; its one captured row is the multipart one",
-							len(zone.Geometry))
-					}
+		points, areas, paths := 0, 0, 0
+		for _, set := range semantic.Worlds[0].FeatureSets {
+			for _, feature := range set.Features {
+				switch feature.Geometry.Kind {
+				case vnext.GeometryPoint:
+					points++
+				case vnext.GeometryPolygon:
+					areas++
+				case vnext.GeometryLineString:
+					paths++
+				}
+				if set.Title == "Zoning" && feature.Title == "RS" && len(feature.Geometry.Parts) != 2 {
+					t.Errorf("the RS zone draws %d parts; want its two polygon parts", len(feature.Geometry.Parts))
 				}
 			}
 		}
-		// Point features travel packed rather than inline in the payload, so
-		// the kinds are read off the manifest's own tally: the pins, the two
-		// zoning grounds and the trail path all crossed the pipeline.
-		entry := reader.Manifest.Worlds[0]
-		if entry.Points != 2 || entry.Areas != 2 || entry.Paths != 1 {
+		if points != 2 || areas != 2 || paths != 1 {
 			t.Errorf("the world holds %d pins, %d areas and %d paths, want 2, 2 and 1",
-				entry.Points, entry.Areas, entry.Paths)
+				points, areas, paths)
 		}
 	})
 }
@@ -607,17 +579,6 @@ func writeJSONFile(t *testing.T, path string, value any) {
 	}
 	if err := os.WriteFile(path, data, 0o644); err != nil {
 		t.Fatal(err)
-	}
-}
-
-func readBundleJSON(t *testing.T, reader *bundle.Reader, entry string, dst any) {
-	t.Helper()
-	data, err := reader.ReadEntry(entry)
-	if err != nil {
-		t.Fatalf("read %s: %v", entry, err)
-	}
-	if err := json.Unmarshal(data, dst); err != nil {
-		t.Fatalf("decode %s: %v", entry, err)
 	}
 }
 

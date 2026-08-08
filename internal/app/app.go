@@ -135,10 +135,10 @@ func (a *App) library() library {
 		bySlug: make(map[string]hostenv.Volume, len(volumes)),
 	}
 	sort.SliceStable(held.order, func(i, j int) bool {
-		return held.order[i].Manifest().Volume.Title < held.order[j].Manifest().Volume.Title
+		return held.order[i].Info().Title < held.order[j].Info().Title
 	})
 	for _, volume := range volumes {
-		held.bySlug[volume.Manifest().Volume.Slug] = volume
+		held.bySlug[volume.Info().Slug] = volume
 	}
 	return held
 }

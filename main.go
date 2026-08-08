@@ -27,6 +27,7 @@ package main
 import (
 	"embed"
 	"fmt"
+	"io"
 	"io/fs"
 	"log/slog"
 	"os"
@@ -36,7 +37,7 @@ import (
 	"github.com/wailsapp/wails/v2/pkg/options"
 	"github.com/wailsapp/wails/v2/pkg/options/assetserver"
 
-	"github.com/FelineStateMachine/atlas/format/bundle"
+	"github.com/FelineStateMachine/atlas/format/vnext"
 	"github.com/FelineStateMachine/atlas/internal/app"
 	"github.com/FelineStateMachine/atlas/internal/app/hostenv/oshost"
 	"github.com/FelineStateMachine/atlas/internal/app/hostenv/wailshost"
@@ -113,7 +114,7 @@ func run() error {
 	}
 	// The included Earth build lands before the host is constructed, so the
 	// host's first scan of the library already sees it. Installation goes
-	// through format/bundle's own path -- validated, versioned, staged,
+	// through format/vnext's own path -- validated, versioned, staged,
 	// idempotent -- so an already-installed build is a no-op and another Earth
 	// build in the library is left exactly where it is, side by side, for the
 	// registry fold to order. A built-in that cannot be installed is a startup
@@ -142,6 +143,11 @@ func run() error {
 		return err
 	}
 	handler := app.New(host, app.Options{Static: static})
+	window.Accept(func(name string, content io.Reader) error {
+		_, err := handler.Install(name, content)
+		return err
+	})
+	window.QueuePaths(os.Args[1:])
 
 	slog.Info("opening", logging.Op("desktop"), logging.Path(library),
 		slog.Int("volumes", len(host.Volumes().Volumes())))
@@ -155,6 +161,18 @@ func run() error {
 		// is a redirect, so the host walks those itself (redirects.go).
 		AssetServer: &assetserver.Options{Handler: followRedirects(handler)},
 		OnStartup:   window.Opened,
+		DragAndDrop: &options.DragAndDrop{
+			EnableFileDrop: true,
+			// The webview must never navigate to or download a dropped .atlas;
+			// Wails hands the native path to Window instead.
+			DisableWebViewDrop: true,
+		},
+		SingleInstanceLock: &options.SingleInstanceLock{
+			UniqueId: appIdentifier,
+			OnSecondInstanceLaunch: func(data options.SecondInstanceData) {
+				window.QueuePaths(data.Args)
+			},
+		},
 		// A map wants every pixel it can have, so the window opens filling the
 		// screen it lands on rather than at a size chosen here. Not fullscreen:
 		// the menu bar and the dock stay, and the window is still a window.
@@ -181,12 +199,12 @@ func installIncluded(library string) error {
 		if err != nil {
 			return fmt.Errorf("%s: %w", name, err)
 		}
-		installed, err := bundle.InstallBytes(library, data)
+		installed, err := vnext.InstallBytes(library, data, vnext.StandardSchema())
 		if err != nil {
 			return fmt.Errorf("%s: %w", name, err)
 		}
 		slog.Info("included volume installed", logging.Op("desktop"),
-			logging.Volume(installed.Slug), logging.Stamp(bundle.ShortStamp(installed.Stamp)),
+			logging.Volume(installed.Slug), logging.Stamp(vnext.ShortStamp(installed.Stamp)),
 			logging.Path(installed.Locator))
 	}
 	return nil

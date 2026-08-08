@@ -8,6 +8,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"os"
 	"slices"
 	"strings"
 	"time"
@@ -42,23 +43,31 @@ type bootstrap struct {
 	Format  string           `json:"format"`
 	Framing uint16           `json:"framing"`
 	Volume  string           `json:"volume"`
+	Release Release          `json:"release"`
 	Schema  schemaReference  `json:"schema"`
 	Tables  []tableReference `json:"tables"`
 	Blobs   []blobReference  `json:"blobs,omitempty"`
 }
 
 type preparedEntry struct {
-	name   string
-	data   []byte
-	method uint16
+	name       string
+	data       []byte
+	sourcePath string
+	method     uint16
 }
 
 // Write produces one deterministic ZIP container with a small JSON bootstrap,
 // an embedded canonical schema, stored typed blocks, and stored opaque blobs.
 func Write(out io.Writer, bundle Bundle) error {
-	if bundle.VolumeID == "" {
-		return fmt.Errorf("bundle has no volume identity")
+	if err := ValidSlug(bundle.VolumeID); err != nil {
+		return fmt.Errorf("volume identity: %w", err)
 	}
+	if err := bundle.Release.validate(false); err != nil {
+		return fmt.Errorf("release: %w", err)
+	}
+	// The stamp is always derived here; callers cannot smuggle a stale identity
+	// across a changed schema or blob set.
+	bundle.Release.Stamp = ""
 	schemaData, err := bundle.Schema.Canonical()
 	if err != nil {
 		return fmt.Errorf("canonicalize schema: %w", err)
@@ -69,6 +78,12 @@ func Write(out io.Writer, bundle Bundle) error {
 	if err != nil {
 		return err
 	}
+	stampInput, err := json.Marshal(manifest)
+	if err != nil {
+		return fmt.Errorf("marshal stamp input: %w", err)
+	}
+	stamp := sha256.Sum256(stampInput)
+	manifest.Release.Stamp = hex.EncodeToString(stamp[:])
 	manifestData, err := json.Marshal(manifest)
 	if err != nil {
 		return fmt.Errorf("marshal bootstrap: %w", err)
@@ -89,7 +104,8 @@ func Write(out io.Writer, bundle Bundle) error {
 func prepareBundle(bundle Bundle, schemaHash [32]byte, schemaName string, schemaData []byte) (bootstrap, []preparedEntry, error) {
 	manifest := bootstrap{
 		Format: containerFormat, Framing: containerFraming, Volume: bundle.VolumeID,
-		Schema: schemaReference{Name: schemaName, Hash: hex.EncodeToString(schemaHash[:])},
+		Release: bundle.Release,
+		Schema:  schemaReference{Name: schemaName, Hash: hex.EncodeToString(schemaHash[:])},
 	}
 	entries := []preparedEntry{{name: schemaName, data: schemaData, method: zip.Deflate}}
 	for _, named := range bundle.Tables {
@@ -105,15 +121,39 @@ func prepareBundle(bundle Bundle, schemaHash [32]byte, schemaName string, schema
 		entries = append(entries, preparedEntry{name: named.Name, data: data, method: zip.Store})
 	}
 	for _, blob := range bundle.Blobs {
-		digest := sha256.Sum256(blob.Data)
+		hash, length, err := blobDigest(blob)
+		if err != nil {
+			return bootstrap{}, nil, fmt.Errorf("prepare %s: %w", blob.Name, err)
+		}
 		manifest.Blobs = append(manifest.Blobs, blobReference{
-			Name: blob.Name, Hash: hex.EncodeToString(digest[:]), Length: int64(len(blob.Data)),
+			Name: blob.Name, Hash: hash, Length: length,
 		})
-		entries = append(entries, preparedEntry{name: blob.Name, data: blob.Data, method: zip.Store})
+		entries = append(entries, preparedEntry{name: blob.Name, data: blob.Data, sourcePath: blob.Path, method: zip.Store})
 	}
 	slices.SortFunc(manifest.Tables, func(left, right tableReference) int { return strings.Compare(left.Name, right.Name) })
 	slices.SortFunc(manifest.Blobs, func(left, right blobReference) int { return strings.Compare(left.Name, right.Name) })
 	return manifest, entries, nil
+}
+
+func blobDigest(blob Blob) (string, int64, error) {
+	if blob.Path == "" {
+		digest := sha256.Sum256(blob.Data)
+		return hex.EncodeToString(digest[:]), int64(len(blob.Data)), nil
+	}
+	if len(blob.Data) != 0 {
+		return "", 0, fmt.Errorf("blob has both data and a source path")
+	}
+	file, err := os.Open(blob.Path)
+	if err != nil {
+		return "", 0, err
+	}
+	defer file.Close()
+	digest := sha256.New()
+	length, err := io.Copy(digest, file)
+	if err != nil {
+		return "", 0, err
+	}
+	return hex.EncodeToString(digest.Sum(nil)), length, nil
 }
 
 func writeArchive(out io.Writer, entries []preparedEntry) error {
@@ -133,6 +173,21 @@ func writeArchive(out io.Writer, entries []preparedEntry) error {
 		if err != nil {
 			return fmt.Errorf("create %s: %w", entry.name, err)
 		}
+		if entry.sourcePath != "" {
+			source, err := os.Open(entry.sourcePath)
+			if err != nil {
+				return fmt.Errorf("open %s: %w", entry.name, err)
+			}
+			_, copyErr := io.Copy(writer, source)
+			closeErr := source.Close()
+			if copyErr != nil {
+				return fmt.Errorf("write %s: %w", entry.name, copyErr)
+			}
+			if closeErr != nil {
+				return fmt.Errorf("close %s: %w", entry.name, closeErr)
+			}
+			continue
+		}
 		if _, err := writer.Write(entry.data); err != nil {
 			return fmt.Errorf("write %s: %w", entry.name, err)
 		}
@@ -147,6 +202,7 @@ func writeArchive(out io.Writer, entries []preparedEntry) error {
 // application's merged runtime schema.
 type Reader struct {
 	VolumeID      string
+	Release       Release
 	FileSchema    Schema
 	RuntimeSchema Schema
 
@@ -179,7 +235,7 @@ func Open(source io.ReaderAt, size int64, applicationSchema Schema) (*Reader, er
 		return nil, fmt.Errorf("merge runtime schema: %w", err)
 	}
 	reader := &Reader{
-		VolumeID: manifest.Volume, FileSchema: fileSchema, RuntimeSchema: runtimeSchema,
+		VolumeID: manifest.Volume, Release: manifest.Release, FileSchema: fileSchema, RuntimeSchema: runtimeSchema,
 		entries: entries, tables: make(map[string]tableReference, len(manifest.Tables)),
 		blobs: make(map[string]blobReference, len(manifest.Blobs)),
 	}
@@ -212,9 +268,26 @@ func readBootstrap(entries map[string]*zip.File) (bootstrap, error) {
 	if err := json.Unmarshal(data, &manifest); err != nil {
 		return bootstrap{}, fmt.Errorf("decode bootstrap: %w", err)
 	}
-	if manifest.Format != containerFormat || manifest.Framing != containerFraming || manifest.Volume == "" {
+	if manifest.Format != containerFormat || manifest.Framing != containerFraming {
 		return bootstrap{}, fmt.Errorf("unsupported Atlas container identity or framing")
 	}
+	if err := ValidSlug(manifest.Volume); err != nil {
+		return bootstrap{}, fmt.Errorf("volume identity: %w", err)
+	}
+	if err := manifest.Release.Validate(); err != nil {
+		return bootstrap{}, fmt.Errorf("release: %w", err)
+	}
+	stamp := manifest.Release.Stamp
+	manifest.Release.Stamp = ""
+	stampInput, err := json.Marshal(manifest)
+	if err != nil {
+		return bootstrap{}, fmt.Errorf("marshal stamp input: %w", err)
+	}
+	digest := sha256.Sum256(stampInput)
+	if hex.EncodeToString(digest[:]) != stamp {
+		return bootstrap{}, fmt.Errorf("release stamp does not match bundle contents")
+	}
+	manifest.Release.Stamp = stamp
 	return manifest, nil
 }
 
@@ -300,6 +373,16 @@ func (reader *Reader) Table(name string) (Table, error) {
 	return block.Table, nil
 }
 
+// TableBlock returns the verified physical bytes for browser or range-based
+// consumers that decode columns themselves.
+func (reader *Reader) TableBlock(name string) ([]byte, error) {
+	reference, held := reader.tables[name]
+	if !held {
+		return nil, fmt.Errorf("bundle has no table %s", name)
+	}
+	return readReferencedEntry(reader.entries[name], reference.Length, reference.Hash)
+}
+
 func tableHasColumn(table Table, fieldID ID) bool {
 	for _, column := range table.Columns {
 		if column.Field.ID == fieldID {
@@ -309,12 +392,49 @@ func tableHasColumn(table Table, fieldID ID) bool {
 	return false
 }
 
-func (reader *Reader) blob(name string) ([]byte, error) {
+func (reader *Reader) Blob(name string) ([]byte, error) {
 	reference, held := reader.blobs[name]
 	if !held {
 		return nil, fmt.Errorf("bundle has no blob %s", name)
 	}
 	return readReferencedEntry(reader.entries[name], reference.Length, reference.Hash)
+}
+
+func (reader *Reader) TableNames() []string {
+	names := make([]string, 0, len(reader.tables))
+	for name := range reader.tables {
+		names = append(names, name)
+	}
+	slices.Sort(names)
+	return names
+}
+
+func (reader *Reader) BlobNames() []string {
+	names := make([]string, 0, len(reader.blobs))
+	for name := range reader.blobs {
+		names = append(names, name)
+	}
+	slices.Sort(names)
+	return names
+}
+
+// Validate reads and verifies every typed table and opaque blob, then restores
+// the semantic root. Installers call it before and after committing a file.
+func (reader *Reader) Validate() error {
+	for name := range reader.tables {
+		if _, err := reader.Table(name); err != nil {
+			return fmt.Errorf("validate %s: %w", name, err)
+		}
+	}
+	for name := range reader.blobs {
+		if _, err := reader.Blob(name); err != nil {
+			return fmt.Errorf("validate %s: %w", name, err)
+		}
+	}
+	if _, err := reader.Volume(); err != nil {
+		return fmt.Errorf("restore volume: %w", err)
+	}
+	return nil
 }
 
 func readLimitedEntry(entries map[string]*zip.File, name string, maximum int64) ([]byte, error) {

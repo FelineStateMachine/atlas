@@ -15,7 +15,6 @@
 package island
 
 import (
-	"bytes"
 	"context"
 	"encoding/json"
 	"io"
@@ -28,6 +27,7 @@ import (
 	"testing"
 
 	"github.com/FelineStateMachine/atlas/format/bundle"
+	"github.com/FelineStateMachine/atlas/format/vnext"
 	"github.com/FelineStateMachine/atlas/internal/app"
 	"github.com/FelineStateMachine/atlas/internal/app/hostenv"
 )
@@ -176,20 +176,39 @@ type corpusBundle struct {
 	entries  map[string][]byte
 }
 
-func (v *corpusBundle) Manifest() bundle.Manifest { return v.manifest }
+func (v *corpusBundle) Info() hostenv.VolumeInfo {
+	manifest := v.manifest
+	info := hostenv.VolumeInfo{
+		Slug: manifest.Volume.Slug, Title: manifest.Volume.Title, Stamp: manifest.Version.Stamp,
+		Release:  vnext.Release{Title: manifest.Volume.Title, CreatedAt: manifest.Version.CreatedAt, Revision: manifest.Version.Revision, Stamp: manifest.Version.Stamp, Worlds: len(manifest.Worlds)},
+		TileGrid: hostenv.TileGrid{SourceZoom: manifest.TileGrid.SourceZoom, FirstTile: manifest.TileGrid.FirstTile, TileSize: manifest.TileGrid.TileSize, Size: manifest.TileGrid.Size},
+	}
+	for _, world := range manifest.Worlds {
+		info.Worlds = append(info.Worlds, hostenv.WorldInfo{Slug: world.Slug, Title: world.Title, Parent: world.Parent, Points: world.Points, Paths: world.Paths, Areas: world.Areas, UpdatedAt: world.UpdatedAt})
+	}
+	return info
+}
 
-func (v *corpusBundle) Open(name string) (io.ReadCloser, int64, error) {
+func (v *corpusBundle) Semantic() vnext.Volume {
+	semantic, _ := vnext.ImportV3Volume(v.manifest, func(name string) ([]byte, error) { return v.Blob(name) })
+	return semantic
+}
+
+func (v *corpusBundle) Blob(name string) ([]byte, error) {
 	held, ok := v.entries[name]
 	if !ok {
-		return nil, 0, os.ErrNotExist
+		return nil, os.ErrNotExist
 	}
-	return io.NopCloser(bytes.NewReader(held)), int64(len(held)), nil
+	return held, nil
 }
+
+func (v *corpusBundle) Schema() ([]byte, error)           { return vnext.StandardSchema().Canonical() }
+func (v *corpusBundle) TableBlock(string) ([]byte, error) { return nil, os.ErrNotExist }
 
 // firstWorld is the world a volume opens on when nobody has been anywhere.
 func firstWorld(t *testing.T, volume hostenv.Volume) string {
 	t.Helper()
-	worlds := volume.Manifest().Worlds
+	worlds := volume.Info().Worlds
 	if len(worlds) == 0 {
 		t.Fatal("the corpus volume holds no worlds")
 	}

@@ -2,7 +2,6 @@ package app
 
 import (
 	"encoding/json"
-	"io"
 	"log/slog"
 	"net/http"
 	"sort"
@@ -10,6 +9,7 @@ import (
 	"strings"
 
 	"github.com/FelineStateMachine/atlas/format/bundle"
+	"github.com/FelineStateMachine/atlas/format/vnext"
 	"github.com/FelineStateMachine/atlas/internal/app/hostenv"
 	"github.com/FelineStateMachine/atlas/internal/logging"
 )
@@ -34,6 +34,7 @@ var contentTypes = map[string]string{
 	".bin":  "application/octet-stream",
 	".jpg":  "image/jpeg",
 	".png":  "image/png",
+	".pack": "application/vnd.atlas.table",
 	".webp": "image/webp",
 	".svg":  "image/svg+xml",
 }
@@ -49,8 +50,8 @@ type catalogVolume struct {
 	Title    string              `json:"title"`
 	Stamp    string              `json:"stamp"`
 	Base     string              `json:"base"`
-	TileGrid bundle.TileGrid     `json:"tileGrid"`
-	Worlds   []bundle.WorldEntry `json:"worlds"`
+	TileGrid hostenv.TileGrid    `json:"tileGrid"`
+	Worlds   []hostenv.WorldInfo `json:"worlds"`
 }
 
 // catalogDoc is the whole catalog. BundlesDir rides along so an empty library
@@ -82,14 +83,10 @@ func (a *App) handleCatalog(w http.ResponseWriter, r *http.Request) {
 func composeCatalog(volumes []hostenv.Volume, location string) ([]byte, error) {
 	listed := make([]catalogVolume, 0, len(volumes))
 	for _, volume := range volumes {
-		manifest := volume.Manifest()
+		info := volume.Info()
 		listed = append(listed, catalogVolume{
-			Slug:     manifest.Volume.Slug,
-			Title:    manifest.Volume.Title,
-			Stamp:    manifest.Version.Stamp,
-			Base:     volumeBase(manifest),
-			TileGrid: manifest.TileGrid,
-			Worlds:   manifest.Worlds,
+			Slug: info.Slug, Title: info.Title, Stamp: info.Stamp,
+			Base: volumeBase(info), TileGrid: info.TileGrid, Worlds: info.Worlds,
 		})
 	}
 	sort.Slice(listed, func(i, j int) bool { return listed[i].Title < listed[j].Title })
@@ -97,8 +94,8 @@ func composeCatalog(volumes []hostenv.Volume, location string) ([]byte, error) {
 }
 
 // volumeBase is where one build's content is served from.
-func volumeBase(m bundle.Manifest) string {
-	return BasePath + "/" + m.Volume.Slug + "/" + bundle.ShortStamp(m.Version.Stamp)
+func volumeBase(info hostenv.VolumeInfo) string {
+	return BasePath + "/" + info.Slug + "/" + vnext.ShortStamp(info.Stamp)
 }
 
 // handleContent serves one entry out of one build.
@@ -121,13 +118,31 @@ func (a *App) handleContent(w http.ResponseWriter, r *http.Request) {
 		http.NotFound(w, r)
 		return
 	}
-	manifest := held.Manifest()
-	if r.PathValue("stamp") != bundle.ShortStamp(manifest.Version.Stamp) {
+	info := held.Info()
+	if r.PathValue("stamp") != vnext.ShortStamp(info.Stamp) {
 		http.NotFound(w, r)
 		return
 	}
 
 	rest := r.PathValue("rest")
+	if rest == "schema.json" {
+		data, err := held.Schema()
+		if err != nil {
+			http.NotFound(w, r)
+			return
+		}
+		serveProjectedContent(w, data, "application/schema+json")
+		return
+	}
+	if strings.HasPrefix(rest, "data/") && strings.HasSuffix(rest, ".pack") {
+		data, err := held.TableBlock(rest)
+		if err != nil {
+			http.NotFound(w, r)
+			return
+		}
+		serveProjectedContent(w, data, contentTypes[".pack"])
+		return
+	}
 	if strings.HasPrefix(rest, bundle.WorldsPrefix) {
 		data, kind, projected, err := a.projectedContent(held, rest)
 		if err != nil || !projected {
@@ -153,20 +168,19 @@ func (a *App) handleContent(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	entry, size, err := held.Open(rest)
+	data, err := held.Blob(rest)
 	if err != nil {
 		http.NotFound(w, r)
 		return
 	}
-	defer entry.Close()
 	w.Header().Set("Content-Type", kind)
-	w.Header().Set("Content-Length", strconv.FormatInt(size, 10))
+	w.Header().Set("Content-Length", strconv.Itoa(len(data)))
 	w.Header().Set("Cache-Control", "private, max-age=31536000, immutable")
-	if _, err := io.Copy(w, entry); err != nil {
+	if _, err := w.Write(data); err != nil {
 		// The response is already on the wire; there is nothing to say to the
 		// client, and a reader who navigated away is the usual cause.
 		slog.Debug("content cut short", logging.Op("serve"),
-			logging.Volume(manifest.Volume.Slug), logging.Path(rest), slog.Any("error", err))
+			logging.Volume(info.Slug), logging.Path(rest), slog.Any("error", err))
 	}
 }
 

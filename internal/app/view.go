@@ -7,8 +7,8 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/FelineStateMachine/atlas/format/bundle"
 	"github.com/FelineStateMachine/atlas/format/semconv"
+	"github.com/FelineStateMachine/atlas/format/vnext"
 	"github.com/FelineStateMachine/atlas/internal/app/cells"
 	"github.com/FelineStateMachine/atlas/internal/app/hostenv"
 )
@@ -242,17 +242,13 @@ func (a *App) view(held library, volume hostenv.Volume, session Session) View {
 	}
 	current := ""
 	if volume != nil {
-		current = volume.Manifest().Volume.Slug
+		current = volume.Info().Slug
 	}
 	for _, listed := range held.order {
-		manifest := listed.Manifest()
+		info := listed.Info()
 		out.Library = append(out.Library, LibraryEntry{
-			Slug:    manifest.Volume.Slug,
-			Title:   manifest.Volume.Title,
-			Stamp:   bundle.ShortStamp(manifest.Version.Stamp),
-			Base:    volumeBase(manifest),
-			Worlds:  len(manifest.Worlds),
-			Current: manifest.Volume.Slug == current,
+			Slug: info.Slug, Title: info.Title, Stamp: vnext.ShortStamp(info.Stamp),
+			Base: volumeBase(info), Worlds: len(info.Worlds), Current: info.Slug == current,
 		})
 	}
 	if volume == nil {
@@ -260,18 +256,15 @@ func (a *App) view(held library, volume hostenv.Volume, session Session) View {
 		return out
 	}
 
-	manifest := volume.Manifest()
+	info := volume.Info()
 	shown := VolumeView{
-		Slug:  manifest.Volume.Slug,
-		Title: manifest.Volume.Title,
-		Stamp: bundle.ShortStamp(manifest.Version.Stamp),
-		Base:  volumeBase(manifest),
+		Slug: info.Slug, Title: info.Title, Stamp: vnext.ShortStamp(info.Stamp), Base: volumeBase(info),
 	}
 	world := session.World
-	if _, ok := worldEntry(manifest, world); !ok {
-		world = manifest.Worlds[0].Slug
+	if _, ok := worldEntry(info, world); !ok {
+		world = info.Worlds[0].Slug
 	}
-	for _, entry := range manifest.Worlds {
+	for _, entry := range info.Worlds {
 		listed := WorldView{
 			Slug:    entry.Slug,
 			Title:   entry.Title,
@@ -303,7 +296,7 @@ func (a *App) view(held library, volume hostenv.Volume, session Session) View {
 		shown.Sphere = model.Attrs[semconv.KeyGeometrySurface] == "sphere"
 	}
 	out.Volume = &shown
-	out.Title = manifest.Volume.Title
+	out.Title = info.Title
 
 	standing := visible(model, session, lens)
 	out.Legend = legend(model, session, standing, lens, shown.Base)
@@ -317,7 +310,7 @@ func (a *App) view(held library, volume hostenv.Volume, session Session) View {
 		out.Overview.Label = "Put the overview away"
 	}
 	out.Viewport = viewportView(shown, session)
-	out.Island = island(manifest.Volume.Slug, model, &shown, session)
+	out.Island = island(info.Slug, model, &shown, session)
 	return out
 }
 
@@ -571,12 +564,12 @@ func nonEmpty(values ...string) []string {
 	return out
 }
 
-// worldEntry finds one world in a manifest.
-func worldEntry(m bundle.Manifest, slug string) (bundle.WorldEntry, bool) {
-	for _, entry := range m.Worlds {
+// worldEntry finds one world in the native volume summary.
+func worldEntry(info hostenv.VolumeInfo, slug string) (hostenv.WorldInfo, bool) {
+	for _, entry := range info.Worlds {
 		if entry.Slug == slug {
 			return entry, true
 		}
 	}
-	return bundle.WorldEntry{}, false
+	return hostenv.WorldInfo{}, false
 }

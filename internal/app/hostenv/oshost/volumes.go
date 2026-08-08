@@ -10,7 +10,7 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/FelineStateMachine/atlas/format/bundle"
+	"github.com/FelineStateMachine/atlas/format/vnext"
 	"github.com/FelineStateMachine/atlas/internal/app/hostenv"
 	"github.com/FelineStateMachine/atlas/internal/logging"
 )
@@ -22,10 +22,10 @@ const closeGrace = 5 * time.Second
 
 // Volumes is a library kept as a directory of .atlas files.
 //
-// It scans at construction and on import, and never watches (issue #5 §2,
-// decision 15): a file dropped in from outside appears at the next launch,
-// which is what a reader expects of "open Atlas and see my registry". The
-// fold that decides which build serves is format/bundle's and is pure; this
+// It scans at construction and after installation, and never watches (issue #5
+// §2, decision 15): a file copied directly into the library outside Atlas
+// appears at the next launch. Desktop open and drop events install immediately.
+// The fold that decides which build serves is format/vnext's and is pure; this
 // type is the walk, the open files, and the swap.
 //
 // Every rescan builds a whole snapshot and swaps it in at once, so a request
@@ -42,7 +42,7 @@ type Volumes struct {
 // snapshot is the library at one moment: the winning build per slug, the open
 // readers behind them, and the order the handler lists them in.
 type snapshot struct {
-	serving map[string]bundle.Descriptor
+	serving map[string]vnext.Descriptor
 	open    map[string]*volume
 	order   []string
 }
@@ -50,20 +50,27 @@ type snapshot struct {
 // volume is one serving build with its archive held open, so answering for an
 // entry is a seek and a read rather than a fresh open of a file that may be
 // hundreds of megabytes.
-type volume struct{ reader *bundle.Reader }
-
-func (v *volume) Manifest() bundle.Manifest { return v.reader.Manifest }
-
-func (v *volume) Open(entry string) (io.ReadCloser, int64, error) {
-	return v.reader.OpenEntry(entry)
+type volume struct {
+	reader   *vnext.File
+	locator  string
+	info     hostenv.VolumeInfo
+	semantic vnext.Volume
 }
+
+func (v *volume) Info() hostenv.VolumeInfo { return v.info }
+func (v *volume) Semantic() vnext.Volume   { return v.semantic }
+func (v *volume) Blob(entry string) ([]byte, error) {
+	return v.reader.Blob(entry)
+}
+func (v *volume) Schema() ([]byte, error)                 { return v.reader.FileSchema.Canonical() }
+func (v *volume) TableBlock(entry string) ([]byte, error) { return v.reader.TableBlock(entry) }
 
 // NewVolumes answers for dir, which need not exist yet: a directory that is
 // missing or empty is a library with no volumes, not an error. The first scan
 // happens here, so a caller that gets a store gets a library.
 func NewVolumes(dir string) (*Volumes, error) {
 	v := &Volumes{dir: dir}
-	v.snap.Store(&snapshot{serving: map[string]bundle.Descriptor{}, open: map[string]*volume{}})
+	v.snap.Store(&snapshot{serving: map[string]vnext.Descriptor{}, open: map[string]*volume{}})
 	if _, err := v.Rescan(); err != nil {
 		return nil, err
 	}
@@ -92,7 +99,7 @@ func (v *Volumes) Close() error {
 	v.scanning.Lock()
 	defer v.scanning.Unlock()
 	previous := v.snap.Load()
-	v.snap.Store(&snapshot{serving: map[string]bundle.Descriptor{}, open: map[string]*volume{}})
+	v.snap.Store(&snapshot{serving: map[string]vnext.Descriptor{}, open: map[string]*volume{}})
 	var first error
 	for _, held := range previous.open {
 		if err := held.reader.Close(); err != nil && first == nil {
@@ -110,7 +117,7 @@ func (v *Volumes) Rescan() ([]string, error) {
 	v.scanning.Lock()
 	defer v.scanning.Unlock()
 
-	descriptors, skipped, err := bundle.Scan(v.dir)
+	descriptors, skipped, err := vnext.Scan(v.dir, vnext.StandardSchema())
 	if err != nil {
 		return nil, fmt.Errorf("scan library: %w", err)
 	}
@@ -120,9 +127,9 @@ func (v *Volumes) Rescan() ([]string, error) {
 	}
 
 	previous := v.snap.Load()
-	winners := bundle.Fold(descriptors)
+	winners := vnext.Fold(descriptors)
 	next := &snapshot{
-		serving: make(map[string]bundle.Descriptor, len(winners)),
+		serving: make(map[string]vnext.Descriptor, len(winners)),
 		open:    make(map[string]*volume, len(winners)),
 		order:   make([]string, 0, len(winners)),
 	}
@@ -141,11 +148,11 @@ func (v *Volumes) Rescan() ([]string, error) {
 	v.snap.Store(next)
 
 	retire(previous, next)
-	changed := bundle.Changed(previous.serving, next.serving)
+	changed := vnext.Changed(previous.serving, next.serving)
 	for _, slug := range changed {
 		if winner, still := next.serving[slug]; still {
 			slog.Info("volume serving", logging.Op("scan"),
-				logging.Volume(slug), logging.Stamp(bundle.ShortStamp(winner.Stamp)))
+				logging.Volume(slug), logging.Stamp(vnext.ShortStamp(winner.Stamp)))
 		} else {
 			slog.Info("volume gone", logging.Op("scan"), logging.Volume(slug))
 		}
@@ -179,7 +186,7 @@ func (v *Volumes) Install(name string, content io.Reader) (hostenv.Installed, er
 	}
 
 	standing := v.snap.Load().serving
-	descriptor, err := bundle.Install(v.dir, stage)
+	descriptor, err := vnext.Install(v.dir, stage, vnext.StandardSchema())
 	if err != nil {
 		return hostenv.Installed{}, fmt.Errorf("%s: %w", name, err)
 	}
@@ -191,7 +198,7 @@ func (v *Volumes) Install(name string, content io.Reader) (hostenv.Installed, er
 		Already: standing[descriptor.Slug].Stamp == descriptor.Stamp,
 	}
 	slog.Info("bundle installed", logging.Op("install"),
-		logging.Volume(descriptor.Slug), logging.Stamp(bundle.ShortStamp(descriptor.Stamp)),
+		logging.Volume(descriptor.Slug), logging.Stamp(vnext.ShortStamp(descriptor.Stamp)),
 		logging.Path(descriptor.Locator))
 
 	changed, err := v.Rescan()
@@ -204,18 +211,57 @@ func (v *Volumes) Install(name string, content io.Reader) (hostenv.Installed, er
 
 // carryOrOpen reuses the reader already open for a build whose file has not
 // moved, and opens the file fresh otherwise.
-func carryOrOpen(previous *snapshot, winner bundle.Descriptor) (*volume, error) {
-	if held, ok := previous.open[winner.Slug]; ok && held.reader.Path == winner.Locator {
-		if info, err := os.Stat(winner.Locator); err == nil &&
-			held.reader.Unchanged(info.Size(), info.ModTime()) {
-			return held, nil
-		}
+func carryOrOpen(previous *snapshot, winner vnext.Descriptor) (*volume, error) {
+	if held, ok := previous.open[winner.Slug]; ok && held.locator == winner.Locator && held.info.Stamp == winner.Stamp {
+		return held, nil
 	}
-	reader, err := bundle.Open(winner.Locator)
+	reader, err := vnext.OpenFile(winner.Locator, vnext.StandardSchema())
 	if err != nil {
 		return nil, err
 	}
-	return &volume{reader: reader}, nil
+	semantic, err := reader.Volume()
+	if err != nil {
+		reader.Close()
+		return nil, err
+	}
+	return &volume{reader: reader, locator: winner.Locator, semantic: semantic, info: volumeInfo(winner, semantic)}, nil
+}
+
+func volumeInfo(descriptor vnext.Descriptor, semantic vnext.Volume) hostenv.VolumeInfo {
+	info := hostenv.VolumeInfo{
+		Slug: descriptor.Slug, Title: descriptor.Title, Stamp: descriptor.Stamp,
+		Release: descriptorRelease(descriptor), Worlds: make([]hostenv.WorldInfo, 0, len(semantic.Worlds)),
+	}
+	for index, world := range semantic.Worlds {
+		listed := hostenv.WorldInfo{Slug: world.ID, Title: world.Title, UpdatedAt: descriptor.CreatedAt}
+		for _, set := range world.FeatureSets {
+			for _, feature := range set.Features {
+				switch feature.Geometry.Kind {
+				case vnext.GeometryPoint:
+					listed.Points++
+				case vnext.GeometryLineString:
+					listed.Paths++
+				case vnext.GeometryPolygon:
+					listed.Areas++
+				}
+			}
+		}
+		info.Worlds = append(info.Worlds, listed)
+		if index == 0 {
+			info.TileGrid = hostenv.TileGrid{
+				SourceZoom: int(world.CoordinateSpace.SourceZoom), FirstTile: int(world.CoordinateSpace.FirstTile),
+				TileSize: int(world.CoordinateSpace.TileSize), Size: int(world.CoordinateSpace.Size),
+			}
+		}
+	}
+	return info
+}
+
+func descriptorRelease(descriptor vnext.Descriptor) vnext.Release {
+	return vnext.Release{
+		Title: descriptor.Title, CreatedAt: descriptor.CreatedAt, Revision: descriptor.Revision,
+		Stamp: descriptor.Stamp, Worlds: descriptor.Worlds,
+	}
 }
 
 // retire closes the readers the previous snapshot held that the new one did
@@ -236,7 +282,7 @@ func retire(previous, next *snapshot) {
 		for _, old := range closing {
 			if err := old.reader.Close(); err != nil {
 				slog.Warn("closing a retired bundle", logging.Op("scan"),
-					logging.Path(old.reader.Path), slog.Any("error", err))
+					logging.Path(old.locator), slog.Any("error", err))
 			}
 		}
 	})

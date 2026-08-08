@@ -2,8 +2,6 @@ package app
 
 import (
 	"encoding/json"
-	"fmt"
-	"io"
 	"math"
 	"sort"
 	"strconv"
@@ -11,6 +9,7 @@ import (
 
 	"github.com/FelineStateMachine/atlas/format/bundle"
 	"github.com/FelineStateMachine/atlas/format/semconv"
+	"github.com/FelineStateMachine/atlas/format/vnext"
 	"github.com/FelineStateMachine/atlas/internal/app/cells"
 	"github.com/FelineStateMachine/atlas/internal/app/hostenv"
 )
@@ -287,8 +286,8 @@ func (c *worldCache) put(key string, model *worldModel) {
 // page: the chrome still renders, the legend is simply empty, and the failure
 // is in the log where somebody can act on it.
 func (a *App) world(volume hostenv.Volume, slug string) *worldModel {
-	manifest := volume.Manifest()
-	key := manifest.Volume.Slug + "@" + bundle.ShortStamp(manifest.Version.Stamp) + "/" + slug
+	info := volume.Info()
+	key := info.Slug + "@" + vnext.ShortStamp(info.Stamp) + "/" + slug
 	if held, ok := a.worlds.get(key); ok {
 		return held
 	}
@@ -497,8 +496,8 @@ type featureText struct {
 // entry because it is a single JSON object and there is nothing to seek to;
 // it is small beside the tiles and it is read only when a card opens.
 func (a *App) text(volume hostenv.Volume, world string) map[string]featureText {
-	manifest := volume.Manifest()
-	key := manifest.Volume.Slug + "@" + bundle.ShortStamp(manifest.Version.Stamp) + "/" + world + ".text"
+	info := volume.Info()
+	key := info.Slug + "@" + vnext.ShortStamp(info.Stamp) + "/" + world + ".text"
 	if held, ok := a.texts.get(key); ok {
 		return held
 	}
@@ -543,21 +542,6 @@ func (c *textCache) put(key string, held map[string]featureText) {
 		}
 	}
 	c.held[key] = held
-}
-
-// readEntry reads one archive entry whole.
-func readEntry(volume hostenv.Volume, name string) ([]byte, error) {
-	entry, size, err := volume.Open(name)
-	if err != nil {
-		return nil, fmt.Errorf("open %s: %w", name, err)
-	}
-	defer entry.Close()
-	_ = size
-	out, err := io.ReadAll(entry)
-	if err != nil {
-		return nil, fmt.Errorf("read %s: %w", name, err)
-	}
-	return out, nil
 }
 
 // sortedIDs is the order a set of collection ids is written in everywhere it

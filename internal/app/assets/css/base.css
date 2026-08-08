@@ -4,6 +4,7 @@
 
 html,
 body {
+  --wails-drop-target: drop;
   width: 100%;
   height: 100%;
   margin: 0;
@@ -28,4 +29,3 @@ input {
   -webkit-user-select: text;
   user-select: text;
 }
-

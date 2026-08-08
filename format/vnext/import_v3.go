@@ -100,7 +100,8 @@ type v3Link struct {
 }
 
 // ImportV3 turns the frozen document-shaped format into the vNext semantic
-// graph. The old format remains a read-only ingress boundary after cutover.
+// graph for migration tooling and old test fixtures. Production scanners and
+// installers reject v3 files after the hard cutover.
 func ImportV3(reader *bundle.Reader) (Bundle, error) {
 	if err := reader.Validate(); err != nil {
 		return Bundle{}, fmt.Errorf("validate v3 bundle: %w", err)
@@ -118,6 +119,8 @@ func ImportV3(reader *bundle.Reader) (Bundle, error) {
 	if err != nil {
 		return Bundle{}, fmt.Errorf("compile imported v3 bundle: %w", err)
 	}
+	compiled.Release.CreatedAt = reader.Manifest.Version.CreatedAt
+	compiled.Release.Revision = reader.Manifest.Version.Revision
 	for _, name := range reader.Names() {
 		if !strings.HasPrefix(name, bundle.TilesPrefix) {
 			continue

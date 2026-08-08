@@ -37,11 +37,13 @@ type NamedTable struct {
 type Blob struct {
 	Name string
 	Data []byte
+	Path string
 }
 
 // Bundle is the complete compiled form accepted by Write.
 type Bundle struct {
 	VolumeID string
+	Release  Release
 	Schema   Schema
 	Tables   []NamedTable
 	Blobs    []Blob
@@ -117,7 +119,13 @@ func Compile(volume Volume) (Bundle, error) {
 		}
 		tables[index] = NamedTable{Name: name, Table: table}
 	}
-	return Bundle{VolumeID: volume.ID, Schema: schema, Tables: tables, Blobs: blobs}, nil
+	return Bundle{
+		VolumeID: volume.ID,
+		Release:  Release{Title: volume.Title, Worlds: len(volume.Worlds)},
+		Schema:   schema,
+		Tables:   tables,
+		Blobs:    blobs,
+	}, nil
 }
 
 func schemaFor(volume Volume) (Schema, error) {

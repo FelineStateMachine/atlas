@@ -2,6 +2,7 @@ package app
 
 import (
 	"errors"
+	"io"
 	"log/slog"
 	"net/http"
 	"sync/atomic"
@@ -12,8 +13,8 @@ import (
 
 // Adding a volume from inside the application: the host puts a picker in front
 // of the reader, what they chose is validated and copied into the library, and
-// the library is rescanned -- the same road a hand-dropped file takes, except
-// that a drop is only noticed at the next launch (issue #5 §2, §4.6).
+// the library is rescanned. Native file-open and window-drop events call this
+// same command, so every desktop intake path has identical behavior.
 //
 // The response is a stream of rows rather than one answer at the end, because
 // a hundred-megabyte bundle takes long enough that silence reads as failure.
@@ -102,7 +103,7 @@ func (a *App) handleImport(w http.ResponseWriter, r *http.Request) {
 	defer chosen.Close()
 
 	row("installing", name)
-	installed, err := a.env.Volumes().Install(name, chosen)
+	installed, err := a.Install(name, chosen)
 	if err != nil {
 		slog.Warn("import refused", logging.Op("install"),
 			logging.Path(name), slog.Any("error", err))
@@ -115,10 +116,18 @@ func (a *App) handleImport(w http.ResponseWriter, r *http.Request) {
 		row("installed", installed.Title)
 	}
 
-	// The rescan happened inside the store; what it moved is announced to
-	// every open page, which is how a second window learns about an import
-	// performed in the first.
+}
+
+// Install is the single native intake command used by the picker, desktop
+// file-open events, and drag/drop. It validates, atomically installs, rescans,
+// and announces the changed semantic volumes.
+func (a *App) Install(name string, content io.Reader) (hostenv.Installed, error) {
+	installed, err := a.env.Volumes().Install(name, content)
+	if err != nil {
+		return hostenv.Installed{}, err
+	}
 	a.announce(installed.Changed)
+	return installed, nil
 }
 
 // writeRegion renders the import region, holding the one row that is true now

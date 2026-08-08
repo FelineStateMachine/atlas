@@ -13,6 +13,8 @@ func TestBundleIsDeterministicAndKeepsPackedDataStored(t *testing.T) {
 	if err != nil {
 		t.Fatalf("compile: %v", err)
 	}
+	bundle.Release.CreatedAt = "2026-08-01T20:13:08Z"
+	bundle.Release.Revision = 4
 	var first, second bytes.Buffer
 	if err := Write(&first, bundle); err != nil {
 		t.Fatalf("write first: %v", err)
@@ -22,6 +24,16 @@ func TestBundleIsDeterministicAndKeepsPackedDataStored(t *testing.T) {
 	}
 	if !bytes.Equal(first.Bytes(), second.Bytes()) {
 		t.Fatal("same semantic volume produced different archive bytes")
+	}
+	opened, err := Open(bytes.NewReader(first.Bytes()), int64(first.Len()), StandardSchema())
+	if err != nil {
+		t.Fatalf("open release: %v", err)
+	}
+	if opened.Release.Title != "Minimal" || opened.Release.CreatedAt != "2026-08-01T20:13:08Z" || opened.Release.Revision != 4 {
+		t.Fatalf("release metadata = %#v", opened.Release)
+	}
+	if len(opened.Release.Stamp) != 64 {
+		t.Fatalf("release stamp = %q, want sha256", opened.Release.Stamp)
 	}
 
 	archive, err := zip.NewReader(bytes.NewReader(first.Bytes()), int64(first.Len()))
@@ -45,6 +57,7 @@ func TestNewerApplicationReadsOlderFileSchema(t *testing.T) {
 	if err != nil {
 		t.Fatalf("compile: %v", err)
 	}
+	bundle.Release.CreatedAt = "2026-08-01T20:13:08Z"
 	var archive bytes.Buffer
 	if err := Write(&archive, bundle); err != nil {
 		t.Fatalf("write: %v", err)
