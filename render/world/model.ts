@@ -5,6 +5,7 @@
 // a v3 document, numeric compatibility identity, or GeoJSON translation.
 
 import type { Ground } from "@atlas/analysis";
+import { KEY_GEOMETRY_KIND } from "@atlas/analysis/semconv/keys";
 import type { Collection, Lens, TileGrid, WorldPayload } from "../data/payload.ts";
 import type { OpenWorld } from "../data/plane.ts";
 import type {
@@ -119,7 +120,8 @@ export class WorldModel {
       // Meaning and shape are separate. A feature set may be semantically a
       // place, trailhead, quest, or anything a schema declares; geometry is
       // read from its native features rather than smuggled through that name.
-      const kind = presentedKind(set.features, set.semanticType);
+      const attrs = propertiesToAttrs(set.claims);
+      const kind = presentedKind(set.features, set.semanticType, attrs[KEY_GEOMETRY_KIND]);
       const asset = style.iconAsset ? volume.assets.get(style.iconAsset) : undefined;
       const collection: Collection = {
         id: layer.id, featureSet: set.id, style: style.id,
@@ -127,7 +129,7 @@ export class WorldModel {
         icon: style.icon || style.symbol, iconAsset: asset?.path ?? "", iconPicture: style.iconPicture,
         color: presentedColor(kind, style), visible: layer.visible,
         labelPolicy: layer.labelPolicy, renderAs: style.renderAs,
-        attrs: propertiesToAttrs(set.claims),
+        attrs,
       };
       collections.push(collection);
       for (const feature of set.features) {
@@ -228,22 +230,29 @@ type GeometryBearing = { readonly geometry: { readonly kind: number } };
 export function presentedKind(
   features: readonly GeometryBearing[],
   semanticType: string,
+  declared = "",
 ): "point" | "path" | "area" {
   const kinds = new Set(features.map((feature) => feature.geometry.kind));
   if (kinds.size > 1) {
     throw new Error(`semantic feature set ${semanticType} mixes geometry kinds`);
   }
   const native = kinds.values().next().value as number | undefined;
-  if (native === 1) return "point";
-  if (native === 2) return "path";
-  if (native === 3) return "area";
+  const actual = native === 1 ? "point" : native === 2 ? "path" : native === 3 ? "area" : "";
+  if (declared && declared !== "point" && declared !== "path" && declared !== "area") {
+    throw new Error(`semantic feature set ${semanticType} declares unknown geometry kind ${declared}`);
+  }
+  if (declared && actual && declared !== actual) {
+    throw new Error(`semantic feature set ${semanticType} declares ${declared} but carries ${actual}`);
+  }
+  if (declared === "point" || declared === "path" || declared === "area") return declared;
+  if (actual) return actual;
 
   // An empty feature set has no feature from which to infer its shape. Keep
   // the older geometry.* spelling as a useful declaration for that case.
-  const declared = semanticType.startsWith("geometry.")
+  const legacyDeclared = semanticType.startsWith("geometry.")
     ? semanticType.slice("geometry.".length)
     : semanticType;
-  if (declared === "path" || declared === "area") return declared;
+  if (legacyDeclared === "path" || legacyDeclared === "area") return legacyDeclared;
   return "point";
 }
 

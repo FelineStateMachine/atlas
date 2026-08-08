@@ -19,7 +19,7 @@ func writeSampleProject(t *testing.T, dir string) string {
 		t.Fatal(err)
 	}
 	project := filepath.Join(dir, "sample-region.atlas-project")
-	manifest := `schema: atlas-project/v1
+	manifest := `schema: atlas-project/v2
 schema-namespace: example.invalid/atlas/sample-region/v1
 id: sample-region
 title: Sample Region
@@ -45,6 +45,11 @@ sources:
       semantic-type: place
       identity: id
       feature-title: properties.name
+      geometry:
+        family: point
+        source-space: local
+        transform:
+          kind: identity
 presentation:
   id: default
   title: Default
@@ -158,9 +163,9 @@ func TestBuildSurvivesNavigationAndHandsOffTheArtifact(t *testing.T) {
 	if err := os.MkdirAll(targets.Registry, 0o755); err != nil {
 		t.Fatal(err)
 	}
-	artifact := filepath.Join(targets.Registry, "sample-region-abc.atlas")
+	artifact := bundleSpec{slug: "sample-region", worlds: []worldSpec{{slug: "sample-region"}}}.write(t, targets.Registry)
 	binary := filepath.Join(targets.Dir, "fake-atlas")
-	script := "#!/bin/sh\nsleep 0.05\ntouch '" + artifact + "'\nprintf '%s\\n' '{\"time\":\"2026-01-01T00:00:00Z\",\"level\":\"INFO\",\"msg\":\"native build installed\",\"artifact\":\"" + artifact + "\"}' >&2\n"
+	script := "#!/bin/sh\nsleep 0.05\nprintf '%s\\n' '{\"time\":\"2026-01-01T00:00:00Z\",\"level\":\"INFO\",\"msg\":\"native build installed\",\"artifact\":\"" + artifact + "\"}' >&2\n"
 	if err := os.WriteFile(binary, []byte(script), 0o755); err != nil {
 		t.Fatal(err)
 	}
@@ -186,6 +191,11 @@ func TestBuildSurvivesNavigationAndHandsOffTheArtifact(t *testing.T) {
 	if run.Running || run.Failed || run.Artifact != artifact {
 		t.Fatalf("run = %+v", run)
 	}
+	_, runBody := get(t, server, "/project/run")
+	wants(t, "completed run fragment", runBody, "Build complete", "Open in Atlas", "Drag this file onto an Atlas window", filepath.Base(artifact))
+	if strings.Contains(runBody, `hx-get="/project/run"`) {
+		t.Fatal("completed run fragment kept polling")
+	}
 	_, body := get(t, server, "/project")
 	wants(t, "completed project", body, "Build complete", "Open in Atlas", "Drag this file onto an Atlas window", filepath.Base(artifact))
 	response, _ = postForm(t, noRedirectClient(server.Client()), server.URL+"/project/open", url.Values{})
@@ -195,6 +205,25 @@ func TestBuildSurvivesNavigationAndHandsOffTheArtifact(t *testing.T) {
 	response, _ = get(t, server, "/project/artifact")
 	if response.StatusCode != http.StatusOK {
 		t.Fatalf("drag artifact answered %d", response.StatusCode)
+	}
+}
+
+func TestArtifactHandoffRefusesAnInvalidAtlasFile(t *testing.T) {
+	targets := projectTargets(t)
+	if err := os.MkdirAll(targets.Registry, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	artifact := filepath.Join(targets.Registry, "sample-region-invalid.atlas")
+	if err := os.WriteFile(artifact, []byte("not an Atlas file"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	held, err := New(Options{Targets: targets})
+	if err != nil {
+		t.Fatal(err)
+	}
+	held.supervisor.last = supervisedRun{Name: "build", Artifact: artifact}
+	if _, err := held.currentArtifact(); err == nil || !strings.Contains(err.Error(), "open completed Atlas artifact") {
+		t.Fatalf("currentArtifact = %v, want native validation failure", err)
 	}
 }
 

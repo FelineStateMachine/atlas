@@ -75,6 +75,33 @@ func readEvent(t *testing.T, reader *bufio.Reader) (string, string) {
 	}
 }
 
+func TestEventsImmediatelyRefreshAStaleVolumeStamp(t *testing.T) {
+	handler, _ := newApp(t, volume("tunic", "TUNIC", tunicStamp))
+	server := httptest.NewServer(handler)
+	defer server.Close()
+
+	ctx, stop := context.WithTimeout(context.Background(), 500*time.Millisecond)
+	defer stop()
+	request, err := http.NewRequestWithContext(ctx, http.MethodGet,
+		server.URL+"/events?volume=tunic&stamp=stale", nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	response, err := http.DefaultClient.Do(request) //nolint:bodyclose // closed below
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer response.Body.Close()
+	reader := bufio.NewReader(response.Body)
+	if hello, err := reader.ReadString('\n'); err != nil || !strings.HasPrefix(hello, ":") {
+		t.Fatalf("the stream opened with %q, %v", hello, err)
+	}
+	name, data := readEvent(t, reader)
+	if name != "refresh" || !strings.Contains(data, `hx-get="/v/tunic/`) {
+		t.Fatalf("stale stream event = %q %q, want immediate refresh", name, data)
+	}
+}
+
 // importRegions is the import region as each of one import's writes rendered
 // it, in order: an import answers with the whole region once per state it
 // reaches, and the last of them is what the reader is left looking at. Every

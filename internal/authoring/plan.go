@@ -17,6 +17,7 @@ type RequestKind string
 const (
 	RequestFeatures RequestKind = "features"
 	RequestRaster   RequestKind = "raster"
+	RequestAsset    RequestKind = "asset"
 )
 
 // Request is one exact acquisition planned without touching the network.
@@ -31,6 +32,7 @@ type Request struct {
 	License         string      `json:"license,omitempty"`
 	Attribution     string      `json:"attribution,omitempty"`
 	Raster          string      `json:"raster,omitempty"`
+	Asset           string      `json:"asset,omitempty"`
 	Zoom            int64       `json:"zoom,omitempty"`
 	X               int64       `json:"x,omitempty"`
 	Y               int64       `json:"y,omitempty"`
@@ -102,6 +104,14 @@ func PlanProject(project Project, cache *Cache, output string) (Plan, error) {
 		plan.Estimated += raster.EstimateBytes
 		plan.Licenses = append(plan.Licenses, Obligation{Source: raster.ID, License: raster.License, Attribution: raster.Attribution})
 	}
+	for _, asset := range project.Assets {
+		request := assetRequest(project, asset)
+		planned := PlannedRequest{Request: request, EstimateBytes: asset.EstimateBytes}
+		planned.Cached = cache != nil && cache.Has(request.ID)
+		plan.Requests = append(plan.Requests, planned)
+		plan.Estimated += asset.EstimateBytes
+		plan.Licenses = append(plan.Licenses, Obligation{Source: asset.ID, License: asset.License, Attribution: asset.Attribution})
+	}
 	sort.Slice(plan.Requests, func(i, j int) bool { return plan.Requests[i].ID < plan.Requests[j].ID })
 	for _, request := range plan.Requests {
 		if request.Cached {
@@ -110,6 +120,17 @@ func PlanProject(project Project, cache *Cache, output string) (Plan, error) {
 	}
 	sort.Slice(plan.Licenses, func(i, j int) bool { return plan.Licenses[i].Source < plan.Licenses[j].Source })
 	return plan, nil
+}
+
+func assetRequest(project Project, asset Asset) Request {
+	request := Request{
+		Kind: RequestAsset, Source: asset.ID, Adapter: "asset-file",
+		Locator: project.ResolveLocator(asset.Locator), IdentityLocator: asset.Locator,
+		MediaType: asset.MediaType, License: asset.License, Attribution: asset.Attribution,
+		Asset: asset.ID,
+	}
+	request.ID = requestID(request)
+	return request
 }
 
 func featureRequest(project Project, source Source) (Request, error) {
@@ -151,7 +172,11 @@ func featureRequest(project Project, source Source) (Request, error) {
 		}
 		parsed.Path = strings.TrimSuffix(parsed.Path, "/") + "/collections/" + url.PathEscape(source.Query.Collection) + "/items"
 		query := parsed.Query()
-		query.Set("bbox", extentString(project.Target.CoordinateSpace.Extent))
+		extent, err := sourceExtent(source.Mapping.Geometry, project.Target.CoordinateSpace)
+		if err != nil {
+			return Request{}, fmt.Errorf("source %s query extent: %w", source.ID, err)
+		}
+		query.Set("bbox", extentString(extent))
 		query.Set("f", "json")
 		if source.Query.Limit > 0 {
 			query.Set("limit", strconv.Itoa(source.Query.Limit))
@@ -198,9 +223,9 @@ func rasterRequests(project Project, raster Raster) ([]Request, error) {
 
 func requestID(request Request) string {
 	canonical := struct {
-		Kind, Source, Adapter, Locator, Raster string
-		Zoom, X, Y                             int64
-	}{string(request.Kind), request.Source, request.Adapter, request.IdentityLocator, request.Raster, request.Zoom, request.X, request.Y}
+		Kind, Source, Adapter, Locator, Raster, Asset string
+		Zoom, X, Y                                    int64
+	}{string(request.Kind), request.Source, request.Adapter, request.IdentityLocator, request.Raster, request.Asset, request.Zoom, request.X, request.Y}
 	data, _ := json.Marshal(canonical)
 	digest := sha256.Sum256(data)
 	return hex.EncodeToString(digest[:])

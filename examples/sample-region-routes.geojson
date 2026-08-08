@@ -1,0 +1,17 @@
+{
+  "type": "FeatureCollection",
+  "features": [
+    {
+      "type": "Feature",
+      "id": "route-1",
+      "properties": {
+        "name": "Sample Route",
+        "kind": "walking"
+      },
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [[20, 25], [40, 60], [75, 35], [85, 70]]
+      }
+    }
+  ]
+}

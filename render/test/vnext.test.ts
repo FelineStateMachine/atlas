@@ -82,10 +82,16 @@ test("native geometry preserves parts, rings, and string identities without GeoJ
 test("semantic meaning does not have to masquerade as geometry", () => {
   assert.equal(presentedKind([{ geometry: { kind: 1 } }], "place"), "point");
   assert.equal(presentedKind([{ geometry: { kind: 2 } }], "route"), "path");
+  assert.equal(presentedKind([{ geometry: { kind: 3 } }], "region", "area"), "area");
+  assert.equal(presentedKind([], "place", "point"), "point");
   assert.equal(presentedKind([], "geometry.area"), "area");
   assert.throws(
     () => presentedKind([{ geometry: { kind: 1 } }, { geometry: { kind: 2 } }], "place"),
     /mixes geometry kinds/,
+  );
+  assert.throws(
+    () => presentedKind([{ geometry: { kind: 1 } }], "place", "area"),
+    /declares area but carries point/,
   );
 });
 

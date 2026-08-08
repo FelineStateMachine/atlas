@@ -7,7 +7,7 @@ import (
 	"testing"
 )
 
-const sampleProject = `schema: atlas-project/v1
+const sampleProject = `schema: atlas-project/v2
 schema-namespace: example.invalid/atlas/sample-region
 id: sample-region
 title: Sample Region
@@ -34,6 +34,11 @@ sources:
       semantic-type: sample.place
       identity: properties.id
       feature-title: properties.name
+      geometry:
+        family: point
+        source-space: sample-region/space
+        transform:
+          kind: identity
       fields:
         - id: sample.kind
           source: properties.kind
@@ -107,5 +112,69 @@ func TestProjectRejectsConflictingFeatureSets(t *testing.T) {
 	project.Sources = append(project.Sources, second)
 	if err := project.Validate(); err == nil || !strings.Contains(err.Error(), "conflicting declarations") {
 		t.Fatalf("Validate = %v, want feature-set conflict", err)
+	}
+}
+
+func TestProjectRejectsGeometryAndRelationshipContractErrors(t *testing.T) {
+	tests := []struct {
+		name    string
+		change  func(*Project)
+		mention string
+	}{
+		{
+			name: "unknown geometry family",
+			change: func(project *Project) {
+				project.Sources[0].Mapping.Geometry.Family = "mesh"
+			},
+			mention: "unknown geometry family",
+		},
+		{
+			name: "identity crosses spaces",
+			change: func(project *Project) {
+				project.Sources[0].Mapping.Geometry.SourceSpace = "another-space"
+			},
+			mention: "identity transform source space",
+		},
+		{
+			name: "singular affine",
+			change: func(project *Project) {
+				project.Sources[0].Mapping.Geometry.SourceSpace = "source-space"
+				project.Sources[0].Mapping.Geometry.Transform = CoordinateTransform{Kind: "affine"}
+			},
+			mention: "singular",
+		},
+		{
+			name: "unknown relationship feature set",
+			change: func(project *Project) {
+				project.Sources[0].Mapping.Relations = []RelationMap{{Predicate: "within", FeatureSet: "missing", Target: "properties.parent"}}
+			},
+			mention: "unknown feature set",
+		},
+		{
+			name: "unknown style asset",
+			change: func(project *Project) {
+				project.Presentation.Styles[0].IconAsset = "missing"
+			},
+			mention: "unknown asset",
+		},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			project, err := LoadProject(writeSampleProject(t, sampleProject))
+			if err != nil {
+				t.Fatal(err)
+			}
+			test.change(&project)
+			if err := project.Validate(); err == nil || !strings.Contains(err.Error(), test.mention) {
+				t.Fatalf("Validate = %v, want %q", err, test.mention)
+			}
+		})
+	}
+}
+
+func TestProjectV1IsAHardBreak(t *testing.T) {
+	legacy := strings.Replace(sampleProject, ProjectSchema, "atlas-project/v1", 1)
+	if _, err := LoadProject(writeSampleProject(t, legacy)); err == nil || !strings.Contains(err.Error(), ProjectSchema) {
+		t.Fatalf("LoadProject = %v, want v2 hard break", err)
 	}
 }

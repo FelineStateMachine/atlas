@@ -1,0 +1,17 @@
+{
+  "type": "FeatureCollection",
+  "features": [
+    {
+      "type": "Feature",
+      "id": "area-1",
+      "properties": {
+        "name": "Sample Area",
+        "kind": "district"
+      },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [[[10, 15], [90, 15], [90, 85], [10, 85], [10, 15]]]
+      }
+    }
+  ]
+}

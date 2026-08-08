@@ -5,26 +5,36 @@
       "type": "Feature",
       "id": "marker-1",
       "properties": {
-        "id": "marker-1",
         "name": "Sample Marker",
-        "kind": "landmark"
+        "kind": "landmark",
+        "featured": true,
+        "rank": 1,
+        "score": 9.5,
+        "badge": "AQID",
+        "category": "sample.category.marker",
+        "area": "area-1"
       },
       "geometry": {
         "type": "Point",
-        "coordinates": [40, 60]
+        "coordinates": [4, 6]
       }
     },
     {
       "type": "Feature",
       "id": "marker-2",
       "properties": {
-        "id": "marker-2",
         "name": "Sample Lookout",
-        "kind": "landmark"
+        "kind": "landmark",
+        "featured": false,
+        "rank": 2,
+        "score": 7.25,
+        "badge": "BAUG",
+        "category": "sample.category.lookout",
+        "area": "area-1"
       },
       "geometry": {
         "type": "Point",
-        "coordinates": [75, 35]
+        "coordinates": [7.5, 3.5]
       }
     }
   ]

@@ -125,19 +125,9 @@ func (a *App) announce(changed []string) {
 	// A volume whose serving build moved cannot be patched: every URL under
 	// the old stamp is gone. The page is told to re-fetch itself.
 	for _, slug := range changed {
-		volume, serving := held.bySlug[slug]
-		if !serving {
-			continue
+		if refresh, ok := a.refreshMessage(held, slug); ok {
+			a.events.publish(refresh)
 		}
-		info := volume.Info()
-		world := a.session(slug).World
-		if _, ok := worldEntry(info, world); !ok {
-			world = info.Worlds[0].Slug
-		}
-		where := partialTargets["shell"]
-		directive := []byte("<hx-partial hx-target=\"" + where.target + "\" hx-swap=\"" + where.swap +
-			"\" hx-get=\"/v/" + slug + "/" + world + "\"></hx-partial>")
-		a.events.publish(message{name: eventRefresh, body: directive, volume: slug})
 	}
 	slog.Info("library changed", logging.Op("events"),
 		slog.Int("volumes", len(changed)), slog.Any("changed", changed))
@@ -150,6 +140,7 @@ func (a *App) announce(changed []string) {
 // catalog events and no refresh directives.
 func (a *App) handleEvents(w http.ResponseWriter, r *http.Request) {
 	watching := r.URL.Query().Get("volume")
+	stamp := r.URL.Query().Get("stamp")
 	if watching != "" && vnext.ValidSlug(watching) != nil {
 		http.Error(w, "that is not a volume", http.StatusBadRequest)
 		return
@@ -173,6 +164,24 @@ func (a *App) handleEvents(w http.ResponseWriter, r *http.Request) {
 	if err := control.Flush(); err != nil {
 		return
 	}
+	// A native file may arrive while the desktop window is still opening,
+	// before this stream subscribes. The page includes the stamp it rendered;
+	// comparing it after subscription closes that startup race without event
+	// history or a polling loop.
+	if watching != "" && stamp != "" {
+		held := a.library()
+		if volume, ok := held.bySlug[watching]; ok && vnext.ShortStamp(volume.Info().Stamp) != stamp {
+			refresh, ok := a.refreshMessage(held, watching)
+			if ok {
+				if _, err := w.Write(encodeEvent(refresh)); err != nil {
+					return
+				}
+				if err := control.Flush(); err != nil {
+					return
+				}
+			}
+		}
+	}
 
 	for {
 		select {
@@ -190,6 +199,22 @@ func (a *App) handleEvents(w http.ResponseWriter, r *http.Request) {
 			}
 		}
 	}
+}
+
+func (a *App) refreshMessage(held library, slug string) (message, bool) {
+	volume, serving := held.bySlug[slug]
+	if !serving {
+		return message{}, false
+	}
+	info := volume.Info()
+	world := a.session(slug).World
+	if _, ok := worldEntry(info, world); !ok {
+		world = info.Worlds[0].Slug
+	}
+	where := partialTargets["shell"]
+	directive := []byte("<hx-partial hx-target=\"" + where.target + "\" hx-swap=\"" + where.swap +
+		"\" hx-get=\"/v/" + slug + "/" + world + "\"></hx-partial>")
+	return message{name: eventRefresh, body: directive, volume: slug}, true
 }
 
 // encodeEvent writes one message in the wire format: a name, then the body one

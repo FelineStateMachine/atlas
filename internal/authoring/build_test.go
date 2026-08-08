@@ -26,6 +26,11 @@ func TestBuildSampleRegionIsNativeDeterministicAndFused(t *testing.T) {
       semantic-type: sample.place
       identity: properties.id
       feature-title: properties.name
+      geometry:
+        family: point
+        source-space: sample-region/space
+        transform:
+          kind: identity
       fields:
         - id: sample.kind
           source: properties.kind

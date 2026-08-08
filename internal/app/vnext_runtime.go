@@ -6,6 +6,7 @@ import (
 	"math"
 	"sort"
 	"strconv"
+	"strings"
 	"sync"
 
 	"github.com/FelineStateMachine/atlas/format/semconv"
@@ -66,7 +67,7 @@ func semanticWorld(volume vnext.Volume, slug string) (vnext.World, bool) {
 // compatibility object is created along the way.
 func buildVNextWorld(world vnext.World, assets []vnext.Asset) (*worldModel, error) {
 	space := world.CoordinateSpace
-	grid := tileGrid{SourceZoom: int(space.SourceZoom), FirstTile: int(space.FirstTile), TileSize: int(space.TileSize), Size: int(space.Size)}
+	grid := nativeGrid(space)
 	model := &worldModel{
 		Slug: world.ID, Space: space, Lenses: nativeRasters(world.RasterPyramids), Attrs: propertiesToAttrs(world.Claims),
 		Origin: worldOrigin(world), Grid: grid,
@@ -95,7 +96,7 @@ func buildVNextWorld(world vnext.World, assets []vnext.Asset) (*worldModel, erro
 		if !ok {
 			return nil, fmt.Errorf("layer %s refers to missing style %s", layer.ID, layer.Style)
 		}
-		kind := semanticGeometryKind(set.SemanticType)
+		kind := featureSetGeometryKind(set)
 		attrs := propertiesToAttrs(set.Claims)
 		collection := &collectionModel{
 			ID: layer.ID, Title: legendLabel(world.Presentation.Legend, layer.ID, set.Title), Kind: kind,
@@ -161,7 +162,7 @@ func addNativeFeature(
 // reading; a native projected or synthetic space shows its own x/y values and
 // unit instead of pretending those values are Web Mercator.
 func coordinateLabel(space vnext.CoordinateSpace, grid tileGrid, position vnext.Position) string {
-	if grid.SourceZoom > 0 && grid.TileSize > 0 && grid.Size > 0 {
+	if tilePlane(space.Definition) && grid.SourceZoom > 0 && grid.TileSize > 0 && grid.Size > 0 {
 		lat, lng := grid.unproject(position[0], position[1])
 		return strconv.FormatFloat(lat, 'f', 6, 64) + ", " +
 			strconv.FormatFloat(lng, 'f', 6, 64)
@@ -172,6 +173,23 @@ func coordinateLabel(space vnext.CoordinateSpace, grid tileGrid, position vnext.
 		label += " " + space.Unit
 	}
 	return label
+}
+
+func nativeGrid(space vnext.CoordinateSpace) tileGrid {
+	grid := tileGrid{SourceZoom: int(space.SourceZoom), FirstTile: int(space.FirstTile), TileSize: int(space.TileSize), Size: int(space.Size)}
+	if grid.TileSize == 0 {
+		grid.TileSize = 256
+	}
+	if grid.Size == 0 {
+		width := space.Extent[2] - space.Extent[0]
+		height := space.Extent[3] - space.Extent[1]
+		grid.Size = int(math.Ceil(math.Max(width, height)))
+	}
+	return grid
+}
+
+func tilePlane(definition string) bool {
+	return definition == "atlas:tile-plane" || strings.HasPrefix(definition, "atlas:v3/tile-grid")
 }
 
 func buildNativeShape(feature *vnext.Feature, collection *collectionModel) (*shapeModel, error) {
@@ -269,14 +287,23 @@ func nativeValue(value vnext.Value) string {
 	}
 }
 
-func semanticGeometryKind(value string) string {
-	if len(value) > len("geometry.") && value[:len("geometry.")] == "geometry." {
-		return value[len("geometry."):]
+func featureSetGeometryKind(set vnext.FeatureSet) string {
+	for _, claim := range set.Claims {
+		if claim.Field.Name == semconv.KeyGeometryKind {
+			return claim.Value.String
+		}
 	}
-	if value == "" {
-		return semconv.GeometryPoint
+	for _, feature := range set.Features {
+		switch feature.Geometry.Kind {
+		case vnext.GeometryPoint:
+			return semconv.GeometryPoint
+		case vnext.GeometryLineString:
+			return semconv.GeometryPath
+		case vnext.GeometryPolygon:
+			return semconv.GeometryArea
+		}
 	}
-	return value
+	return semconv.GeometryPoint
 }
 
 func relationshipTarget(relationships []vnext.Relationship, predicate string) string {

@@ -1,5 +1,5 @@
-schema: atlas-project/v1
-schema-namespace: example.invalid/atlas/sample-region/v1
+schema: atlas-project/v2
+schema-namespace: example.invalid/atlas/sample-region/v2
 id: sample-region
 title: Sample Region
 
@@ -14,35 +14,161 @@ target:
     extent: [0, 0, 100, 100]
 
 sources:
-  - id: sample-features
+  - id: sample-places
     adapter: geojson
     locator: sample-region.geojson
     media-type: application/geo+json
     license: Example data
     attribution: Sample Region contributors
-    estimate-bytes: 1024
+    estimate-bytes: 2048
     mapping:
       feature-set: places
       title: Sample Places
       semantic-type: place
       identity: id
       feature-title: properties.name
+      geometry:
+        family: point
+        source-space: sample-source-grid
+        transform:
+          kind: affine
+          matrix: [10, 0, 0, 0, 10, 0]
+      fields:
+        - id: kind
+          name: Kind
+          source: properties.kind
+          type: string
+        - id: featured
+          name: Featured
+          source: properties.featured
+          type: bool
+        - id: rank
+          name: Rank
+          source: properties.rank
+          type: int64
+        - id: score
+          name: Score
+          source: properties.score
+          type: float64
+        - id: badge
+          name: Badge
+          source: properties.badge
+          type: bytes
+        - id: category
+          name: Category
+          source: properties.category
+          type: id
+      relationships:
+        - predicate: within
+          feature-set: areas
+          target: properties.area
+
+  - id: sample-routes
+    adapter: geojson
+    locator: sample-region-routes.geojson
+    media-type: application/geo+json
+    license: Example data
+    attribution: Sample Region contributors
+    estimate-bytes: 1024
+    mapping:
+      feature-set: routes
+      title: Sample Routes
+      semantic-type: route
+      identity: id
+      feature-title: properties.name
+      geometry:
+        family: path
+        source-space: sample-grid
+        transform:
+          kind: identity
       fields:
         - id: kind
           name: Kind
           source: properties.kind
           type: string
 
+  - id: sample-areas
+    adapter: geojson
+    locator: sample-region-areas.geojson
+    media-type: application/geo+json
+    license: Example data
+    attribution: Sample Region contributors
+    estimate-bytes: 1024
+    mapping:
+      feature-set: areas
+      title: Sample Areas
+      semantic-type: region
+      identity: id
+      feature-title: properties.name
+      geometry:
+        family: area
+        source-space: sample-grid
+        transform:
+          kind: identity
+      fields:
+        - id: kind
+          name: Kind
+          source: properties.kind
+          type: string
+
+rasters:
+  - id: background
+    name: Sample Background
+    adapter: raster-file
+    locator: sample-region-raster.ppm
+    media-type: image/x-portable-pixmap
+    license: Example data
+    attribution: Sample Region contributors
+    estimate-bytes: 256
+    tile-size: 32
+    max-zoom: 1
+    full-zoom: 1
+    interpolate: true
+
+assets:
+  - id: sample-symbol
+    locator: sample-region-symbol.svg
+    media-type: image/svg+xml
+    provenance: Sample Region contributors
+    license: Example data
+    attribution: Sample Region contributors
+    estimate-bytes: 512
+
 presentation:
   id: default
   title: Default
   styles:
+    - id: area
+      render-as: geometry
+      stroke: "#6d91ad"
+      fill: "#d9e6dd"
     - id: place
       symbol: circle
+      icon-asset: sample-symbol
+      icon-picture: true
       render-as: geometry
       stroke: "#d9e7f5"
       fill: "#5ba4d7"
+    - id: route
+      render-as: geometry
+      stroke: "#d98255"
   layers:
+    - id: areas
+      feature-set: areas
+      style: area
+      label: Sample Areas
+      group: Sample Region
+      label-policy: quiet
+      visible: true
+      order: 1
+    - id: routes
+      feature-set: routes
+      style: route
+      label: Sample Routes
+      group: Sample Region
+      label-policy: automatic
+      visible: true
+      order: 2
     - id: places
       feature-set: places
       style: place
@@ -50,7 +176,7 @@ presentation:
       group: Sample Region
       label-policy: automatic
       visible: true
-      order: 1
+      order: 3
 
 release:
   revision: 1

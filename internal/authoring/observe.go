@@ -20,6 +20,7 @@ type observation struct {
 	FeatureSet  string
 	SetTitle    string
 	Semantic    string
+	Family      string
 	Title       string
 	Geometry    vnext.Geometry
 	Fields      map[string]vnext.Field
@@ -82,10 +83,14 @@ func observe(project Project, sourceOrder int, source Source, capture Capture, b
 		if err != nil {
 			return nil, fmt.Errorf("source %s feature %s: %w", source.ID, nativeID, err)
 		}
+		geometry, err = transformGeometry(geometry, source.Mapping.Geometry, project.Target.CoordinateSpace)
+		if err != nil {
+			return nil, fmt.Errorf("source %s feature %s: %w", source.ID, nativeID, err)
+		}
 		item := observation{
 			SourceOrder: sourceOrder, Source: source.ID, NativeID: nativeID,
 			FeatureSet: source.Mapping.FeatureSet, SetTitle: source.Mapping.Title,
-			Semantic: source.Mapping.SemanticType, Title: scalarString(titleValue),
+			Semantic: source.Mapping.SemanticType, Family: source.Mapping.Geometry.Family, Title: scalarString(titleValue),
 			Geometry: geometry, Fields: make(map[string]vnext.Field), Values: make(map[string]vnext.Value),
 			Evidence: capture,
 		}
@@ -107,7 +112,7 @@ func observe(project Project, sourceOrder int, source Source, capture Capture, b
 				name = mapping.ID
 			}
 			item.Fields[mapping.ID] = vnext.Field{
-				ID:   vnext.IDFromName(project.SchemaNamespace, "feature."+mapping.ID),
+				ID:   vnext.IDFromName(project.SchemaNamespace, "feature."+source.Mapping.FeatureSet+"."+mapping.ID),
 				Name: name, Kind: kind, Optional: mapping.Optional,
 			}
 			item.Values[mapping.ID] = value
@@ -115,7 +120,10 @@ func observe(project Project, sourceOrder int, source Source, capture Capture, b
 		for _, mapping := range source.Mapping.Relations {
 			raw, held := featureValue(feature, mapping.Target)
 			if !held || scalarString(raw) == "" {
-				continue
+				if mapping.Optional {
+					continue
+				}
+				return nil, fmt.Errorf("source %s feature %s omits relationship %s", source.ID, nativeID, mapping.Predicate)
 			}
 			set := mapping.FeatureSet
 			if set == "" {

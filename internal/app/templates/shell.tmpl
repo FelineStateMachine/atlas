@@ -326,7 +326,7 @@
     first opened on. A reconcile would then take the reader somewhere else,
     which is exactly what an unchanged catalog must never do.
   */}}
-  {{with .Volume}}<div hidden id="atlas-events" hx-sse:connect="/events?volume={{.Slug}}" hx-trigger="load"></div>
+  {{with .Volume}}<div hidden id="atlas-events" hx-sse:connect="/events?volume={{.Slug}}&amp;stamp={{.Stamp}}" hx-trigger="load"></div>
   <div hidden hx-get="/v/{{.Slug}}/{{.World.Slug}}"
        hx-trigger="catalog from:#atlas-events, refresh from:#atlas-events"
        hx-target="#atlas-shell" hx-select="#atlas-shell" hx-swap="outerMorph"></div>{{end}}

@@ -47,22 +47,7 @@
     <button>Build native Atlas</button>
     <label><input type="checkbox" name="offline" value="true"> offline / cached only</label>
   </form>
-  {{if .Run.Name}}
-    <p class="run-state {{if .Run.Failed}}failed{{else if .Run.Running}}running{{else}}done{{end}}">
-      {{if .Run.Running}}Building… safe to leave this page{{else if .Run.Failed}}Build failed{{else}}Build complete{{end}}
-    </p>
-    <div id="op-log" class="console" aria-live="polite"
-         hx-get="/project/run" hx-trigger="load, every 1s" hx-swap="innerHTML">
-      {{range .Run.Rows}}{{template "op-row" .}}{{end}}
-    </div>
-  {{end}}
-  {{if .Run.Artifact}}
-  <div class="artifact-handoff" draggable="true" data-artifact-handoff
-       data-artifact-name="{{.ArtifactName}}" data-artifact-path="{{.Run.Artifact}}">
-    <div><span class="file-icon">A</span><b>{{.ArtifactName}}</b><br><span class="dim">Drag this file onto an Atlas window</span></div>
-    <form method="post" action="/project/open"><button>Open in Atlas</button></form>
-  </div>
-  {{end}}
+  {{template "project-run" .}}
 </section>
 </div>
 {{end}}
@@ -75,4 +60,24 @@
     <button>Validate and save</button>
   </form>
 </section>
+{{end}}
+
+{{define "project-run"}}
+<div id="project-run"{{if .Run.Running}} hx-get="/project/run" hx-trigger="load, every 1s" hx-swap="outerHTML"{{end}}>
+  {{if .Run.Name}}
+    <p class="run-state {{if .Run.Failed}}failed{{else if .Run.Running}}running{{else}}done{{end}}">
+      {{if .Run.Running}}Building… safe to leave this page{{else if .Run.Failed}}Build failed{{else}}Build complete{{end}}
+    </p>
+    <div id="op-log" class="console" aria-live="polite">
+      {{range .Run.Rows}}{{template "op-row" .}}{{end}}
+    </div>
+  {{end}}
+  {{if .Run.Artifact}}
+  <div class="artifact-handoff" draggable="true" data-artifact-handoff
+       data-artifact-name="{{.ArtifactName}}" data-artifact-path="{{.Run.Artifact}}">
+    <div><span class="file-icon">A</span><b>{{.ArtifactName}}</b><br><span class="dim">Drag this file onto an Atlas window</span></div>
+    <form method="post" action="/project/open"><button>Open in Atlas</button></form>
+  </div>
+  {{end}}
+</div>
 {{end}}

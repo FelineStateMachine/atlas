@@ -42,6 +42,7 @@ type Window struct {
 	live    atomic.Pointer[context.Context]
 	mu      sync.Mutex
 	install func(name string, content io.Reader) error
+	refresh func(context.Context)
 	pending []string
 }
 
@@ -69,6 +70,11 @@ func (w *Window) QueuePaths(paths []string) {
 // entire application surface.
 func (w *Window) Opened(ctx context.Context) {
 	w.live.Store(&ctx)
+	w.mu.Lock()
+	if w.refresh == nil {
+		w.refresh = wailsruntime.WindowReload
+	}
+	w.mu.Unlock()
 	wailsruntime.OnFileDrop(ctx, func(_, _ int, paths []string) { w.QueuePaths(paths) })
 	w.flush()
 }
@@ -78,10 +84,12 @@ func (w *Window) flush() {
 	paths := append([]string(nil), w.pending...)
 	w.pending = nil
 	install := w.install
+	refresh := w.refresh
 	w.mu.Unlock()
 	if install == nil {
 		return
 	}
+	installed := false
 	for _, path := range paths {
 		file, err := os.Open(path)
 		if err == nil {
@@ -93,6 +101,13 @@ func (w *Window) flush() {
 		}
 		if err != nil {
 			slog.Warn("native file open refused", logging.Op("install"), logging.Path(path), slog.Any("error", err))
+		} else {
+			installed = true
+		}
+	}
+	if installed && refresh != nil {
+		if live := w.live.Load(); live != nil {
+			refresh(*live)
 		}
 	}
 }

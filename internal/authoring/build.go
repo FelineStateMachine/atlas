@@ -88,6 +88,9 @@ func Build(ctx context.Context, options BuildOptions) (BuildResult, error) {
 	if err != nil {
 		return result, err
 	}
+	if err := attachAssets(project, plan, captures, cache, &volume); err != nil {
+		return result, err
+	}
 	rasterBlobs, err := attachRasters(project, plan, captures, cache, &volume.Worlds[0])
 	if err != nil {
 		return result, err
@@ -147,6 +150,17 @@ func attachRasters(project Project, plan Plan, captures map[string]Capture, cach
 		if len(requests) == 0 {
 			return nil, fmt.Errorf("raster %s has no planned requests", source.ID)
 		}
+		if source.Adapter == "raster-file" {
+			capture := captures[requests[0].ID]
+			pyramid, derived, err := deriveRasterFile(source, capture, cache)
+			if err != nil {
+				return nil, err
+			}
+			pyramid.ID = world.ID + "/raster/" + source.ID
+			world.RasterPyramids = append(world.RasterPyramids, pyramid)
+			blobs = append(blobs, derived...)
+			continue
+		}
 		sort.Slice(requests, func(i, j int) bool {
 			if requests[i].Zoom != requests[j].Zoom {
 				return requests[i].Zoom < requests[j].Zoom
@@ -162,6 +176,9 @@ func attachRasters(project Project, plan Plan, captures map[string]Capture, cach
 		for _, request := range requests {
 			capture := captures[request.ID]
 			format := formatOf(capture.Body.MediaType, request.IdentityLocator)
+			if held := formats[request.Zoom-minZoom]; held != "" && held != format {
+				return nil, fmt.Errorf("raster %s mixes formats at zoom %d", source.ID, request.Zoom)
+			}
 			formats[request.Zoom-minZoom] = format
 			codec = capture.Body.MediaType
 			blobs = append(blobs, vnext.Blob{
@@ -174,11 +191,16 @@ func attachRasters(project Project, plan Plan, captures map[string]Capture, cach
 				return nil, fmt.Errorf("raster %s omits zoom %d", source.ID, int64(index)+minZoom)
 			}
 		}
+		fullZoom := source.FullZoom
+		if fullZoom == 0 {
+			fullZoom = maxZoom
+		}
 		world.RasterPyramids = append(world.RasterPyramids, vnext.RasterPyramid{
 			ID: world.ID + "/raster/" + source.ID, Name: source.Name, Codec: codec,
-			TileSize: source.TileSize, MinZoom: minZoom, MaxZoom: maxZoom, FullZoom: maxZoom,
+			TileSize: source.TileSize, MinZoom: minZoom, MaxZoom: maxZoom, FullZoom: fullZoom,
 			SourceZoom: source.SourceZoom, Template: "tiles/" + source.ID + "/{z}/{x}/{y}.{format}",
-			Formats: formats, Interpolate: source.Interpolate, Background: source.Background,
+			Formats: formats, Bounds: nativeRect(source.Bounds), Surface: nativeRect(source.Surface),
+			Interpolate: source.Interpolate, Background: source.Background, Shard: source.Shard,
 		})
 	}
 	sort.Slice(world.RasterPyramids, func(i, j int) bool { return world.RasterPyramids[i].ID < world.RasterPyramids[j].ID })

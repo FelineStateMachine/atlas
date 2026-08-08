@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"sort"
 
+	"github.com/FelineStateMachine/atlas/format/semconv"
 	"github.com/FelineStateMachine/atlas/format/vnext"
 )
 
@@ -34,21 +35,27 @@ func assemble(project Project, observations []observation) (vnext.Volume, error)
 		}
 		return observations[i].SourceOrder < observations[j].SourceOrder
 	})
-	sets := make(map[string]*vnext.FeatureSet)
+	sets := make(map[string]int)
+	families := make(map[string]string)
 	features := make(map[string]map[string]*assembledFeature)
 	for _, item := range observations {
-		set := sets[item.FeatureSet]
-		if set == nil {
-			world.FeatureSets = append(world.FeatureSets, vnext.FeatureSet{ID: setID(world.ID, item.FeatureSet), Title: item.SetTitle, SemanticType: item.Semantic})
-			set = &world.FeatureSets[len(world.FeatureSets)-1]
-			sets[item.FeatureSet] = set
+		setIndex, exists := sets[item.FeatureSet]
+		if !exists {
+			world.FeatureSets = append(world.FeatureSets, vnext.FeatureSet{
+				ID: setID(world.ID, item.FeatureSet), Title: item.SetTitle, SemanticType: item.Semantic,
+				Claims: []vnext.Property{geometryClaim(item.Family)},
+			})
+			setIndex = len(world.FeatureSets) - 1
+			sets[item.FeatureSet] = setIndex
+			families[item.FeatureSet] = item.Family
 			features[item.FeatureSet] = make(map[string]*assembledFeature)
 		}
-		if set.Title != item.SetTitle || set.SemanticType != item.Semantic {
+		set := &world.FeatureSets[setIndex]
+		if set.Title != item.SetTitle || set.SemanticType != item.Semantic || families[item.FeatureSet] != item.Family || familyOf(item.Geometry.Kind) != item.Family {
 			return vnext.Volume{}, fmt.Errorf("feature set %s has incompatible observations", item.FeatureSet)
 		}
 		for key, field := range item.Fields {
-			if current, held := fieldByID(set.Properties, field.ID); held && current.Kind != field.Kind {
+			if current, held := fieldByID(set.Properties, field.ID); held && (current.Kind != field.Kind || current.Name != field.Name || current.Optional != field.Optional) {
 				return vnext.Volume{}, fmt.Errorf("feature set %s field %s changes type", item.FeatureSet, key)
 			} else if !held {
 				set.Properties = append(set.Properties, field)
@@ -65,7 +72,7 @@ func assemble(project Project, observations []observation) (vnext.Volume, error)
 			}
 			features[item.FeatureSet][item.NativeID] = held
 		}
-		held.feature.Provenance = append(held.feature.Provenance, vnext.Provenance{
+		held.feature.Provenance = appendProvenance(held.feature.Provenance, vnext.Provenance{
 			Source: item.Source, NativeID: item.NativeID, CapturedAt: item.Evidence.CapturedAt,
 		})
 		for key, value := range item.Values {
@@ -75,14 +82,14 @@ func assemble(project Project, observations []observation) (vnext.Volume, error)
 			}
 		}
 		for _, relation := range item.Relations {
-			held.feature.Relationships = append(held.feature.Relationships, vnext.Relationship{
+			held.feature.Relationships = appendRelationship(held.feature.Relationships, vnext.Relationship{
 				Predicate: relation.Predicate,
 				Target:    featureID(world.ID, relation.FeatureSet, relation.NativeID),
 			})
 		}
 	}
 	for _, setName := range sortedSetNames(sets) {
-		set := sets[setName]
+		set := &world.FeatureSets[sets[setName]]
 		sort.Slice(set.Properties, func(i, j int) bool { return set.Properties[i].ID.String() < set.Properties[j].ID.String() })
 		for _, nativeID := range sortedFeatureNames(features[setName]) {
 			held := features[setName][nativeID]
@@ -108,7 +115,7 @@ func assemble(project Project, observations []observation) (vnext.Volume, error)
 	for _, style := range project.Presentation.Styles {
 		world.Presentation.Styles = append(world.Presentation.Styles, vnext.Style{
 			ID: style.ID, Symbol: style.Symbol, Icon: style.Icon, RenderAs: style.RenderAs,
-			Stroke: style.Stroke, Fill: style.Fill,
+			IconAsset: style.IconAsset, IconPicture: style.IconPicture, Stroke: style.Stroke, Fill: style.Fill,
 		})
 	}
 	for _, layer := range project.Presentation.Layers {
@@ -124,12 +131,48 @@ func assemble(project Project, observations []observation) (vnext.Volume, error)
 		world.Presentation.Legend = append(world.Presentation.Legend, vnext.LegendEntry{Layer: layer.ID, Label: layer.Label, Order: layer.Order})
 	}
 	sort.Slice(world.Presentation.Styles, func(i, j int) bool { return world.Presentation.Styles[i].ID < world.Presentation.Styles[j].ID })
-	sort.Slice(world.Presentation.Layers, func(i, j int) bool { return world.Presentation.Layers[i].Order < world.Presentation.Layers[j].Order })
-	sort.Slice(world.Presentation.Legend, func(i, j int) bool { return world.Presentation.Legend[i].Order < world.Presentation.Legend[j].Order })
+	sort.Slice(world.Presentation.Layers, func(i, j int) bool {
+		if world.Presentation.Layers[i].Order != world.Presentation.Layers[j].Order {
+			return world.Presentation.Layers[i].Order < world.Presentation.Layers[j].Order
+		}
+		return world.Presentation.Layers[i].ID < world.Presentation.Layers[j].ID
+	})
+	sort.Slice(world.Presentation.Legend, func(i, j int) bool {
+		if world.Presentation.Legend[i].Order != world.Presentation.Legend[j].Order {
+			return world.Presentation.Legend[i].Order < world.Presentation.Legend[j].Order
+		}
+		return world.Presentation.Legend[i].Layer < world.Presentation.Legend[j].Layer
+	})
 	if err := relationshipClosure(world); err != nil {
 		return vnext.Volume{}, err
 	}
 	return vnext.Volume{ID: project.ID, Title: project.Title, Worlds: []vnext.World{world}}, nil
+}
+
+func geometryClaim(family string) vnext.Property {
+	field := vnext.Field{
+		ID:   vnext.IDFromName("dev.atlas.attribute.featureSet", semconv.KeyGeometryKind),
+		Name: semconv.KeyGeometryKind, Kind: vnext.KindString,
+	}
+	return vnext.Property{FieldID: field.ID, Field: field, Value: vnext.StringValue(family)}
+}
+
+func appendProvenance(values []vnext.Provenance, item vnext.Provenance) []vnext.Provenance {
+	for _, value := range values {
+		if value == item {
+			return values
+		}
+	}
+	return append(values, item)
+}
+
+func appendRelationship(values []vnext.Relationship, item vnext.Relationship) []vnext.Relationship {
+	for _, value := range values {
+		if value == item {
+			return values
+		}
+	}
+	return append(values, item)
 }
 
 func fieldByID(fields []vnext.Field, id vnext.ID) (vnext.Field, bool) {
@@ -167,7 +210,7 @@ func featureID(world, set, native string) string {
 	return setID(world, set) + "/feature/" + hex.EncodeToString(digest[:12])
 }
 
-func sortedSetNames(values map[string]*vnext.FeatureSet) []string {
+func sortedSetNames(values map[string]int) []string {
 	out := make([]string, 0, len(values))
 	for key := range values {
 		out = append(out, key)

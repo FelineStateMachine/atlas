@@ -9,6 +9,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"math"
 	"os"
 	"path/filepath"
 	"strings"
@@ -18,7 +19,7 @@ import (
 )
 
 const (
-	ProjectSchema    = "atlas-project/v1"
+	ProjectSchema    = "atlas-project/v2"
 	ProjectExtension = ".atlas-project"
 )
 
@@ -31,6 +32,7 @@ type Project struct {
 	Target          Target       `yaml:"target"`
 	Sources         []Source     `yaml:"sources,omitempty"`
 	Rasters         []Raster     `yaml:"rasters,omitempty"`
+	Assets          []Asset      `yaml:"assets,omitempty"`
 	Presentation    Presentation `yaml:"presentation"`
 	Release         Release      `yaml:"release,omitempty"`
 
@@ -87,8 +89,23 @@ type Mapping struct {
 	SemanticType string        `yaml:"semantic-type"`
 	Identity     string        `yaml:"identity"`
 	FeatureTitle string        `yaml:"feature-title"`
+	Geometry     GeometryMap   `yaml:"geometry"`
 	Fields       []Field       `yaml:"fields,omitempty"`
 	Relations    []RelationMap `yaml:"relationships,omitempty"`
+}
+
+// GeometryMap is the source-to-world geometry contract for one FeatureSet.
+// Atlas intentionally executes only explicit identity and affine transforms;
+// a CRS label alone never implies executable projection behavior.
+type GeometryMap struct {
+	Family      string              `yaml:"family"`
+	SourceSpace string              `yaml:"source-space"`
+	Transform   CoordinateTransform `yaml:"transform"`
+}
+
+type CoordinateTransform struct {
+	Kind   string     `yaml:"kind"`
+	Matrix [6]float64 `yaml:"matrix,omitempty"`
 }
 
 type Field struct {
@@ -103,10 +120,12 @@ type RelationMap struct {
 	Predicate  string `yaml:"predicate"`
 	FeatureSet string `yaml:"feature-set,omitempty"`
 	Target     string `yaml:"target"`
+	Optional   bool   `yaml:"optional,omitempty"`
 }
 
-// Raster is a configured raster adapter. A file is one tile at zoom zero; an
-// xyz source names explicit tile windows so planning never probes the network.
+// Raster is a configured raster adapter. A file is deterministically expanded
+// through MaxZoom; an xyz source names explicit tile windows so planning never
+// probes the network.
 type Raster struct {
 	ID            string        `yaml:"id"`
 	Name          string        `yaml:"name"`
@@ -118,9 +137,21 @@ type Raster struct {
 	EstimateBytes int64         `yaml:"estimate-bytes,omitempty"`
 	TileSize      int64         `yaml:"tile-size"`
 	SourceZoom    int64         `yaml:"source-zoom,omitempty"`
+	MaxZoom       int64         `yaml:"max-zoom,omitempty"`
+	FullZoom      int64         `yaml:"full-zoom,omitempty"`
 	Interpolate   bool          `yaml:"interpolate,omitempty"`
 	Background    string        `yaml:"background,omitempty"`
+	Bounds        *RasterRect   `yaml:"bounds,omitempty"`
+	Surface       *RasterRect   `yaml:"surface,omitempty"`
+	Shard         int64         `yaml:"shard,omitempty"`
 	Levels        []RasterLevel `yaml:"levels,omitempty"`
+}
+
+type RasterRect struct {
+	X      float64 `yaml:"x"`
+	Y      float64 `yaml:"y"`
+	Width  float64 `yaml:"width"`
+	Height float64 `yaml:"height"`
 }
 
 type RasterLevel struct {
@@ -138,13 +169,26 @@ type Presentation struct {
 	Layers []Layer `yaml:"layers,omitempty"`
 }
 
+// Asset is authored supporting content packed into the immutable Atlas file.
+type Asset struct {
+	ID            string `yaml:"id"`
+	Locator       string `yaml:"locator"`
+	MediaType     string `yaml:"media-type"`
+	Provenance    string `yaml:"provenance,omitempty"`
+	License       string `yaml:"license,omitempty"`
+	Attribution   string `yaml:"attribution,omitempty"`
+	EstimateBytes int64  `yaml:"estimate-bytes,omitempty"`
+}
+
 type Style struct {
-	ID       string `yaml:"id"`
-	Symbol   string `yaml:"symbol,omitempty"`
-	Icon     string `yaml:"icon,omitempty"`
-	RenderAs string `yaml:"render-as,omitempty"`
-	Stroke   string `yaml:"stroke,omitempty"`
-	Fill     string `yaml:"fill,omitempty"`
+	ID          string `yaml:"id"`
+	Symbol      string `yaml:"symbol,omitempty"`
+	Icon        string `yaml:"icon,omitempty"`
+	IconAsset   string `yaml:"icon-asset,omitempty"`
+	IconPicture bool   `yaml:"icon-picture,omitempty"`
+	RenderAs    string `yaml:"render-as,omitempty"`
+	Stroke      string `yaml:"stroke,omitempty"`
+	Fill        string `yaml:"fill,omitempty"`
 }
 
 type Layer struct {
@@ -226,7 +270,7 @@ func (project Project) Validate() error {
 	sets := make(map[string]Mapping)
 	sourceIDs := make(map[string]bool)
 	for _, source := range project.Sources {
-		if err := validateSource(source); err != nil {
+		if err := validateSource(source, project.Target.CoordinateSpace); err != nil {
 			return err
 		}
 		if sourceIDs[source.ID] {
@@ -234,11 +278,22 @@ func (project Project) Validate() error {
 		}
 		sourceIDs[source.ID] = true
 		if held, ok := sets[source.Mapping.FeatureSet]; ok {
-			if held.Title != source.Mapping.Title || held.SemanticType != source.Mapping.SemanticType {
+			if err := compatibleMapping(held, source.Mapping); err != nil {
 				return fmt.Errorf("feature set %s has conflicting declarations", source.Mapping.FeatureSet)
 			}
 		} else {
 			sets[source.Mapping.FeatureSet] = source.Mapping
+		}
+	}
+	for _, source := range project.Sources {
+		for _, relation := range source.Mapping.Relations {
+			target := relation.FeatureSet
+			if target == "" {
+				target = source.Mapping.FeatureSet
+			}
+			if _, ok := sets[target]; !ok {
+				return fmt.Errorf("source %s relationship %s targets unknown feature set %s", source.ID, relation.Predicate, target)
+			}
 		}
 	}
 	rasterIDs := make(map[string]bool)
@@ -251,7 +306,17 @@ func (project Project) Validate() error {
 		}
 		rasterIDs[raster.ID] = true
 	}
-	return validatePresentation(project.Presentation, sets)
+	assetIDs := make(map[string]bool)
+	for _, asset := range project.Assets {
+		if err := validateAsset(asset); err != nil {
+			return err
+		}
+		if assetIDs[asset.ID] {
+			return fmt.Errorf("asset %s is configured twice", asset.ID)
+		}
+		assetIDs[asset.ID] = true
+	}
+	return validatePresentation(project.Presentation, sets, assetIDs)
 }
 
 func validateTarget(target Target) error {
@@ -271,7 +336,7 @@ func validateTarget(target Target) error {
 	return nil
 }
 
-func validateSource(source Source) error {
+func validateSource(source Source, target CoordinateSpace) error {
 	if err := vnext.ValidSlug(source.ID); err != nil {
 		return fmt.Errorf("source identity: %w", err)
 	}
@@ -288,6 +353,9 @@ func validateSource(source Source) error {
 	if mapping.Title == "" || mapping.SemanticType == "" || mapping.Identity == "" || mapping.FeatureTitle == "" {
 		return fmt.Errorf("source %s has an incomplete mapping", source.ID)
 	}
+	if err := validateGeometryMap(mapping.Geometry, target); err != nil {
+		return fmt.Errorf("source %s geometry: %w", source.ID, err)
+	}
 	fields := make(map[string]string)
 	for _, field := range mapping.Fields {
 		if field.ID == "" || field.Source == "" || field.Type == "" {
@@ -296,8 +364,8 @@ func validateSource(source Source) error {
 		if _, err := kindOf(field.Type); err != nil {
 			return fmt.Errorf("source %s field %s: %w", source.ID, field.ID, err)
 		}
-		if held := fields[field.ID]; held != "" && held != field.Type {
-			return fmt.Errorf("source %s field %s has conflicting types", source.ID, field.ID)
+		if held := fields[field.ID]; held != "" {
+			return fmt.Errorf("source %s maps field %s twice", source.ID, field.ID)
 		}
 		fields[field.ID] = field.Type
 	}
@@ -309,16 +377,68 @@ func validateSource(source Source) error {
 	return nil
 }
 
+func validateGeometryMap(mapping GeometryMap, target CoordinateSpace) error {
+	switch mapping.Family {
+	case "point", "path", "area":
+	default:
+		return fmt.Errorf("unknown geometry family %q", mapping.Family)
+	}
+	if strings.TrimSpace(mapping.SourceSpace) == "" {
+		return fmt.Errorf("geometry has no source space")
+	}
+	switch mapping.Transform.Kind {
+	case "identity":
+		if mapping.SourceSpace != target.ID && mapping.SourceSpace != target.Definition {
+			return fmt.Errorf("identity transform source space %q is not target %q", mapping.SourceSpace, target.ID)
+		}
+	case "affine":
+		for _, value := range mapping.Transform.Matrix {
+			if math.IsNaN(value) || math.IsInf(value, 0) {
+				return fmt.Errorf("affine transform has a non-finite coefficient")
+			}
+		}
+		matrix := mapping.Transform.Matrix
+		if matrix[0]*matrix[4]-matrix[1]*matrix[3] == 0 {
+			return fmt.Errorf("affine transform is singular")
+		}
+	default:
+		return fmt.Errorf("unknown transform %q", mapping.Transform.Kind)
+	}
+	return nil
+}
+
+func compatibleMapping(left, right Mapping) error {
+	if left.Title != right.Title || left.SemanticType != right.SemanticType || left.Geometry.Family != right.Geometry.Family {
+		return fmt.Errorf("feature set metadata differs")
+	}
+	fields := make(map[string]Field, len(left.Fields))
+	for _, field := range left.Fields {
+		fields[field.ID] = field
+	}
+	for _, field := range right.Fields {
+		if held, ok := fields[field.ID]; ok && (held.Name != field.Name || held.Type != field.Type || held.Optional != field.Optional) {
+			return fmt.Errorf("field %s contract differs", field.ID)
+		}
+	}
+	return nil
+}
+
 func validateRaster(raster Raster) error {
 	if err := vnext.ValidSlug(raster.ID); err != nil {
 		return fmt.Errorf("raster identity: %w", err)
 	}
-	if raster.Name == "" || raster.Adapter == "" || raster.Locator == "" || raster.TileSize <= 0 || raster.EstimateBytes < 0 {
+	if raster.Name == "" || raster.Adapter == "" || raster.Locator == "" || raster.TileSize <= 0 || raster.EstimateBytes < 0 || raster.MaxZoom < 0 || raster.FullZoom < 0 || raster.Shard < 0 {
 		return fmt.Errorf("raster %s is incomplete", raster.ID)
+	}
+	if raster.Bounds != nil && !validRasterRect(*raster.Bounds) {
+		return fmt.Errorf("raster %s has invalid bounds", raster.ID)
+	}
+	if raster.Surface != nil && !validRasterRect(*raster.Surface) {
+		return fmt.Errorf("raster %s has invalid surface", raster.ID)
 	}
 	switch raster.Adapter {
 	case "raster-file":
-		if len(raster.Levels) != 0 {
+		if len(raster.Levels) != 0 || raster.MaxZoom > 6 || (raster.FullZoom != 0 && raster.FullZoom > raster.MaxZoom) {
 			return fmt.Errorf("raster-file %s must not declare xyz levels", raster.ID)
 		}
 	case "xyz":
@@ -327,7 +447,11 @@ func validateRaster(raster Raster) error {
 		}
 		previous := int64(-1)
 		for _, level := range raster.Levels {
-			if level.Zoom <= previous || level.MinX < 0 || level.MinY < 0 || level.MaxX < level.MinX || level.MaxY < level.MinY {
+			if level.Zoom != previous+1 || level.Zoom < 0 || level.Zoom > 30 {
+				return fmt.Errorf("xyz raster %s has an invalid or unordered level", raster.ID)
+			}
+			maximum := int64(1)<<level.Zoom - 1
+			if level.MinX < 0 || level.MinY < 0 || level.MaxX < level.MinX || level.MaxY < level.MinY || level.MaxX > maximum || level.MaxY > maximum {
 				return fmt.Errorf("xyz raster %s has an invalid or unordered level", raster.ID)
 			}
 			previous = level.Zoom
@@ -338,7 +462,26 @@ func validateRaster(raster Raster) error {
 	return nil
 }
 
-func validatePresentation(presentation Presentation, sets map[string]Mapping) error {
+func validRasterRect(rect RasterRect) bool {
+	return finite(rect.X) && finite(rect.Y) && finite(rect.Width) && finite(rect.Height) && rect.Width > 0 && rect.Height > 0
+}
+
+func finite(value float64) bool { return !math.IsNaN(value) && !math.IsInf(value, 0) }
+
+func validateAsset(asset Asset) error {
+	if err := vnext.ValidSlug(asset.ID); err != nil {
+		return fmt.Errorf("asset identity: %w", err)
+	}
+	if asset.ID == "build-receipt" {
+		return fmt.Errorf("asset build-receipt is reserved")
+	}
+	if asset.Locator == "" || asset.MediaType == "" || asset.EstimateBytes < 0 {
+		return fmt.Errorf("asset %s is incomplete", asset.ID)
+	}
+	return nil
+}
+
+func validatePresentation(presentation Presentation, sets map[string]Mapping, assets map[string]bool) error {
 	if presentation.ID == "" || presentation.Title == "" {
 		return fmt.Errorf("presentation requires an ID and title")
 	}
@@ -346,6 +489,9 @@ func validatePresentation(presentation Presentation, sets map[string]Mapping) er
 	for _, style := range presentation.Styles {
 		if style.ID == "" || styles[style.ID] {
 			return fmt.Errorf("presentation has an invalid or duplicate style")
+		}
+		if style.IconAsset != "" && !assets[style.IconAsset] {
+			return fmt.Errorf("presentation style %s refers to unknown asset %s", style.ID, style.IconAsset)
 		}
 		styles[style.ID] = true
 	}

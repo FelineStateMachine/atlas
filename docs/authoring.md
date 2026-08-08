@@ -39,6 +39,10 @@ Their defaults are the application-owned cache and library.
 
 ## Contract
 
+- `atlas-project/v2` is an intentional hard break. Every feature source declares
+  one homogeneous `point`, `path`, or `area` FeatureSet plus an executable
+  source-to-world transform. Semantic types remain domain language rather than
+  geometry labels.
 - The YAML decoder is strict. Unknown keys, duplicate identities, incomplete
   mappings, broken presentation references, and invalid raster plans fail.
 - Adapters describe acquisition; declarative mappings describe meaning.
@@ -51,7 +55,12 @@ Their defaults are the application-owned cache and library.
   evidence.
 - Observations retain source-native identity and evidence. Assembly merges only
   canonical identities declared by the manifest; earlier sources win conflicts
-  and every contributor remains in provenance.
+  and every contributor remains in provenance. Property contracts retain bool,
+  int64, float64, string, bytes, and stable-ID kinds; relationships name their
+  target FeatureSet and canonical feature identity.
+- A local raster image is deterministically expanded into the declared native
+  pyramid. Explicit XYZ sources retain authored windows. Authored supporting
+  assets are captured, packed, and may be referenced directly by styles.
 - Presentation is compiled directly into native styles and layers. There is no
   legacy JSON document or enrichment projection between authored intent and the
   packed schema.

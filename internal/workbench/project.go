@@ -1,12 +1,14 @@
 package workbench
 
 import (
+	"bytes"
 	"fmt"
 	"net/http"
 	"os"
 	"path/filepath"
 	"strings"
 
+	"github.com/FelineStateMachine/atlas/format/vnext"
 	"github.com/FelineStateMachine/atlas/internal/authoring"
 	"github.com/FelineStateMachine/atlas/internal/workbench/oprunner"
 )
@@ -155,13 +157,16 @@ func (w *Workbench) handleProjectBuild(rw http.ResponseWriter, r *http.Request) 
 }
 
 func (w *Workbench) handleProjectRun(rw http.ResponseWriter, _ *http.Request) {
+	run := w.supervisor.Snapshot()
+	page := projectPage{Run: run, ArtifactName: filepath.Base(run.Artifact)}
+	var body bytes.Buffer
+	if err := w.pages["project"].ExecuteTemplate(&body, "project-run", page); err != nil {
+		http.Error(rw, err.Error(), http.StatusInternalServerError)
+		return
+	}
 	rw.Header().Set("Content-Type", "text/html; charset=utf-8")
 	rw.Header().Set("Cache-Control", "no-store")
-	for _, row := range w.supervisor.Snapshot().Rows {
-		if err := w.writeRow(rw, row); err != nil {
-			return
-		}
-	}
+	rw.Write(body.Bytes())
 }
 
 func (w *Workbench) handleProjectOpen(rw http.ResponseWriter, r *http.Request) {
@@ -212,10 +217,13 @@ func (w *Workbench) currentArtifact() (string, error) {
 	if err != nil || relative == ".." || strings.HasPrefix(relative, ".."+string(filepath.Separator)) || filepath.Ext(absArtifact) != ".atlas" {
 		return "", fmt.Errorf("build artifact is outside the Atlas library")
 	}
-	file, err := os.Open(absArtifact)
+	file, err := vnext.OpenFile(absArtifact, vnext.StandardSchema())
 	if err != nil {
-		return "", err
+		return "", fmt.Errorf("open completed Atlas artifact: %w", err)
 	}
-	file.Close()
+	defer file.Close()
+	if err := file.Validate(); err != nil {
+		return "", fmt.Errorf("validate completed Atlas artifact: %w", err)
+	}
 	return absArtifact, nil
 }

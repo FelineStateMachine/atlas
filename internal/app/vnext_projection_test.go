@@ -49,9 +49,24 @@ func TestNativeCoordinateLabelsRespectTheDeclaredSpace(t *testing.T) {
 	}
 
 	legacy := tileGrid{SourceZoom: 5, FirstTile: 10, TileSize: 256, Size: 8192}
-	got := coordinateLabel(vnext.CoordinateSpace{Kind: "projected", Unit: "world-pixel"}, legacy, vnext.Position{4096, 4096})
+	got := coordinateLabel(vnext.CoordinateSpace{Kind: "projected", Unit: "world-pixel", Definition: "atlas:tile-plane"}, legacy, vnext.Position{4096, 4096})
 	if strings.Contains(got, "world-pixel") || strings.Contains(got, "Inf") {
 		t.Fatalf("legacy tile-plane label = %q", got)
+	}
+}
+
+func TestNativeGridUsesTheAuthoritativeCoordinateExtent(t *testing.T) {
+	space := vnext.CoordinateSpace{
+		ID: "sample-grid", Kind: "projected", Unit: "metre", Definition: "local sample grid",
+		Extent: [4]float64{10, 20, 110, 70},
+	}
+	grid := nativeGrid(space)
+	if grid.TileSize != 256 || grid.Size != 100 {
+		t.Fatalf("native grid = %+v, want conventional tile step over the coordinate extent", grid)
+	}
+	space.SourceZoom, space.TileSize, space.Size = 3, 32, 256
+	if got := coordinateLabel(space, nativeGrid(space), vnext.Position{40, 60}); got != "40.000000, 60.000000 metre" {
+		t.Fatalf("local projected coordinate label = %q", got)
 	}
 }
 
