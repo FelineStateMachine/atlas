@@ -1,8 +1,11 @@
 package app
 
 import (
+	"encoding/base64"
 	"encoding/json"
+	"fmt"
 	"log/slog"
+	"math"
 	"net/http"
 	"sort"
 	"strconv"
@@ -122,6 +125,15 @@ func (a *App) handleContent(w http.ResponseWriter, r *http.Request) {
 	}
 
 	rest := r.PathValue("rest")
+	if rest == "outline.json" {
+		w.Header().Set("X-Atlas-Feature-Partitions", "0")
+		serveJSON(w, outlineResponse(held.Outline()))
+		return
+	}
+	if strings.HasPrefix(rest, "features/") && strings.HasSuffix(rest, ".json") {
+		a.handleFeaturePage(w, r, held, strings.TrimSuffix(strings.TrimPrefix(rest, "features/"), ".json"))
+		return
+	}
 	if rest == "schema.json" {
 		data, err := held.Schema()
 		if err != nil {
@@ -144,6 +156,12 @@ func (a *App) handleContent(w http.ResponseWriter, r *http.Request) {
 		http.NotFound(w, r)
 		return
 	}
+	if tile, err := held.RasterTile(rest); err == nil {
+		w.Header().Set("X-Atlas-Raster-Ranges", "1")
+		w.Header().Set("X-Atlas-Raster-Bytes", strconv.Itoa(len(tile.Data)))
+		serveContent(w, tile.Data, tile.MediaType)
+		return
+	}
 
 	data, err := held.Blob(rest)
 	if err != nil {
@@ -155,12 +173,10 @@ func (a *App) handleContent(w http.ResponseWriter, r *http.Request) {
 		kind = contentTypes[rest[dot:]]
 	}
 	if kind == "" {
-		if semantic, err := a.semanticVolume(held); err == nil {
-			for _, asset := range semantic.Assets {
-				if asset.Path == rest {
-					kind = asset.MediaType
-					break
-				}
+		for _, asset := range held.Outline().Assets {
+			if asset.Path == rest {
+				kind = asset.MediaType
+				break
 			}
 		}
 	}
@@ -176,6 +192,171 @@ func (a *App) handleContent(w http.ResponseWriter, r *http.Request) {
 		slog.Debug("content cut short", logging.Op("serve"),
 			logging.Volume(info.Slug), logging.Path(rest), slog.Any("error", err))
 	}
+}
+
+func (a *App) handleFeaturePage(w http.ResponseWriter, r *http.Request, volume hostenv.Volume, set string) {
+	limit := 1_000
+	if raw := r.URL.Query().Get("limit"); raw != "" {
+		parsed, err := strconv.Atoi(raw)
+		if err != nil {
+			http.Error(w, "feature page limit is invalid", http.StatusBadRequest)
+			return
+		}
+		limit = parsed
+	}
+	bounds, err := featureBounds(r)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+	page, err := volume.FeaturePage(vnext.FeaturePageRequest{
+		FeatureSet: set, Bounds: bounds, After: r.URL.Query().Get("after"), Limit: limit,
+	})
+	if err != nil {
+		http.Error(w, "feature page could not be read", http.StatusBadRequest)
+		return
+	}
+	w.Header().Set("X-Atlas-Feature-Partitions", strconv.Itoa(page.PartitionsRead))
+	w.Header().Set("X-Atlas-Feature-Bytes", strconv.FormatInt(page.BytesRead, 10))
+	serveJSON(w, featurePageResponse(page))
+}
+
+type featurePageWire struct {
+	Features []featureWire `json:"features"`
+	Next     string        `json:"next,omitempty"`
+}
+
+type featureWire struct {
+	ID            string             `json:"id"`
+	Title         string             `json:"title"`
+	Subtitle      string             `json:"subtitle,omitempty"`
+	Description   string             `json:"description,omitempty"`
+	Center        *vnext.Position    `json:"center,omitempty"`
+	Shard         string             `json:"shard"`
+	Geometry      geometryWire       `json:"geometry"`
+	Properties    []propertyWire     `json:"properties,omitempty"`
+	Relationships []relationshipWire `json:"relationships,omitempty"`
+	Provenance    []provenanceWire   `json:"provenance,omitempty"`
+}
+
+type geometryWire struct {
+	Kind  vnext.GeometryKind `json:"kind"`
+	Parts []geometryPartWire `json:"parts"`
+}
+
+type geometryPartWire struct {
+	Rings [][]vnext.Position `json:"rings"`
+}
+
+type propertyWire struct {
+	ID    string      `json:"id"`
+	Name  string      `json:"name"`
+	Kind  vnext.Kind  `json:"kind"`
+	Value interface{} `json:"value"`
+}
+
+type relationshipWire struct {
+	Predicate string `json:"predicate"`
+	Target    string `json:"target"`
+}
+
+type provenanceWire struct {
+	Source     string `json:"source"`
+	NativeID   string `json:"nativeId"`
+	CapturedAt string `json:"capturedAt"`
+}
+
+func featurePageResponse(page vnext.FeaturePageResult) featurePageWire {
+	out := featurePageWire{Next: page.Next, Features: make([]featureWire, 0, len(page.Features))}
+	for _, feature := range page.Features {
+		out.Features = append(out.Features, featureResponse(feature))
+	}
+	return out
+}
+
+func featureResponse(feature vnext.Feature) featureWire {
+	out := featureWire{
+		ID: feature.ID, Title: feature.Title, Subtitle: feature.Subtitle, Description: feature.Description,
+		Center: feature.Center, Shard: strconv.FormatInt(feature.Shard, 10),
+		Geometry:      geometryWire{Kind: feature.Geometry.Kind, Parts: make([]geometryPartWire, 0, len(feature.Geometry.Parts))},
+		Properties:    make([]propertyWire, 0, len(feature.Properties)),
+		Relationships: make([]relationshipWire, 0, len(feature.Relationships)),
+		Provenance:    make([]provenanceWire, 0, len(feature.Provenance)),
+	}
+	for _, part := range feature.Geometry.Parts {
+		out.Geometry.Parts = append(out.Geometry.Parts, geometryPartWire{Rings: part.Rings})
+	}
+	for _, property := range feature.Properties {
+		out.Properties = append(out.Properties, propertyResponse(property))
+	}
+	for _, edge := range feature.Relationships {
+		out.Relationships = append(out.Relationships, relationshipWire{Predicate: edge.Predicate, Target: edge.Target})
+	}
+	for _, evidence := range feature.Provenance {
+		out.Provenance = append(out.Provenance, provenanceWire{
+			Source: evidence.Source, NativeID: evidence.NativeID, CapturedAt: evidence.CapturedAt,
+		})
+	}
+	return out
+}
+
+func propertyResponse(property vnext.Property) propertyWire {
+	id := property.FieldID
+	if id == (vnext.ID{}) {
+		id = property.Field.ID
+	}
+	out := propertyWire{ID: id.String(), Name: property.Field.Name, Kind: property.Value.Kind}
+	switch property.Value.Kind {
+	case vnext.KindBool:
+		out.Value = property.Value.Bool
+	case vnext.KindInt64:
+		out.Value = strconv.FormatInt(property.Value.Int64, 10)
+	case vnext.KindFloat64:
+		out.Value = property.Value.Float64
+	case vnext.KindString:
+		out.Value = property.Value.String
+	case vnext.KindBytes:
+		out.Value = base64.StdEncoding.EncodeToString(property.Value.Bytes)
+	case vnext.KindID:
+		out.Value = property.Value.ID.String()
+	default:
+		out.Value = nil
+	}
+	return out
+}
+
+func featureBounds(r *http.Request) (*vnext.SpatialBounds, error) {
+	names := []string{"minX", "minY", "maxX", "maxY"}
+	values := make([]float64, len(names))
+	present := 0
+	for index, name := range names {
+		raw := r.URL.Query().Get(name)
+		if raw == "" {
+			continue
+		}
+		value, err := strconv.ParseFloat(raw, 64)
+		if err != nil || math.IsNaN(value) || math.IsInf(value, 0) {
+			return nil, fmt.Errorf("feature bounds are invalid")
+		}
+		values[index] = value
+		present++
+	}
+	if present == 0 {
+		return nil, nil
+	}
+	if present != len(names) || values[0] > values[2] || values[1] > values[3] {
+		return nil, fmt.Errorf("feature bounds are incomplete or inverted")
+	}
+	return &vnext.SpatialBounds{MinX: values[0], MinY: values[1], MaxX: values[2], MaxY: values[3]}, nil
+}
+
+func serveJSON(w http.ResponseWriter, value any) {
+	data, err := json.Marshal(value)
+	if err != nil {
+		http.Error(w, "native data could not be encoded", http.StatusInternalServerError)
+		return
+	}
+	serveContent(w, data, "application/json")
 }
 
 func serveContent(w http.ResponseWriter, data []byte, kind string) {

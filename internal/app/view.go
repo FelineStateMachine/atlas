@@ -234,6 +234,20 @@ type LabelOverride struct {
 // the session's, falling back to the volume's first world, which is the one a
 // volume opens on when nobody has opened it before.
 func (a *App) view(held library, volume hostenv.Volume, session Session) View {
+	return a.viewMode(held, volume, session, false)
+}
+
+func (a *App) viewPageZero(held library, volume hostenv.Volume, session Session) View {
+	return a.viewMode(held, volume, session, !sessionNeedsFeatures(session))
+}
+
+func sessionNeedsFeatures(session Session) bool {
+	return session.Search != "" || session.Selected != "" || session.Focused != "" ||
+		len(session.Highlighted) > 0 || len(session.Expanded) > 0 || session.Detail.Open ||
+		session.Dock.Open || session.Grid.Cell != ""
+}
+
+func (a *App) viewMode(held library, volume hostenv.Volume, session Session, pageZero bool) View {
 	out := View{
 		Title:      "Atlas",
 		LibraryDir: a.env.Volumes().Location(),
@@ -279,7 +293,12 @@ func (a *App) view(held library, volume hostenv.Volume, session Session) View {
 		shown.Worlds = append(shown.Worlds, listed)
 	}
 
-	model := a.world(volume, world)
+	var model *worldModel
+	if pageZero {
+		model = a.outlineWorld(volume, world)
+	} else {
+		model = a.world(volume, world)
+	}
 	var lens *payloadLens
 	if model != nil {
 		for at := range model.Lenses {

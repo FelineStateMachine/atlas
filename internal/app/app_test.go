@@ -1,6 +1,7 @@
 package app_test
 
 import (
+	"bytes"
 	"context"
 	"crypto/sha256"
 	"encoding/json"
@@ -26,8 +27,10 @@ import (
 // window, so what these tests exercise is the handler and not the machine.
 
 type fakeVolume struct {
-	manifest bundle.Manifest
-	entries  map[string][]byte
+	manifest         bundle.Manifest
+	entries          map[string][]byte
+	featurePageCalls int
+	demandAddressed  bool
 }
 
 func (v *fakeVolume) Info() hostenv.VolumeInfo {
@@ -43,7 +46,7 @@ func (v *fakeVolume) Info() hostenv.VolumeInfo {
 	return info
 }
 
-func (v *fakeVolume) Semantic() vnext.Volume {
+func (v *fakeVolume) semantic() vnext.Volume {
 	semantic, _ := vnext.ImportV3Volume(v.manifest, func(name string) ([]byte, error) { return v.Blob(name) })
 	for name, data := range v.entries {
 		if !strings.HasPrefix(name, bundle.IconsPrefix) {
@@ -60,12 +63,67 @@ func (v *fakeVolume) Semantic() vnext.Volume {
 	return semantic
 }
 
+func (v *fakeVolume) Outline() vnext.Volume {
+	semantic := v.semantic()
+	for worldIndex := range semantic.Worlds {
+		for setIndex := range semantic.Worlds[worldIndex].FeatureSets {
+			semantic.Worlds[worldIndex].FeatureSets[setIndex].Features = nil
+		}
+	}
+	return semantic
+}
+
+func (v *fakeVolume) nativeReader() (*vnext.Reader, error) {
+	compiled, err := vnext.Compile(v.semantic())
+	if err != nil {
+		return nil, err
+	}
+	compiled.Release.CreatedAt = v.manifest.Version.CreatedAt
+	if compiled.Release.CreatedAt == "" {
+		compiled.Release.CreatedAt = "2026-01-01T00:00:00Z"
+	}
+	var data bytes.Buffer
+	if err := vnext.Write(&data, compiled); err != nil {
+		return nil, err
+	}
+	return vnext.Open(bytes.NewReader(data.Bytes()), int64(data.Len()), vnext.StandardSchema())
+}
+
+func (v *fakeVolume) FeaturePage(request vnext.FeaturePageRequest) (vnext.FeaturePageResult, error) {
+	v.featurePageCalls++
+	reader, err := v.nativeReader()
+	if err != nil {
+		return vnext.FeaturePageResult{}, err
+	}
+	return reader.FeaturePage(request)
+}
+
+func (v *fakeVolume) FeatureSetSummaries() ([]vnext.FeatureSetSummary, error) {
+	var out []vnext.FeatureSetSummary
+	for _, world := range v.semantic().Worlds {
+		for _, set := range world.FeatureSets {
+			out = append(out, vnext.FeatureSetSummary{FeatureSet: set.ID, Rows: len(set.Features)})
+		}
+	}
+	return out, nil
+}
+
+func (v *fakeVolume) DemandAddressedFeatures() bool { return v.demandAddressed }
+
+func (v *fakeVolume) RasterTile(name string) (vnext.RasterTile, error) {
+	data, held := v.entries[name]
+	if !held {
+		return vnext.RasterTile{}, errors.New("no such tile")
+	}
+	return vnext.RasterTile{Name: name, MediaType: mime.TypeByExtension(path.Ext(name)), Data: data}, nil
+}
+
 func (v *fakeVolume) Blob(name string) ([]byte, error) {
 	held, ok := v.entries[name]
 	if ok {
 		return held, nil
 	}
-	compiled, err := vnext.Compile(v.Semantic())
+	compiled, err := vnext.Compile(v.semantic())
 	if err == nil {
 		for _, blob := range compiled.Blobs {
 			if blob.Name == name {
@@ -78,7 +136,7 @@ func (v *fakeVolume) Blob(name string) ([]byte, error) {
 
 func (v *fakeVolume) Schema() ([]byte, error) { return vnext.StandardSchema().Canonical() }
 func (v *fakeVolume) TableBlock(name string) ([]byte, error) {
-	compiled, err := vnext.Compile(v.Semantic())
+	compiled, err := vnext.Compile(v.semantic())
 	if err != nil {
 		return nil, err
 	}
@@ -275,6 +333,14 @@ func TestContentPlane(t *testing.T) {
 		{"a content-addressed asset", marker, "image/svg+xml", "<svg/>"},
 		{"a tile", base + "/tiles/overworld/0/0/0.jpg", "image/jpeg", "raster"},
 	}
+
+	outline := get(t, handler, base+"/outline.json", nil)
+	if outline.Code != http.StatusOK || outline.Header().Get("X-Atlas-Feature-Partitions") != "0" {
+		t.Fatalf("outline = %d with %q partitions", outline.Code, outline.Header().Get("X-Atlas-Feature-Partitions"))
+	}
+	if tile := get(t, handler, base+"/tiles/overworld/0/0/0.jpg", nil); tile.Header().Get("X-Atlas-Raster-Ranges") != "1" {
+		t.Fatalf("tile read %q raster ranges, want one shard slice", tile.Header().Get("X-Atlas-Raster-Ranges"))
+	}
 	for _, tt := range served {
 		t.Run(tt.name, func(t *testing.T) {
 			got := get(t, handler, tt.path, nil)
@@ -316,6 +382,76 @@ func TestContentPlane(t *testing.T) {
 				t.Errorf("%s answered %d, want 404", tt.path, got.Code)
 			}
 		})
+	}
+}
+
+type extremeVolume struct{ *fakeVolume }
+
+func (v *extremeVolume) Outline() vnext.Volume {
+	outline := v.fakeVolume.Outline()
+	field := func(name string) vnext.Field {
+		return vnext.Field{ID: vnext.IDFromName("example.test", name), Name: name, Kind: vnext.KindInt64}
+	}
+	maximum, minimum := field("sample.maximum"), field("sample.minimum")
+	outline.Worlds[0].Claims = []vnext.Property{
+		{FieldID: maximum.ID, Field: maximum, Value: vnext.Int64Value(int64(^uint64(0) >> 1))},
+		{FieldID: minimum.ID, Field: minimum, Value: vnext.Int64Value(-int64(^uint64(0)>>1) - 1)},
+	}
+	return outline
+}
+
+func (v *extremeVolume) FeaturePage(vnext.FeaturePageRequest) (vnext.FeaturePageResult, error) {
+	field := vnext.Field{ID: vnext.IDFromName("example.test", "extreme"), Name: "sample.extreme", Kind: vnext.KindInt64}
+	feature := func(id string, value int64) vnext.Feature {
+		return vnext.Feature{
+			ID: id, Title: id,
+			Geometry:   vnext.Geometry{Kind: vnext.GeometryPoint, Parts: []vnext.GeometryPart{{Rings: [][]vnext.Position{{{0, 0}}}}}},
+			Properties: []vnext.Property{{FieldID: field.ID, Field: field, Value: vnext.Int64Value(value)}},
+		}
+	}
+	return vnext.FeaturePageResult{Features: []vnext.Feature{
+		feature("maximum", int64(^uint64(0)>>1)),
+		feature("minimum", -int64(^uint64(0)>>1)-1),
+	}}, nil
+}
+
+func TestFeaturePageWirePreservesInt64Extremes(t *testing.T) {
+	handler, _ := newApp(t, &extremeVolume{fakeVolume: volume("sample", "Sample", tunicStamp)})
+	base := "/data/v/sample/" + bundle.ShortStamp(tunicStamp)
+	got := get(t, handler, base+"/features/extreme.json", nil)
+	if got.Code != http.StatusOK {
+		t.Fatalf("feature page answered %d: %s", got.Code, got.Body.String())
+	}
+	var page struct {
+		Features []struct {
+			Properties []struct {
+				Value string `json:"value"`
+			} `json:"properties"`
+		} `json:"features"`
+	}
+	if err := json.Unmarshal(got.Body.Bytes(), &page); err != nil {
+		t.Fatal(err)
+	}
+	values := []string{page.Features[0].Properties[0].Value, page.Features[1].Properties[0].Value}
+	if values[0] != "9223372036854775807" || values[1] != "-9223372036854775808" {
+		t.Fatalf("int64 wire values = %v", values)
+	}
+
+	outline := get(t, handler, base+"/outline.json", nil)
+	var pageZero struct {
+		Version int `json:"version"`
+		Worlds  []struct {
+			Claims []struct {
+				Value string `json:"value"`
+			} `json:"claims"`
+		} `json:"worlds"`
+	}
+	if err := json.Unmarshal(outline.Body.Bytes(), &pageZero); err != nil {
+		t.Fatal(err)
+	}
+	claims := pageZero.Worlds[0].Claims
+	if pageZero.Version != 1 || claims[0].Value != values[0] || claims[1].Value != values[1] {
+		t.Fatalf("outline wire = version %d, claims %#v", pageZero.Version, claims)
 	}
 }
 
@@ -1168,6 +1304,47 @@ func zonedVolume() *fakeVolume {
 			{"id":94,"title":"Tumalo","geometry":` + ring("-121.00", "-120.95") + `}]}
 	]}`)
 	return held
+}
+
+func TestFeaturePagesComeFromPhysicalPartitions(t *testing.T) {
+	handler, _ := newApp(t, zonedVolume())
+	base := "/data/v/tunic/" + bundle.ShortStamp(tunicStamp)
+	got := get(t, handler, base+"/features/overworld%2Fset%2F900.json?limit=2&minX=-1000000000000&minY=-1000000000000&maxX=1000000000000&maxY=1000000000000", nil)
+	if got.Code != http.StatusOK {
+		t.Fatalf("feature page answered %d: %s", got.Code, got.Body.String())
+	}
+	if got.Header().Get("X-Atlas-Feature-Partitions") != "1" {
+		t.Fatalf("feature page read %q partitions, want one", got.Header().Get("X-Atlas-Feature-Partitions"))
+	}
+	var page struct {
+		Features []struct {
+			ID string `json:"id"`
+		} `json:"features"`
+		Next string `json:"next"`
+	}
+	if err := json.Unmarshal(got.Body.Bytes(), &page); err != nil {
+		t.Fatal(err)
+	}
+	if len(page.Features) != 2 || page.Next == "" {
+		t.Fatalf("feature page = %d features, next %q", len(page.Features), page.Next)
+	}
+	invalid := get(t, handler, base+"/features/overworld%2Fset%2F900.json?minX=1", nil)
+	if invalid.Code != http.StatusBadRequest {
+		t.Fatalf("incomplete feature bounds answered %d", invalid.Code)
+	}
+}
+
+func TestExplorerPageZeroDoesNotReadFeaturePartitions(t *testing.T) {
+	volume := zonedVolume()
+	volume.demandAddressed = true
+	handler, _ := newApp(t, volume)
+	page := get(t, handler, "/v/tunic/overworld", nil)
+	if page.Code != http.StatusOK {
+		t.Fatalf("explorer answered %d: %s", page.Code, page.Body.String())
+	}
+	if volume.featurePageCalls != 0 {
+		t.Fatalf("page zero read %d feature pages", volume.featurePageCalls)
+	}
 }
 
 // zoneOnlyButton is one zone row's exclusive control, from the attribute that

@@ -3,6 +3,9 @@ package vnext
 import (
 	"archive/zip"
 	"bytes"
+	"crypto/sha256"
+	"encoding/hex"
+	"encoding/json"
 	"io"
 	"strings"
 	"testing"
@@ -49,6 +52,22 @@ func TestBundleIsDeterministicAndKeepsPackedDataStored(t *testing.T) {
 		if (bytes.HasSuffix([]byte(entry.Name), []byte(".pack")) || bytes.HasPrefix([]byte(entry.Name), []byte("assets/"))) && entry.Method != zip.Store {
 			t.Fatalf("range-readable entry %s uses compression method %d", entry.Name, entry.Method)
 		}
+	}
+}
+
+func TestReaderAcceptsKnownContainerFramings(t *testing.T) {
+	t.Parallel()
+
+	current := nativeBytes(t, minimalVolume())
+	for _, framing := range []uint16{minimumFraming, containerFraming} {
+		data := rewriteFraming(t, current, framing)
+		if _, err := Open(bytes.NewReader(data), int64(len(data)), StandardSchema()); err != nil {
+			t.Fatalf("open framing %d: %v", framing, err)
+		}
+	}
+	unknown := rewriteFraming(t, current, containerFraming+1)
+	if _, err := Open(bytes.NewReader(unknown), int64(len(unknown)), StandardSchema()); err == nil || !strings.Contains(err.Error(), "unsupported") {
+		t.Fatalf("unknown framing accepted: %v", err)
 	}
 }
 
@@ -189,6 +208,56 @@ func rewriteAtlas(t *testing.T, source []byte, mutate func(*zip.FileHeader), orp
 			t.Fatal(err)
 		}
 		if _, err := destination.Write([]byte("orphan")); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if err := writer.Close(); err != nil {
+		t.Fatal(err)
+	}
+	return output.Bytes()
+}
+
+func rewriteFraming(t *testing.T, source []byte, framing uint16) []byte {
+	t.Helper()
+	archive, err := zip.NewReader(bytes.NewReader(source), int64(len(source)))
+	if err != nil {
+		t.Fatal(err)
+	}
+	var output bytes.Buffer
+	writer := zip.NewWriter(&output)
+	for _, entry := range archive.File {
+		reader, err := entry.Open()
+		if err != nil {
+			t.Fatal(err)
+		}
+		data, err := io.ReadAll(reader)
+		reader.Close()
+		if err != nil {
+			t.Fatal(err)
+		}
+		if entry.Name == manifestName {
+			var manifest bootstrap
+			if err := json.Unmarshal(data, &manifest); err != nil {
+				t.Fatal(err)
+			}
+			manifest.Framing = framing
+			manifest.Release.Stamp = ""
+			stampInput, err := json.Marshal(manifest)
+			if err != nil {
+				t.Fatal(err)
+			}
+			stamp := sha256.Sum256(stampInput)
+			manifest.Release.Stamp = hex.EncodeToString(stamp[:])
+			data, err = json.Marshal(manifest)
+			if err != nil {
+				t.Fatal(err)
+			}
+		}
+		destination, err := writer.CreateHeader(&entry.FileHeader)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if _, err := destination.Write(data); err != nil {
 			t.Fatal(err)
 		}
 	}

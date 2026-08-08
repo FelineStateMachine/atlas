@@ -110,6 +110,10 @@ func TestOutlineDoesNotReadFeaturePartitions(t *testing.T) {
 	if err != nil {
 		t.Fatalf("open with unread corrupt partition: %v", err)
 	}
+	summaries, err := reader.FeatureSetSummaries()
+	if err != nil || len(summaries) != 1 || summaries[0].FeatureSet != "roads" || summaries[0].Rows != 300 {
+		t.Fatalf("page-zero feature summary = %#v, %v", summaries, err)
+	}
 	outline, err := reader.Outline()
 	if err != nil {
 		t.Fatalf("outline read a feature partition: %v", err)

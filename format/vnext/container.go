@@ -18,7 +18,8 @@ import (
 const (
 	manifestName     = "atlas.json"
 	containerFormat  = "atlas-schema-bundle"
-	containerFraming = uint16(1)
+	minimumFraming   = uint16(1)
+	containerFraming = uint16(2)
 	maxManifestSize  = 32 << 20
 )
 
@@ -347,7 +348,7 @@ func readBootstrap(entries map[string]*zip.File) (bootstrap, error) {
 	if err := decoder.Decode(&struct{}{}); err != io.EOF {
 		return bootstrap{}, fmt.Errorf("bootstrap carries trailing data")
 	}
-	if manifest.Format != containerFormat || manifest.Framing != containerFraming {
+	if manifest.Format != containerFormat || manifest.Framing < minimumFraming || manifest.Framing > containerFraming {
 		return bootstrap{}, fmt.Errorf("unsupported Atlas container identity or framing")
 	}
 	if err := ValidSlug(manifest.Volume); err != nil {

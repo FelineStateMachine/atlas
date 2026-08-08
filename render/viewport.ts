@@ -23,10 +23,11 @@ import { logger } from "./log.ts";
 import { wireKeyboard } from "./keys.ts";
 import { RowHover } from "./hover.ts";
 import { DataPlane } from "./data/plane.ts";
+import { demandWindowKey, replaceDemandWindow } from "./data/window.ts";
 import { reportCamera } from "./data/report.ts";
 import type { Lens } from "./data/payload.ts";
 import { SceneWatcher } from "./scene/observe.ts";
-import type { Scene, SceneChange } from "./scene/read.ts";
+import { sceneChange, type Scene, type SceneChange } from "./scene/read.ts";
 import { WorldModel } from "./world/model.ts";
 import { Visibility } from "./world/visibility.ts";
 import type { WorldContext } from "./context.ts";
@@ -61,6 +62,8 @@ export class AtlasViewport extends HTMLElement {
       const scene = this.watcher?.scene;
       if (!scene?.volume) return;
       reportCamera({ volume: scene.volume, world: scene.world, ...camera });
+      const windowed: Scene = { ...scene, camera };
+      void this.apply(windowed, sceneChange(scene, windowed));
     });
     this.unkey?.();
     this.unkey = wireKeyboard(this);
@@ -423,13 +426,14 @@ export class AtlasViewport extends HTMLElement {
   }
 
   private model(scene: Scene): Promise<WorldModel> {
-    const key = `${scene.base}/${scene.world}`;
+    const prefix = `${scene.base}/${scene.world}/`;
+    const key = `${prefix}${demandWindowKey(scene.camera)}`;
     const held = this.worlds.get(key);
     if (held) return held;
     const building = (async () => {
-      return new WorldModel(await this.plane.world(scene.base, scene.world));
+      return new WorldModel(await this.plane.world(scene.base, scene.world, scene.camera));
     })();
-    this.worlds.set(key, building);
+    replaceDemandWindow(this.worlds, prefix, key, building);
     return building;
   }
 

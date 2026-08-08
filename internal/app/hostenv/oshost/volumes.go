@@ -6,10 +6,12 @@ import (
 	"log/slog"
 	"os"
 	"sort"
+	"strings"
 	"sync"
 	"sync/atomic"
 	"time"
 
+	"github.com/FelineStateMachine/atlas/format/semconv"
 	"github.com/FelineStateMachine/atlas/format/vnext"
 	"github.com/FelineStateMachine/atlas/internal/app/hostenv"
 	"github.com/FelineStateMachine/atlas/internal/logging"
@@ -51,14 +53,24 @@ type snapshot struct {
 // entry is a seek and a read rather than a fresh open of a file that may be
 // hundreds of megabytes.
 type volume struct {
-	reader   *vnext.File
-	locator  string
-	info     hostenv.VolumeInfo
-	semantic vnext.Volume
+	reader  *vnext.File
+	locator string
+	info    hostenv.VolumeInfo
+	outline vnext.Volume
 }
 
 func (v *volume) Info() hostenv.VolumeInfo { return v.info }
-func (v *volume) Semantic() vnext.Volume   { return v.semantic }
+func (v *volume) Outline() vnext.Volume    { return v.outline }
+func (v *volume) FeaturePage(request vnext.FeaturePageRequest) (vnext.FeaturePageResult, error) {
+	return v.reader.FeaturePage(request)
+}
+func (v *volume) FeatureSetSummaries() ([]vnext.FeatureSetSummary, error) {
+	return v.reader.FeatureSetSummaries()
+}
+func (v *volume) DemandAddressedFeatures() bool { return v.reader.DemandAddressedFeatures() }
+func (v *volume) RasterTile(entry string) (vnext.RasterTile, error) {
+	return v.reader.ReadRasterTile(entry)
+}
 func (v *volume) Blob(entry string) ([]byte, error) {
 	return v.reader.Blob(entry)
 }
@@ -219,42 +231,64 @@ func carryOrOpen(previous *snapshot, winner vnext.Descriptor) (*volume, error) {
 	if err != nil {
 		return nil, err
 	}
-	semantic, err := reader.Volume()
+	outline, err := reader.Outline()
 	if err != nil {
 		reader.Close()
 		return nil, err
 	}
-	return &volume{reader: reader, locator: winner.Locator, semantic: semantic, info: volumeInfo(winner, semantic)}, nil
+	info, err := volumeInfo(winner, outline, reader.Reader)
+	if err != nil {
+		reader.Close()
+		return nil, err
+	}
+	return &volume{reader: reader, locator: winner.Locator, outline: outline, info: info}, nil
 }
 
-func volumeInfo(descriptor vnext.Descriptor, semantic vnext.Volume) hostenv.VolumeInfo {
+func volumeInfo(descriptor vnext.Descriptor, outline vnext.Volume, reader *vnext.Reader) (hostenv.VolumeInfo, error) {
 	info := hostenv.VolumeInfo{
 		Slug: descriptor.Slug, Title: descriptor.Title, Stamp: descriptor.Stamp,
-		Release: descriptorRelease(descriptor), Worlds: make([]hostenv.WorldInfo, 0, len(semantic.Worlds)),
+		Release: descriptorRelease(descriptor), Worlds: make([]hostenv.WorldInfo, 0, len(outline.Worlds)),
 	}
-	for index, world := range semantic.Worlds {
+	summaries, err := reader.FeatureSetSummaries()
+	if err != nil {
+		return hostenv.VolumeInfo{}, fmt.Errorf("read feature summary: %w", err)
+	}
+	counts := make(map[string]int, len(summaries))
+	for _, summary := range summaries {
+		counts[summary.FeatureSet] = summary.Rows
+	}
+	for index, world := range outline.Worlds {
 		listed := hostenv.WorldInfo{Slug: world.ID, Title: world.Title, UpdatedAt: descriptor.CreatedAt}
 		for _, set := range world.FeatureSets {
-			for _, feature := range set.Features {
-				switch feature.Geometry.Kind {
-				case vnext.GeometryPoint:
-					listed.Points++
-				case vnext.GeometryLineString:
-					listed.Paths++
-				case vnext.GeometryPolygon:
-					listed.Areas++
-				}
+			switch featureSetKind(set) {
+			case semconv.GeometryPath:
+				listed.Paths += counts[set.ID]
+			case semconv.GeometryArea:
+				listed.Areas += counts[set.ID]
+			default:
+				listed.Points += counts[set.ID]
 			}
 		}
 		info.Worlds = append(info.Worlds, listed)
 		if index == 0 {
 			info.TileGrid = hostenv.TileGrid{
-				SourceZoom: int(world.CoordinateSpace.SourceZoom), FirstTile: int(world.CoordinateSpace.FirstTile),
-				TileSize: int(world.CoordinateSpace.TileSize), Size: int(world.CoordinateSpace.Size),
+				SourceZoom: int(world.CoordinateSpace.SourceZoom),
+				OriginX:    int(world.CoordinateSpace.OriginX), OriginY: int(world.CoordinateSpace.OriginY),
+				FirstTile: int(world.CoordinateSpace.FirstTile),
+				TileSize:  int(world.CoordinateSpace.TileSize), Size: int(world.CoordinateSpace.Size),
 			}
 		}
 	}
-	return info
+	return info, nil
+}
+
+func featureSetKind(set vnext.FeatureSet) string {
+	for _, claim := range set.Claims {
+		if claim.Field.Name == semconv.KeyGeometryKind {
+			return claim.Value.String
+		}
+	}
+	return strings.TrimPrefix(set.SemanticType, "geometry.")
 }
 
 func descriptorRelease(descriptor vnext.Descriptor) vnext.Release {

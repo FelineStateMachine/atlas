@@ -122,6 +122,10 @@ export type TextPayload = Readonly<Record<string, TextEntry>>;
 /** The volume's world square and the window its worlds were cut from. */
 export interface TileGrid {
   readonly sourceZoom: number;
+  /** Native windows may begin at different source tile columns and rows. */
+  readonly originX?: number;
+  readonly originY?: number;
+  /** Legacy square-window origin; native coordinate spaces do not use it. */
   readonly firstTile: number;
   readonly tileSize: number;
   readonly size: number;

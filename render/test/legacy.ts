@@ -54,7 +54,8 @@ export function legacyOpenWorld(
       coordinateSpace: {
         id: `${slug}/space`, kind: "projected", unit: "pixel", definition: "atlas:tile-plane",
         extent: [0, 0, grid.size, grid.size], sourceZoom: grid.sourceZoom,
-        firstTile: grid.firstTile, tileSize: grid.tileSize, size: grid.size,
+        originX: grid.originX ?? grid.firstTile, originY: grid.originY ?? grid.firstTile,
+        tileSize: grid.tileSize, size: grid.size,
       },
       claims: properties(payload.attrs), featureSets: sets, rasterPyramids: rasters,
       presentation: {

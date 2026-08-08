@@ -66,11 +66,12 @@ type worldModel struct {
 // collectionModel is one collection with everything a row needs already
 // decided: its kind, its curated label policy, whether it starts hidden.
 type collectionModel struct {
-	ID    string
-	Title string
-	Kind  string
-	Group string
-	Icon  string
+	ID         string
+	FeatureSet string
+	Title      string
+	Kind       string
+	Group      string
+	Icon       string
 
 	// IconAsset is the artwork the collection wears, as a path under the
 	// build's `icons/`. The map composes a marker from it and the legend
@@ -144,26 +145,39 @@ type point struct{ X, Y float64 }
 // grid, overridden by whatever the world declares for itself.
 type tileGrid struct {
 	SourceZoom int
-	FirstTile  int
-	TileSize   int
-	Size       int
+	OriginX    int
+	OriginY    int
+	// FirstTile remains only for legacy v3 projections. Native worlds carry
+	// distinct column and row origins.
+	FirstTile int
+	TileSize  int
+	Size      int
 }
 
 func (g tileGrid) project(lat, lng float64) (x, y float64) {
 	worldTiles := math.Pow(2, float64(g.SourceZoom))
 	xTile := (lng + 180) / 360 * worldTiles
 	yTile := (1 - math.Asinh(math.Tan(lat*math.Pi/180))/math.Pi) / 2 * worldTiles
-	return (xTile - float64(g.FirstTile)) * float64(g.TileSize),
-		-(yTile - float64(g.FirstTile)) * float64(g.TileSize)
+	originX, originY := g.origins()
+	return (xTile - float64(originX)) * float64(g.TileSize),
+		-(yTile - float64(originY)) * float64(g.TileSize)
 }
 
 func (g tileGrid) unproject(x, y float64) (lat, lng float64) {
 	worldTiles := math.Pow(2, float64(g.SourceZoom))
-	xTile := x/float64(g.TileSize) + float64(g.FirstTile)
-	yTile := y/float64(g.TileSize) + float64(g.FirstTile)
+	originX, originY := g.origins()
+	xTile := x/float64(g.TileSize) + float64(originX)
+	yTile := y/float64(g.TileSize) + float64(originY)
 	lng = xTile/worldTiles*360 - 180
 	lat = math.Atan(math.Sinh(math.Pi*(1-2*yTile/worldTiles))) * 180 / math.Pi
 	return lat, lng
+}
+
+func (g tileGrid) origins() (int, int) {
+	if g.OriginX != 0 || g.OriginY != 0 {
+		return g.OriginX, g.OriginY
+	}
+	return g.FirstTile, g.FirstTile
 }
 
 // ---------------------------------------------------------------------------
@@ -228,6 +242,29 @@ func (a *App) world(volume hostenv.Volume, slug string) *worldModel {
 		return nil
 	}
 	a.worlds.put(key, model)
+	return model
+}
+
+func (a *App) outlineWorld(volume hostenv.Volume, slug string) *worldModel {
+	semantic, held := semanticWorld(volume.Outline(), slug)
+	if !held {
+		return nil
+	}
+	model, err := buildVNextWorld(semantic, volume.Outline().Assets)
+	if err != nil {
+		return nil
+	}
+	summaries, err := volume.FeatureSetSummaries()
+	if err != nil {
+		return nil
+	}
+	counts := make(map[string]int, len(summaries))
+	for _, summary := range summaries {
+		counts[summary.FeatureSet] = summary.Rows
+	}
+	for _, collection := range model.Members {
+		collection.Count = counts[collection.FeatureSet]
+	}
 	return model
 }
 

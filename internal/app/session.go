@@ -473,6 +473,18 @@ func (a *App) resetSession(w http.ResponseWriter, volume hostenv.Volume, slug st
 // hide set afterwards is a reader who asked to see everything, and must not be
 // mistaken for a record nobody has touched.
 func (a *App) arrange(volume hostenv.Volume, s *Session) {
+	a.arrangeWith(volume, s, a.world)
+}
+
+func (a *App) arrangePageZero(volume hostenv.Volume, s *Session) {
+	a.arrangeWith(volume, s, a.outlineWorld)
+}
+
+func (a *App) arrangeWith(
+	volume hostenv.Volume,
+	s *Session,
+	load func(hostenv.Volume, string) *worldModel,
+) {
 	if s.Arranged {
 		return
 	}
@@ -483,7 +495,7 @@ func (a *App) arrange(volume hostenv.Volume, s *Session) {
 		}
 		s.World = info.Worlds[0].Slug
 	}
-	model := a.world(volume, s.World)
+	model := load(volume, s.World)
 	if model == nil {
 		return
 	}

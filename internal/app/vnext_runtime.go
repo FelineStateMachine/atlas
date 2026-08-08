@@ -48,8 +48,43 @@ func (a *App) semanticVolume(source hostenv.Volume) (vnext.Volume, error) {
 	info := source.Info()
 	key := info.Slug + "@" + vnext.ShortStamp(info.Stamp)
 	return a.semantic.load(key, func() (vnext.Volume, error) {
-		return source.Semantic(), nil
+		return materializeVolume(source)
 	})
+}
+
+func materializeVolume(source hostenv.Volume) (vnext.Volume, error) {
+	volume := cloneOutline(source.Outline())
+	for worldIndex := range volume.Worlds {
+		for setIndex := range volume.Worlds[worldIndex].FeatureSets {
+			set := &volume.Worlds[worldIndex].FeatureSets[setIndex]
+			for after := ""; ; {
+				page, err := source.FeaturePage(vnext.FeaturePageRequest{
+					FeatureSet: set.ID, After: after, Limit: 1_000,
+				})
+				if err != nil {
+					return vnext.Volume{}, fmt.Errorf("read feature set %s: %w", set.ID, err)
+				}
+				set.Features = append(set.Features, page.Features...)
+				if page.Next == "" {
+					break
+				}
+				after = page.Next
+			}
+		}
+	}
+	return volume, nil
+}
+
+func cloneOutline(source vnext.Volume) vnext.Volume {
+	out := source
+	out.Worlds = append([]vnext.World(nil), source.Worlds...)
+	for worldIndex := range out.Worlds {
+		out.Worlds[worldIndex].FeatureSets = append([]vnext.FeatureSet(nil), source.Worlds[worldIndex].FeatureSets...)
+		for setIndex := range out.Worlds[worldIndex].FeatureSets {
+			out.Worlds[worldIndex].FeatureSets[setIndex].Features = nil
+		}
+	}
+	return out
 }
 
 func semanticWorld(volume vnext.Volume, slug string) (vnext.World, bool) {
@@ -99,7 +134,7 @@ func buildVNextWorld(world vnext.World, assets []vnext.Asset) (*worldModel, erro
 		kind := featureSetGeometryKind(set)
 		attrs := propertiesToAttrs(set.Claims)
 		collection := &collectionModel{
-			ID: layer.ID, Title: legendLabel(world.Presentation.Legend, layer.ID, set.Title), Kind: kind,
+			ID: layer.ID, FeatureSet: set.ID, Title: legendLabel(world.Presentation.Legend, layer.ID, set.Title), Kind: kind,
 			Group: layer.Group, Icon: style.Icon, IconAsset: assetPaths[style.IconAsset],
 			Color: nativeColor(kind, style), Attrs: attrs, Index: index,
 			Curated: layer.LabelPolicy, RenderAs: style.RenderAs, Hidden: !layer.Visible,
@@ -176,7 +211,10 @@ func coordinateLabel(space vnext.CoordinateSpace, grid tileGrid, position vnext.
 }
 
 func nativeGrid(space vnext.CoordinateSpace) tileGrid {
-	grid := tileGrid{SourceZoom: int(space.SourceZoom), FirstTile: int(space.FirstTile), TileSize: int(space.TileSize), Size: int(space.Size)}
+	grid := tileGrid{
+		SourceZoom: int(space.SourceZoom), OriginX: int(space.OriginX), OriginY: int(space.OriginY),
+		FirstTile: int(space.FirstTile), TileSize: int(space.TileSize), Size: int(space.Size),
+	}
 	if grid.TileSize == 0 {
 		grid.TileSize = 256
 	}

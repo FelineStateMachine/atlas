@@ -98,8 +98,17 @@ type Volume interface {
 	// catalog views without decoding physical blocks.
 	Info() VolumeInfo
 
-	// Semantic is the canonical graph restored from typed blocks.
-	Semantic() vnext.Volume
+	// Outline is the canonical graph restored from typed blocks without feature
+	// rows. It is safe to use while composing page zero.
+	Outline() vnext.Volume
+
+	// FeaturePage reads a bounded page from the physical feature partitions.
+	FeaturePage(request vnext.FeaturePageRequest) (vnext.FeaturePageResult, error)
+	FeatureSetSummaries() ([]vnext.FeatureSetSummary, error)
+	DemandAddressedFeatures() bool
+
+	// RasterTile reads one verified logical tile slice from its physical shard.
+	RasterTile(entry string) (vnext.RasterTile, error)
 
 	// Blob reads one opaque payload such as a raster tile or image asset.
 	Blob(entry string) ([]byte, error)
@@ -131,6 +140,8 @@ type WorldInfo struct {
 
 type TileGrid struct {
 	SourceZoom int `json:"sourceZoom"`
+	OriginX    int `json:"originX"`
+	OriginY    int `json:"originY"`
 	FirstTile  int `json:"firstTile"`
 	TileSize   int `json:"tileSize"`
 	Size       int `json:"size"`

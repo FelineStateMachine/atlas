@@ -19,6 +19,20 @@ func TestVNextEarthBuildsTheRendererDirectly(t *testing.T) {
 	if err != nil {
 		t.Fatalf("restore native Earth: %v", err)
 	}
+	for _, set := range semantic.Worlds[0].FeatureSets {
+		if len(set.Features) == 0 {
+			continue
+		}
+		page, err := native.FeaturePage(vnext.FeaturePageRequest{FeatureSet: set.ID, Limit: 1})
+		if err != nil || len(page.Features) != 1 || page.PartitionsRead != 1 || page.BytesRead == 0 {
+			t.Fatalf("framing-1 feature demand = %#v, %v", page, err)
+		}
+		break
+	}
+	summaries, err := native.FeatureSetSummaries()
+	if err != nil || len(summaries) == 0 || summaries[0].Rows == 0 {
+		t.Fatalf("framing-1 feature summaries = %#v, %v", summaries, err)
+	}
 
 	model, err := buildVNextWorld(semantic.Worlds[0], semantic.Assets)
 	if err != nil {
@@ -55,13 +69,24 @@ func TestNativeCoordinateLabelsRespectTheDeclaredSpace(t *testing.T) {
 	}
 }
 
+func TestTileGridProjectsIndependentColumnAndRowOrigins(t *testing.T) {
+	t.Parallel()
+
+	grid := tileGrid{SourceZoom: 4, OriginX: 3, OriginY: 6, FirstTile: 99, TileSize: 256, Size: 1024}
+	latitude, longitude := grid.unproject(0, 0)
+	x, y := grid.project(latitude, longitude)
+	if x != 0 || y != 0 {
+		t.Fatalf("origin round trip = %v,%v, want 0,0", x, y)
+	}
+}
+
 func TestNativeGridUsesTheAuthoritativeCoordinateExtent(t *testing.T) {
 	space := vnext.CoordinateSpace{
 		ID: "sample-grid", Kind: "projected", Unit: "metre", Definition: "local sample grid",
-		Extent: [4]float64{10, 20, 110, 70},
+		Extent: [4]float64{10, 20, 110, 70}, OriginX: 7, OriginY: 11,
 	}
 	grid := nativeGrid(space)
-	if grid.TileSize != 256 || grid.Size != 100 {
+	if grid.TileSize != 256 || grid.Size != 100 || grid.OriginX != 7 || grid.OriginY != 11 {
 		t.Fatalf("native grid = %+v, want conventional tile step over the coordinate extent", grid)
 	}
 	space.SourceZoom, space.TileSize, space.Size = 3, 32, 256

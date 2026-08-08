@@ -5,7 +5,7 @@ import {
   type FieldSchema, type Schema,
 } from "../data/vnext.ts";
 import { coreID, decodeGeometry } from "../data/semantic.ts";
-import { presentedGrid, presentedKind } from "../world/model.ts";
+import { presentedGrid, presentedKind, project } from "../world/model.ts";
 
 const ROOT = "11111111-1111-5111-8111-111111111111";
 const TITLE = "22222222-2222-5222-8222-222222222222";
@@ -98,12 +98,25 @@ test("semantic meaning does not have to masquerade as geometry", () => {
 test("feature-only coordinate spaces derive a finite presentation grid", () => {
   assert.deepEqual(presentedGrid({
     id: "sample-grid", kind: "projected", unit: "metre", definition: "local sample grid",
-    extent: [10, 20, 110, 70], sourceZoom: 0, firstTile: 0, tileSize: 0, size: 0,
+    extent: [10, 20, 110, 70], sourceZoom: 0, originX: 7, originY: 11, tileSize: 0, size: 0,
   }), {
-    sourceZoom: 0, firstTile: 0, tileSize: 256, size: 100,
+    sourceZoom: 0, originX: 7, originY: 11, firstTile: 0, tileSize: 256, size: 100,
     extent: [10, -70, 110, -20],
   });
 });
+
+test("native tile windows use independent column and row origins", () => {
+  const grid = {
+    sourceZoom: 4, originX: 3, originY: 6, firstTile: 99, tileSize: 256, size: 1024,
+  };
+  const atOrigin = project(grid, mercatorLatitude(6 / 16), -112.5);
+  assert.ok(Math.abs(atOrigin[0]) < 1e-9, `${atOrigin[0]} is the local x origin`);
+  assert.ok(Math.abs(atOrigin[1]) < 1e-9, `${atOrigin[1]} is the local y origin`);
+});
+
+function mercatorLatitude(y: number): number {
+  return Math.atan(Math.sinh(Math.PI * (1 - 2 * y))) * 180 / Math.PI;
+}
 
 function fixtureBlock(): ArrayBuffer {
   const title = variableColumn([new TextEncoder().encode("Clinic"), null]);

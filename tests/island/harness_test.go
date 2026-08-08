@@ -189,9 +189,48 @@ func (v *corpusBundle) Info() hostenv.VolumeInfo {
 	return info
 }
 
-func (v *corpusBundle) Semantic() vnext.Volume {
+func (v *corpusBundle) semantic() vnext.Volume {
 	semantic, _ := vnext.ImportV3Volume(v.manifest, func(name string) ([]byte, error) { return v.Blob(name) })
 	return semantic
+}
+
+func (v *corpusBundle) Outline() vnext.Volume {
+	semantic := v.semantic()
+	for worldIndex := range semantic.Worlds {
+		for setIndex := range semantic.Worlds[worldIndex].FeatureSets {
+			semantic.Worlds[worldIndex].FeatureSets[setIndex].Features = nil
+		}
+	}
+	return semantic
+}
+
+func (v *corpusBundle) FeaturePage(request vnext.FeaturePageRequest) (vnext.FeaturePageResult, error) {
+	for _, world := range v.semantic().Worlds {
+		for _, set := range world.FeatureSets {
+			if set.ID != request.FeatureSet {
+				continue
+			}
+			return vnext.FeaturePageResult{Features: set.Features}, nil
+		}
+	}
+	return vnext.FeaturePageResult{}, os.ErrNotExist
+}
+
+func (v *corpusBundle) FeatureSetSummaries() ([]vnext.FeatureSetSummary, error) {
+	var out []vnext.FeatureSetSummary
+	for _, world := range v.semantic().Worlds {
+		for _, set := range world.FeatureSets {
+			out = append(out, vnext.FeatureSetSummary{FeatureSet: set.ID, Rows: len(set.Features)})
+		}
+	}
+	return out, nil
+}
+
+func (v *corpusBundle) DemandAddressedFeatures() bool { return false }
+
+func (v *corpusBundle) RasterTile(name string) (vnext.RasterTile, error) {
+	data, err := v.Blob(name)
+	return vnext.RasterTile{Name: name, Data: data}, err
 }
 
 func (v *corpusBundle) Blob(name string) ([]byte, error) {

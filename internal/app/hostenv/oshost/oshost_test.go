@@ -1,11 +1,13 @@
 package oshost_test
 
 import (
+	"archive/zip"
 	"bytes"
 	"context"
 	"errors"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/FelineStateMachine/atlas/format/vnext"
@@ -88,6 +90,9 @@ func TestVolumesServesTheFoldsWinner(t *testing.T) {
 	if tunic.Release.CreatedAt != "2026-02-01T00:00:00Z" {
 		t.Errorf("serving the build of %s, want the newest capture", tunic.Release.CreatedAt)
 	}
+	if len(tunic.Worlds) != 1 || tunic.Worlds[0].Points != 1 {
+		t.Fatalf("page-zero feature counts = %#v, want one point", tunic.Worlds)
+	}
 
 	payload, err := volumes[1].Blob("tiles/overworld/0/0/0.jpg")
 	if err != nil {
@@ -98,6 +103,51 @@ func TestVolumesServesTheFoldsWinner(t *testing.T) {
 	}
 	if _, err := volumes[1].Blob("worlds/not-a-world.json"); err == nil {
 		t.Error("an entry the bundle does not hold opened")
+	}
+}
+
+func TestVolumesPageZeroDoesNotReadFeaturePartitions(t *testing.T) {
+	dir := t.TempDir()
+	path := build{slug: "sample", title: "Sample", createdAt: "2026-01-01T00:00:00Z"}.write(t, dir)
+	data, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	archive, err := zip.NewReader(bytes.NewReader(data), int64(len(data)))
+	if err != nil {
+		t.Fatal(err)
+	}
+	corrupted := false
+	for _, entry := range archive.File {
+		if !strings.HasSuffix(entry.Name, ".features.pack") {
+			continue
+		}
+		offset, err := entry.DataOffset()
+		if err != nil {
+			t.Fatal(err)
+		}
+		data[offset+int64(entry.UncompressedSize64)-1] ^= 0xff
+		corrupted = true
+		break
+	}
+	if !corrupted {
+		t.Fatal("fixture has no physical feature partition")
+	}
+	if err := os.WriteFile(path, data, 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	store, err := oshost.NewVolumes(dir)
+	if err != nil {
+		t.Fatalf("page zero read a feature partition: %v", err)
+	}
+	t.Cleanup(func() { store.Close() })
+	volumes := store.Volumes()
+	if len(volumes) != 1 || len(volumes[0].Outline().Worlds) != 1 {
+		t.Fatalf("outline did not open: %#v", volumes)
+	}
+	if _, err := volumes[0].FeaturePage(vnext.FeaturePageRequest{FeatureSet: "markers", Limit: 1}); err == nil {
+		t.Fatal("demanded corrupt feature partition was accepted")
 	}
 }
 

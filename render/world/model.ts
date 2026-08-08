@@ -28,7 +28,10 @@ export function project(grid: TileGrid, lat: number, lng: number): Coordinate {
   const worldTiles = 2 ** grid.sourceZoom;
   const xTile = ((lng + 180) / 360) * worldTiles;
   const yTile = (1 - Math.asinh(Math.tan((lat * Math.PI) / 180)) / Math.PI) / 2 * worldTiles;
-  return [(xTile - grid.firstTile) * grid.tileSize, -(yTile - grid.firstTile) * grid.tileSize];
+  return [
+    (xTile - (grid.originX ?? grid.firstTile)) * grid.tileSize,
+    -(yTile - (grid.originY ?? grid.firstTile)) * grid.tileSize,
+  ];
 }
 
 /** Kept for test fixtures extracted before coordinate spaces became native. */
@@ -51,7 +54,9 @@ export function presentedGrid(space: CoordinateSpace): TileGrid {
   const height = maxY - minY;
   return {
     sourceZoom: space.sourceZoom,
-    firstTile: space.firstTile,
+    originX: space.originX,
+    originY: space.originY,
+    firstTile: 0,
     tileSize: space.tileSize > 0 ? space.tileSize : 256,
     size: space.size > 0 ? space.size : Math.max(width, height),
     extent: [minX, -maxY, maxX, -minY],

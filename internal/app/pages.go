@@ -118,7 +118,11 @@ func (a *App) handleExplorer(w http.ResponseWriter, r *http.Request) {
 	}
 	session.World = world
 	session.Stamp = vnext.ShortStamp(info.Stamp)
-	a.arrange(volume, &session)
+	if volume.DemandAddressedFeatures() {
+		a.arrangePageZero(volume, &session)
+	} else {
+		a.arrange(volume, &session)
+	}
 	if err := a.saveSession(&session); err != nil {
 		slog.Warn("the session could not be written", logging.Op("session"),
 			logging.Volume(slug), slog.Any("error", err))
@@ -128,7 +132,13 @@ func (a *App) handleExplorer(w http.ResponseWriter, r *http.Request) {
 			logging.Volume(slug), slog.Any("error", err))
 	}
 
-	a.writePage(w, "shell", a.view(held, volume, session))
+	var view View
+	if volume.DemandAddressedFeatures() {
+		view = a.viewPageZero(held, volume, session)
+	} else {
+		view = a.view(held, volume, session)
+	}
+	a.writePage(w, "shell", view)
 }
 
 // handleDetail answers with one feature's card. The card is a fragment rather

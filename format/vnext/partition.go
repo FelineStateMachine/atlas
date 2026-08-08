@@ -68,6 +68,59 @@ type FeaturePageResult struct {
 	BytesRead      int64
 }
 
+// FeatureSetSummary is page-zero cardinality derived from the physical index;
+// reading it never opens a feature partition.
+type FeatureSetSummary struct {
+	FeatureSet string
+	Rows       int
+}
+
+// DemandAddressedFeatures reports whether feature rows are physically
+// partitioned instead of carried in the legacy monolithic tables.
+func (reader *Reader) DemandAddressedFeatures() bool {
+	_, held := reader.blobs[featureIndexName]
+	return held
+}
+
+// FeatureSetSummaries returns canonical per-set row counts from the physical
+// partition index without materializing feature rows.
+func (reader *Reader) FeatureSetSummaries() ([]FeatureSetSummary, error) {
+	index, err := reader.featureIndex()
+	if err != nil {
+		return nil, err
+	}
+	if _, indexed := reader.blobs[featureIndexName]; !indexed {
+		volume, err := reader.Volume()
+		if err != nil {
+			return nil, err
+		}
+		var out []FeatureSetSummary
+		for _, world := range volume.Worlds {
+			for _, set := range world.FeatureSets {
+				out = append(out, FeatureSetSummary{FeatureSet: set.ID, Rows: len(set.Features)})
+			}
+		}
+		slices.SortFunc(out, func(left, right FeatureSetSummary) int {
+			return strings.Compare(left.FeatureSet, right.FeatureSet)
+		})
+		return out, nil
+	}
+	bySet := make(map[string]int)
+	for _, partition := range index.Partitions {
+		bySet[partition.FeatureSet] += partition.Rows
+	}
+	sets := make([]string, 0, len(bySet))
+	for set := range bySet {
+		sets = append(sets, set)
+	}
+	slices.Sort(sets)
+	out := make([]FeatureSetSummary, 0, len(sets))
+	for _, set := range sets {
+		out = append(out, FeatureSetSummary{FeatureSet: set, Rows: bySet[set]})
+	}
+	return out, nil
+}
+
 func partitionFeatureTables(volume Volume, tables map[string]Table) ([]NamedTable, Blob, error) {
 	features := tables[featureTableName]
 	relationships := tables[relationshipTableName]
@@ -393,6 +446,9 @@ func (reader *Reader) FeaturePage(request FeaturePageRequest) (FeaturePageResult
 	if err != nil {
 		return FeaturePageResult{}, err
 	}
+	if _, indexed := reader.blobs[featureIndexName]; !indexed {
+		return reader.legacyFeaturePage(request, after)
+	}
 	result := FeaturePageResult{}
 	passedAfter := after == ""
 	for _, partition := range index.Partitions {
@@ -422,6 +478,51 @@ func (reader *Reader) FeaturePage(request FeaturePageRequest) (FeaturePageResult
 				return result, nil
 			}
 		}
+	}
+	if !passedAfter {
+		return FeaturePageResult{}, fmt.Errorf("feature continuation is not present")
+	}
+	return result, nil
+}
+
+func (reader *Reader) legacyFeaturePage(request FeaturePageRequest, after string) (FeaturePageResult, error) {
+	volume, err := reader.Volume()
+	if err != nil {
+		return FeaturePageResult{}, err
+	}
+	result := FeaturePageResult{PartitionsRead: 1}
+	for _, name := range []string{featureTableName, relationshipTableName, provenanceTableName} {
+		result.BytesRead += reader.tables[name].Length
+	}
+	passedAfter := after == ""
+	foundSet := false
+	for _, world := range volume.Worlds {
+		for _, set := range world.FeatureSets {
+			if set.ID != request.FeatureSet {
+				continue
+			}
+			foundSet = true
+			for _, feature := range set.Features {
+				if !passedAfter {
+					passedAfter = feature.ID == after
+					continue
+				}
+				if request.Bounds != nil {
+					bounds, err := geometryBounds(feature.Geometry)
+					if err != nil || !intersects(bounds, *request.Bounds) {
+						continue
+					}
+				}
+				result.Features = append(result.Features, feature)
+				if len(result.Features) == request.Limit {
+					result.Next = encodeContinuation(request, feature.ID)
+					return result, nil
+				}
+			}
+		}
+	}
+	if !foundSet {
+		return FeaturePageResult{}, fmt.Errorf("feature set is not present")
 	}
 	if !passedAfter {
 		return FeaturePageResult{}, fmt.Errorf("feature continuation is not present")

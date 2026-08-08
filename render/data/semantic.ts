@@ -73,7 +73,8 @@ export interface CoordinateSpace {
   readonly definition: string;
   readonly extent: readonly [number, number, number, number];
   readonly sourceZoom: number;
-  readonly firstTile: number;
+  readonly originX: number;
+  readonly originY: number;
   readonly tileSize: number;
   readonly size: number;
 }
@@ -235,7 +236,7 @@ const CORE_FIELDS = [
   "world.id", "world.title", "world.coordinateSpace",
   "coordinate.id", "coordinate.world", "coordinate.kind", "coordinate.unit",
   "coordinate.definition", "coordinate.extent", "coordinate.sourceZoom",
-  "coordinate.firstTile", "coordinate.tileSize", "coordinate.size",
+  "coordinate.originX", "coordinate.originY", "coordinate.tileSize", "coordinate.size",
   "featureSet.id", "featureSet.world", "featureSet.title", "featureSet.semanticType",
   "propertyDefinition.featureSet", "propertyDefinition.field", "propertyDefinition.name",
   "propertyDefinition.kind", "propertyDefinition.optional",
@@ -410,7 +411,8 @@ function decodeWorlds(table: (name: TableName) => NativeTable): Map<string, Worl
       id: coordinates.string("coordinate.id", row), kind: coordinates.string("coordinate.kind", row),
       unit: coordinates.string("coordinate.unit", row), definition: coordinates.string("coordinate.definition", row),
       extent: decodeExtent(coordinates.bytes("coordinate.extent", row)),
-      sourceZoom: coordinates.int("coordinate.sourceZoom", row), firstTile: coordinates.int("coordinate.firstTile", row),
+      sourceZoom: coordinates.int("coordinate.sourceZoom", row),
+      originX: coordinates.int("coordinate.originX", row), originY: coordinates.int("coordinate.originY", row),
       tileSize: coordinates.int("coordinate.tileSize", row), size: coordinates.int("coordinate.size", row),
     };
   }
