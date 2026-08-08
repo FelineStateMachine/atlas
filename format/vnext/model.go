@@ -27,9 +27,13 @@ type CoordinateSpace struct {
 	Definition string
 	Extent     [4]float64
 	SourceZoom int64
-	FirstTile  int64
-	TileSize   int64
-	Size       int64
+	OriginX    int64
+	OriginY    int64
+	// FirstTile is deprecated. OriginX and OriginY are authoritative in the
+	// native format; this source-only field exists until all callers migrate.
+	FirstTile int64
+	TileSize  int64
+	Size      int64
 }
 
 // FeatureSet carries semantic membership and its typed property contract.
@@ -221,7 +225,8 @@ func StandardSchema() Schema {
 			coreField("coordinate.definition", KindString, false),
 			coreField("coordinate.extent", KindBytes, false),
 			coreField("coordinate.sourceZoom", KindInt64, false),
-			coreField("coordinate.firstTile", KindInt64, false),
+			coreField("coordinate.originX", KindInt64, false),
+			coreField("coordinate.originY", KindInt64, false),
 			coreField("coordinate.tileSize", KindInt64, false),
 			coreField("coordinate.size", KindInt64, false)),
 		coreType("featureSet",

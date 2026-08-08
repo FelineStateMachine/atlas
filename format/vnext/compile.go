@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"math"
 	"slices"
+	"strings"
 )
 
 const (
@@ -35,9 +36,10 @@ type NamedTable struct {
 
 // Blob is an opaque, independently range-readable payload.
 type Blob struct {
-	Name string
-	Data []byte
-	Path string
+	Name      string
+	Data      []byte
+	Path      string
+	temporary bool
 }
 
 // Bundle is the complete compiled form accepted by Write.
@@ -111,14 +113,27 @@ func Compile(volume Volume) (Bundle, error) {
 		return Bundle{}, err
 	}
 	names := tableNames()
-	tables := make([]NamedTable, len(names))
-	for index, name := range names {
+	tables := make([]NamedTable, 0, len(names))
+	physical := make(map[string]Table, len(names))
+	for _, name := range names {
 		table := builders[name].table()
 		if err := table.validate(); err != nil {
 			return Bundle{}, fmt.Errorf("compile %s: %w", name, err)
 		}
-		tables[index] = NamedTable{Name: name, Table: table}
+		physical[name] = table
+		partitioned := physical[featureTableName].Rows > 0 &&
+			(name == featureTableName || name == relationshipTableName || name == provenanceTableName)
+		if !partitioned {
+			tables = append(tables, NamedTable{Name: name, Table: table})
+		}
 	}
+	partitions, index, err := partitionFeatureTables(volume, physical)
+	if err != nil {
+		return Bundle{}, err
+	}
+	tables = append(tables, partitions...)
+	blobs = append(blobs, index)
+	slices.SortFunc(tables, func(left, right NamedTable) int { return strings.Compare(left.Name, right.Name) })
 	return Bundle{
 		VolumeID: volume.ID,
 		Release:  Release{Title: volume.Title, Worlds: len(volume.Worlds)},
@@ -261,7 +276,7 @@ func compileCoordinate(world World, builder *tableBuilder) error {
 		"id": StringValue(space.ID), "world": StringValue(world.ID),
 		"kind": StringValue(space.Kind), "unit": StringValue(space.Unit),
 		"definition": StringValue(space.Definition), "extent": BytesValue(encodeExtent(space.Extent)),
-		"sourceZoom": Int64Value(space.SourceZoom), "firstTile": Int64Value(space.FirstTile),
+		"sourceZoom": Int64Value(space.SourceZoom), "originX": Int64Value(space.OriginX), "originY": Int64Value(space.OriginY),
 		"tileSize": Int64Value(space.TileSize), "size": Int64Value(space.Size),
 	}))
 }

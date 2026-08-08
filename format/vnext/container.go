@@ -19,7 +19,7 @@ const (
 	manifestName     = "atlas.json"
 	containerFormat  = "atlas-schema-bundle"
 	containerFraming = uint16(1)
-	maxManifestSize  = 1 << 20
+	maxManifestSize  = 32 << 20
 )
 
 type schemaReference struct {
@@ -71,7 +71,7 @@ type Limits struct {
 
 func DefaultLimits() Limits {
 	return Limits{
-		MaxEntries: 100_000, MaxTables: 4_096, MaxBlobs: 90_000,
+		MaxEntries: 100_000, MaxTables: 65_536, MaxBlobs: 90_000,
 		MaxTableBytes: 512 << 20, MaxBlobBytes: 512 << 20, MaxTotalBytes: 1 << 40,
 	}
 }
@@ -113,6 +113,12 @@ func Write(out io.Writer, bundle Bundle) error {
 	// The stamp is always derived here; callers cannot smuggle a stale identity
 	// across a changed schema or blob set.
 	bundle.Release.Stamp = ""
+	packedBlobs, err := packRasterBlobs(bundle.Blobs)
+	if err != nil {
+		return err
+	}
+	defer cleanupTemporaryBlobs(packedBlobs)
+	bundle.Blobs = packedBlobs
 	schemaData, err := bundle.Schema.Canonical()
 	if err != nil {
 		return fmt.Errorf("canonicalize schema: %w", err)
@@ -255,6 +261,7 @@ type Reader struct {
 	tables  map[string]tableReference
 	blobs   map[string]blobReference
 	limits  Limits
+	source  io.ReaderAt
 }
 
 // Open reads the bootstrap and embedded schema. Only container framing is a
@@ -293,7 +300,7 @@ func OpenWithLimits(source io.ReaderAt, size int64, applicationSchema Schema, li
 	reader := &Reader{
 		VolumeID: manifest.Volume, Release: manifest.Release, FileSchema: fileSchema, RuntimeSchema: runtimeSchema,
 		entries: entries, tables: make(map[string]tableReference, len(manifest.Tables)),
-		blobs: make(map[string]blobReference, len(manifest.Blobs)), limits: limits,
+		blobs: make(map[string]blobReference, len(manifest.Blobs)), limits: limits, source: source,
 	}
 	if err := reader.indexReferences(manifest); err != nil {
 		return nil, err
@@ -439,6 +446,9 @@ func validateReference(name, hash string, length, maximum int64, entry *zip.File
 func (reader *Reader) Table(name string) (Table, error) {
 	reference, held := reader.tables[name]
 	if !held {
+		if table, partitioned, err := reader.partitionedTable(name); partitioned || err != nil {
+			return table, err
+		}
 		return Table{}, fmt.Errorf("bundle has no table %s", name)
 	}
 	data, err := readReferencedEntry(reader.entries[name], reference.Length, reference.Hash, reader.limits.MaxTableBytes)
@@ -483,6 +493,16 @@ func (reader *Reader) Table(name string) (Table, error) {
 func (reader *Reader) TableBlock(name string) ([]byte, error) {
 	reference, held := reader.tables[name]
 	if !held {
+		if table, partitioned, err := reader.partitionedTable(name); partitioned || err != nil {
+			if err != nil {
+				return nil, err
+			}
+			schemaHash, err := reader.FileSchema.Hash()
+			if err != nil {
+				return nil, err
+			}
+			return EncodeBlock(schemaHash, table)
+		}
 		return nil, fmt.Errorf("bundle has no table %s", name)
 	}
 	return readReferencedEntry(reader.entries[name], reference.Length, reference.Hash, reader.limits.MaxTableBytes)
@@ -500,6 +520,9 @@ func tableHasColumn(table Table, fieldID ID) bool {
 func (reader *Reader) Blob(name string) ([]byte, error) {
 	reference, held := reader.blobs[name]
 	if !held {
+		if tile, err := reader.ReadRasterTile(name); err == nil {
+			return tile.Data, nil
+		}
 		return nil, fmt.Errorf("bundle has no blob %s", name)
 	}
 	return readReferencedEntry(reader.entries[name], reference.Length, reference.Hash, reader.limits.MaxBlobBytes)
@@ -515,23 +538,57 @@ func (reader *Reader) TableNames() []string {
 }
 
 func (reader *Reader) BlobNames() []string {
+	names, _ := reader.LogicalBlobNames()
+	return names
+}
+
+// LogicalBlobNames returns public asset and tile names. Unlike BlobNames it
+// reports a malformed logical index instead of degrading to a partial list.
+func (reader *Reader) LogicalBlobNames() ([]string, error) {
 	names := make([]string, 0, len(reader.blobs))
 	for name := range reader.blobs {
-		names = append(names, name)
+		if name != rasterIndexName && name != featureIndexName && !strings.HasPrefix(name, rasterShardPrefix) {
+			names = append(names, name)
+		}
+	}
+	index, err := reader.rasterIndex()
+	if err != nil {
+		return nil, err
+	}
+	for _, tile := range index.Tiles {
+		names = append(names, tile.Name)
 	}
 	slices.Sort(names)
-	return names
+	return names, nil
 }
 
 // Validate reads and verifies every typed table and opaque blob, then restores
 // the semantic root. Installers call it before and after committing a file.
 func (reader *Reader) Validate() error {
+	featureIndex, err := reader.featureIndex()
+	if err != nil {
+		return fmt.Errorf("validate feature index: %w", err)
+	}
+	if _, err := reader.rasterIndex(); err != nil {
+		return fmt.Errorf("validate raster index: %w", err)
+	}
 	for _, name := range reader.TableNames() {
-		if _, err := reader.Table(name); err != nil {
+		table, err := reader.Table(name)
+		if err != nil {
 			return fmt.Errorf("validate %s: %w", name, err)
 		}
+		for _, partition := range featureIndex.Partitions {
+			if partition.Features == name && table.Rows != partition.Rows {
+				return fmt.Errorf("validate %s: index row count does not match", name)
+			}
+		}
 	}
-	for _, name := range reader.BlobNames() {
+	blobNames := make([]string, 0, len(reader.blobs))
+	for name := range reader.blobs {
+		blobNames = append(blobNames, name)
+	}
+	slices.Sort(blobNames)
+	for _, name := range blobNames {
 		reference := reader.blobs[name]
 		if err := validateReferencedEntry(reader.entries[name], reference.Length, reference.Hash, reader.limits.MaxBlobBytes); err != nil {
 			return fmt.Errorf("validate %s: %w", name, err)

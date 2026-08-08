@@ -95,7 +95,8 @@ func decodeWorlds(tables map[string]Table) ([]World, map[string]int, error) {
 			Definition: requiredString(coordinates, row, "coordinate.definition"),
 			Extent:     extent,
 			SourceZoom: requiredInt64(coordinates, row, "coordinate.sourceZoom"),
-			FirstTile:  requiredInt64(coordinates, row, "coordinate.firstTile"),
+			OriginX:    requiredInt64(coordinates, row, "coordinate.originX"),
+			OriginY:    requiredInt64(coordinates, row, "coordinate.originY"),
 			TileSize:   requiredInt64(coordinates, row, "coordinate.tileSize"),
 			Size:       requiredInt64(coordinates, row, "coordinate.size"),
 		}

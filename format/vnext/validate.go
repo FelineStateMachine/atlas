@@ -57,7 +57,8 @@ func validateWorld(world World, ids identities) error {
 	if world.CoordinateSpace.Kind == "" || world.CoordinateSpace.Unit == "" || world.CoordinateSpace.Definition == "" {
 		return fmt.Errorf("world %s has an incomplete coordinate space", world.ID)
 	}
-	if world.CoordinateSpace.SourceZoom < 0 || world.CoordinateSpace.TileSize < 0 || world.CoordinateSpace.Size < 0 {
+	if world.CoordinateSpace.SourceZoom < 0 || world.CoordinateSpace.TileSize < 0 || world.CoordinateSpace.Size < 0 ||
+		world.CoordinateSpace.OriginX < 0 || world.CoordinateSpace.OriginY < 0 {
 		return fmt.Errorf("world %s has invalid coordinate grid metadata", world.ID)
 	}
 	if err := validateClaims(world.Claims, "world"); err != nil {
