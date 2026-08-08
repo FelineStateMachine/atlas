@@ -36,6 +36,7 @@ import (
 	"github.com/wailsapp/wails/v2"
 	"github.com/wailsapp/wails/v2/pkg/options"
 	"github.com/wailsapp/wails/v2/pkg/options/assetserver"
+	"github.com/wailsapp/wails/v2/pkg/options/mac"
 
 	"github.com/FelineStateMachine/atlas/format/vnext"
 	"github.com/FelineStateMachine/atlas/internal/app"
@@ -154,6 +155,12 @@ func run() error {
 
 	return wails.Run(&options.App{
 		Title: "Atlas — World Explorer",
+		Mac: &mac.Options{OnFileOpen: func(path string) {
+			// Finder, `open`, and another application handing Atlas a file all
+			// arrive here. They join launch arguments and window drops at the
+			// same validated, atomic intake queue.
+			window.QueuePaths([]string{path})
+		}},
 		// The application *is* the asset server. Every request the page makes
 		// -- pages, partials, the /data plane, the events stream -- is served
 		// by the same handler the headless host serves, over the webview's own

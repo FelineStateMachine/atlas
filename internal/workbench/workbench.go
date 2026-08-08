@@ -1,31 +1,27 @@
-// Package workbench is the workbench beside the reader: one http.Handler that
-// answers for the collection itself.
+// Package workbench is a local authoring surface for one portable Atlas
+// project manifest and the native volume it produces.
 //
-// Where the application serves the build of every volume a reader should have
-// and asks no questions, the workbench answers the questions -- what each build
-// is worth, what moved between two of them, what the collection owes the people
-// whose work it carries, and what the pipeline should do next. It is pure
-// HTMX: server-rendered pages, no seam, no client-side state (issue #5 §5.6).
+// The startup manifest is the authority. The workbench resolves its build
+// plan, edits it atomically, runs one supervised native build, and hands the
+// resulting .atlas file to the desktop application by click or drag.
 //
 // # What it is made of
 //
-// It reads two things and links three packages. It reads the registry
-// directory, scoring every build it finds with internal/enrich/maturity, and it
-// reads nothing else: the source registry arrives as data from whoever mounted
-// the handler (sources.go), and pipeline work is done by shelling out to the
-// `atlas` CLI through internal/workbench/oprunner, never by linking a lane. The
-// import matrix of issue #5 §3.2 -- format plus enrich/maturity, and nothing
-// else -- is therefore a property of the design rather than a rule the code has
-// to be reminded of.
+// Existing library measurement remains available at the root. Authoring work
+// is delegated to the atlas CLI through internal/workbench/oprunner, keeping
+// the HTTP surface out of the compiler and capture implementations.
 //
 // # The pages
 //
 //	GET  /                        the library: every volume, headlined by its serving score
 //	GET  /volume/{slug}           measurement: the score, its breakdown, the axes, the ledger
 //	GET  /volume/{slug}/diff      two builds side by side, headlined by the score delta
-//	GET  /sources                 the source registry: licence, attribution, id space
-//	GET  /operations              the pipeline, and what it may be pointed at
-//	POST /operations/run          one operation, streamed back as rows
+//	GET  /project                 the resolved plan, latest run, artifact, and manifest
+//	POST /project/save            validate and atomically replace the manifest
+//	POST /project/build           begin the one native build operation
+//	GET  /project/run             replay the supervised run
+//	POST /project/open            ask the desktop application to open the artifact
+//	GET  /project/artifact        stream the artifact for a native drag handoff
 //	GET  /assets/{path...}        the stylesheet, and the hypermedia runtime
 //
 // Every page is measurement first: a score is the headline and everything else
@@ -72,16 +68,21 @@ type Options struct {
 	// Table is the point table scores are read under. The zero value means
 	// the embedded one, which is what everything but a test wants.
 	Table maturity.Table
+	// OpenArtifact performs the native handoff for a completed .atlas build.
+	// The command host wires this to the operating system; tests may replace it.
+	OpenArtifact func(string) error
 }
 
 // Workbench is the handler. It holds the registry it reads, the registry of
 // sources it was told about, and the one operation slot.
 type Workbench struct {
-	library *library
-	sources []Source
-	targets Targets
-	runtime []byte
-	runner  *oprunner.Runner
+	library      *library
+	sources      []Source
+	targets      Targets
+	runtime      []byte
+	runner       *oprunner.Runner
+	supervisor   *runSupervisor
+	openArtifact func(string) error
 
 	pages map[string]*template.Template
 	rows  *template.Template
@@ -102,18 +103,26 @@ func New(opts Options) (*Workbench, error) {
 	if err != nil {
 		return nil, err
 	}
+	runner := &oprunner.Runner{}
 	w := &Workbench{
-		library: &library{dir: opts.Targets.Registry, table: table},
-		sources: opts.Sources,
-		targets: opts.Targets,
-		runtime: opts.Runtime,
-		runner:  &oprunner.Runner{},
-		pages:   pages,
-		rows:    rows,
-		mux:     http.NewServeMux(),
+		library:      &library{dir: opts.Targets.Registry, table: table},
+		sources:      opts.Sources,
+		targets:      opts.Targets,
+		runtime:      opts.Runtime,
+		runner:       runner,
+		supervisor:   newRunSupervisor(runner),
+		openArtifact: opts.OpenArtifact,
+		pages:        pages,
+		rows:         rows,
+		mux:          http.NewServeMux(),
 	}
 	w.routes()
 	return w, nil
+}
+
+// Close stops and waits for any build subprocess owned by the workbench.
+func (w *Workbench) Close() {
+	w.supervisor.Close()
 }
 
 // ServeHTTP answers one request.
@@ -122,12 +131,16 @@ func (w *Workbench) ServeHTTP(rw http.ResponseWriter, r *http.Request) { w.mux.S
 // routes is the whole URL surface, spelled in one place; nothing registers
 // itself.
 func (w *Workbench) routes() {
+	w.mux.HandleFunc("GET /favicon.ico", func(rw http.ResponseWriter, _ *http.Request) { rw.WriteHeader(http.StatusNoContent) })
 	w.mux.HandleFunc("GET /{$}", w.handleLibrary)
 	w.mux.HandleFunc("GET /volume/{slug}", w.handleVolume)
 	w.mux.HandleFunc("GET /volume/{slug}/diff", w.handleDiff)
-	w.mux.HandleFunc("GET /sources", w.handleSources)
-	w.mux.HandleFunc("GET /operations", w.handleOperations)
-	w.mux.HandleFunc("POST /operations/run", w.handleRun)
+	w.mux.HandleFunc("GET /project", w.handleProject)
+	w.mux.HandleFunc("POST /project/save", w.handleProjectSave)
+	w.mux.HandleFunc("POST /project/build", w.handleProjectBuild)
+	w.mux.HandleFunc("GET /project/run", w.handleProjectRun)
+	w.mux.HandleFunc("POST /project/open", w.handleProjectOpen)
+	w.mux.HandleFunc("GET /project/artifact", w.handleProjectArtifact)
 	w.mux.HandleFunc("GET /assets/{path...}", w.handleAsset)
 }
 
@@ -137,7 +150,7 @@ func (w *Workbench) routes() {
 // pipeline operations is exactly the page that must not be reachable through
 // somebody else's document.
 const contentSecurityPolicy = "default-src 'none'; style-src 'self'; script-src 'self'; " +
-	"img-src 'self'; form-action 'self'; base-uri 'none'; frame-ancestors 'none'"
+	"connect-src 'self'; img-src 'self'; form-action 'self'; base-uri 'none'; frame-ancestors 'none'"
 
 // render executes a page into a buffer first, so a template error becomes a
 // clean 500 rather than half a page.
@@ -360,6 +373,8 @@ func (w *Workbench) handleAsset(rw http.ResponseWriter, r *http.Request) {
 			return
 		}
 		body, kind = w.runtime, "text/javascript; charset=utf-8"
+	case "workbench.js":
+		body, kind = behavior(), "text/javascript; charset=utf-8"
 	default:
 		http.NotFound(rw, r)
 		return
@@ -381,7 +396,7 @@ func parseTemplates() (map[string]*template.Template, *template.Template, error)
 	pages := make(map[string]*template.Template, len(pageNames))
 	for _, name := range pageNames {
 		held, err := template.New("layout").Funcs(funcs).ParseFS(
-			files, "templates/layout.tmpl", "templates/"+name+".tmpl")
+			files, "templates/layout.tmpl", "templates/op-row.tmpl", "templates/"+name+".tmpl")
 		if err != nil {
 			return nil, nil, fmt.Errorf("workbench templates: %w", err)
 		}
@@ -395,4 +410,4 @@ func parseTemplates() (map[string]*template.Template, *template.Template, error)
 }
 
 // pageNames are the pages, one template file each, named for the page.
-var pageNames = []string{"library", "volume", "diff", "sources", "operations"}
+var pageNames = []string{"library", "volume", "diff", "project"}

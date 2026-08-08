@@ -1,5 +1,10 @@
 # The generate lane
 
+> **Historical creation path.** The public authoring system is now the
+> single-manifest native vNext compiler in [authoring.md](authoring.md). These
+> packages remain for fixture migration and regression coverage; their CLI
+> commands are not registered.
+
 Generate makes volumes. It takes a capture archive — bytes somebody else
 published, fetched once and kept — and writes a `.atlas` file: one volume,
 complete, offline, deterministically named.

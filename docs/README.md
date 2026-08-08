@@ -8,8 +8,8 @@ the behavioral differences accepted against the archived reference are
 [decision 18](decisions/0018-divergences-from-the-reference.md).
 
 Read in this order to learn the system: [`format.md`](format.md) is the centre,
-[`generate.md`](generate.md) and [`enrich.md`](enrich.md) are how a bundle
-comes to be, [`app.md`](app.md) is what serves it,
+[`authoring.md`](authoring.md) is how a volume comes to be,
+[`app.md`](app.md) is what serves it,
 [`render-seam.md`](render-seam.md) and [`analysis.md`](analysis.md) are what
 pictures it, and [`decisions/`](decisions/) is why any of it is shaped this way.
 
@@ -19,9 +19,10 @@ pictures it, and [`decisions/`](decisions/) is why any of it is shaped this way.
 |---|---|
 | [`format.md`](format.md) | Normative native schema-bundle spec: semantic graph, typed blocks, compatibility, release ordering, validation, and install. |
 | [`format-v3.md`](format-v3.md) | Historical specification for the retired document-shaped format; current readers do not install it. |
+| [`authoring.md`](authoring.md) | The single-manifest authoring contract: plan, capture, observe, assemble, compile, publish, and workbench handoff. |
 | [`semconv/REGISTRY.md`](semconv/REGISTRY.md) | The attribute vocabulary, generated from `spec/registry.yaml`; `spec/gen`'s own test holds the committed copy up to date. |
-| [`generate.md`](generate.md) | The generate lane: the interchange document, the sources and their gates, the capture archive, tile derivation, composition, curation. §2.8 is the "add a source" walkthrough. |
-| [`enrich.md`](enrich.md) | The enrich lane: the enricher interface, the contribution format, the ledger vocabulary, the curated queue, the maturity score. |
+| [`generate.md`](generate.md) | Historical generate pipeline retained for fixture migration and corpus tests. |
+| [`enrich.md`](enrich.md) | Historical enrichment pipeline plus the current maturity score. |
 | [`analysis.md`](analysis.md) | The cell-system contract: the eighteen methods, coordinates and continuity, the `Ground` descriptor, the plan order, the style tokens. §9 is the "add a third system" checklist. |
 | [`app.md`](app.md) | The hypermedia application: routes, the session record, regions and partials, the state island, the hostenv contract and the three-host story. |
 | [`render-seam.md`](render-seam.md) | The brief for rewriting `render/` blind: the scene description, the standing set, the chart, the globe, the diagnostics duty. §10.1 names what the document does not carry. |

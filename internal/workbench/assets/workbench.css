@@ -222,6 +222,42 @@ input:focus-visible, select:focus-visible, button:focus-visible {
   outline-offset: 1px;
 }
 
+textarea {
+  width: 100%;
+  min-height: 32rem;
+  resize: vertical;
+  font: 12px/1.5 ui-monospace, SFMono-Regular, Menlo, monospace;
+  color: var(--text);
+  background: var(--bg);
+  border: 1px solid var(--line-strong);
+  padding: 14px;
+}
+
+.manifest-editor form { display: block; }
+.manifest-editor button { margin-top: 10px; }
+.eyebrow { color: var(--accent); text-transform: uppercase; letter-spacing: .12em; font-size: 11px; margin: 0 0 3px; }
+.notice { color: var(--accent); border-left: 2px solid var(--accent); padding: 8px 12px; }
+.project-flow { display: flex; align-items: stretch; gap: 8px; margin: 0 0 16px; overflow-x: auto; }
+.project-flow div { min-width: 130px; flex: 1; border: 1px solid var(--line); background: var(--panel); padding: 12px 14px; }
+.project-flow div.accent { border-color: var(--accent); }
+.project-flow b, .project-flow span { display: block; }
+.project-flow b { color: var(--data); font-size: 18px; }
+.project-flow span { color: var(--muted); font-size: 11px; }
+.project-flow i { align-self: center; color: var(--muted); font-style: normal; }
+.project-columns { grid-template-columns: minmax(360px, 1fr) minmax(420px, 1.2fr); }
+.build-control form label { display: flex; gap: 5px; align-items: center; }
+.build-control input[type="checkbox"] { min-width: 0; }
+.run-state { border-left: 2px solid var(--accent); padding-left: 8px; }
+.run-state.failed { border-color: #d98a72; color: #d98a72; }
+.artifact-handoff { margin-top: 14px; padding: 12px; display: flex; align-items: center; justify-content: space-between; gap: 12px; border: 1px dashed var(--accent); background: var(--accent-wash); cursor: grab; }
+.artifact-handoff:active { cursor: grabbing; }
+.artifact-handoff form { margin: 0; }
+.file-icon { display: inline-grid; place-items: center; width: 30px; height: 36px; margin-right: 10px; color: var(--accent-ink); background: var(--accent); font-weight: 700; float: left; }
+
+@media (max-width: 850px) {
+  .project-columns { grid-template-columns: 1fr; }
+}
+
 /* the console: one row per line the operation said ----------------------- */
 
 .console {

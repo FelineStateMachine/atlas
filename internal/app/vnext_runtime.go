@@ -68,7 +68,7 @@ func buildVNextWorld(world vnext.World, assets []vnext.Asset) (*worldModel, erro
 	space := world.CoordinateSpace
 	grid := tileGrid{SourceZoom: int(space.SourceZoom), FirstTile: int(space.FirstTile), TileSize: int(space.TileSize), Size: int(space.Size)}
 	model := &worldModel{
-		Slug: world.ID, Lenses: nativeRasters(world.RasterPyramids), Attrs: propertiesToAttrs(world.Claims),
+		Slug: world.ID, Space: space, Lenses: nativeRasters(world.RasterPyramids), Attrs: propertiesToAttrs(world.Claims),
 		Origin: worldOrigin(world), Grid: grid,
 		ByID: map[string]*collectionModel{}, PointByID: map[string]*pointModel{}, ShapeByID: map[string]*shapeModel{},
 	}
@@ -124,15 +124,20 @@ func buildVNextWorld(world vnext.World, assets []vnext.Asset) (*worldModel, erro
 	return model, nil
 }
 
-func addNativeFeature(model *worldModel, collection *collectionModel, feature *vnext.Feature, grid tileGrid) error {
+func addNativeFeature(
+	model *worldModel,
+	collection *collectionModel,
+	feature *vnext.Feature,
+	grid tileGrid,
+) error {
 	if feature.Geometry.Kind == vnext.GeometryPoint {
 		if len(feature.Geometry.Parts) != 1 || len(feature.Geometry.Parts[0].Rings) != 1 || len(feature.Geometry.Parts[0].Rings[0]) != 1 {
 			return fmt.Errorf("point %s has an invalid geometry", feature.ID)
 		}
 		position := feature.Geometry.Parts[0].Rings[0][0]
-		lat, lng := grid.unproject(position[0], position[1])
 		pin := &pointModel{
-			ID: feature.ID, Title: feature.Title, Lat: lat, Lng: lng, X: position[0], Y: -position[1],
+			ID: feature.ID, Title: feature.Title, Coordinates: coordinateLabel(model.Space, grid, position),
+			X: position[0], Y: -position[1],
 			Shard: feature.Shard, Feature: feature, Collection: collection,
 		}
 		model.Points = append(model.Points, pin)
@@ -149,6 +154,24 @@ func addNativeFeature(model *worldModel, collection *collectionModel, feature *v
 	model.Shapes = append(model.Shapes, shape)
 	model.ShapeByID[shape.ID] = shape
 	return nil
+}
+
+// coordinateLabel keeps the detail card in the coordinate space the volume
+// declares. Raster-era tile planes retain their familiar latitude/longitude
+// reading; a native projected or synthetic space shows its own x/y values and
+// unit instead of pretending those values are Web Mercator.
+func coordinateLabel(space vnext.CoordinateSpace, grid tileGrid, position vnext.Position) string {
+	if grid.SourceZoom > 0 && grid.TileSize > 0 && grid.Size > 0 {
+		lat, lng := grid.unproject(position[0], position[1])
+		return strconv.FormatFloat(lat, 'f', 6, 64) + ", " +
+			strconv.FormatFloat(lng, 'f', 6, 64)
+	}
+	label := strconv.FormatFloat(position[0], 'f', 6, 64) + ", " +
+		strconv.FormatFloat(position[1], 'f', 6, 64)
+	if space.Unit != "" {
+		label += " " + space.Unit
+	}
+	return label
 }
 
 func buildNativeShape(feature *vnext.Feature, collection *collectionModel) (*shapeModel, error) {

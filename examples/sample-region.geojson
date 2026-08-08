@@ -1,0 +1,31 @@
+{
+  "type": "FeatureCollection",
+  "features": [
+    {
+      "type": "Feature",
+      "id": "marker-1",
+      "properties": {
+        "id": "marker-1",
+        "name": "Sample Marker",
+        "kind": "landmark"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [40, 60]
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "marker-2",
+      "properties": {
+        "id": "marker-2",
+        "name": "Sample Lookout",
+        "kind": "landmark"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [75, 35]
+      }
+    }
+  ]
+}

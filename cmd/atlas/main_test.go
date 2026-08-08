@@ -29,7 +29,7 @@ func TestCommandTable(t *testing.T) {
 	if len(seen) == 0 {
 		t.Fatal("the binary does nothing")
 	}
-	for _, name := range []string{"compose", "serve", "translate"} {
+	for _, name := range []string{"build", "serve", "workbench"} {
 		if !seen[name] {
 			t.Errorf("the table does not carry %s", name)
 		}
@@ -64,8 +64,7 @@ func TestSubcommandsRefuseMissingInputs(t *testing.T) {
 		run  func([]string) error
 		want string
 	}{
-		{"compose", runCompose, "-archive and -tiles"},
-		{"translate", runTranslate, "-archive is required"},
+		{"build", runBuild, "one .atlas-project"},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {

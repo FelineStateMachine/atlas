@@ -4,7 +4,6 @@ import (
 	"html/template"
 	"regexp"
 	"sort"
-	"strconv"
 	"strings"
 
 	"github.com/FelineStateMachine/atlas/format/semconv"
@@ -460,8 +459,7 @@ func (a *App) detail(_ hostenv.Volume, model *worldModel, session Session, id st
 		out.Color = collectionColor(pin.Collection)
 		out.Glyph = initials(pin.Collection.Title)
 		out.Icon = pin.Collection.Icon
-		out.Coordinates = strconv.FormatFloat(pin.Lat, 'f', 6, 64) + ", " +
-			strconv.FormatFloat(pin.Lng, 'f', 6, 64)
+		out.Coordinates = pin.Coordinates
 		// Which is what earns this card the empty cell row: a place a point
 		// stands is a place the cell systems can name.
 		out.Point = true

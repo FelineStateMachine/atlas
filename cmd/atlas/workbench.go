@@ -8,16 +8,13 @@ import (
 	"net"
 	"net/http"
 	"os"
+	"os/exec"
 	"os/signal"
 	"path/filepath"
-	"strings"
 	"syscall"
 	"time"
 
 	"github.com/FelineStateMachine/atlas/internal/app/assets"
-	"github.com/FelineStateMachine/atlas/internal/generate/crawl"
-	"github.com/FelineStateMachine/atlas/internal/generate/sources"
-	"github.com/FelineStateMachine/atlas/internal/generate/tiles"
 	"github.com/FelineStateMachine/atlas/internal/logging"
 	"github.com/FelineStateMachine/atlas/internal/workbench"
 )
@@ -45,20 +42,17 @@ import (
 func workbenchCommand() command {
 	return command{
 		name:    "workbench",
-		summary: "serve the workbench: scores, build diffs, sources and pipeline operations",
+		summary: "author, plan and build one .atlas-project beside the Atlas library",
 		run:     runWorkbench,
 	}
 }
 
 func runWorkbench(args []string) error {
-	fs := flags("workbench", "[-addr HOST:PORT] [-bundles DIR] [-archive DIR] [-tiles DIR]")
+	fs := flags("workbench", "[-addr HOST:PORT] [-bundles DIR] [-cache DIR] FILE.atlas-project")
 	addr := fs.String("addr", "127.0.0.1:6180", "address the workbench listens on")
 	bundleDir := fs.String("bundles", "",
 		"registry of .atlas files to measure; default is the application's own library")
-	archiveDir := fs.String("archive", "",
-		"capture archive root operations read and write (operations that need one are refused without it)")
-	tileSet := fs.String("tiles", "",
-		"derived tile set directory operations write and read")
+	cacheDir := fs.String("cache", "", "shared content-addressed source cache")
 	var log logging.Options
 	log.Bind(fs)
 	if err := fs.Parse(args); err != nil {
@@ -67,11 +61,24 @@ func runWorkbench(args []string) error {
 	if _, err := logging.Setup(log); err != nil {
 		return err
 	}
+	if fs.NArg() != 1 {
+		fs.Usage()
+		return errors.New("name exactly one .atlas-project manifest")
+	}
+	project, err := filepath.Abs(fs.Arg(0))
+	if err != nil {
+		return fmt.Errorf("resolve project: %w", err)
+	}
 
 	registry := *bundleDir
-	var err error
 	if registry == "" {
 		if registry, err = defaultRegistryDir(); err != nil {
+			return err
+		}
+	}
+	cache := *cacheDir
+	if cache == "" {
+		if cache, err = defaultAuthoringCacheDir(); err != nil {
 			return err
 		}
 	}
@@ -86,21 +93,25 @@ func runWorkbench(args []string) error {
 	targets := workbench.Targets{
 		Atlas:    binary,
 		Registry: registry,
-		Archive:  *archiveDir,
-		TileSet:  *tileSet,
-	}
-	if *tileSet != "" {
-		targets.TileIndex = filepath.Join(*tileSet, tiles.IndexName)
+		Cache:    cache,
+		Project:  project,
+		Dir:      filepath.Dir(project),
 	}
 
 	handler, err := workbench.New(workbench.Options{
 		Targets: targets,
-		Sources: sourceCards(),
 		Runtime: assets.Runtime(),
+		OpenArtifact: func(path string) error {
+			if err := exec.Command("open", "-b", applicationID, path).Run(); err != nil {
+				return fmt.Errorf("open in Atlas: %w", err)
+			}
+			return nil
+		},
 	})
 	if err != nil {
 		return err
 	}
+	defer handler.Close()
 
 	listener, err := net.Listen("tcp", *addr)
 	if err != nil {
@@ -134,35 +145,4 @@ func runWorkbench(args []string) error {
 	}
 	slog.Info("workbench stopped", logging.Op("workbench"))
 	return nil
-}
-
-// sourceCards is the generate lane's source registry, as the workbench's cards.
-//
-// Every fact is the lane's own: the identity and the terms come from the
-// source's Describe(), and whether a fetch may be offered at all comes from
-// whether a crawler is registered under the same name. Nothing is restated
-// here, so a card cannot disagree with the documents its source emits.
-func sourceCards() []workbench.Source {
-	cards := make([]workbench.Source, 0, len(sources.All()))
-	for _, source := range sources.All() {
-		about := source.Describe()
-		card := workbench.Source{
-			Name:        about.Name,
-			Label:       about.Label,
-			License:     about.License,
-			Attribution: about.Attribution,
-			IDSpace:     about.IDSpace,
-		}
-		if crawler, err := crawl.For(about.Name); err == nil {
-			card.Crawlable = true
-			card.TargetHint = crawler.Usage()
-			// A crawler's usage line shows the shape of its target, and a
-			// target addressed as two slugs shows it as a slash. That is the
-			// one thing target validation has to be told, and the crawler is
-			// the only thing that knows it.
-			card.Pair = strings.Contains(crawler.Usage(), "/")
-		}
-		cards = append(cards, card)
-	}
-	return cards
 }

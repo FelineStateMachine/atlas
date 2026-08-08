@@ -40,6 +40,21 @@ func TestVNextEarthBuildsTheRendererDirectly(t *testing.T) {
 	}
 }
 
+func TestNativeCoordinateLabelsRespectTheDeclaredSpace(t *testing.T) {
+	t.Parallel()
+
+	space := vnext.CoordinateSpace{Kind: "projected", Unit: "metre", Extent: [4]float64{0, 0, 100, 100}}
+	if got := coordinateLabel(space, tileGrid{}, vnext.Position{40, 60}); got != "40.000000, 60.000000 metre" {
+		t.Fatalf("projected coordinate label = %q", got)
+	}
+
+	legacy := tileGrid{SourceZoom: 5, FirstTile: 10, TileSize: 256, Size: 8192}
+	got := coordinateLabel(vnext.CoordinateSpace{Kind: "projected", Unit: "world-pixel"}, legacy, vnext.Position{4096, 4096})
+	if strings.Contains(got, "world-pixel") || strings.Contains(got, "Inf") {
+		t.Fatalf("legacy tile-plane label = %q", got)
+	}
+}
+
 func nativeCollection(model *worldModel, title string) *collectionModel {
 	for _, collection := range model.Members {
 		if collection.Title == title {

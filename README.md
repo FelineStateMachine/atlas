@@ -1,19 +1,17 @@
 # Atlas
 
-Atlas is an offline map explorer built around a file format. A world — a game's
-map, a city's open data, Mars — travels as one self-contained `.atlas` bundle:
-its manifest, its features, its raster tile pyramids and its icons in a single
-zip archive. Drop a bundle into the library and the volume appears; drop in a
-newer build of the same volume and it takes over. No sidecars, no CDN, no
-runtime network of any kind, ever.
+Atlas is an offline map explorer built around a file format. A world travels as
+one self-contained `.atlas` volume: a schema-described semantic graph, packed
+typed features, raster pyramids, presentation and assets. Drop a volume into
+the library and it appears; drop in a newer build and it takes over. No
+sidecars, CDN, or runtime network is required.
 
 Two things ship from this repository:
 
-- **`atlas`** — the pipeline and the server. `crawl` captures what a publisher
-  serves, `tiles` derives pyramids, `compose` writes bundles, `enrich` folds
-  several readings of a volume together, `measure` scores them, `workbench`
-  serves the operator's pages, `serve` serves the application headlessly, and
-  `dev` is the loop for working on it.
+- **`atlas`** — the authoring tool and server. `build` turns one portable
+  `.atlas-project` manifest directly into native vNext, `workbench` provides the
+  visual authoring/build surface, `measure` scores libraries, `serve` hosts the
+  application headlessly, and `dev` is the development loop.
 - **Atlas** — the desktop application: the same application in a window.
 
 ```sh
@@ -32,8 +30,8 @@ The library lives under the application's own data directory —
 `~/Library/Application Support/dev.felinestatemachine.atlas/bundles` on macOS,
 `%AppData%\dev.felinestatemachine.atlas\bundles` on Windows,
 `~/.config/dev.felinestatemachine.atlas/bundles` on Linux. `ATLAS_BUNDLES_DIR`
-points either the CLI or the desktop app somewhere else; `atlas compose
--bundles DIR` writes a registry elsewhere without touching the library at all.
+points either the CLI or desktop app somewhere else; `atlas build -bundles DIR`
+writes a library elsewhere without touching the application library.
 
 ## Released builds
 
@@ -54,10 +52,11 @@ format/          THE CENTRE. The .atlas schema, packed typed tables,
                  content-addressed blobs, registry and semantic conventions.
                  Pure Go, standard library only, importable by anyone.
 internal/
-  generate/      Capture and composition: crawl, five sources, tiles, compose.
-  enrich/        Merge, national layers, standard icons, lenses, maturity.
+  authoring/     Manifest, adapters, evidence cache, semantic assembly, publish.
+  generate/      Retired pipeline retained for fixture migration and tests.
+  enrich/        Legacy enrichment plus the current maturity measurement.
   app/           The hypermedia application: one pure http.Handler, HTMX 4.
-  workbench/     Scores, build diffs, source cards, pipeline operations.
+  workbench/     Scores, diffs, manifest authoring, plans, builds and handoff.
 analysis/        TypeScript: the cell systems (geohash, S2) behind one contract.
 render/          TypeScript: the rendering seam. Deletable, and deleted in the
                  sense that matters — nothing imports it, and the application
@@ -75,8 +74,8 @@ main.go          The desktop shell: ~300 lines of host wiring around the
 
 [`docs/`](docs/) is the system, written down. Read in this order:
 [`format.md`](docs/format.md) is the centre;
-[`generate.md`](docs/generate.md) and [`enrich.md`](docs/enrich.md) are how a
-bundle comes to be; [`app.md`](docs/app.md) is what serves it;
+[`authoring.md`](docs/authoring.md) is how a volume is built;
+[`app.md`](docs/app.md) is what serves it;
 [`render-seam.md`](docs/render-seam.md) and
 [`analysis.md`](docs/analysis.md) are what pictures it;
 [`workbench.md`](docs/workbench.md) is the operator's view;

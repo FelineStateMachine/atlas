@@ -125,6 +125,8 @@ export interface TileGrid {
   readonly firstTile: number;
   readonly tileSize: number;
   readonly size: number;
+  /** The authoritative coordinate-space extent, converted to y-up display coordinates. */
+  readonly extent?: readonly [number, number, number, number];
 }
 
 /** One world as the manifest lists it. */

@@ -3,6 +3,7 @@ package workbench
 import (
 	"errors"
 	"fmt"
+	"sort"
 	"strings"
 
 	"github.com/FelineStateMachine/atlas/internal/workbench/oprunner"
@@ -36,6 +37,11 @@ type Targets struct {
 	// Registry is the library of .atlas files: what the measurement pages read
 	// and what compose, enrich and measure are pointed at.
 	Registry string
+	// Cache is the shared content-addressed evidence cache used by every build.
+	Cache string
+	// Project is the one portable manifest this workbench is allowed to edit,
+	// plan, and build. It is fixed at startup and never accepted from a request.
+	Project string
 	// Archive is the capture archive root -- the directory holding archive.json.
 	Archive string
 	// TileSet is the derived tile set directory, which `atlas tiles` writes.
@@ -44,6 +50,32 @@ type Targets struct {
 	// is stated rather than derived because the file's name is the generate
 	// lane's to know, and the wiring that knows the lane fills it in.
 	TileIndex string
+}
+
+// buildOperation is the only authoring command the vNext workbench exposes.
+// The manifest, cache and library are startup authority, not form values.
+func buildOperation(targets Targets, offline bool) (oprunner.Operation, error) {
+	var missing []string
+	for name, value := range map[string]string{
+		"atlas binary": targets.Atlas,
+		"project":      targets.Project,
+		"cache":        targets.Cache,
+		"library":      targets.Registry,
+	} {
+		if value == "" {
+			missing = append(missing, name)
+		}
+	}
+	if len(missing) > 0 {
+		sort.Strings(missing)
+		return oprunner.Operation{}, fmt.Errorf("build cannot run here: no %s configured", strings.Join(missing, ", no "))
+	}
+	argv := []string{targets.Atlas, "build", "--log-json", "-cache", targets.Cache, "-bundles", targets.Registry}
+	if offline {
+		argv = append(argv, "-offline")
+	}
+	argv = append(argv, targets.Project)
+	return oprunner.Operation{Name: "build", Dir: targets.Dir, Argv: argv}, nil
 }
 
 // An operation is one pipeline subcommand the page may run.

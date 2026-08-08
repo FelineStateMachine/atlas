@@ -1,0 +1,78 @@
+{{define "title"}}Project{{end}}
+{{define "content"}}
+<section class="page-head">
+  <p class="eyebrow">One manifest → one native volume</p>
+  <h1>{{if .Project.Title}}{{.Project.Title}}{{else}}Atlas project{{end}}</h1>
+  <p class="dim"><b>{{.Targets.Project}}</b></p>
+  {{if .Notice}}<p class="notice">{{.Notice}}</p>{{end}}
+  {{if .Error}}<p class="warn">{{.Error}}</p>{{end}}
+</section>
+
+{{if .Project.ID}}
+<section class="project-flow" aria-label="Build flow">
+  <div><b>{{.SourceCount}}</b><span>feature sources</span></div>
+  <i>→</i>
+  <div><b>{{.FeatureSets}}</b><span>semantic sets</span></div>
+  <i>→</i>
+  <div><b>{{.RasterCount}}</b><span>raster pyramids</span></div>
+  <i>→</i>
+  <div><b>{{.LayerCount}}</b><span>presentation layers</span></div>
+  <i>→</i>
+  <div class="accent"><b>.atlas</b><span>native vNext</span></div>
+</section>
+
+<div class="columns project-columns">
+<section class="card">
+  <h2>Resolved plan</h2>
+  <p class="score">{{.CachedCount}} / {{.RequestCount}} requests cached</p>
+  <dl class="terms">
+    <div><dt>project digest</dt><dd><code>{{short .Plan.ProjectDigest}}</code></dd></div>
+    <div><dt>world</dt><dd>{{.Plan.World}}</dd></div>
+    <div><dt>estimated input</dt><dd>{{.Plan.Estimated}} bytes</dd></div>
+    <div><dt>output library</dt><dd>{{.Plan.Output}}</dd></div>
+  </dl>
+  <h3>Evidence requests</h3>
+  <table>
+    <thead><tr><th>source</th><th>adapter</th><th>kind</th><th>cache</th></tr></thead>
+    <tbody>{{range .Plan.Requests}}<tr><td>{{.Source}}</td><td>{{.Adapter}}</td><td>{{.Kind}}</td><td>{{if .Cached}}ready{{else}}fetch{{end}}</td></tr>{{end}}</tbody>
+  </table>
+  <h3>Obligations carried into provenance</h3>
+  {{range .Plan.Licenses}}<p><b>{{.Source}}</b>{{if .License}} · {{.License}}{{end}}{{if .Attribution}}<br><span class="dim">{{.Attribution}}</span>{{end}}</p>{{end}}
+</section>
+
+<section class="card build-control">
+  <h2>Build</h2>
+  <p class="dim">Capture immutable evidence, observe, assemble semantics and presentation, compile, validate, then atomically install.</p>
+  <form method="post" action="/project/build">
+    <button>Build native Atlas</button>
+    <label><input type="checkbox" name="offline" value="true"> offline / cached only</label>
+  </form>
+  {{if .Run.Name}}
+    <p class="run-state {{if .Run.Failed}}failed{{else if .Run.Running}}running{{else}}done{{end}}">
+      {{if .Run.Running}}Building… safe to leave this page{{else if .Run.Failed}}Build failed{{else}}Build complete{{end}}
+    </p>
+    <div id="op-log" class="console" aria-live="polite"
+         hx-get="/project/run" hx-trigger="load, every 1s" hx-swap="innerHTML">
+      {{range .Run.Rows}}{{template "op-row" .}}{{end}}
+    </div>
+  {{end}}
+  {{if .Run.Artifact}}
+  <div class="artifact-handoff" draggable="true" data-artifact-handoff
+       data-artifact-name="{{.ArtifactName}}" data-artifact-path="{{.Run.Artifact}}">
+    <div><span class="file-icon">A</span><b>{{.ArtifactName}}</b><br><span class="dim">Drag this file onto an Atlas window</span></div>
+    <form method="post" action="/project/open"><button>Open in Atlas</button></form>
+  </div>
+  {{end}}
+</section>
+</div>
+{{end}}
+
+<section class="card manifest-editor">
+  <h2>Portable manifest</h2>
+  <p class="dim">Configuration lives here. Captured evidence stays in the shared cache; completed volumes stay in the Atlas library.</p>
+  <form method="post" action="/project/save">
+    <textarea name="manifest" spellcheck="false" aria-label="Atlas project manifest">{{.Manifest}}</textarea>
+    <button>Validate and save</button>
+  </form>
+</section>
+{{end}}

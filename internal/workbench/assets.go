@@ -23,7 +23,7 @@ import (
 // between two lanes that must not depend on each other. `atlas workbench` --
 // which may import both -- is what hands it over.
 
-//go:embed templates/*.tmpl assets/*.css
+//go:embed templates/*.tmpl assets/*.css assets/*.js
 var files embed.FS
 
 // stylesheets is the cascade, in order: the tokens first, because everything
@@ -55,4 +55,9 @@ func stylesheet() []byte {
 		sheet = out.Bytes()
 	})
 	return sheet
+}
+
+func behavior() []byte {
+	body, _ := fs.ReadFile(files, "assets/workbench.js")
+	return body
 }

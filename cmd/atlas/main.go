@@ -1,13 +1,9 @@
 // Command atlas is the one command-line binary: every lane's operations under
 // one name, each as a subcommand.
 //
-//	atlas compose     build a volume from archived captures and derived tiles
-//	atlas crawl       fetch what a publisher serves into the capture archive
-//	atlas tiles       derive raster pyramids from archived captures
-//	atlas enrich      fold every reading of a volume together and build it
+//	atlas build FILE.atlas-project  plan, capture and compile one native volume
 //	atlas measure     score every build in a registry
-//	atlas translate   read archived captures and print the interchange document
-//	atlas workbench   serve the workbench: scores, diffs, sources, operations
+//	atlas workbench FILE.atlas-project  serve the library and authoring project
 //	atlas serve -bundles DIR      # the headless application host
 //	atlas dev   -bundles DIR      # the same, reading its chrome from the working copy
 //
@@ -45,14 +41,10 @@ type command struct {
 // before main.
 func commands() []command {
 	return []command{
-		composeCommand(),
-		crawlCommand(),
+		buildCommand(),
 		devCommand(),
-		enrichCommand(),
 		measureCommand(),
 		serveCommand(),
-		tilesCommand(),
-		translateCommand(),
 		workbenchCommand(),
 	}
 }

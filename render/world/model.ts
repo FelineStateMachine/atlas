@@ -8,7 +8,7 @@ import type { Ground } from "@atlas/analysis";
 import type { Collection, Lens, TileGrid, WorldPayload } from "../data/payload.ts";
 import type { OpenWorld } from "../data/plane.ts";
 import type {
-  Feature, Geometry, Property, RasterPyramid, Style,
+  CoordinateSpace, Feature, Geometry, Property, RasterPyramid, Style,
 } from "../data/semantic.ts";
 
 /** `[x, y]` in OL world coordinates: x east, y negative-down. */
@@ -33,6 +33,28 @@ export function project(grid: TileGrid, lat: number, lng: number): Coordinate {
 /** Kept for test fixtures extracted before coordinate spaces became native. */
 export function worldGrid(volume: TileGrid, payload: WorldPayload): TileGrid {
   return payload.grid ? { ...volume, ...payload.grid } : volume;
+}
+
+/**
+ * The presentation grid for an authoritative vNext coordinate space.
+ *
+ * Raster-era volumes already declare their square and tile size, and retain
+ * those values exactly. A feature-only world has no reason to invent raster
+ * metadata, so its finite display scale comes from the coordinate extent and
+ * a conventional 256-pixel resolution step. The extent is converted from the
+ * semantic space's y-down coordinates to OpenLayers' y-up display space once.
+ */
+export function presentedGrid(space: CoordinateSpace): TileGrid {
+  const [minX, minY, maxX, maxY] = space.extent;
+  const width = maxX - minX;
+  const height = maxY - minY;
+  return {
+    sourceZoom: space.sourceZoom,
+    firstTile: space.firstTile,
+    tileSize: space.tileSize > 0 ? space.tileSize : 256,
+    size: space.size > 0 ? space.size : Math.max(width, height),
+    extent: [minX, -maxY, maxX, -minY],
+  };
 }
 
 /** One point feature, standing where it stands. */
@@ -79,12 +101,7 @@ export class WorldModel {
     const { volume, world } = open;
     this.slug = world.id;
     this.title = world.title;
-    this.grid = {
-      sourceZoom: world.coordinateSpace.sourceZoom,
-      firstTile: world.coordinateSpace.firstTile,
-      tileSize: world.coordinateSpace.tileSize,
-      size: world.coordinateSpace.size,
-    };
+    this.grid = presentedGrid(world.coordinateSpace);
     this.attrs = propertiesToAttrs(world.claims);
     this.lenses = world.rasterPyramids.map(presentRaster);
 
@@ -99,7 +116,10 @@ export class WorldModel {
       const set = sets.get(layer.featureSet);
       const style = styles.get(layer.style);
       if (!set || !style) throw new Error(`layer ${layer.id} has an unresolved feature set or style`);
-      const kind = semanticKind(set.semanticType);
+      // Meaning and shape are separate. A feature set may be semantically a
+      // place, trailhead, quest, or anything a schema declares; geometry is
+      // read from its native features rather than smuggled through that name.
+      const kind = presentedKind(set.features, set.semanticType);
       const asset = style.iconAsset ? volume.assets.get(style.iconAsset) : undefined;
       const collection: Collection = {
         id: layer.id, featureSet: set.id, style: style.id,
@@ -202,10 +222,29 @@ function displayGeometry(geometry: Geometry): { lines: Line[]; holes: Line[][] }
   return { lines, holes };
 }
 
-function semanticKind(value: string): "point" | "path" | "area" {
-  const kind = value.startsWith("geometry.") ? value.slice("geometry.".length) : value;
-  if (kind !== "point" && kind !== "path" && kind !== "area") throw new Error(`semantic geometry kind ${value} is unsupported`);
-  return kind;
+type GeometryBearing = { readonly geometry: { readonly kind: number } };
+
+/** Geometry determines drawing; semantic type remains free to mean something. */
+export function presentedKind(
+  features: readonly GeometryBearing[],
+  semanticType: string,
+): "point" | "path" | "area" {
+  const kinds = new Set(features.map((feature) => feature.geometry.kind));
+  if (kinds.size > 1) {
+    throw new Error(`semantic feature set ${semanticType} mixes geometry kinds`);
+  }
+  const native = kinds.values().next().value as number | undefined;
+  if (native === 1) return "point";
+  if (native === 2) return "path";
+  if (native === 3) return "area";
+
+  // An empty feature set has no feature from which to infer its shape. Keep
+  // the older geometry.* spelling as a useful declaration for that case.
+  const declared = semanticType.startsWith("geometry.")
+    ? semanticType.slice("geometry.".length)
+    : semanticType;
+  if (declared === "path" || declared === "area") return declared;
+  return "point";
 }
 
 function presentRaster(raster: RasterPyramid): Lens {

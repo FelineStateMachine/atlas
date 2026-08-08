@@ -1,5 +1,10 @@
 # The enrich lane
 
+> **Historical creation path.** Native authoring now observes and assembles
+> configured sources directly; see [authoring.md](authoring.md). The maturity
+> measurement remains in use, while legacy enrichment is retained for fixture
+> migration and regression coverage.
+
 Enrich makes volumes richer. It takes a volume the [generate lane](generate.md)
 composed — or the several readings of one volume that several sources produced —
 and writes a **new build of the same volume**: same slug, new stamp, more in it.

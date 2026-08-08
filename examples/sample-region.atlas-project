@@ -1,0 +1,56 @@
+schema: atlas-project/v1
+schema-namespace: example.invalid/atlas/sample-region/v1
+id: sample-region
+title: Sample Region
+
+target:
+  world: sample-region
+  title: Sample Region
+  coordinate-space:
+    id: sample-grid
+    kind: projected
+    unit: metre
+    definition: local sample grid
+    extent: [0, 0, 100, 100]
+
+sources:
+  - id: sample-features
+    adapter: geojson
+    locator: sample-region.geojson
+    media-type: application/geo+json
+    license: Example data
+    attribution: Sample Region contributors
+    estimate-bytes: 1024
+    mapping:
+      feature-set: places
+      title: Sample Places
+      semantic-type: place
+      identity: id
+      feature-title: properties.name
+      fields:
+        - id: kind
+          name: Kind
+          source: properties.kind
+          type: string
+
+presentation:
+  id: default
+  title: Default
+  styles:
+    - id: place
+      symbol: circle
+      render-as: geometry
+      stroke: "#d9e7f5"
+      fill: "#5ba4d7"
+  layers:
+    - id: places
+      feature-set: places
+      style: place
+      label: Sample Places
+      group: Sample Region
+      label-policy: automatic
+      visible: true
+      order: 1
+
+release:
+  revision: 1

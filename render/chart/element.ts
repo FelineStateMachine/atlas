@@ -888,16 +888,19 @@ export class AtlasChart extends HTMLElement {
   }
 
   private openLens(context: WorldContext, fresh: boolean): void {
-    if (!this.map || !this.view || !this.projection || !this.plane || !context.lens) return;
+    if (!this.map || !this.view || !this.projection || !this.plane) return;
     if (this.raster) {
       this.map.removeLayer(this.raster.base);
       this.map.removeLayer(this.raster.detail);
+      this.raster = null;
     }
     this.counter.reset();
-    this.raster = buildRaster(
-      this.plane, context.base, context.lens, context.grid, this.projection, this.counter);
-    this.map.addLayer(this.raster.base);
-    this.map.addLayer(this.raster.detail);
+    if (context.lens) {
+      this.raster = buildRaster(
+        this.plane, context.base, context.lens, context.grid, this.projection, this.counter);
+      this.map.addLayer(this.raster.base);
+      this.map.addLayer(this.raster.detail);
+    }
     // A lens is a different picture of the ground, and three of the camera's
     // options cannot be changed after it is built, so it is rebuilt. The
     // camera itself is carried across by hand below.

@@ -50,6 +50,7 @@ type payloadCoverage struct {
 // that world.
 type worldModel struct {
 	Slug      string
+	Space     vnext.CoordinateSpace
 	Lenses    []payloadLens
 	Attrs     map[string]string
 	Origin    string
@@ -105,13 +106,13 @@ func (c *collectionModel) Domain() string {
 
 // pointModel is one packed location, already on the world square.
 type pointModel struct {
-	ID         string
-	Title      string
-	Lat, Lng   float64
-	X, Y       float64
-	Shard      int64
-	Feature    *vnext.Feature
-	Collection *collectionModel
+	ID          string
+	Title       string
+	Coordinates string
+	X, Y        float64
+	Shard       int64
+	Feature     *vnext.Feature
+	Collection  *collectionModel
 }
 
 // shapeModel is one path or area feature: its rings in world pixels, its

@@ -5,6 +5,7 @@ import {
   type FieldSchema, type Schema,
 } from "../data/vnext.ts";
 import { coreID, decodeGeometry } from "../data/semantic.ts";
+import { presentedGrid, presentedKind } from "../world/model.ts";
 
 const ROOT = "11111111-1111-5111-8111-111111111111";
 const TITLE = "22222222-2222-5222-8222-222222222222";
@@ -75,6 +76,26 @@ test("native geometry preserves parts, rings, and string identities without GeoJ
       { rings: [[[0, 0], [4, 0], [4, 4], [0, 0]], [[1, 1], [2, 1], [1, 1]]] },
       { rings: [[[10, 10], [12, 10], [10, 10]]] },
     ],
+  });
+});
+
+test("semantic meaning does not have to masquerade as geometry", () => {
+  assert.equal(presentedKind([{ geometry: { kind: 1 } }], "place"), "point");
+  assert.equal(presentedKind([{ geometry: { kind: 2 } }], "route"), "path");
+  assert.equal(presentedKind([], "geometry.area"), "area");
+  assert.throws(
+    () => presentedKind([{ geometry: { kind: 1 } }, { geometry: { kind: 2 } }], "place"),
+    /mixes geometry kinds/,
+  );
+});
+
+test("feature-only coordinate spaces derive a finite presentation grid", () => {
+  assert.deepEqual(presentedGrid({
+    id: "sample-grid", kind: "projected", unit: "metre", definition: "local sample grid",
+    extent: [10, 20, 110, 70], sourceZoom: 0, firstTile: 0, tileSize: 0, size: 0,
+  }), {
+    sourceZoom: 0, firstTile: 0, tileSize: 256, size: 100,
+    extent: [10, -70, 110, -20],
   });
 });
 

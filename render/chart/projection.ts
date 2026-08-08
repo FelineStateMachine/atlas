@@ -32,6 +32,7 @@ export const RASTER_CACHE_SIZE = 64;
 
 /** The world square as an OL extent. */
 export function worldExtent(grid: GridSpec): Extent {
+  if (grid.extent) return [...grid.extent];
   return [0, -grid.size, grid.size, 0];
 }
 

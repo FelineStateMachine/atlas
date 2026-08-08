@@ -16,6 +16,7 @@ import test from "node:test";
 import { strict as assert } from "node:assert";
 import {
   COORDINATE_SYSTEM, OVERZOOM_LEVELS, fitResolution, lensExtent, levelResolution, viewMaxZoom,
+  worldExtent,
 } from "../chart/projection.ts";
 import { payloads, tileGrid } from "./fixtures.ts";
 import { SQUARE, gamePlane, splitSheet } from "./models.ts";
@@ -35,6 +36,13 @@ test("a level's resolution is the world square over its tiles", () => {
   assert.equal(levelResolution(grid, 0), 32, "the square in one tile");
   assert.equal(levelResolution(grid, 6), 0.5, "sixty-four tiles across");
   assert.equal(levelResolution(grid, 6), grid.size / 2 ** 6 / grid.tileSize);
+});
+
+test("an authoritative coordinate extent replaces the raster-era square", () => {
+  assert.deepEqual(worldExtent({
+    sourceZoom: 0, firstTile: 0, tileSize: 256, size: 200,
+    extent: [100, -400, 300, -200],
+  }), [100, -400, 300, -200]);
 });
 
 test("Mars opens at the fit its own bounds imply", () => {

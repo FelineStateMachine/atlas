@@ -258,19 +258,18 @@ func TestTheDiffPageIsHeadlinedByTheScoreDelta(t *testing.T) {
 	}
 }
 
-func TestTheSourcePagePrintsWhatEachVolumeOwes(t *testing.T) {
+func TestTheNavigationPointsAtTheSingleProjectInsteadOfLegacySources(t *testing.T) {
 	server := site(t, testWorkbench(t, testLibrary(t)))
 
-	response, body := get(t, server, "/sources")
-	if response.StatusCode != http.StatusOK {
-		t.Fatalf("the sources page answered %d", response.StatusCode)
+	response, _ := get(t, server, "/sources")
+	if response.StatusCode != http.StatusNotFound {
+		t.Fatalf("the retired sources page answered %d", response.StatusCode)
 	}
-	wants(t, "sources", body,
-		"MapGenie", "IGN Wiki", "NASA Trek",
-		"Maps and pin data by MapGenie and its contributors.",
-		"Public domain.", "Reproduced under IGN's terms.",
-		"native ids", "derived ids",
-		"crawlable", "archived captures only")
+	_, body := get(t, server, "/")
+	wants(t, "navigation", body, `href="/project"`, "Project")
+	if strings.Contains(body, `href="/sources"`) || strings.Contains(body, `href="/operations"`) {
+		t.Fatal("library navigation still exposes a legacy creation surface")
+	}
 }
 
 func TestTheAssetsAreTheWorkbenchsOwnAndTheRuntimeIsOptional(t *testing.T) {
