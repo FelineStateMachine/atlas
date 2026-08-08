@@ -8,6 +8,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"math"
 	"os"
 	"slices"
 	"strings"
@@ -54,6 +55,50 @@ type preparedEntry struct {
 	data       []byte
 	sourcePath string
 	method     uint16
+}
+
+// Limits bounds the native container before any referenced entry is
+// materialized. Zero fields take the stable application defaults; negative
+// fields are invalid. Manifests may describe less, never silently more.
+type Limits struct {
+	MaxEntries    int
+	MaxTables     int
+	MaxBlobs      int
+	MaxTableBytes int64
+	MaxBlobBytes  int64
+	MaxTotalBytes int64
+}
+
+func DefaultLimits() Limits {
+	return Limits{
+		MaxEntries: 100_000, MaxTables: 4_096, MaxBlobs: 90_000,
+		MaxTableBytes: 512 << 20, MaxBlobBytes: 512 << 20, MaxTotalBytes: 1 << 40,
+	}
+}
+
+func (limits Limits) resolved() (Limits, error) {
+	defaults := DefaultLimits()
+	values := []*int{&limits.MaxEntries, &limits.MaxTables, &limits.MaxBlobs}
+	defaultInts := []int{defaults.MaxEntries, defaults.MaxTables, defaults.MaxBlobs}
+	for index, value := range values {
+		if *value < 0 {
+			return Limits{}, fmt.Errorf("native container limit is negative")
+		}
+		if *value == 0 {
+			*value = defaultInts[index]
+		}
+	}
+	byteValues := []*int64{&limits.MaxTableBytes, &limits.MaxBlobBytes, &limits.MaxTotalBytes}
+	defaultBytes := []int64{defaults.MaxTableBytes, defaults.MaxBlobBytes, defaults.MaxTotalBytes}
+	for index, value := range byteValues {
+		if *value < 0 {
+			return Limits{}, fmt.Errorf("native container byte limit is negative")
+		}
+		if *value == 0 {
+			*value = defaultBytes[index]
+		}
+	}
+	return limits, nil
 }
 
 // Write produces one deterministic ZIP container with a small JSON bootstrap,
@@ -209,16 +254,27 @@ type Reader struct {
 	entries map[string]*zip.File
 	tables  map[string]tableReference
 	blobs   map[string]blobReference
+	limits  Limits
 }
 
 // Open reads the bootstrap and embedded schema. Only container framing is a
 // hard gate; schema differences are merged by identity.
 func Open(source io.ReaderAt, size int64, applicationSchema Schema) (*Reader, error) {
+	return OpenWithLimits(source, size, applicationSchema, DefaultLimits())
+}
+
+// OpenWithLimits opens a native Atlas under an explicit reproducible resource
+// policy. Open is the compatibility facade using DefaultLimits.
+func OpenWithLimits(source io.ReaderAt, size int64, applicationSchema Schema, limits Limits) (*Reader, error) {
+	limits, err := limits.resolved()
+	if err != nil {
+		return nil, err
+	}
 	archive, err := zip.NewReader(source, size)
 	if err != nil {
 		return nil, fmt.Errorf("open Atlas archive: %w", err)
 	}
-	entries, err := indexEntries(archive.File)
+	entries, err := indexEntries(archive.File, limits)
 	if err != nil {
 		return nil, err
 	}
@@ -237,7 +293,7 @@ func Open(source io.ReaderAt, size int64, applicationSchema Schema) (*Reader, er
 	reader := &Reader{
 		VolumeID: manifest.Volume, Release: manifest.Release, FileSchema: fileSchema, RuntimeSchema: runtimeSchema,
 		entries: entries, tables: make(map[string]tableReference, len(manifest.Tables)),
-		blobs: make(map[string]blobReference, len(manifest.Blobs)),
+		blobs: make(map[string]blobReference, len(manifest.Blobs)), limits: limits,
 	}
 	if err := reader.indexReferences(manifest); err != nil {
 		return nil, err
@@ -245,14 +301,25 @@ func Open(source io.ReaderAt, size int64, applicationSchema Schema) (*Reader, er
 	return reader, nil
 }
 
-func indexEntries(files []*zip.File) (map[string]*zip.File, error) {
+func indexEntries(files []*zip.File, limits Limits) (map[string]*zip.File, error) {
+	if len(files) > limits.MaxEntries {
+		return nil, fmt.Errorf("archive carries %d entries, limit is %d", len(files), limits.MaxEntries)
+	}
 	entries := make(map[string]*zip.File, len(files))
+	var total uint64
 	for _, file := range files {
 		if err := validEntryName(file.Name); err != nil {
 			return nil, err
 		}
 		if _, held := entries[file.Name]; held {
 			return nil, fmt.Errorf("archive carries %s twice", file.Name)
+		}
+		if file.UncompressedSize64 > math.MaxInt64 || total > math.MaxUint64-file.UncompressedSize64 {
+			return nil, fmt.Errorf("archive entry sizes overflow")
+		}
+		total += file.UncompressedSize64
+		if total > uint64(limits.MaxTotalBytes) {
+			return nil, fmt.Errorf("archive expands beyond %d bytes", limits.MaxTotalBytes)
 		}
 		entries[file.Name] = file
 	}
@@ -265,8 +332,13 @@ func readBootstrap(entries map[string]*zip.File) (bootstrap, error) {
 		return bootstrap{}, err
 	}
 	var manifest bootstrap
-	if err := json.Unmarshal(data, &manifest); err != nil {
+	decoder := json.NewDecoder(bytes.NewReader(data))
+	decoder.DisallowUnknownFields()
+	if err := decoder.Decode(&manifest); err != nil {
 		return bootstrap{}, fmt.Errorf("decode bootstrap: %w", err)
+	}
+	if err := decoder.Decode(&struct{}{}); err != io.EOF {
+		return bootstrap{}, fmt.Errorf("bootstrap carries trailing data")
 	}
 	if manifest.Format != containerFormat || manifest.Framing != containerFraming {
 		return bootstrap{}, fmt.Errorf("unsupported Atlas container identity or framing")
@@ -315,17 +387,50 @@ func readSchema(entries map[string]*zip.File, reference schemaReference) (Schema
 }
 
 func (reader *Reader) indexReferences(manifest bootstrap) error {
+	if len(manifest.Tables) > reader.limits.MaxTables || len(manifest.Blobs) > reader.limits.MaxBlobs {
+		return fmt.Errorf("native container reference count exceeds policy")
+	}
+	allowed := map[string]bool{manifestName: true, manifest.Schema.Name: true}
 	for _, reference := range manifest.Tables {
-		if _, held := reader.tables[reference.Name]; held || reader.entries[reference.Name] == nil {
+		entry := reader.entries[reference.Name]
+		if allowed[reference.Name] || entry == nil {
 			return fmt.Errorf("table reference %s is duplicate or missing", reference.Name)
 		}
+		if err := validateReference(reference.Name, reference.Hash, reference.Length, reader.limits.MaxTableBytes, entry); err != nil {
+			return fmt.Errorf("table reference %s: %w", reference.Name, err)
+		}
 		reader.tables[reference.Name] = reference
+		allowed[reference.Name] = true
 	}
 	for _, reference := range manifest.Blobs {
-		if _, held := reader.blobs[reference.Name]; held || reader.entries[reference.Name] == nil {
+		entry := reader.entries[reference.Name]
+		if allowed[reference.Name] || entry == nil {
 			return fmt.Errorf("blob reference %s is duplicate or missing", reference.Name)
 		}
+		if err := validateReference(reference.Name, reference.Hash, reference.Length, reader.limits.MaxBlobBytes, entry); err != nil {
+			return fmt.Errorf("blob reference %s: %w", reference.Name, err)
+		}
 		reader.blobs[reference.Name] = reference
+		allowed[reference.Name] = true
+	}
+	for name := range reader.entries {
+		if !allowed[name] {
+			return fmt.Errorf("archive carries unreferenced entry %s", name)
+		}
+	}
+	return nil
+}
+
+func validateReference(name, hash string, length, maximum int64, entry *zip.File) error {
+	if name == manifestName || length < 0 || length > maximum || int64(entry.UncompressedSize64) != length {
+		return fmt.Errorf("length is invalid or exceeds %d bytes", maximum)
+	}
+	decoded, err := hex.DecodeString(hash)
+	if err != nil || len(decoded) != sha256.Size || hash != strings.ToLower(hash) {
+		return fmt.Errorf("hash is not lowercase SHA-256")
+	}
+	if entry.Method != zip.Store {
+		return fmt.Errorf("referenced packed data is not stored")
 	}
 	return nil
 }
@@ -336,7 +441,7 @@ func (reader *Reader) Table(name string) (Table, error) {
 	if !held {
 		return Table{}, fmt.Errorf("bundle has no table %s", name)
 	}
-	data, err := readReferencedEntry(reader.entries[name], reference.Length, reference.Hash)
+	data, err := readReferencedEntry(reader.entries[name], reference.Length, reference.Hash, reader.limits.MaxTableBytes)
 	if err != nil {
 		return Table{}, err
 	}
@@ -380,7 +485,7 @@ func (reader *Reader) TableBlock(name string) ([]byte, error) {
 	if !held {
 		return nil, fmt.Errorf("bundle has no table %s", name)
 	}
-	return readReferencedEntry(reader.entries[name], reference.Length, reference.Hash)
+	return readReferencedEntry(reader.entries[name], reference.Length, reference.Hash, reader.limits.MaxTableBytes)
 }
 
 func tableHasColumn(table Table, fieldID ID) bool {
@@ -397,7 +502,7 @@ func (reader *Reader) Blob(name string) ([]byte, error) {
 	if !held {
 		return nil, fmt.Errorf("bundle has no blob %s", name)
 	}
-	return readReferencedEntry(reader.entries[name], reference.Length, reference.Hash)
+	return readReferencedEntry(reader.entries[name], reference.Length, reference.Hash, reader.limits.MaxBlobBytes)
 }
 
 func (reader *Reader) TableNames() []string {
@@ -421,13 +526,14 @@ func (reader *Reader) BlobNames() []string {
 // Validate reads and verifies every typed table and opaque blob, then restores
 // the semantic root. Installers call it before and after committing a file.
 func (reader *Reader) Validate() error {
-	for name := range reader.tables {
+	for _, name := range reader.TableNames() {
 		if _, err := reader.Table(name); err != nil {
 			return fmt.Errorf("validate %s: %w", name, err)
 		}
 	}
-	for name := range reader.blobs {
-		if _, err := reader.Blob(name); err != nil {
+	for _, name := range reader.BlobNames() {
+		reference := reader.blobs[name]
+		if err := validateReferencedEntry(reader.entries[name], reference.Length, reference.Hash, reader.limits.MaxBlobBytes); err != nil {
 			return fmt.Errorf("validate %s: %w", name, err)
 		}
 	}
@@ -442,14 +548,14 @@ func readLimitedEntry(entries map[string]*zip.File, name string, maximum int64) 
 	if entry == nil || int64(entry.UncompressedSize64) > maximum {
 		return nil, fmt.Errorf("entry %s is missing or implausibly large", name)
 	}
-	return readEntry(entry)
+	return readEntryLimited(entry, maximum)
 }
 
-func readReferencedEntry(entry *zip.File, length int64, hash string) ([]byte, error) {
-	if entry == nil || int64(entry.UncompressedSize64) != length {
+func readReferencedEntry(entry *zip.File, length int64, hash string, maximum int64) ([]byte, error) {
+	if entry == nil || length < 0 || length > maximum || int64(entry.UncompressedSize64) != length {
 		return nil, fmt.Errorf("referenced entry length does not match")
 	}
-	data, err := readEntry(entry)
+	data, err := readEntryLimited(entry, maximum)
 	if err != nil {
 		return nil, err
 	}
@@ -460,17 +566,51 @@ func readReferencedEntry(entry *zip.File, length int64, hash string) ([]byte, er
 	return data, nil
 }
 
+func validateReferencedEntry(entry *zip.File, length int64, hash string, maximum int64) error {
+	if entry == nil || length < 0 || length > maximum || int64(entry.UncompressedSize64) != length {
+		return fmt.Errorf("referenced entry length does not match")
+	}
+	source, err := entry.Open()
+	if err != nil {
+		return fmt.Errorf("open %s: %w", entry.Name, err)
+	}
+	defer source.Close()
+	digest := sha256.New()
+	written, err := io.Copy(digest, io.LimitReader(source, plusOne(maximum)))
+	if err != nil {
+		return fmt.Errorf("read %s: %w", entry.Name, err)
+	}
+	if written != length || hex.EncodeToString(digest.Sum(nil)) != hash {
+		return fmt.Errorf("referenced entry length or hash does not match")
+	}
+	return nil
+}
+
 func readEntry(entry *zip.File) ([]byte, error) {
+	return readEntryLimited(entry, math.MaxInt64-1)
+}
+
+func readEntryLimited(entry *zip.File, maximum int64) ([]byte, error) {
 	source, err := entry.Open()
 	if err != nil {
 		return nil, fmt.Errorf("open %s: %w", entry.Name, err)
 	}
 	defer source.Close()
-	data, err := io.ReadAll(source)
+	data, err := io.ReadAll(io.LimitReader(source, plusOne(maximum)))
 	if err != nil {
 		return nil, fmt.Errorf("read %s: %w", entry.Name, err)
 	}
+	if int64(len(data)) > maximum {
+		return nil, fmt.Errorf("entry %s expands beyond %d bytes", entry.Name, maximum)
+	}
 	return data, nil
+}
+
+func plusOne(value int64) int64 {
+	if value == math.MaxInt64 {
+		return value
+	}
+	return value + 1
 }
 
 func validEntryName(name string) error {

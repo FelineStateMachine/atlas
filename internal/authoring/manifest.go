@@ -36,6 +36,7 @@ type Project struct {
 	Assets          []Asset              `yaml:"assets,omitempty"`
 	Presentation    Presentation         `yaml:"presentation"`
 	Release         Release              `yaml:"release,omitempty"`
+	Budgets         BuildBudgets         `yaml:"budgets,omitempty"`
 
 	baseDir string
 }
@@ -227,6 +228,51 @@ type Release struct {
 	Revision int `yaml:"revision,omitempty"`
 }
 
+// BuildBudgets are reproducible refusal limits. Zero selects the stable
+// compiler default; a manifest can choose a smaller or deliberately larger
+// positive value, but evidence is never silently truncated.
+type BuildBudgets struct {
+	RequestBytes int64 `yaml:"request-bytes,omitempty" json:"requestBytes"`
+	TotalBytes   int64 `yaml:"total-bytes,omitempty" json:"totalBytes"`
+	Requests     int   `yaml:"requests,omitempty" json:"requests"`
+	RasterTiles  int64 `yaml:"raster-tiles,omitempty" json:"rasterTiles"`
+	RasterPixels int64 `yaml:"raster-pixels,omitempty" json:"rasterPixels"`
+}
+
+var defaultBuildBudgets = BuildBudgets{
+	RequestBytes: 512 << 20,
+	TotalBytes:   8 << 30,
+	Requests:     100_000,
+	RasterTiles:  90_000,
+	RasterPixels: 16_000_000_000,
+}
+
+func (budgets BuildBudgets) resolved() (BuildBudgets, error) {
+	if budgets.RequestBytes < 0 || budgets.TotalBytes < 0 || budgets.Requests < 0 || budgets.RasterTiles < 0 || budgets.RasterPixels < 0 {
+		return BuildBudgets{}, fmt.Errorf("build budgets must be positive")
+	}
+	resolved := budgets
+	if resolved.RequestBytes == 0 {
+		resolved.RequestBytes = defaultBuildBudgets.RequestBytes
+	}
+	if resolved.TotalBytes == 0 {
+		resolved.TotalBytes = defaultBuildBudgets.TotalBytes
+	}
+	if resolved.Requests == 0 {
+		resolved.Requests = defaultBuildBudgets.Requests
+	}
+	if resolved.RasterTiles == 0 {
+		resolved.RasterTiles = defaultBuildBudgets.RasterTiles
+	}
+	if resolved.RasterPixels == 0 {
+		resolved.RasterPixels = defaultBuildBudgets.RasterPixels
+	}
+	if resolved.RequestBytes > resolved.TotalBytes {
+		return BuildBudgets{}, fmt.Errorf("request byte budget %d exceeds total byte budget %d", resolved.RequestBytes, resolved.TotalBytes)
+	}
+	return resolved, nil
+}
+
 // LoadProject strictly decodes one manifest. Unknown fields fail so a typo
 // cannot silently remove a source, mapping, or layer from a build.
 func LoadProject(path string) (Project, error) {
@@ -282,6 +328,9 @@ func (project Project) Validate() error {
 	}
 	if err := validateTarget(project.Target); err != nil {
 		return err
+	}
+	if _, err := project.Budgets.resolved(); err != nil {
+		return fmt.Errorf("project %s: %w", project.ID, err)
 	}
 	if len(project.Sources) == 0 && len(project.Rasters) == 0 {
 		return fmt.Errorf("project %s configures no sources or rasters", project.ID)
@@ -422,6 +471,9 @@ func validateSource(source Source, target CoordinateSpace, sets map[string]Featu
 	if source.Adapter == "" || source.Locator == "" {
 		return fmt.Errorf("source %s requires an adapter and locator", source.ID)
 	}
+	if strings.TrimSpace(source.License) == "" || strings.TrimSpace(source.Attribution) == "" {
+		return fmt.Errorf("source %s must state a license and attribution", source.ID)
+	}
 	if source.EstimateBytes < 0 {
 		return fmt.Errorf("source %s has a negative size estimate", source.ID)
 	}
@@ -497,6 +549,9 @@ func validateRaster(raster Raster) error {
 	if raster.Name == "" || raster.Adapter == "" || raster.Locator == "" || raster.TileSize <= 0 || raster.EstimateBytes < 0 || raster.MaxZoom < 0 || raster.FullZoom < 0 || raster.Shard < 0 {
 		return fmt.Errorf("raster %s is incomplete", raster.ID)
 	}
+	if strings.TrimSpace(raster.License) == "" || strings.TrimSpace(raster.Attribution) == "" {
+		return fmt.Errorf("raster %s must state a license and attribution", raster.ID)
+	}
 	if raster.Bounds != nil && !validRasterRect(*raster.Bounds) {
 		return fmt.Errorf("raster %s has invalid bounds", raster.ID)
 	}
@@ -558,6 +613,9 @@ func validateAsset(asset Asset) error {
 	}
 	if asset.Locator == "" || asset.MediaType == "" || asset.EstimateBytes < 0 {
 		return fmt.Errorf("asset %s is incomplete", asset.ID)
+	}
+	if strings.TrimSpace(asset.License) == "" || strings.TrimSpace(asset.Attribution) == "" {
+		return fmt.Errorf("asset %s must state a license and attribution", asset.ID)
 	}
 	return nil
 }

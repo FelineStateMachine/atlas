@@ -1,16 +1,21 @@
 package authoring
 
 import (
+	"bytes"
 	"encoding/json"
+	"errors"
 	"fmt"
+	"io"
 	"os"
 	"path/filepath"
 	"sort"
+	"strings"
+	"time"
 
 	"github.com/FelineStateMachine/atlas/format/vnext"
 )
 
-const BuildReceiptFormat = "atlas-build-receipt/v2"
+const BuildReceiptFormat = "atlas-build-receipt/v3"
 
 // EvidenceSelection is the executable replay lock embedded in every authored
 // Atlas. It identifies the exact immutable captures selected for a build; it
@@ -23,13 +28,17 @@ type EvidenceSelection struct {
 }
 
 type SelectedCapture struct {
-	Request     string `json:"request"`
-	Acquisition string `json:"acquisition"`
-	Source      string `json:"source"`
-	SHA256      string `json:"sha256"`
-	Length      int64  `json:"length"`
-	MediaType   string `json:"mediaType"`
-	CapturedAt  string `json:"capturedAt"`
+	Request        string `json:"request"`
+	Acquisition    string `json:"acquisition"`
+	Source         string `json:"source"`
+	Adapter        string `json:"adapter"`
+	AdapterVersion string `json:"adapterVersion"`
+	SHA256         string `json:"sha256"`
+	Length         int64  `json:"length"`
+	MediaType      string `json:"mediaType"`
+	CapturedAt     string `json:"capturedAt"`
+	License        string `json:"license"`
+	Attribution    string `json:"attribution"`
 }
 
 func buildReceipt(plan Plan, captures map[string]Capture) ([]byte, string, error) {
@@ -44,7 +53,9 @@ func buildReceipt(plan Plan, captures map[string]Capture) ([]byte, string, error
 		}
 		selection.Captures = append(selection.Captures, SelectedCapture{
 			Request: request.ID, Acquisition: requestCacheKey(request.Request), Source: request.Source, SHA256: capture.Body.SHA256,
+			Adapter: request.Adapter, AdapterVersion: request.AdapterVersion,
 			Length: capture.Body.Length, MediaType: capture.Body.MediaType, CapturedAt: capture.CapturedAt,
+			License: request.License, Attribution: request.Attribution,
 		})
 		if capture.CapturedAt > createdAt {
 			createdAt = capture.CapturedAt
@@ -92,19 +103,43 @@ func loadEvidenceSelection(path string) (EvidenceSelection, error) {
 }
 
 func decodeEvidenceSelection(data []byte) (EvidenceSelection, error) {
+	return ParseEvidenceSelection(data)
+}
+
+// ParseEvidenceSelection strictly validates the executable receipt contract
+// used by replay and the compiled-artifact inspector.
+func ParseEvidenceSelection(data []byte) (EvidenceSelection, error) {
 	var selection EvidenceSelection
-	if err := json.Unmarshal(data, &selection); err != nil {
+	decoder := json.NewDecoder(bytes.NewReader(data))
+	decoder.DisallowUnknownFields()
+	if err := decoder.Decode(&selection); err != nil {
 		return EvidenceSelection{}, fmt.Errorf("decode replay receipt: %w", err)
 	}
-	if selection.Format != BuildReceiptFormat || selection.Project == "" || len(selection.Captures) == 0 {
+	if err := decoder.Decode(&struct{}{}); !errors.Is(err, io.EOF) {
+		if err == nil {
+			return EvidenceSelection{}, fmt.Errorf("replay receipt carries more than one JSON value")
+		}
+		return EvidenceSelection{}, fmt.Errorf("decode replay receipt trailer: %w", err)
+	}
+	if selection.Format != BuildReceiptFormat || selection.Project == "" || len(selection.Captures) == 0 || validateSHA256("project", selection.ProjectDigest) != nil {
 		return EvidenceSelection{}, fmt.Errorf("invalid replay receipt")
 	}
 	seen := make(map[string]bool, len(selection.Captures))
+	previousRequest, previousSource := "", ""
 	for _, capture := range selection.Captures {
-		if capture.Request == "" || capture.Acquisition == "" || capture.Source == "" || capture.SHA256 == "" || capture.Length < 0 || capture.MediaType == "" || capture.CapturedAt == "" || seen[capture.Request] {
+		if validateSHA256("request", capture.Request) != nil || validateSHA256("acquisition", capture.Acquisition) != nil || validateSHA256("body", capture.SHA256) != nil ||
+			capture.Source == "" || capture.Adapter == "" || capture.AdapterVersion == "" || capture.Length < 0 || strings.TrimSpace(capture.MediaType) == "" ||
+			strings.TrimSpace(capture.License) == "" || strings.TrimSpace(capture.Attribution) == "" || seen[capture.Request] {
 			return EvidenceSelection{}, fmt.Errorf("invalid replay capture for request %s", capture.Request)
 		}
+		if _, err := time.Parse(time.RFC3339Nano, capture.CapturedAt); err != nil {
+			return EvidenceSelection{}, fmt.Errorf("invalid replay capture time for request %s", capture.Request)
+		}
+		if previousRequest > capture.Request || (previousRequest == capture.Request && previousSource > capture.Source) {
+			return EvidenceSelection{}, fmt.Errorf("replay captures are not canonically ordered")
+		}
 		seen[capture.Request] = true
+		previousRequest, previousSource = capture.Request, capture.Source
 	}
 	return selection, nil
 }
@@ -123,7 +158,8 @@ func replayCaptures(plan Plan, selection EvidenceSelection, cache *Cache) (map[s
 	captures := make(map[string]Capture, len(plan.Requests))
 	for _, request := range plan.Requests {
 		want, ok := selected[request.ID]
-		if !ok || want.Source != request.Source || want.Acquisition != requestCacheKey(request.Request) {
+		if !ok || want.Source != request.Source || want.Acquisition != requestCacheKey(request.Request) || want.Adapter != request.Adapter ||
+			want.AdapterVersion != request.AdapterVersion || want.License != request.License || want.Attribution != request.Attribution {
 			return nil, fmt.Errorf("replay receipt does not select source %s request %s", request.Source, request.ID)
 		}
 		capture, err := cache.Select(want.Acquisition, want.SHA256)

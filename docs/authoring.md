@@ -60,6 +60,11 @@ Their defaults are the application-owned cache and library.
   adapter version, portable locator, media type, and tile coordinates. The plan
   reports validated cache presence, estimated bytes, and obligations; identical
   acquisitions may be shared across projects without merging their semantics.
+- Every plan resolves stable refusal budgets for request bytes, total evidence,
+  request count, raster tile count, and raster pixel count. The manifest may
+  state smaller or deliberately larger positive limits. Planning rejects tile
+  explosions before enumeration; capture rejects at `limit + 1`; offline and
+  exact replay apply the same limits. Atlas never truncates to fit a budget.
 - Capture envelopes retain request identity, body hash, media type, timestamp,
   licence, and attribution. Changed bodies append history instead of replacing
   evidence. Cache reads verify the envelope, body length, and body SHA-256;
@@ -78,10 +83,15 @@ Their defaults are the application-owned cache and library.
 - Presentation is compiled directly into native styles and layers. There is no
   legacy JSON document or enrichment projection between authored intent and the
   packed schema.
-- Publishing stages, syncs, reopens, validates, and atomically renames the
-  content-versioned `.atlas`. Rebuilding the same project from the same evidence
-  produces the same bytes and returns the existing file.
-- Every build embeds an executable v2 evidence receipt. `-replay` selects those
+- Publishing writes from the already validated file handle, syncs the staged
+  file, commits without replacement, syncs the library directory, and fully
+  validates the installed result. An existing stamp-named file must itself be
+  valid and byte-identical. Rebuilding the same project from the same evidence
+  produces the same bytes and returns the existing file; corrupt or colliding
+  targets fail loudly.
+- Every build embeds an executable v3 evidence receipt. Each selected capture
+  carries the adapter and version, exact hashes and media metadata, and its
+  licence/attribution obligation. `-replay` selects those
   exact immutable capture hashes even when newer evidence exists. Mapping and
   presentation changes may deliberately replay the same acquisitions, while a
   changed locator, query, media type, or adapter version is refused as drift.
@@ -97,6 +107,28 @@ build belongs to the workbench process rather than the POST request, so reloads
 do not cancel it. When it completes, **Open in Atlas** performs a native file
 handoff; the artifact card also supports dragging the `.atlas` onto an Atlas
 window.
+
+The compiled inspector is derived only from the validated `.atlas`, never from
+the manifest. It shows the carried/runtime schema boundary, worlds, coordinate
+space, explicit FeatureSet contracts (including empty sets), paged feature
+facts, geometry, relationships, provenance, raster/presentation semantics,
+assets, and the integrity-protected evidence/legal receipt.
+
+## Production envelope
+
+The current native container is intentionally bounded: a strict entry/reference
+budget, exact ZIP-entry role bijection, Store-only table/blob references,
+bounded bootstrap/schema/table/blob reads, deterministic validation order, and
+streamed opaque-blob hashing. These are refusal boundaries, not claims that the
+current single feature pack and per-tile ZIP layout scale without limit. The
+next storage-generation break for genuinely massive worlds is partitioned
+feature blocks plus deterministic raster shard packs and range/page APIs.
+
+Release publication runs correctness and browser acceptance first, smokes a
+packaged CLI by building Sample Region, generates checksums for the exact asset
+set, uploads to a draft, verifies every remote asset name, and only then makes
+the release public. Both CLI and desktop binaries answer `--version` from the
+release tag.
 
 The former `crawl`, `tiles`, `compose`, `enrich`, and `translate` commands and
 the Sources/Operations workbench pages are no longer public interfaces. Their

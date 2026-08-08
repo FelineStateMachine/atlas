@@ -112,8 +112,8 @@
   {{range .Assets}}<p><b>{{.ID}}</b> · {{.MediaType}} · {{.Bytes}} bytes{{if .Provenance}}<br><span class="dim">{{.Provenance}}</span>{{end}}</p>{{end}}
   {{with .Receipt}}<details open><summary>Executable replay receipt · {{len .Captures}} captures</summary>
     <p><b>{{.Project}}</b> · project digest <code>{{short .ProjectDigest}}</code></p>
-    <table><thead><tr><th>source</th><th>capture</th><th>media</th><th>bytes</th><th>captured</th></tr></thead><tbody>
-      {{range .Captures}}<tr><td>{{.Source}}</td><td><code>{{short .SHA256}}</code><br><span class="dim">acq {{short .Acquisition}}</span></td><td>{{.MediaType}}</td><td>{{.Length}}</td><td>{{.CapturedAt}}</td></tr>{{end}}
+    <table><thead><tr><th>source</th><th>adapter</th><th>capture</th><th>obligation</th><th>media / bytes</th><th>captured</th></tr></thead><tbody>
+      {{range .Captures}}<tr><td>{{.Source}}</td><td>{{.Adapter}}<br><span class="dim">{{.AdapterVersion}}</span></td><td><code>{{short .SHA256}}</code><br><span class="dim">acq {{short .Acquisition}}</span></td><td>{{.License}}<br><span class="dim">{{.Attribution}}</span></td><td>{{.MediaType}}<br>{{.Length}} bytes</td><td>{{.CapturedAt}}</td></tr>{{end}}
     </tbody></table>
   </details>{{else}}{{if $.ReceiptErr}}<p class="warn-inline">The embedded receipt is integrity-protected, but its metadata is not valid: {{$.ReceiptErr}}</p>{{else}}<p class="dim">No Atlas authoring receipt is embedded.</p>{{end}}{{end}}
 </section>

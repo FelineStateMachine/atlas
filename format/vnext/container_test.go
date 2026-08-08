@@ -3,6 +3,8 @@ package vnext
 import (
 	"archive/zip"
 	"bytes"
+	"io"
+	"strings"
 	"testing"
 )
 
@@ -98,6 +100,102 @@ func TestBlockRejectsCorruptColumn(t *testing.T) {
 	if _, err := DecodeBlock(data); err == nil {
 		t.Fatal("decoder accepted a corrupt column")
 	}
+}
+
+func TestOpenWithLimitsRejectsImplausibleContainersBeforeReadingPayloads(t *testing.T) {
+	t.Parallel()
+
+	volume := minimalVolume()
+	volume.Assets[0].Data = []byte("sample asset")
+	data := nativeBytes(t, volume)
+	for name, limits := range map[string]Limits{
+		"entries": {MaxEntries: 1},
+		"blob":    {MaxBlobBytes: 1},
+		"total":   {MaxTotalBytes: 1},
+	} {
+		t.Run(name, func(t *testing.T) {
+			if _, err := OpenWithLimits(bytes.NewReader(data), int64(len(data)), StandardSchema(), limits); err == nil {
+				t.Fatal("container outside its explicit limit was accepted")
+			}
+		})
+	}
+}
+
+func TestOpenRejectsUnreferencedAndCompressedPackedEntries(t *testing.T) {
+	t.Parallel()
+
+	data := nativeBytes(t, minimalVolume())
+	compressed := rewriteAtlas(t, data, func(header *zip.FileHeader) {
+		if strings.HasSuffix(header.Name, ".pack") {
+			header.Method = zip.Deflate
+		}
+	}, false)
+	if _, err := Open(bytes.NewReader(compressed), int64(len(compressed)), StandardSchema()); err == nil || !strings.Contains(err.Error(), "not stored") {
+		t.Fatalf("compressed packed entry = %v", err)
+	}
+	orphaned := rewriteAtlas(t, data, nil, true)
+	if _, err := Open(bytes.NewReader(orphaned), int64(len(orphaned)), StandardSchema()); err == nil || !strings.Contains(err.Error(), "unreferenced") {
+		t.Fatalf("orphan entry = %v", err)
+	}
+}
+
+func nativeBytes(t *testing.T, volume Volume) []byte {
+	t.Helper()
+	bundle, err := Compile(volume)
+	if err != nil {
+		t.Fatal(err)
+	}
+	bundle.Release.CreatedAt = "2026-08-08T12:00:00Z"
+	var data bytes.Buffer
+	if err := Write(&data, bundle); err != nil {
+		t.Fatal(err)
+	}
+	return data.Bytes()
+}
+
+func rewriteAtlas(t *testing.T, source []byte, mutate func(*zip.FileHeader), orphan bool) []byte {
+	t.Helper()
+	archive, err := zip.NewReader(bytes.NewReader(source), int64(len(source)))
+	if err != nil {
+		t.Fatal(err)
+	}
+	var output bytes.Buffer
+	writer := zip.NewWriter(&output)
+	for _, entry := range archive.File {
+		reader, err := entry.Open()
+		if err != nil {
+			t.Fatal(err)
+		}
+		data, err := io.ReadAll(reader)
+		reader.Close()
+		if err != nil {
+			t.Fatal(err)
+		}
+		header := entry.FileHeader
+		if mutate != nil {
+			mutate(&header)
+		}
+		destination, err := writer.CreateHeader(&header)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if _, err := destination.Write(data); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if orphan {
+		destination, err := writer.CreateHeader(&zip.FileHeader{Name: "orphan.bin", Method: zip.Store})
+		if err != nil {
+			t.Fatal(err)
+		}
+		if _, err := destination.Write([]byte("orphan")); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if err := writer.Close(); err != nil {
+		t.Fatal(err)
+	}
+	return output.Bytes()
 }
 
 func minimalVolume() Volume {

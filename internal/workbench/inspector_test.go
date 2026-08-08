@@ -217,7 +217,9 @@ func TestInspectorReceiptDecoderIsStrictAndContained(t *testing.T) {
 		Format: authoring.BuildReceiptFormat, Project: "sample-region", ProjectDigest: hashA,
 		Captures: []authoring.SelectedCapture{{
 			Request: hashA, Acquisition: hashB, Source: "sample-source", SHA256: hashA,
+			Adapter: "geojson", AdapterVersion: "geojson/v1",
 			Length: 4, MediaType: "application/geo+json", CapturedAt: "2026-08-08T12:00:00Z",
+			License: "Example data", Attribution: "Sample Region contributors",
 		}},
 	}
 	data, err := json.Marshal(selection)

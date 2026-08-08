@@ -154,6 +154,9 @@ func validateAdapterCompleteness(source Source, collection geoJSON) error {
 		if collection.NumberReturned != nil && *collection.NumberReturned != int64(len(collection.Features)) {
 			return fmt.Errorf("source %s OGC response count differs from its feature payload", source.ID)
 		}
+		if collection.NumberMatched != nil && *collection.NumberMatched > int64(len(collection.Features)) {
+			return fmt.Errorf("source %s OGC response is incomplete: %d matched but only %d returned", source.ID, *collection.NumberMatched, len(collection.Features))
+		}
 		for _, link := range collection.Links {
 			if strings.EqualFold(link.Rel, "next") && strings.TrimSpace(link.Href) != "" {
 				return fmt.Errorf("source %s OGC response has a next page; narrow or partition the configured query", source.ID)

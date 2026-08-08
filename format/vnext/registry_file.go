@@ -2,6 +2,8 @@ package vnext
 
 import (
 	"bytes"
+	"crypto/sha256"
+	"errors"
 	"fmt"
 	"io"
 	"os"
@@ -78,54 +80,79 @@ func Scan(dir string, applicationSchema Schema) ([]Descriptor, []Skipped, error)
 }
 
 func Install(dir, source string, applicationSchema Schema) (Descriptor, error) {
-	opened, err := OpenFile(source, applicationSchema)
+	descriptor, _, err := InstallWithStatus(dir, source, applicationSchema)
+	return descriptor, err
+}
+
+// InstallWithStatus validates and atomically installs the exact opened source.
+// present reports that an identical target was already committed.
+func InstallWithStatus(dir, source string, applicationSchema Schema) (Descriptor, bool, error) {
+	file, err := os.Open(source)
 	if err != nil {
-		return Descriptor{}, err
+		return Descriptor{}, false, fmt.Errorf("open %s: %w", filepath.Base(source), err)
+	}
+	defer file.Close()
+	info, err := file.Stat()
+	if err != nil {
+		return Descriptor{}, false, fmt.Errorf("stat %s: %w", filepath.Base(source), err)
+	}
+	return installFrom(dir, file, info.Size(), source, applicationSchema)
+}
+
+type installSource interface {
+	io.Reader
+	io.ReaderAt
+	io.Seeker
+}
+
+func installFrom(dir string, source installSource, size int64, sourcePath string, applicationSchema Schema) (Descriptor, bool, error) {
+	opened, err := Open(source, size, applicationSchema)
+	if err != nil {
+		return Descriptor{}, false, err
 	}
 	if err := opened.Validate(); err != nil {
-		opened.Close()
-		return Descriptor{}, fmt.Errorf("%s: %w", filepath.Base(source), err)
+		return Descriptor{}, false, fmt.Errorf("validate native source: %w", err)
 	}
-	descriptor := opened.Descriptor()
-	if err := opened.Close(); err != nil {
-		return Descriptor{}, fmt.Errorf("close %s: %w", filepath.Base(source), err)
-	}
+	descriptor := DescriptorOf(sourcePath, opened.VolumeID, opened.Release, size)
 	if err := os.MkdirAll(dir, 0o755); err != nil {
-		return Descriptor{}, fmt.Errorf("create library: %w", err)
+		return Descriptor{}, false, fmt.Errorf("create library: %w", err)
 	}
 	target := filepath.Join(dir, VersionedFileName(descriptor.Slug, descriptor.release()))
-	if sameFile(source, target) {
-		return Describe(target, applicationSchema)
+	if sourcePath != "" && sameFile(sourcePath, target) {
+		descriptor.Locator = target
+		return descriptor, true, nil
 	}
 	if _, err := os.Stat(target); err == nil {
-		return Describe(target, applicationSchema)
+		return validateExisting(target, source, size, descriptor, applicationSchema)
+	} else if !errors.Is(err, os.ErrNotExist) {
+		return Descriptor{}, false, fmt.Errorf("stat %s: %w", filepath.Base(target), err)
 	}
-	if err := copyInto(dir, source, target); err != nil {
-		return Descriptor{}, err
+	if _, err := source.Seek(0, io.SeekStart); err != nil {
+		return Descriptor{}, false, fmt.Errorf("rewind validated source: %w", err)
 	}
-	return validateInstalled(target, applicationSchema)
+	installed, err := stageInto(dir, source, target)
+	if err != nil {
+		return Descriptor{}, false, err
+	}
+	if !installed {
+		return validateExisting(target, source, size, descriptor, applicationSchema)
+	}
+	if err := syncDirectory(dir); err != nil {
+		os.Remove(target)
+		return Descriptor{}, false, fmt.Errorf("sync Atlas library: %w", err)
+	}
+	committed, err := validateInstalled(target, applicationSchema)
+	if err != nil {
+		os.Remove(target)
+		_ = syncDirectory(dir)
+		return Descriptor{}, false, err
+	}
+	return committed, false, nil
 }
 
 func InstallBytes(dir string, source []byte, applicationSchema Schema) (Descriptor, error) {
-	opened, err := Open(bytes.NewReader(source), int64(len(source)), applicationSchema)
-	if err != nil {
-		return Descriptor{}, err
-	}
-	if err := opened.Validate(); err != nil {
-		return Descriptor{}, err
-	}
-	descriptor := DescriptorOf("", opened.VolumeID, opened.Release, int64(len(source)))
-	if err := os.MkdirAll(dir, 0o755); err != nil {
-		return Descriptor{}, fmt.Errorf("create library: %w", err)
-	}
-	target := filepath.Join(dir, VersionedFileName(descriptor.Slug, descriptor.release()))
-	if _, err := os.Stat(target); err == nil {
-		return Describe(target, applicationSchema)
-	}
-	if err := stageInto(dir, bytes.NewReader(source), target); err != nil {
-		return Descriptor{}, err
-	}
-	return validateInstalled(target, applicationSchema)
+	descriptor, _, err := installFrom(dir, bytes.NewReader(source), int64(len(source)), "", applicationSchema)
+	return descriptor, err
 }
 
 func validateInstalled(target string, applicationSchema Schema) (Descriptor, error) {
@@ -140,40 +167,77 @@ func validateInstalled(target string, applicationSchema Schema) (Descriptor, err
 	return installed.Descriptor(), nil
 }
 
-func copyInto(dir, source, target string) error {
-	from, err := os.Open(source)
-	if err != nil {
-		return fmt.Errorf("open %s: %w", filepath.Base(source), err)
-	}
-	defer from.Close()
-	return stageInto(dir, from, target)
-}
-
-func stageInto(dir string, source io.Reader, target string) error {
+func stageInto(dir string, source io.Reader, target string) (bool, error) {
 	staged, err := os.CreateTemp(dir, ".installing-*")
 	if err != nil {
-		return fmt.Errorf("stage %s: %w", filepath.Base(target), err)
+		return false, fmt.Errorf("stage %s: %w", filepath.Base(target), err)
 	}
 	stagedName := staged.Name()
 	defer os.Remove(stagedName)
 	if _, err := io.Copy(staged, source); err != nil {
 		staged.Close()
-		return fmt.Errorf("stage %s: %w", filepath.Base(target), err)
+		return false, fmt.Errorf("stage %s: %w", filepath.Base(target), err)
 	}
 	if err := staged.Sync(); err != nil {
 		staged.Close()
-		return fmt.Errorf("sync %s: %w", filepath.Base(target), err)
+		return false, fmt.Errorf("sync %s: %w", filepath.Base(target), err)
 	}
 	if err := staged.Close(); err != nil {
-		return fmt.Errorf("close %s: %w", filepath.Base(target), err)
+		return false, fmt.Errorf("close %s: %w", filepath.Base(target), err)
 	}
 	if err := os.Chmod(stagedName, 0o644); err != nil {
-		return fmt.Errorf("mode %s: %w", filepath.Base(target), err)
+		return false, fmt.Errorf("mode %s: %w", filepath.Base(target), err)
 	}
-	if err := os.Rename(stagedName, target); err != nil {
-		return fmt.Errorf("install %s: %w", filepath.Base(target), err)
+	if err := os.Link(stagedName, target); err != nil {
+		if errors.Is(err, os.ErrExist) {
+			return false, nil
+		}
+		return false, fmt.Errorf("install %s: %w", filepath.Base(target), err)
 	}
-	return nil
+	return true, nil
+}
+
+func validateExisting(target string, source installSource, sourceSize int64, expected Descriptor, applicationSchema Schema) (Descriptor, bool, error) {
+	held, err := validateInstalled(target, applicationSchema)
+	if err != nil {
+		return Descriptor{}, false, fmt.Errorf("existing stamp target is invalid: %w", err)
+	}
+	if held.Slug != expected.Slug || held.Stamp != expected.Stamp || held.Size != sourceSize {
+		return Descriptor{}, false, fmt.Errorf("existing %s disagrees with its stamp identity", filepath.Base(target))
+	}
+	same, err := sameContent(source, sourceSize, target)
+	if err != nil {
+		return Descriptor{}, false, err
+	}
+	if !same {
+		return Descriptor{}, false, fmt.Errorf("existing %s differs byte-for-byte for stamp %s", filepath.Base(target), ShortStamp(expected.Stamp))
+	}
+	return held, true, nil
+}
+
+func sameContent(source io.ReadSeeker, sourceSize int64, target string) (bool, error) {
+	if _, err := source.Seek(0, io.SeekStart); err != nil {
+		return false, fmt.Errorf("rewind validated source: %w", err)
+	}
+	left := sha256.New()
+	written, err := io.Copy(left, source)
+	if err != nil {
+		return false, fmt.Errorf("hash validated source: %w", err)
+	}
+	if written != sourceSize {
+		return false, fmt.Errorf("validated source changed length while installing")
+	}
+	right, err := os.Open(target)
+	if err != nil {
+		return false, fmt.Errorf("open existing %s: %w", filepath.Base(target), err)
+	}
+	defer right.Close()
+	rightHash := sha256.New()
+	otherSize, err := io.Copy(rightHash, right)
+	if err != nil {
+		return false, fmt.Errorf("hash existing %s: %w", filepath.Base(target), err)
+	}
+	return otherSize == sourceSize && bytes.Equal(left.Sum(nil), rightHash.Sum(nil)), nil
 }
 
 func sameFile(left, right string) bool {

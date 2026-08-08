@@ -3,6 +3,8 @@ package authoring
 import (
 	"context"
 	"encoding/json"
+	"net/http"
+	"net/http/httptest"
 	"os"
 	"path/filepath"
 	"strings"
@@ -11,6 +13,66 @@ import (
 	"testing"
 	"time"
 )
+
+func TestCaptureEnforcesRequestBudgetWithoutResidue(t *testing.T) {
+	body := strings.Repeat("x", 9)
+	server := httptest.NewServer(http.HandlerFunc(func(rw http.ResponseWriter, _ *http.Request) {
+		flusher, _ := rw.(http.Flusher)
+		for _, value := range body {
+			_, _ = rw.Write([]byte{byte(value)})
+			if flusher != nil {
+				flusher.Flush()
+			}
+		}
+	}))
+	defer server.Close()
+	root := t.TempDir()
+	cache := OpenCache(root)
+	request := Request{
+		Kind: RequestFeatures, Source: "sample-features", Adapter: "geojson", Locator: server.URL,
+		IdentityLocator: "https://example.invalid/sample-region.geojson", MediaType: "application/geo+json", MaxBytes: 8,
+	}
+	finalizeRequest(&request)
+	if _, _, err := cache.Acquire(context.Background(), request, false); err == nil || !strings.Contains(err.Error(), "request budget") {
+		t.Fatalf("oversized capture = %v", err)
+	}
+	entries, err := os.ReadDir(root)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(entries) != 0 {
+		t.Fatalf("oversized capture left cache residue: %v", entries)
+	}
+	request.MaxBytes = int64(len(body))
+	if _, _, err := cache.Acquire(context.Background(), request, false); err != nil {
+		t.Fatalf("exact-limit capture: %v", err)
+	}
+}
+
+func TestOfflineCaptureNeverContactsTheSource(t *testing.T) {
+	var calls atomic.Int64
+	server := httptest.NewServer(http.HandlerFunc(func(rw http.ResponseWriter, _ *http.Request) {
+		calls.Add(1)
+		rw.Header().Set("Content-Type", "application/geo+json")
+		_, _ = rw.Write([]byte(`{"type":"FeatureCollection","features":[]}`))
+	}))
+	defer server.Close()
+	cache := OpenCache(t.TempDir())
+	request := Request{
+		Kind: RequestFeatures, Source: "sample-features", Adapter: "geojson", Locator: server.URL,
+		IdentityLocator: "https://example.invalid/sample-region.geojson", MediaType: "application/geo+json", MaxBytes: 1024,
+	}
+	finalizeRequest(&request)
+	if _, _, err := cache.Acquire(context.Background(), request, false); err != nil {
+		t.Fatal(err)
+	}
+	if _, _, err := cache.Acquire(context.Background(), request, true); err != nil {
+		t.Fatal(err)
+	}
+	if got := calls.Load(); got != 1 {
+		t.Fatalf("source calls = %d, want exactly one online call", got)
+	}
+}
 
 func TestCaptureReusesUnchangedEvidence(t *testing.T) {
 	root := t.TempDir()

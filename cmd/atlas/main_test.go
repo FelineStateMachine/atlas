@@ -37,6 +37,9 @@ func TestCommandTable(t *testing.T) {
 }
 
 func TestRunRefusals(t *testing.T) {
+	if err := run([]string{"--version"}); err != nil {
+		t.Fatalf("version query: %v", err)
+	}
 	tests := []struct {
 		name string
 		args []string

@@ -5,6 +5,7 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
+	"math"
 	"net/url"
 	"path/filepath"
 	"sort"
@@ -38,6 +39,7 @@ type Request struct {
 	Zoom            int64       `json:"zoom,omitempty"`
 	X               int64       `json:"x,omitempty"`
 	Y               int64       `json:"y,omitempty"`
+	MaxBytes        int64       `json:"maxBytes"`
 }
 
 type PlannedRequest struct {
@@ -56,6 +58,9 @@ type Plan struct {
 	Estimated     int64            `json:"estimatedBytes"`
 	Cached        int              `json:"cachedRequests"`
 	Licenses      []Obligation     `json:"licenses,omitempty"`
+	Budgets       BuildBudgets     `json:"budgets"`
+	RasterTiles   int64            `json:"rasterTiles"`
+	RasterPixels  int64            `json:"rasterPixels"`
 	Output        string           `json:"output"`
 }
 
@@ -66,13 +71,32 @@ type Obligation struct {
 }
 
 func PlanProject(project Project, cache *Cache, output string) (Plan, error) {
+	budgets, err := project.Budgets.resolved()
+	if err != nil {
+		return Plan{}, err
+	}
 	digest, err := projectDigest(project)
 	if err != nil {
 		return Plan{}, err
 	}
 	plan := Plan{
 		Project: project.ID, Title: project.Title, ProjectDigest: digest,
-		World: project.Target.World, Output: output,
+		World: project.Target.World, Output: output, Budgets: budgets,
+	}
+	appendRequest := func(request PlannedRequest) error {
+		if len(plan.Requests) >= budgets.Requests {
+			return fmt.Errorf("build plans more than %d requests", budgets.Requests)
+		}
+		request.MaxBytes = budgets.RequestBytes
+		plan.Requests = append(plan.Requests, request)
+		if request.EstimateBytes > math.MaxInt64-plan.Estimated {
+			return fmt.Errorf("build byte estimate overflows")
+		}
+		plan.Estimated += request.EstimateBytes
+		if plan.Estimated > budgets.TotalBytes {
+			return fmt.Errorf("build estimate %d exceeds total byte budget %d", plan.Estimated, budgets.TotalBytes)
+		}
+		return nil
 	}
 	for _, source := range project.Sources {
 		request, err := featureRequest(project, source)
@@ -81,15 +105,21 @@ func PlanProject(project Project, cache *Cache, output string) (Plan, error) {
 		}
 		planned := PlannedRequest{Request: request, EstimateBytes: source.EstimateBytes}
 		planned.Cached = cache != nil && cache.Has(requestCacheKey(request))
-		plan.Requests = append(plan.Requests, planned)
-		plan.Estimated += source.EstimateBytes
+		if err := appendRequest(planned); err != nil {
+			return Plan{}, err
+		}
 		plan.Licenses = append(plan.Licenses, Obligation{Source: source.ID, License: source.License, Attribution: source.Attribution})
 	}
 	for _, raster := range project.Rasters {
-		requests, err := rasterRequests(project, raster)
+		requests, tiles, pixels, err := rasterRequests(project, raster, budgets)
 		if err != nil {
 			return Plan{}, err
 		}
+		if tiles > budgets.RasterTiles-plan.RasterTiles || pixels > budgets.RasterPixels-plan.RasterPixels {
+			return Plan{}, fmt.Errorf("raster %s exceeds the remaining raster budget", raster.ID)
+		}
+		plan.RasterTiles += tiles
+		plan.RasterPixels += pixels
 		each := int64(0)
 		if len(requests) > 0 {
 			each = raster.EstimateBytes / int64(len(requests))
@@ -101,17 +131,19 @@ func PlanProject(project Project, cache *Cache, output string) (Plan, error) {
 			}
 			planned := PlannedRequest{Request: request, EstimateBytes: estimate}
 			planned.Cached = cache != nil && cache.Has(requestCacheKey(request))
-			plan.Requests = append(plan.Requests, planned)
+			if err := appendRequest(planned); err != nil {
+				return Plan{}, err
+			}
 		}
-		plan.Estimated += raster.EstimateBytes
 		plan.Licenses = append(plan.Licenses, Obligation{Source: raster.ID, License: raster.License, Attribution: raster.Attribution})
 	}
 	for _, asset := range project.Assets {
 		request := assetRequest(project, asset)
 		planned := PlannedRequest{Request: request, EstimateBytes: asset.EstimateBytes}
 		planned.Cached = cache != nil && cache.Has(requestCacheKey(request))
-		plan.Requests = append(plan.Requests, planned)
-		plan.Estimated += asset.EstimateBytes
+		if err := appendRequest(planned); err != nil {
+			return Plan{}, err
+		}
 		plan.Licenses = append(plan.Licenses, Obligation{Source: asset.ID, License: asset.License, Attribution: asset.Attribution})
 	}
 	sort.Slice(plan.Requests, func(i, j int) bool { return plan.Requests[i].ID < plan.Requests[j].ID })
@@ -197,7 +229,7 @@ func featureRequest(project Project, source Source) (Request, error) {
 	return request, nil
 }
 
-func rasterRequests(project Project, raster Raster) ([]Request, error) {
+func rasterRequests(project Project, raster Raster, budgets BuildBudgets) ([]Request, int64, int64, error) {
 	makeRequest := func(locator, identity string, zoom, x, y int64) Request {
 		request := Request{
 			Kind: RequestRaster, Source: raster.ID, Adapter: raster.Adapter,
@@ -209,7 +241,27 @@ func rasterRequests(project Project, raster Raster) ([]Request, error) {
 		return request
 	}
 	if raster.Adapter == "raster-file" {
-		return []Request{makeRequest(project.ResolveLocator(raster.Locator), raster.Locator, 0, 0, 0)}, nil
+		tiles, err := pyramidTileCount(raster.MaxZoom)
+		if err != nil || tiles > budgets.RasterTiles {
+			return nil, 0, 0, fmt.Errorf("raster %s exceeds tile budget %d", raster.ID, budgets.RasterTiles)
+		}
+		pixels, err := checkedPixels(tiles, raster.TileSize)
+		if err != nil || pixels > budgets.RasterPixels {
+			return nil, 0, 0, fmt.Errorf("raster %s exceeds pixel budget %d", raster.ID, budgets.RasterPixels)
+		}
+		return []Request{makeRequest(project.ResolveLocator(raster.Locator), raster.Locator, 0, 0, 0)}, tiles, pixels, nil
+	}
+	var tileCount int64
+	for _, level := range raster.Levels {
+		width, height := level.MaxX-level.MinX+1, level.MaxY-level.MinY+1
+		if width > math.MaxInt64/height || tileCount > budgets.RasterTiles-width*height {
+			return nil, 0, 0, fmt.Errorf("raster %s exceeds tile budget %d", raster.ID, budgets.RasterTiles)
+		}
+		tileCount += width * height
+	}
+	pixels, err := checkedPixels(tileCount, raster.TileSize)
+	if err != nil || pixels > budgets.RasterPixels {
+		return nil, 0, 0, fmt.Errorf("raster %s exceeds pixel budget %d", raster.ID, budgets.RasterPixels)
 	}
 	var requests []Request
 	for _, level := range raster.Levels {
@@ -223,7 +275,33 @@ func rasterRequests(project Project, raster Raster) ([]Request, error) {
 			}
 		}
 	}
-	return requests, nil
+	return requests, tileCount, pixels, nil
+}
+
+func pyramidTileCount(maxZoom int64) (int64, error) {
+	var total int64
+	for zoom := int64(0); zoom <= maxZoom; zoom++ {
+		if zoom >= 32 {
+			return 0, fmt.Errorf("zoom %d overflows tile count", zoom)
+		}
+		level := int64(1) << (2 * zoom)
+		if total > math.MaxInt64-level {
+			return 0, fmt.Errorf("zoom %d overflows tile count", zoom)
+		}
+		total += level
+	}
+	return total, nil
+}
+
+func checkedPixels(tiles, tileSize int64) (int64, error) {
+	if tileSize <= 0 || tileSize > math.MaxInt64/tileSize {
+		return 0, fmt.Errorf("tile size overflows pixel count")
+	}
+	perTile := tileSize * tileSize
+	if tiles > math.MaxInt64/perTile {
+		return 0, fmt.Errorf("raster pixel count overflows")
+	}
+	return tiles * perTile, nil
 }
 
 func requestID(request Request) string {

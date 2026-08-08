@@ -39,11 +39,12 @@ import (
 // opened yet, which is a state a request can genuinely arrive in: the page is
 // served over the same asset server that the window is still starting.
 type Window struct {
-	live    atomic.Pointer[context.Context]
-	mu      sync.Mutex
-	install func(name string, content io.Reader) error
-	refresh func(context.Context)
-	pending []string
+	live     atomic.Pointer[context.Context]
+	mu       sync.Mutex
+	install  func(name string, content io.Reader) error
+	refresh  func(context.Context)
+	pending  []string
+	flushing bool
 }
 
 // Accept gives every native file-open surface the application's one install
@@ -81,33 +82,47 @@ func (w *Window) Opened(ctx context.Context) {
 
 func (w *Window) flush() {
 	w.mu.Lock()
-	paths := append([]string(nil), w.pending...)
-	w.pending = nil
-	install := w.install
-	refresh := w.refresh
-	w.mu.Unlock()
-	if install == nil {
+	if w.flushing {
+		w.mu.Unlock()
 		return
 	}
+	w.flushing = true
+	w.mu.Unlock()
 	installed := false
-	for _, path := range paths {
-		file, err := os.Open(path)
-		if err == nil {
-			err = install(filepath.Base(path), file)
-			closeErr := file.Close()
-			if err == nil {
-				err = closeErr
+	for {
+		w.mu.Lock()
+		paths := append([]string(nil), w.pending...)
+		w.pending = nil
+		install := w.install
+		refresh := w.refresh
+		if len(paths) == 0 || install == nil {
+			if install == nil {
+				w.pending = append(paths, w.pending...)
 			}
+			w.flushing = false
+			w.mu.Unlock()
+			if installed && refresh != nil {
+				if live := w.live.Load(); live != nil {
+					refresh(*live)
+				}
+			}
+			return
 		}
-		if err != nil {
-			slog.Warn("native file open refused", logging.Op("install"), logging.Path(path), slog.Any("error", err))
-		} else {
-			installed = true
-		}
-	}
-	if installed && refresh != nil {
-		if live := w.live.Load(); live != nil {
-			refresh(*live)
+		w.mu.Unlock()
+		for _, path := range paths {
+			file, err := os.Open(path)
+			if err == nil {
+				err = install(filepath.Base(path), file)
+				closeErr := file.Close()
+				if err == nil {
+					err = closeErr
+				}
+			}
+			if err != nil {
+				slog.Warn("native file open refused", logging.Op("install"), logging.Path(path), slog.Any("error", err))
+			} else {
+				installed = true
+			}
 		}
 	}
 }

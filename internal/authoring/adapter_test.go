@@ -31,6 +31,11 @@ func TestFeatureAdaptersRefuseSilentlyIncompleteResponses(t *testing.T) {
 			body:    `{"type":"FeatureCollection","features":[],"numberReturned":1}`,
 			mention: "count differs",
 		},
+		{
+			adapter: "ogc-api-features",
+			body:    `{"type":"FeatureCollection","features":[],"numberMatched":1,"numberReturned":0}`,
+			mention: "incomplete",
+		},
 	}
 	for _, test := range tests {
 		t.Run(test.adapter+" "+test.mention, func(t *testing.T) {

@@ -243,15 +243,27 @@ func (cache *Cache) validateBlob(ref BlobRef) error {
 	if err != nil {
 		return err
 	}
-	data, err := os.ReadFile(path)
+	file, err := os.Open(path)
 	if err != nil {
 		return fmt.Errorf("read captured body %s: %w", ref.SHA256, err)
 	}
-	if int64(len(data)) != ref.Length {
-		return fmt.Errorf("captured body %s length is %d, want %d", ref.SHA256, len(data), ref.Length)
+	defer file.Close()
+	info, err := file.Stat()
+	if err != nil {
+		return fmt.Errorf("stat captured body %s: %w", ref.SHA256, err)
 	}
-	digest := sha256.Sum256(data)
-	if actual := hex.EncodeToString(digest[:]); actual != ref.SHA256 {
+	if !info.Mode().IsRegular() || info.Size() != ref.Length {
+		return fmt.Errorf("captured body %s length is %d, want %d", ref.SHA256, info.Size(), ref.Length)
+	}
+	hasher := sha256.New()
+	written, err := io.Copy(hasher, file)
+	if err != nil {
+		return fmt.Errorf("hash captured body %s: %w", ref.SHA256, err)
+	}
+	if written != ref.Length {
+		return fmt.Errorf("captured body %s length is %d, want %d", ref.SHA256, written, ref.Length)
+	}
+	if actual := hex.EncodeToString(hasher.Sum(nil)); actual != ref.SHA256 {
 		return fmt.Errorf("captured body hash is %s, want %s", actual, ref.SHA256)
 	}
 	return nil
@@ -284,10 +296,26 @@ func validateSHA256(name, value string) error {
 }
 
 func (cache *Cache) read(ctx context.Context, request Request) ([]byte, string, error) {
+	if request.MaxBytes <= 0 {
+		request.MaxBytes = defaultBuildBudgets.RequestBytes
+	}
 	if !isRemote(request.Locator) {
-		data, err := os.ReadFile(request.Locator)
+		file, err := os.Open(request.Locator)
 		if err != nil {
 			return nil, "", fmt.Errorf("read %s source %s: %w", request.Adapter, request.Source, err)
+		}
+		defer file.Close()
+		if info, err := file.Stat(); err != nil {
+			return nil, "", fmt.Errorf("stat %s source %s: %w", request.Adapter, request.Source, err)
+		} else if info.Size() > request.MaxBytes {
+			return nil, "", fmt.Errorf("read %s source %s: %d bytes exceeds request budget %d", request.Adapter, request.Source, info.Size(), request.MaxBytes)
+		}
+		data, err := io.ReadAll(io.LimitReader(file, request.MaxBytes+1))
+		if err != nil {
+			return nil, "", fmt.Errorf("read %s source %s: %w", request.Adapter, request.Source, err)
+		}
+		if int64(len(data)) > request.MaxBytes {
+			return nil, "", fmt.Errorf("read %s source %s exceeds request budget %d", request.Adapter, request.Source, request.MaxBytes)
 		}
 		return data, request.MediaType, nil
 	}
@@ -306,9 +334,15 @@ func (cache *Cache) read(ctx context.Context, request Request) ([]byte, string, 
 		_, _ = io.Copy(io.Discard, response.Body)
 		return nil, "", fmt.Errorf("fetch %s source %s: %s", request.Adapter, request.Source, response.Status)
 	}
-	body, err := io.ReadAll(response.Body)
+	if response.ContentLength > request.MaxBytes {
+		return nil, "", fmt.Errorf("fetch %s source %s: %d bytes exceeds request budget %d", request.Adapter, request.Source, response.ContentLength, request.MaxBytes)
+	}
+	body, err := io.ReadAll(io.LimitReader(response.Body, request.MaxBytes+1))
 	if err != nil {
 		return nil, "", fmt.Errorf("read %s source %s: %w", request.Adapter, request.Source, err)
+	}
+	if int64(len(body)) > request.MaxBytes {
+		return nil, "", fmt.Errorf("read %s source %s exceeds request budget %d", request.Adapter, request.Source, request.MaxBytes)
 	}
 	mediaType := strings.TrimSpace(strings.Split(response.Header.Get("Content-Type"), ";")[0])
 	return body, mediaType, nil

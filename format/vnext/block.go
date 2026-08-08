@@ -14,7 +14,9 @@ const (
 	blockHeaderSize    = 80
 	directorySize      = 64
 	columnFlagOptional = uint16(1)
-	maxBlockRows       = 100_000_000
+	maxBlockRows       = 5_000_000
+	maxBlockColumns    = 4_096
+	maxBlockValues     = 10_000_000
 )
 
 // Block is a decoded typed block. SchemaHash identifies the embedded schema
@@ -36,7 +38,7 @@ type encodedColumn struct {
 // EncodeBlock writes a deterministic, self-framed hybrid column block.
 func EncodeBlock(schemaHash [32]byte, table Table) ([]byte, error) {
 	table = canonicalTable(table)
-	if table.Rows > maxBlockRows {
+	if table.Rows > maxBlockRows || len(table.Columns) > maxBlockColumns || table.Rows > 0 && len(table.Columns) > maxBlockValues/table.Rows {
 		return nil, fmt.Errorf("table has %d rows; maximum is %d", table.Rows, maxBlockRows)
 	}
 	if err := table.validate(); err != nil {
@@ -240,7 +242,8 @@ func readBlockHeader(data []byte) (decodedHeader, error) {
 		return decodedHeader{}, fmt.Errorf("typed block directory framing is invalid")
 	}
 	header := decodedHeader{rows: int(binary.LittleEndian.Uint32(data[12:16])), columns: columns}
-	if header.rows > maxBlockRows || header.columns == 0 && header.rows != 0 {
+	if header.rows > maxBlockRows || header.columns > maxBlockColumns || header.columns == 0 && header.rows != 0 ||
+		header.rows > 0 && header.columns > maxBlockValues/header.rows {
 		return decodedHeader{}, fmt.Errorf("typed block row count is invalid")
 	}
 	copy(header.schemaHash[:], data[20:52])
@@ -292,6 +295,24 @@ func checksum(parts ...[]byte) uint32 {
 }
 
 func decodeValues(kind Kind, rows int, present, payload []byte) ([]Value, error) {
+	width := 0
+	switch kind {
+	case KindBool:
+		width = 1
+	case KindInt64, KindFloat64:
+		width = 8
+	case KindID:
+		width = 16
+	case KindString, KindBytes:
+		if rows == math.MaxInt || len(payload) < (rows+1)*4 {
+			return nil, fmt.Errorf("variable column offsets are truncated")
+		}
+	default:
+		return nil, fmt.Errorf("unsupported wire kind %d", kind)
+	}
+	if width != 0 && (rows > math.MaxInt/width || len(payload) != rows*width) {
+		return nil, fmt.Errorf("fixed-width column has wrong length")
+	}
 	values := make([]Value, rows)
 	switch kind {
 	case KindBool:

@@ -87,7 +87,14 @@ const (
 	dataDirEnv    = "ATLAS_DATA_DIR"
 )
 
+// version is replaced from the release tag by the packaging workflow.
+var version = "dev"
+
 func main() {
+	if len(os.Args) == 2 && (os.Args[1] == "-v" || os.Args[1] == "--version" || os.Args[1] == "version") {
+		fmt.Println("Atlas " + version)
+		return
+	}
 	if err := run(); err != nil {
 		fmt.Fprintln(os.Stderr, "atlas:", err)
 		os.Exit(1)

@@ -57,6 +57,28 @@ env:
   GOFLAGS: -trimpath -buildvcs=false
 
 jobs:
+  verify:
+    name: release acceptance
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "24"
+          cache: npm
+          cache-dependency-path: package-lock.json
+      - name: Install test dependencies
+        run: |
+          npm ci --ignore-scripts
+          npx playwright install --with-deps chromium
+      - name: Required correctness gates
+        run: |
+          make test
+          make test-e2e
+
   cli:
     name: atlas ${{ matrix.goos }}/${{ matrix.goarch }}
     runs-on: ubuntu-24.04
@@ -97,7 +119,7 @@ jobs:
           BINARY="atlas"
           if [[ "${GOOS}" == "windows" ]]; then BINARY="atlas.exe"; fi
           mkdir -p "dist/${NAME}"
-          go build -ldflags "-s -w" -o "dist/${NAME}/${BINARY}" ./cmd/atlas
+          go build -ldflags "-s -w -X main.version=${VERSION}" -o "dist/${NAME}/${BINARY}" ./cmd/atlas
           cp README.md LICENSE "dist/${NAME}/"
           cd dist
           if [[ "${GOOS}" == "windows" ]]; then
@@ -180,7 +202,7 @@ jobs:
           BINARY="Atlas"
           if [[ "${{ matrix.target }}" == windows-* ]]; then BINARY="Atlas.exe"; fi
           go build -tags "${{ matrix.tags }}" \
-            -ldflags "-s -w ${{ matrix.ldflags }}" -o "${BINARY}" .
+            -ldflags "-s -w -X main.version=${VERSION} ${{ matrix.ldflags }}" -o "${BINARY}" .
 
           mkdir -p dist
           case "${{ matrix.target }}" in
@@ -235,7 +257,7 @@ jobs:
 
   release:
     if: startsWith(github.ref, 'refs/tags/')
-    needs: [cli, desktop]
+    needs: [verify, cli, desktop]
     runs-on: ubuntu-24.04
     permissions:
       contents: write
@@ -245,7 +267,29 @@ jobs:
         with:
           path: dist
           merge-multiple: true
-      - name: Create the GitHub release
+      - name: Verify the exact asset set and smoke the packaged CLI
+        run: |
+          mapfile -t ASSETS < <(find dist -maxdepth 1 -type f \( -name '*.zip' -o -name '*.tar.gz' \) -printf '%f\n' | sort)
+          [[ "${#ASSETS[@]}" -eq 8 ]] || { printf 'wanted 8 release archives, found %s\n' "${#ASSETS[@]}"; printf '%s\n' "${ASSETS[@]}"; exit 1; }
+          [[ "$(printf '%s\n' "${ASSETS[@]}" | sort -u | wc -l)" -eq 8 ]]
+
+          CLI_ARCHIVE="$(find dist -maxdepth 1 -type f -name 'atlas-cli-*-linux-amd64.tar.gz' -print -quit)"
+          [[ -n "${CLI_ARCHIVE}" ]]
+          mkdir -p smoke
+          tar -xzf "${CLI_ARCHIVE}" -C smoke
+          CLI="$(find smoke -type f -name atlas -perm -u+x -print -quit)"
+          [[ -n "${CLI}" ]]
+          "${CLI}" --help >/dev/null
+          "${CLI}" --version | grep -F "${GITHUB_REF_NAME#atlas-}"
+          CACHE="$(mktemp -d)"
+          LIBRARY="$(mktemp -d)"
+          "${CLI}" build -cache "${CACHE}" -bundles "${LIBRARY}" examples/sample-region.atlas-project
+          [[ "$(find "${LIBRARY}" -maxdepth 1 -type f -name '*.atlas' | wc -l)" -eq 1 ]]
+
+          (cd dist && sha256sum "${ASSETS[@]}" > SHA256SUMS)
+          [[ "$(wc -l < dist/SHA256SUMS)" -eq 8 ]]
+
+      - name: Publish a complete release transaction
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
@@ -253,6 +297,13 @@ jobs:
           VERSION="${GITHUB_REF_NAME#atlas-}"
           PRERELEASE=""
           if [[ "${VERSION#v}" == *-* ]]; then PRERELEASE="--prerelease"; fi
-          gh release create "${GITHUB_REF_NAME}" dist/* \
+          gh release create "${GITHUB_REF_NAME}" \
             --title "Atlas ${VERSION}" \
-            --generate-notes --verify-tag ${PRERELEASE}
+            --generate-notes --verify-tag --draft ${PRERELEASE}
+          gh release upload "${GITHUB_REF_NAME}" dist/*
+
+          mapfile -t LOCAL < <(find dist -maxdepth 1 -type f -printf '%f\n' | sort)
+          mapfile -t REMOTE < <(gh release view "${GITHUB_REF_NAME}" --json assets --jq '.assets[].name' | sort)
+          [[ "${#LOCAL[@]}" -eq 9 && "${#REMOTE[@]}" -eq 9 ]]
+          diff -u <(printf '%s\n' "${LOCAL[@]}") <(printf '%s\n' "${REMOTE[@]}")
+          gh release edit "${GITHUB_REF_NAME}" --draft=false

@@ -26,6 +26,9 @@ import (
 	"strings"
 )
 
+// version is replaced from the release tag by the packaging workflow.
+var version = "dev"
+
 // A command is one subcommand: its name, one line about it, and how to run it.
 // Run is handed the arguments after the subcommand name and owns its own flag
 // set, which is what keeps the flags of one lane out of another's help text.
@@ -67,6 +70,9 @@ func run(args []string) error {
 	switch args[0] {
 	case "-h", "--help", "help":
 		usage(os.Stdout)
+		return nil
+	case "-v", "--version", "version":
+		fmt.Fprintln(os.Stdout, "atlas "+version)
 		return nil
 	}
 	for _, c := range commands() {

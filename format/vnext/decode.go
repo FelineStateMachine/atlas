@@ -461,11 +461,18 @@ func decodeGeometry(data []byte) (Geometry, error) {
 	if err != nil {
 		return Geometry{}, err
 	}
-	geometry := Geometry{Kind: GeometryKind(data[0]), Parts: make([]GeometryPart, parts)}
+	kind := GeometryKind(data[0])
+	if kind < GeometryPoint || kind > GeometryPolygon || parts > (len(data)-cursor)/4 {
+		return Geometry{}, fmt.Errorf("geometry part framing is invalid")
+	}
+	geometry := Geometry{Kind: kind, Parts: make([]GeometryPart, parts)}
 	for part := range geometry.Parts {
 		rings, err := readCount()
 		if err != nil {
 			return Geometry{}, err
+		}
+		if rings > (len(data)-cursor)/4 {
+			return Geometry{}, fmt.Errorf("geometry ring framing is invalid")
 		}
 		geometry.Parts[part].Rings = make([][]Position, rings)
 		for ring := range geometry.Parts[part].Rings {

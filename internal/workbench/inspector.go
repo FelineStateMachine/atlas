@@ -1,18 +1,14 @@
 package workbench
 
 import (
-	"bytes"
 	"crypto/sha256"
 	"encoding/base64"
 	"encoding/hex"
-	"encoding/json"
 	"fmt"
-	"io"
 	"net/http"
 	"sort"
 	"strconv"
 	"strings"
-	"time"
 
 	"github.com/FelineStateMachine/atlas/format/semconv"
 	"github.com/FelineStateMachine/atlas/format/vnext"
@@ -296,33 +292,9 @@ func countBlobPrefix(names []string, template string) int {
 }
 
 func inspectEvidenceSelection(data []byte) (authoring.EvidenceSelection, error) {
-	var selection authoring.EvidenceSelection
-	decoder := json.NewDecoder(bytes.NewReader(data))
-	decoder.DisallowUnknownFields()
-	if err := decoder.Decode(&selection); err != nil {
+	selection, err := authoring.ParseEvidenceSelection(data)
+	if err != nil {
 		return selection, fmt.Errorf("receipt metadata is invalid: %w", err)
-	}
-	if err := decoder.Decode(&struct{}{}); err != io.EOF {
-		return selection, fmt.Errorf("receipt metadata has trailing data")
-	}
-	if selection.Format != authoring.BuildReceiptFormat || selection.Project == "" || !isLowerSHA256(selection.ProjectDigest) || len(selection.Captures) == 0 {
-		return selection, fmt.Errorf("receipt metadata does not satisfy %s", authoring.BuildReceiptFormat)
-	}
-	seen := make(map[string]bool, len(selection.Captures))
-	previousRequest, previousSource := "", ""
-	for _, capture := range selection.Captures {
-		if !isLowerSHA256(capture.Request) || !isLowerSHA256(capture.Acquisition) || !isLowerSHA256(capture.SHA256) ||
-			capture.Source == "" || capture.Length < 0 || capture.MediaType == "" || seen[capture.Request] {
-			return selection, fmt.Errorf("receipt capture metadata is invalid")
-		}
-		if _, err := time.Parse(time.RFC3339Nano, capture.CapturedAt); err != nil {
-			return selection, fmt.Errorf("receipt capture time is invalid")
-		}
-		if previousRequest > capture.Request || (previousRequest == capture.Request && previousSource > capture.Source) {
-			return selection, fmt.Errorf("receipt captures are not canonically ordered")
-		}
-		seen[capture.Request] = true
-		previousRequest, previousSource = capture.Request, capture.Source
 	}
 	return selection, nil
 }

@@ -55,6 +55,17 @@ func Build(ctx context.Context, options BuildOptions) (BuildResult, error) {
 		return result, nil
 	}
 	var captures map[string]Capture
+	var capturedBytes int64
+	accountCapture := func(planned PlannedRequest, capture Capture) error {
+		if capture.Body.Length > planned.MaxBytes {
+			return fmt.Errorf("captured evidence for %s is %d bytes, exceeding request budget %d", planned.Source, capture.Body.Length, planned.MaxBytes)
+		}
+		if capture.Body.Length > plan.Budgets.TotalBytes-capturedBytes {
+			return fmt.Errorf("captured evidence exceeds total byte budget %d", plan.Budgets.TotalBytes)
+		}
+		capturedBytes += capture.Body.Length
+		return nil
+	}
 	if options.ReplayPath != "" {
 		selection, err := loadEvidenceSelection(options.ReplayPath)
 		if err != nil {
@@ -66,6 +77,9 @@ func Build(ctx context.Context, options BuildOptions) (BuildResult, error) {
 		}
 		for index, planned := range plan.Requests {
 			capture := captures[planned.ID]
+			if err := accountCapture(planned, capture); err != nil {
+				return result, err
+			}
 			emit(options, Event{Stage: "capture", Message: planned.Source, Current: index + 1, Total: len(plan.Requests), Bytes: capture.Body.Length, Cached: true})
 		}
 	} else {
@@ -83,6 +97,9 @@ func Build(ctx context.Context, options BuildOptions) (BuildResult, error) {
 				acquisitions[key] = capture
 			}
 			captures[planned.ID] = capture
+			if err := accountCapture(planned, capture); err != nil {
+				return result, err
+			}
 			emit(options, Event{
 				Stage: "capture", Message: planned.Source, Current: index + 1,
 				Total: len(plan.Requests), Bytes: capture.Body.Length, Cached: cached,
@@ -272,32 +289,9 @@ func writeBuild(library string, bundle vnext.Bundle) (vnext.Descriptor, string, 
 	if err := file.Close(); err != nil {
 		return vnext.Descriptor{}, "", false, err
 	}
-	opened, err := vnext.OpenFile(stage, vnext.StandardSchema())
+	installed, present, err := vnext.InstallWithStatus(library, stage, vnext.StandardSchema())
 	if err != nil {
-		return vnext.Descriptor{}, "", false, fmt.Errorf("reopen native build: %w", err)
+		return vnext.Descriptor{}, "", false, fmt.Errorf("publish native build: %w", err)
 	}
-	if err := opened.Validate(); err != nil {
-		opened.Close()
-		return vnext.Descriptor{}, "", false, fmt.Errorf("validate native build: %w", err)
-	}
-	descriptor := opened.Descriptor()
-	if err := opened.Close(); err != nil {
-		return vnext.Descriptor{}, "", false, err
-	}
-	target := filepath.Join(library, vnext.VersionedFileName(descriptor.Slug, vnext.Release{
-		Title: descriptor.Title, CreatedAt: descriptor.CreatedAt, Revision: descriptor.Revision,
-		Stamp: descriptor.Stamp, Worlds: descriptor.Worlds,
-	}))
-	if _, err := os.Stat(target); err == nil {
-		held, err := vnext.Describe(target, vnext.StandardSchema())
-		return held, target, true, err
-	}
-	if err := os.Chmod(stage, 0o644); err != nil {
-		return vnext.Descriptor{}, "", false, err
-	}
-	if err := os.Rename(stage, target); err != nil {
-		return vnext.Descriptor{}, "", false, err
-	}
-	installed, err := vnext.Describe(target, vnext.StandardSchema())
-	return installed, target, false, err
+	return installed, installed.Locator, present, nil
 }

@@ -2,8 +2,27 @@ package vnext
 
 import (
 	"bytes"
+	"encoding/binary"
+	"math"
 	"testing"
 )
+
+func TestPackedBlockRefusesAttackerCountsBeforeAllocation(t *testing.T) {
+	field := Field{ID: CoreID("feature.title"), Name: "title", Kind: KindString}
+	table := Table{TypeID: CoreID("type.feature"), Rows: 1, Columns: []Column{{Field: field, Values: []Value{StringValue("Sample Place")}}}}
+	data, err := EncodeBlock([32]byte{}, table)
+	if err != nil {
+		t.Fatal(err)
+	}
+	binary.LittleEndian.PutUint32(data[12:16], math.MaxUint32)
+	if _, err := DecodeBlock(data); err == nil {
+		t.Fatal("attacker-sized row count was accepted")
+	}
+	geometry := []byte{byte(GeometryPoint), 0xff, 0xff, 0xff, 0xff}
+	if _, err := decodeGeometry(geometry); err == nil {
+		t.Fatal("attacker-sized geometry part count was accepted")
+	}
+}
 
 func TestPackedBlockRoundTripsEveryWireKind(t *testing.T) {
 	t.Parallel()
