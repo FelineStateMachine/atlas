@@ -8,6 +8,101 @@
   {{if .Error}}<p class="warn">{{.Error}}</p>{{end}}
 </section>
 
+<section class="card area-authoring" aria-labelledby="area-authoring-title">
+  <header class="authoring-head">
+    <div>
+      <p class="eyebrow">Nationwide source profile</p>
+      <h2 id="area-authoring-title">Choose a U.S. area</h2>
+      <p class="dim">One bounded region becomes the single manifest below. The label stays neutral: Sample Region.</p>
+    </div>
+    <ol class="authoring-flow" aria-label="Authoring flow">
+      <li class="active">Area</li><li>Sources</li><li>Contracts</li><li>Build</li><li>Compiled preview</li>
+    </ol>
+  </header>
+
+  <form class="area-form" method="post" action="/project/us-area" data-us-area-form>
+    <fieldset class="area-bounds">
+      <legend>Area · WGS84 bbox</legend>
+      <div class="area-map-toolbar">
+        <label>Region
+          <select data-map-region>
+            <option value="conus">Lower 48</option><option value="alaska">Alaska</option><option value="hawaii">Hawaii</option><option value="puerto-rico">Puerto Rico</option>
+          </select>
+        </label>
+        <span>Drag to draw · aligned source window is outlined</span>
+      </div>
+      <canvas class="area-map" width="720" height="300" tabindex="0" aria-label="Drag to select a rectangular map area" data-area-map></canvas>
+      <label>West<input type="number" name="west" value="-105.1" min="-180" max="180" step="0.000001" required></label>
+      <label>South<input type="number" name="south" value="39.6" min="-90" max="90" step="0.000001" required></label>
+      <label>East<input type="number" name="east" value="-104.9" min="-180" max="180" step="0.000001" required></label>
+      <label>North<input type="number" name="north" value="39.8" min="-90" max="90" step="0.000001" required></label>
+      <label class="detail-control">Detail zoom <output data-detail-output>12</output>
+        <input type="range" name="detail" value="12" min="6" max="16" step="1">
+      </label>
+    </fieldset>
+
+    <fieldset class="source-picker">
+      <legend>Official nationwide sources</legend>
+      <label class="source-choice topo"><input type="checkbox" name="topo" value="true" checked><span><b>USGS Topo</b><small>raster · public domain</small></span></label>
+      <label class="source-choice roads"><input type="checkbox" name="roads" value="true" checked><span><b>TIGER roads</b><small>paths · typed class</small></span></label>
+      <label class="source-choice hydro"><input type="checkbox" name="hydro" value="true" checked><span><b>TIGER hydro</b><small>paths + areas</small></span></label>
+      <label class="source-choice counties"><input type="checkbox" name="counties" value="true" checked><span><b>TIGER counties</b><small>areas · context</small></span></label>
+    </fieldset>
+
+    <aside class="budget-preview" aria-live="polite" data-budget-preview>
+      <span class="node-kind">Selection budget</span>
+      <b><output data-budget-tiles>estimating</output> raster tiles</b>
+      <span><output data-budget-size>—</output> local pixel plane</span>
+      <span><output data-budget-state>Adjust the box or detail to preview.</output></span>
+    </aside>
+
+    <fieldset class="presentation-editor">
+      <legend>Presentation · compiled into layers, styles + legend</legend>
+      <div class="presentation-head"><span>Layer</span><span>Legend label</span><span>Style</span><span>Order</span></div>
+      <label class="presentation-row">
+        <span><input type="checkbox" name="road-visible" value="true" checked> Roads visible</span>
+        <input type="text" name="road-label" value="Roads" maxlength="48" required aria-label="Road legend label">
+        <input type="color" name="road-color" value="#b45f3c" aria-label="Road color">
+        <input type="number" name="road-order" value="40" min="0" max="999" required aria-label="Road layer order">
+      </label>
+      <label class="presentation-row">
+        <span><input type="checkbox" name="hydro-visible" value="true" checked> Water visible</span>
+        <input type="text" name="hydro-label" value="Water" maxlength="48" required aria-label="Water legend label">
+        <span class="color-pair"><input type="color" name="hydro-color" value="#4b8db8" aria-label="Water line color"><input type="color" name="hydro-fill" value="#b9d9ea" aria-label="Water fill color"></span>
+        <input type="number" name="hydro-order" value="20" min="0" max="999" required aria-label="Water layer order">
+      </label>
+      <label class="presentation-row">
+        <span><input type="checkbox" name="county-visible" value="true" checked> Counties visible</span>
+        <input type="text" name="county-label" value="Counties" maxlength="48" required aria-label="County legend label">
+        <input type="color" name="county-color" value="#766b5b" aria-label="County color">
+        <input type="number" name="county-order" value="10" min="0" max="999" required aria-label="County layer order">
+      </label>
+    </fieldset>
+    <button class="generate-manifest">Generate single manifest</button>
+  </form>
+
+  <div class="contract-preview">
+    <div>
+      <span class="node-kind">Typed FeatureSets</span>
+      <p><span class="contract-pill path">roads · path</span><span class="contract-pill path">waterways · path</span><span class="contract-pill area">water bodies · area</span><span class="contract-pill area">counties · area</span></p>
+      <p class="dim">Stable identities, typed properties, EPSG:3857 → local affine geometry, provenance on every source.</p>
+    </div>
+    <i class="graph-arrow" aria-hidden="true">→</i>
+    <div>
+      <span class="node-kind">Presentation</span>
+      <p class="style-stack"><i class="swatch county"></i><i class="swatch water"></i><i class="swatch road"></i> counties · water · roads over topo</p>
+      <p class="dim">Layers, styles, labels and legend compile into the artifact.</p>
+    </div>
+    <i class="graph-arrow" aria-hidden="true">→</i>
+    <div class="truth-preview">
+      <span class="node-kind">Compiled Atlas truth</span>
+      <b>{{if and .Run.Artifact (not .Run.Failed)}}Ready to inspect{{else}}Available after build{{end}}</b>
+      <span class="dim">Preview never substitutes browser-side source data.</span>
+      {{if and .Run.Artifact (not .Run.Failed)}}<a href="/project/inspect">Inspect compiled artifact</a>{{end}}
+    </div>
+  </div>
+</section>
+
 {{if .Project.ID}}
 <section class="card contract-graph" aria-labelledby="contract-graph-title">
   <header class="graph-head">
@@ -93,6 +188,8 @@
     <div><dt>project digest</dt><dd><code>{{short .Plan.ProjectDigest}}</code></dd></div>
     <div><dt>world</dt><dd>{{.Plan.World}}</dd></div>
     <div><dt>estimated input</dt><dd>{{.Plan.Estimated}} bytes</dd></div>
+    <div><dt>Capture requests</dt><dd>{{.RequestCount}}</dd></div>
+    <div><dt>Raster tiles</dt><dd>{{.Plan.RasterTiles}}</dd></div>
     <div><dt>output library</dt><dd>{{.Plan.Output}}</dd></div>
   </dl>
   <details class="plan-detail">

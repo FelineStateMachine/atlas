@@ -124,12 +124,93 @@ func TestProjectPageMakesTheNativeBuildGraphVisible(t *testing.T) {
 	wants(t, "project", body,
 		"Sample Region", "One manifest → one native volume", "sample-features", "geojson",
 		"0 / 1 requests", "feature sources", "semantic sets", "presentation layers",
-		"Build native Atlas", "Portable manifest", "Sample Region contributors")
+		"Build native Atlas", "Portable manifest", "Sample Region contributors",
+		"Choose a U.S. area", "USGS Topo", "TIGER roads", "TIGER hydro", "TIGER counties",
+		"Typed FeatureSets", "Compiled Atlas truth")
 	if response, _ := get(t, server, "/operations"); response.StatusCode != http.StatusNotFound {
 		t.Errorf("retired operations route answered %d", response.StatusCode)
 	}
 	if response, _ := get(t, server, "/sources"); response.StatusCode != http.StatusNotFound {
 		t.Errorf("retired sources route answered %d", response.StatusCode)
+	}
+}
+
+func TestUSAreaAuthoringReplacesTheSingleManifestWithTheSelectedDefaults(t *testing.T) {
+	targets := projectTargets(t)
+	held, err := New(Options{Targets: targets, Runtime: []byte("/* runtime */")})
+	if err != nil {
+		t.Fatal(err)
+	}
+	server := site(t, held)
+	form := usAreaForm()
+	form.Set("road-label", "Routes")
+	form.Set("road-color", "#c05030")
+	form.Set("road-order", "17")
+	form.Del("road-visible")
+	response, body := postForm(t, noRedirectClient(server.Client()), server.URL+"/project/us-area", form)
+	if response.StatusCode != http.StatusSeeOther {
+		t.Fatalf("U.S. area authoring answered %d: %s", response.StatusCode, body)
+	}
+	project, err := authoring.LoadProject(targets.Project)
+	if err != nil {
+		t.Fatalf("generated manifest: %v", err)
+	}
+	if project.Title != "Sample Region" || len(project.Rasters) != 1 || len(project.Sources) != 6 {
+		t.Fatalf("generated project = %+v", project)
+	}
+	var roads authoring.Layer
+	for _, layer := range project.Presentation.Layers {
+		if layer.ID == "roads" {
+			roads = layer
+		}
+	}
+	if roads.Label != "Routes" || roads.Visible || roads.Order != 17 {
+		t.Fatalf("presentation choices were not authored: %+v", roads)
+	}
+	if project.Target.CoordinateSpace.OriginX == 0 || project.Target.CoordinateSpace.OriginY == 0 {
+		t.Fatalf("generated tile origins = %+v", project.Target.CoordinateSpace)
+	}
+	_, page := get(t, server, "/project?notice=Official+U.S.+profile+installed")
+	wants(t, "generated authoring", page, "Official U.S. profile installed", "Capture requests", "Raster tiles", "Compiled Atlas truth")
+}
+
+func TestUSAreaAuthoringRefusesAnInvalidAreaBeforeReplacingTheManifest(t *testing.T) {
+	targets := projectTargets(t)
+	original, err := os.ReadFile(targets.Project)
+	if err != nil {
+		t.Fatal(err)
+	}
+	held, err := New(Options{Targets: targets})
+	if err != nil {
+		t.Fatal(err)
+	}
+	server := site(t, held)
+	form := usAreaForm()
+	form.Set("west", "2")
+	form.Set("south", "48")
+	form.Set("east", "3")
+	form.Set("north", "49")
+	response, body := postForm(t, server.Client(), server.URL+"/project/us-area", form)
+	if response.StatusCode != http.StatusBadRequest || !strings.Contains(body, "United States region") {
+		t.Fatalf("invalid area answered %d: %s", response.StatusCode, body)
+	}
+	after, err := os.ReadFile(targets.Project)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if string(after) != string(original) {
+		t.Fatal("invalid area replaced the manifest")
+	}
+}
+
+func usAreaForm() url.Values {
+	return url.Values{
+		"west": {"-105.1"}, "south": {"39.6"}, "east": {"-104.9"}, "north": {"39.8"},
+		"detail": {"12"}, "topo": {"true"}, "roads": {"true"}, "hydro": {"true"}, "counties": {"true"},
+		"road-label": {"Roads"}, "hydro-label": {"Water"}, "county-label": {"Counties"},
+		"road-color": {"#b45f3c"}, "hydro-color": {"#4b8db8"}, "hydro-fill": {"#b9d9ea"}, "county-color": {"#766b5b"},
+		"road-visible": {"true"}, "hydro-visible": {"true"}, "county-visible": {"true"},
+		"road-order": {"40"}, "hydro-order": {"20"}, "county-order": {"10"},
 	}
 }
 

@@ -137,6 +137,7 @@ func (w *Workbench) routes() {
 	w.mux.HandleFunc("GET /volume/{slug}", w.handleVolume)
 	w.mux.HandleFunc("GET /volume/{slug}/diff", w.handleDiff)
 	w.mux.HandleFunc("GET /project", w.handleProject)
+	w.mux.HandleFunc("POST /project/us-area", w.handleProjectUSArea)
 	w.mux.HandleFunc("POST /project/save", w.handleProjectSave)
 	w.mux.HandleFunc("POST /project/build", w.handleProjectBuild)
 	w.mux.HandleFunc("GET /project/run", w.handleProjectRun)
