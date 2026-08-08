@@ -62,7 +62,7 @@ type deltaRow struct {
 // featureRef names one point feature as the packed payload carries it.
 type featureRef struct {
 	World string
-	ID    int64
+	ID    string
 	Title string
 }
 
@@ -81,7 +81,7 @@ type pairStability struct {
 }
 
 // diffBuilds compares two scored builds and their unpacked features.
-func diffBuilds(a, b *maturity.Score, featuresA, featuresB map[string]map[int64]string) *buildDiff {
+func diffBuilds(a, b *maturity.Score, featuresA, featuresB map[string]map[string]string) *buildDiff {
 	d := &buildDiff{A: a, B: b, Movement: maturity.Compare(a, b)}
 	d.Worlds = worldDeltas(a, b)
 	d.Axes = axisDeltas(a.Axes, b.Axes)
@@ -151,7 +151,7 @@ func axisDeltas(a, b maturity.Axes) []deltaRow {
 
 // featuresOnly lists the features in have that missing lacks, by world and id,
 // in a stable order.
-func featuresOnly(have, missing map[string]map[int64]string) []featureRef {
+func featuresOnly(have, missing map[string]map[string]string) []featureRef {
 	var only []featureRef
 	for world, features := range have {
 		for id, title := range features {

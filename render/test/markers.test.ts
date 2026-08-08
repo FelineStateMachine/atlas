@@ -378,8 +378,8 @@ test("initials are the first letters of the first two words", () => {
 
 test("an asset path is encoded segment by segment", () => {
   const base = "/data/v/neon-harbor/abc123abc123";
-  assert.equal(iconURL(base, "ward.svg"), `${base}/icons/ward.svg`);
-  assert.equal(iconURL(base, "signs/Ward 101 (Ext).png"),
-    `${base}/icons/signs/Ward%20101%20(Ext).png`,
+  assert.equal(iconURL(base, "assets/ward.svg"), `${base}/assets/ward.svg`);
+  assert.equal(iconURL(base, "assets/signs/Ward 101 (Ext).png"),
+    `${base}/assets/signs/Ward%20101%20(Ext).png`,
     "the separators stay separators and everything else goes on the wire encoded");
 });

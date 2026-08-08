@@ -963,44 +963,24 @@ it actually covers, clipped to that window, because those are not the same
 rectangle and anything measuring a world rather than drawing it wants the
 ground.
 
-### 5.3 The payload
+### 5.3 The semantic volume
 
-Three parts, because they are wanted at three different moments.
+Composition writes one semantic graph: Volume → Worlds → CoordinateSpace,
+FeatureSets/Features, RasterPyramids and Presentation, plus volume Assets.
+Feature geometry is converted into the declared coordinate space before the
+file is compiled. Properties are typed fields; membership and links are
+Relationships; source identity and capture time are Provenance records.
 
-- `worlds/<slug>.json` — lenses and the ordered collections array. Point
-  collections carry no inline features; shape collections inline theirs whole.
-  **Point collections are written first**, so a packed location's owner is the
-  ordinal of its collection among the points.
-- `worlds/<slug>.bin` — `ATLASLOC` v3, the point features packed.
-- `worlds/<slug>.text` — prose, links and per-feature attributes, keyed by
-  feature id as a decimal string. A point earns an entry for prose, links or
-  attributes; a shape earns one for prose alone and marks `hasText`, keeping
-  its attributes inline because a card needs them the moment ground is asked
-  about.
-
-Its field names, its field order, and which fields are omitted when empty all
-feed the stamp, so the shape is frozen with the format version.
-
-Every world opens a **provenance account** — where its ground came from, and
-what it held when it got here — merged with anything or not. A single-source
-build carries exactly one entry, marked `origin`. The ledger fields the enrich
-lane adds extend that entry in place, after `added`, so an origin account's
-bytes never move.
+`vnext.Compile` lowers that graph into schema-described typed tables. Feature
+identity is a durable string and does not depend on a collection ordinal.
+Presentation points at semantic identities, so a new layer/style/legend can be
+applied without rewriting feature meaning.
 
 ### 5.4 Stamping and writing
 
-The stamp is taken over **named parts**, sorted, one `"<name> <hash>"` line
-each, joined by newlines, SHA-256:
-
-```
-atlas.json              hash of the manifest as it stands before its own stamp
-                        and creation time are filled in — the revision is in
-worlds/<slug>.json      hash of the payload bytes
-worlds/<slug>.bin
-worlds/<slug>.text
-tiles/<pyramid>         the pyramid's derivation stamp, not its bytes
-icons/<name>            hash of the artwork
-```
+The stamp is derived by the vNext writer from the canonical bootstrap: release
+metadata, canonical schema identity, every typed table block and every opaque
+blob identity. Callers cannot provide or retain a stale stamp.
 
 `createdAt` is the **newest capture time across the volume's worlds**, never
 the build clock. The name is `<slug>-<YYYYMMDD>-<stamp12>.atlas`. Building the
@@ -1014,10 +994,10 @@ it is renamed into place, so the name appears whole or not at all; and then it
 is reopened from disk and validated, because the file that will serve is the
 copy and it is the copy's promises that matter.
 
-Entry order inside the zip: the manifest, then each world's three parts in world
-order, then the pyramids in sorted local name order (walked lexically, so level
-`10` precedes level `2`), then the icons in sorted name order. Tiles and packed
-locations are **stored uncompressed** so a reader serves them as byte ranges.
+Entry order inside the zip is deterministic: the bootstrap first, canonical
+schema, typed `data/*.pack` tables, then opaque blobs. Table blocks, raster
+tiles and content-addressed assets are stored so readers can map or range-read
+them without inflating a document.
 
 ### 5.5 The policy revision
 

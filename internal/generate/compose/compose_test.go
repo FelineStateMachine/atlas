@@ -342,17 +342,6 @@ func TestBoxes(t *testing.T) {
 	}
 }
 
-// TestOptionalID pins the one translation between the document's spelling of
-// absence and the wire's.
-func TestOptionalID(t *testing.T) {
-	if optionalID(0) != nil {
-		t.Error("zero should be absent on the wire")
-	}
-	if got := optionalID(7); got == nil || *got != 7 {
-		t.Errorf("optionalID(7) = %v", got)
-	}
-}
-
 func TestIsPicture(t *testing.T) {
 	tests := []struct {
 		file string

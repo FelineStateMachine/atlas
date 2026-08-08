@@ -50,8 +50,8 @@ Windows (x64), macOS (Apple Silicon) and Linux (x64). Two platform notes:
 ## The shape of it
 
 ```
-format/          THE CENTRE. The .atlas container, manifest, ATLASLOC codec,
-                 stamps, registry, validation, and the semantic conventions.
+format/          THE CENTRE. The .atlas schema, packed typed tables,
+                 content-addressed blobs, registry and semantic conventions.
                  Pure Go, standard library only, importable by anyone.
 internal/
   generate/      Capture and composition: crawl, five sources, tiles, compose.

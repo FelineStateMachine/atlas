@@ -54,6 +54,7 @@ import type { ShapeRecord } from "../world/model.ts";
 import {
   OUTSET_COLORS, forgetMarkerRasters, legibleIconColor, outsetColor,
 } from "../chart/markers.ts";
+import { legacyOpenWorld } from "./legacy.ts";
 
 // ---- the page a raster is composed on --------------------------------
 
@@ -158,7 +159,12 @@ const COLLECTIONS = [PLAIN, SPOKEN, QUIETED, TEXT, SHRINES, DAEDRIC, LETTERED];
 function pin(collection: Collection, id = "7", title = "Goodsprings"): PointRecord {
   return {
     id, index: 0, title, collection,
-    coordinate: [0, 0], member: 0, shard: 0, priority: 42,
+    coordinate: [0, 0], member: "", shard: 0, priority: 42,
+    feature: {
+      id, title, subtitle: "", description: "", center: null, shard: 0,
+      geometry: { kind: 1, parts: [{ rings: [[[0, 0]]] }] },
+      properties: [], relationships: [], provenance: [],
+    },
   };
 }
 
@@ -176,8 +182,8 @@ function styles(
   outset = "dark",
   repaint?: () => void,
 ): Styles {
-  const model = new WorldModel(
-    "world", { lenses: [], collections: COLLECTIONS }, grid, null);
+  const model = new WorldModel(legacyOpenWorld(
+    "world", { lenses: [], collections: COLLECTIONS }, grid, null));
   const full: Scene = { ...EMPTY_SCENE, ...scene };
   const built = new Styles({
     visibility: new Visibility(model, full, 0, null, hovered),
@@ -432,8 +438,8 @@ test("a colour that would vanish into the rim is taken off it", () => {
   const DIM: Collection = {
     id: 9, title: "Caverns", kind: "point", visible: true, color: "#0d1014",
   };
-  const model = new WorldModel(
-    "world", { lenses: [], collections: [DIM] }, grid, null);
+  const model = new WorldModel(legacyOpenWorld(
+    "world", { lenses: [], collections: [DIM] }, grid, null));
   const scene: Scene = { ...EMPTY_SCENE };
   const built = new Styles({
     visibility: new Visibility(model, scene, 0, null, null),
@@ -604,14 +610,11 @@ function zone(collection: Collection, id: string): ShapeRecord {
 }
 
 test("a shape wears its feature's colour, which is the index's own", () => {
-  // The server's colorFor (internal/app/legend.go): Knuth's multiplicative
-  // hash over the id, mod the ten-colour wheel. By hand: 1496244488 ·
-  // 2654435761 mod 2^32 mod 10 = 2, and 39191589 lands on 1 -- so the two
-  // zones wear the wheel's third and second colours, exactly as their index
-  // rows do, and an id that is not a number wears the wheel's first.
-  assert.equal(featureColor("1496244488"), "#82b56a");
-  assert.equal(featureColor("39191589"), "#c9924b");
-  assert.equal(featureColor("zoning-b1"), "#4fb3d5");
+  // Native identities are arbitrary stable strings. They keep their colour
+  // without being parsed into a compatibility integer first.
+  assert.equal(featureColor("world/feature/1496244488"), featureColor("world/feature/1496244488"));
+  assert.notEqual(featureColor("world/feature/1496244488"), featureColor("world/feature/39191589"));
+  assert.notEqual(featureColor("zoning-b1"), featureColor("zoning-o1"));
 
   // A zoning collection is one row with one declared colour, but B-1 and
   // O-1 are different grounds: the map draws each in its feature's colour,
@@ -622,12 +625,12 @@ test("a shape wears its feature's colour, which is the index's own", () => {
   const built = styles({});
   const first = built.area(zone(zoning, "1496244488"), false);
   const second = built.area(zone(zoning, "39191589"), false);
-  assert.equal(first.getStroke()?.getColor(), "#82b56a");
-  assert.equal(second.getStroke()?.getColor(), "#c9924b");
+  assert.equal(first.getStroke()?.getColor(), featureColor("1496244488"));
+  assert.equal(second.getStroke()?.getColor(), featureColor("39191589"));
   assert.notEqual(first.getStroke()?.getColor(), zoning.color);
 
   // A path is the same rule at a different width.
   const trails: Collection = { id: 4, title: "Trails", kind: "path", visible: true };
   const [, ink] = built.path({ ...zone(trails, "1496244488"), kind: "path" }, 2, false);
-  assert.equal(ink?.getStroke()?.getColor(), "#82b56a");
+  assert.equal(ink?.getStroke()?.getColor(), featureColor("1496244488"));
 });

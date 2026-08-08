@@ -80,7 +80,7 @@ export class Visibility {
     const search = scene.search.toLocaleLowerCase();
     const highlighted = model.shapes.filter((shape) => scene.highlighted.has(shape.id));
     this.highlightedShapes = highlighted;
-    const groups = new Map<number, ShapeRecord[]>();
+    const groups = new Map<string | number, ShapeRecord[]>();
     for (const shape of highlighted) {
       const held = groups.get(shape.collection.id);
       if (held) held.push(shape);
@@ -171,7 +171,7 @@ export function onActiveShard(featureShard: number, lensShard: number): boolean 
   return !lensShard || !featureShard || featureShard === lensShard;
 }
 
-function passes(groups: ReadonlyMap<number, ShapeRecord[]>, at: Coordinate): boolean {
+function passes(groups: ReadonlyMap<string | number, ShapeRecord[]>, at: Coordinate): boolean {
   for (const shapes of groups.values()) {
     if (!shapes.some((shape) => shapeContains(shape, at))) return false;
   }

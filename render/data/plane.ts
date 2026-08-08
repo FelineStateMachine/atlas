@@ -17,18 +17,27 @@
 //   scene. The seam says so on the stream and gives up on that base; it does
 //   not reload the page, because navigation is the application's to decide.
 //
-// Nothing here interprets a payload. The types are `payload.ts`, the packed
-// locations are `atlasloc.ts`, and what to draw is the scene's business.
+// The one interpretation here is structural: schema-described typed columns
+// become the semantic Volume graph. Presentation decisions remain the world's.
 
 import { logger } from "../log.ts";
-import { LocationTable } from "./atlasloc.ts";
-import type { Catalog, Lens, TextPayload, WorldPayload } from "./payload.ts";
-import { tileFormat } from "./payload.ts";
+import type { Catalog, Lens } from "./payload.ts";
+import { tileFormat, tileTemplate } from "./payload.ts";
+import {
+  decodeVolume, TABLE_NAMES,
+  type NativeTables, type Volume, type World,
+} from "./semantic.ts";
+import { PackedTable, type Schema } from "./vnext.ts";
 
 const log = logger("data");
 
 /** A build's URL prefix: `/data/v/<slug>/<stamp12>`. */
 export type Base = string;
+
+export interface OpenWorld {
+  readonly volume: Volume;
+  readonly world: World;
+}
 
 /** Raised when a base answered 404 — the build moved out from under us. */
 export class BuildMovedError extends Error {
@@ -44,7 +53,7 @@ export class BuildMovedError extends Error {
 /**
  * One page's reading of the plane.
  *
- * Payloads are kept per URL, which is per build, because the URL names the
+ * Native volumes are kept per base, which is per build, because the URL names the
  * build. Two worlds of one volume share nothing but the base; two builds of
  * one volume share nothing at all, which is the whole cache story.
  */
@@ -58,30 +67,12 @@ export class DataPlane {
     return (await response.json()) as Catalog;
   }
 
-  /** `worlds/<slug>.json` — read when the world opens. */
-  world(base: Base, world: string): Promise<WorldPayload> {
-    return this.json<WorldPayload>(`${base}/worlds/${world}.json`);
-  }
-
-  /** `worlds/<slug>.text` — read lazily, when a card opens. */
-  text(base: Base, world: string): Promise<TextPayload> {
-    return this.json<TextPayload>(`${base}/worlds/${world}.text`);
-  }
-
-  /**
-   * `worlds/<slug>.bin` — every point feature, as views over the downloaded
-   * buffer. The response is read as an `ArrayBuffer` precisely so the views
-   * can be built over it without a copy.
-   */
-  locations(base: Base, world: string): Promise<LocationTable> {
-    return this.keep(`${base}/worlds/${world}.bin`, async (url) => {
-      const buffer = await this.bytes(url);
-      const table = LocationTable.over(buffer);
-      log.info("the packed locations are open", {
-        op: "render", path: url, count: table.count,
-      });
-      return table;
-    });
+  /** One semantic world, reconstructed from the schema-described tables. */
+  async world(base: Base, world: string): Promise<OpenWorld> {
+    const volume = await this.volume(base);
+    const found = volume.worlds.find((candidate) => candidate.id === world);
+    if (!found) throw new Error(`${base} does not contain world ${world}`);
+    return { volume, world: found };
   }
 
   /** Where an icon asset lives. Icons are fetched by the browser, as images. */
@@ -93,7 +84,28 @@ export class DataPlane {
   tileURL(base: Base, lens: Lens, z: number, x: number, y: number): string | null {
     const extension = tileFormat(lens, z);
     if (!extension) return null;
-    return `${base}/tiles/${lens.tiles}/${z}/${x}/${y}.${extension}`;
+    return `${base}/${fillTemplate(tileTemplate(lens), z, x, y, extension)}`;
+  }
+
+  private volume(base: Base): Promise<Volume> {
+    return this.keep(`${base}/@semantic-volume`, async () => {
+      const schemaURL = `${base}/schema.json`;
+      const schemaBytes = new Uint8Array(await this.bytes(schemaURL));
+      const schema = JSON.parse(new TextDecoder().decode(schemaBytes)) as Schema;
+      const schemaHash = await sha256(schemaBytes);
+      const entries = await Promise.all(TABLE_NAMES.map(async (name) => {
+        const url = `${base}/data/${name}.pack`;
+        const packed = PackedTable.over(await this.bytes(url));
+        if (packed.schemaHash !== schemaHash) throw new Error(`${url} was encoded against another schema`);
+        return [name, packed] as const;
+      }));
+      const tables = new Map(entries) as NativeTables;
+      const volume = await decodeVolume(schema, tables);
+      log.info("the semantic volume is open", {
+        op: "render", path: base, worlds: volume.worlds.length,
+      });
+      return volume;
+    });
   }
 
   private json<T>(url: string): Promise<T> {
@@ -144,5 +156,16 @@ export class DataPlane {
  */
 export function iconURL(base: Base, asset: string): string {
   const path = asset.split("/").map((segment) => encodeURIComponent(segment)).join("/");
-  return `${base}/icons/${path}`;
+  return `${base}/${path}`;
+}
+
+export function fillTemplate(template: string, z: number, x: number, y: number, format: string): string {
+  return template.replaceAll("{z}", String(z)).replaceAll("{x}", String(x))
+    .replaceAll("{y}", String(y)).replaceAll("{format}", format);
+}
+
+async function sha256(bytes: Uint8Array): Promise<string> {
+  const copy = Uint8Array.from(bytes);
+  const digest = new Uint8Array(await crypto.subtle.digest("SHA-256", copy.buffer));
+  return [...digest].map((byte) => byte.toString(16).padStart(2, "0")).join("");
 }

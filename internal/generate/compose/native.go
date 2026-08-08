@@ -10,6 +10,7 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/FelineStateMachine/atlas/format/semconv"
 	"github.com/FelineStateMachine/atlas/format/vnext"
 	"github.com/FelineStateMachine/atlas/internal/generate/doc"
 	"github.com/FelineStateMachine/atlas/internal/generate/tiles"
@@ -65,7 +66,10 @@ func nativeWorld(options Options, source composedWorld, pyramids map[string]tile
 		Presentation: vnext.Presentation{ID: source.Slug + "/presentation", Title: source.Title},
 	}
 	for index, collection := range source.Collections {
-		set, style, layer, err := nativeCollection(options.Document.Source.Name, source, collection, index)
+		set, style, layer, err := nativeCollection(options.Document.Source.Name, source, collection, index, surfaceGrid{
+			SourceZoom: grid.SourceZoom, FirstTile: grid.FirstTile,
+			TileSize: options.Tiles.TileSize, Size: options.Tiles.Size,
+		})
 		if err != nil {
 			return vnext.World{}, err
 		}
@@ -86,7 +90,7 @@ func nativeWorld(options Options, source composedWorld, pyramids map[string]tile
 	return world, nil
 }
 
-func nativeCollection(provenanceSource string, world composedWorld, source composedCollection, order int) (vnext.FeatureSet, vnext.Style, vnext.Layer, error) {
+func nativeCollection(provenanceSource string, world composedWorld, source composedCollection, order int, grid surfaceGrid) (vnext.FeatureSet, vnext.Style, vnext.Layer, error) {
 	key := source.Key
 	if key == "" {
 		key = strconv.FormatInt(source.ID, 10)
@@ -95,7 +99,7 @@ func nativeCollection(provenanceSource string, world composedWorld, source compo
 	set := vnext.FeatureSet{ID: setID, Title: source.Title, SemanticType: "geometry." + source.Kind, Claims: stringProperties("featureSet", source.Attrs, true)}
 	contract := make(map[vnext.ID]vnext.Field)
 	for _, item := range source.Features {
-		feature, err := nativeFeature(provenanceSource, world, item)
+		feature, err := nativeFeature(provenanceSource, world, item, grid)
 		if err != nil {
 			return vnext.FeatureSet{}, vnext.Style{}, vnext.Layer{}, fmt.Errorf("feature %d: %w", item.ID, err)
 		}
@@ -111,16 +115,17 @@ func nativeCollection(provenanceSource string, world composedWorld, source compo
 	styleID := world.Slug + "/style/" + key
 	style := vnext.Style{
 		ID: styleID, Icon: source.Icon, IconAsset: source.IconAsset, IconPicture: source.IconPicture,
-		Stroke: source.IconColor, Fill: source.Color,
+		RenderAs: semconv.RenderAs(source.Attrs, ""), Stroke: source.IconColor, Fill: source.Color,
 	}
 	layer := vnext.Layer{
 		ID: world.Slug + "/layer/" + key, FeatureSet: setID, Style: styleID,
-		Group: source.Group, Visible: source.Visible, Order: int64(order), MaxZoom: 32,
+		Group: source.Group, LabelPolicy: semconv.LabelPolicy(source.Kind, source.Attrs),
+		Visible: source.Visible, Order: int64(order), MaxZoom: 32,
 	}
 	return set, style, layer, nil
 }
 
-func nativeFeature(provenanceSource string, world composedWorld, source composedFeature) (vnext.Feature, error) {
+func nativeFeature(provenanceSource string, world composedWorld, source composedFeature, grid surfaceGrid) (vnext.Feature, error) {
 	id := world.Slug + "/feature/" + strconv.FormatInt(source.ID, 10)
 	feature := vnext.Feature{
 		ID: id, Title: source.Title, Subtitle: source.Subtitle, Description: source.Description,
@@ -128,16 +133,16 @@ func nativeFeature(provenanceSource string, world composedWorld, source composed
 		Provenance: []vnext.Provenance{{Source: provenanceSource, NativeID: strconv.FormatInt(source.ID, 10), CapturedAt: world.CapturedAt}},
 	}
 	if source.At != nil {
-		feature.Geometry = vnext.Geometry{Kind: vnext.GeometryPoint, Parts: []vnext.GeometryPart{{Rings: [][]vnext.Position{{{source.At.Lng, source.At.Lat}}}}}}
+		feature.Geometry = vnext.Geometry{Kind: vnext.GeometryPoint, Parts: []vnext.GeometryPart{{Rings: [][]vnext.Position{{projectPosition(source.At.Lng, source.At.Lat, grid)}}}}}
 	} else {
-		geometry, err := nativeGeometry(source.Geometry)
+		geometry, err := nativeGeometry(source.Geometry, grid)
 		if err != nil {
 			return vnext.Feature{}, err
 		}
 		feature.Geometry = geometry
 	}
 	if source.Center != nil {
-		center := vnext.Position{source.Center.Lng, source.Center.Lat}
+		center := projectPosition(source.Center.Lng, source.Center.Lat, grid)
 		feature.Center = &center
 	}
 	if source.Member != 0 {
@@ -152,7 +157,7 @@ func nativeFeature(provenanceSource string, world composedWorld, source composed
 	return feature, nil
 }
 
-func nativeGeometry(items []doc.Geometry) (vnext.Geometry, error) {
+func nativeGeometry(items []doc.Geometry, grid surfaceGrid) (vnext.Geometry, error) {
 	var geometry vnext.Geometry
 	for _, item := range items {
 		switch item.Type {
@@ -161,13 +166,13 @@ func nativeGeometry(items []doc.Geometry) (vnext.Geometry, error) {
 			if err := json.Unmarshal(item.Coordinates, &point); err != nil {
 				return vnext.Geometry{}, err
 			}
-			geometry.Kind, geometry.Parts = vnext.GeometryPoint, append(geometry.Parts, vnext.GeometryPart{Rings: [][]vnext.Position{{point}}})
+			geometry.Kind, geometry.Parts = vnext.GeometryPoint, append(geometry.Parts, vnext.GeometryPart{Rings: [][]vnext.Position{{projectPosition(point[0], point[1], grid)}}})
 		case "LineString":
 			var line []vnext.Position
 			if err := json.Unmarshal(item.Coordinates, &line); err != nil {
 				return vnext.Geometry{}, err
 			}
-			geometry.Kind, geometry.Parts = vnext.GeometryLineString, append(geometry.Parts, vnext.GeometryPart{Rings: [][]vnext.Position{line}})
+			geometry.Kind, geometry.Parts = vnext.GeometryLineString, append(geometry.Parts, vnext.GeometryPart{Rings: [][]vnext.Position{projectPositions(line, grid)}})
 		case "MultiLineString":
 			var lines [][]vnext.Position
 			if err := json.Unmarshal(item.Coordinates, &lines); err != nil {
@@ -175,14 +180,14 @@ func nativeGeometry(items []doc.Geometry) (vnext.Geometry, error) {
 			}
 			geometry.Kind = vnext.GeometryLineString
 			for _, line := range lines {
-				geometry.Parts = append(geometry.Parts, vnext.GeometryPart{Rings: [][]vnext.Position{line}})
+				geometry.Parts = append(geometry.Parts, vnext.GeometryPart{Rings: [][]vnext.Position{projectPositions(line, grid)}})
 			}
 		case "Polygon":
 			var rings [][]vnext.Position
 			if err := json.Unmarshal(item.Coordinates, &rings); err != nil {
 				return vnext.Geometry{}, err
 			}
-			geometry.Kind, geometry.Parts = vnext.GeometryPolygon, append(geometry.Parts, vnext.GeometryPart{Rings: rings})
+			geometry.Kind, geometry.Parts = vnext.GeometryPolygon, append(geometry.Parts, vnext.GeometryPart{Rings: projectRings(rings, grid)})
 		case "MultiPolygon":
 			var polygons [][][]vnext.Position
 			if err := json.Unmarshal(item.Coordinates, &polygons); err != nil {
@@ -190,13 +195,33 @@ func nativeGeometry(items []doc.Geometry) (vnext.Geometry, error) {
 			}
 			geometry.Kind = vnext.GeometryPolygon
 			for _, rings := range polygons {
-				geometry.Parts = append(geometry.Parts, vnext.GeometryPart{Rings: rings})
+				geometry.Parts = append(geometry.Parts, vnext.GeometryPart{Rings: projectRings(rings, grid)})
 			}
 		default:
 			return vnext.Geometry{}, fmt.Errorf("unsupported geometry %q", item.Type)
 		}
 	}
 	return geometry, nil
+}
+
+func projectPosition(lng, lat float64, grid surfaceGrid) vnext.Position {
+	return vnext.Position{projectX(lng, grid), projectY(lat, grid)}
+}
+
+func projectPositions(positions []vnext.Position, grid surfaceGrid) []vnext.Position {
+	out := make([]vnext.Position, len(positions))
+	for index, position := range positions {
+		out[index] = projectPosition(position[0], position[1], grid)
+	}
+	return out
+}
+
+func projectRings(rings [][]vnext.Position, grid surfaceGrid) [][]vnext.Position {
+	out := make([][]vnext.Position, len(rings))
+	for index, ring := range rings {
+		out[index] = projectPositions(ring, grid)
+	}
+	return out
 }
 
 func nativeRaster(world string, tileSize, index int, source lens) (vnext.RasterPyramid, error) {

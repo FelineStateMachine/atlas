@@ -20,6 +20,7 @@
 import type OLMap from "ol/Map.js";
 import { logger } from "../log.ts";
 import type { WorldContext } from "../context.ts";
+import { tilePath } from "../data/pyramid.ts";
 import { lensExtent } from "./projection.ts";
 
 const log = logger("overview");
@@ -216,7 +217,8 @@ export class Overview {
     if (!lens) return null;
     const extension = lens.formats[z - lens.minZoom];
     if (!extension) return null;
-    return `${context.base}/tiles/${lens.tiles}/${z}/${x}/${y}.${extension}`;
+    const path = tilePath(lens, z, x, y);
+    return path ? `${context.base}/${path}` : null;
   }
 }
 

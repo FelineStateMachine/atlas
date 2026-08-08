@@ -204,8 +204,8 @@ func TestTheMeasurementPageIsTheScoreThenTheDiagnosticsThenTheLedger(t *testing.
 		// the five axes, carried as diagnostics
 		"annotation", "cartography", "structure", "icons", "conventions",
 		"nothing gates on them",
-		// the whole ledger, not a count of it
-		"IGN Wiki", "Old Well", "name 200px away", "14 names, 3px residual",
+		// the native provenance accounts, not a v3 merge-log projection
+		"IGN Wiki", "Test Origin",
 		// both builds, the newer marked
 		"serving")
 

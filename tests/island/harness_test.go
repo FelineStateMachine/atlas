@@ -226,11 +226,13 @@ func firstWorld(t *testing.T, volume hostenv.Volume) string {
 
 // corpusWorld is the slice of a payload the tests read expectations out of.
 type corpusWorld struct {
+	Slug        string             `json:"-"`
 	Collections []corpusCollection `json:"collections"`
 }
 
 type corpusCollection struct {
 	ID       json.Number       `json:"id"`
+	NativeID string            `json:"-"`
 	Title    string            `json:"title"`
 	Kind     string            `json:"kind"`
 	Group    string            `json:"group"`
@@ -252,6 +254,10 @@ func readCorpusWorld(t *testing.T, slug, world string) corpusWorld {
 	var out corpusWorld
 	if err := json.Unmarshal(body, &out); err != nil {
 		t.Fatal(err)
+	}
+	out.Slug = world
+	for index := range out.Collections {
+		out.Collections[index].NativeID = world + "/layer/" + out.Collections[index].ID.String()
 	}
 	return out
 }
@@ -292,7 +298,7 @@ func featureNamed(t *testing.T, world corpusWorld, title string) string {
 	for _, collection := range world.Collections {
 		for _, feature := range collection.Features {
 			if feature.Title == title {
-				return feature.ID.String()
+				return world.Slug + "/feature/" + feature.ID.String()
 			}
 		}
 	}
@@ -320,7 +326,7 @@ func firstPoint(t *testing.T, slug, world string) (id, title string) {
 	if len(held.Locations) == 0 {
 		t.Fatalf("the corpus packs an empty location list for %s/%s", slug, world)
 	}
-	return held.Locations[0].ID.String(), held.Locations[0].Title
+	return world + "/feature/" + held.Locations[0].ID.String(), held.Locations[0].Title
 }
 
 // collectionNamed finds one collection by title, for the same reason.

@@ -109,12 +109,12 @@ func TestTheLabelLadderReadsTheCuration(t *testing.T) {
 		switch collection.Kind {
 		case "area":
 			if collection.Attrs["atlas.label.policy"] == "quiet" {
-				wantSilent = append(wantSilent, collection.ID.String())
+				wantSilent = append(wantSilent, collection.NativeID)
 			} else {
-				wantSpeaking = append(wantSpeaking, collection.ID.String())
+				wantSpeaking = append(wantSpeaking, collection.NativeID)
 			}
 		case "path":
-			pathCollection = collection.ID.String()
+			pathCollection = collection.NativeID
 		}
 	}
 	sortStrings(wantSpeaking)
@@ -228,8 +228,8 @@ func TestTheLabelToggleWearsTheMarkOfWhatItAsks(t *testing.T) {
 		want  string
 		wrong string
 	}{
-		{"901", "Regions, an area", bar, tag},
-		{"902", "Districts, points curated as text", tag, bar},
+		{"overworld/layer/901", "Regions, an area", bar, tag},
+		{"overworld/layer/902", "Districts, points curated as text", tag, bar},
 	} {
 		button := toggleMarkup(body, tt.id)
 		switch {
@@ -245,7 +245,7 @@ func TestTheLabelToggleWearsTheMarkOfWhatItAsks(t *testing.T) {
 	// A plain pin row has no policy to flip, so it has no button -- and the
 	// column is held open anyway, which is the half a missing element would
 	// silently get right and a wrong element would silently get wrong.
-	pins := rowMarkup(body, "903")
+	pins := rowMarkup(body, "overworld/layer/903")
 	if pins == "" {
 		t.Fatal("the plain pin row is not in the legend")
 	}
@@ -329,13 +329,13 @@ func TestTheLegendTreeIsOneTree(t *testing.T) {
 	}
 	// A shape collection carries a feature index; the corpus names which.
 	if watersheds := collectionNamed(t, payload, "Watersheds"); !strings.Contains(page,
-		`data-feature-index="`+watersheds.ID.String()+`"`) {
+		`data-feature-index="`+watersheds.NativeID+`"`) {
 		t.Error("a shape row carries no feature index")
 	}
 	// The city's point collection is drawn as pins, so it has no unfolding
 	// chevron: the affordance appears where the capability does.
 	if historic := collectionNamed(t, payload, "Historic Resources"); strings.Contains(page,
-		`data-expand-collection="`+historic.ID.String()+`"`) {
+		`data-expand-collection="`+historic.NativeID+`"`) {
 		t.Error("a point collection was given a feature index")
 	}
 }

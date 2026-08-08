@@ -3,7 +3,7 @@ package maturity
 import (
 	"fmt"
 
-	"github.com/FelineStateMachine/atlas/format/bundle"
+	"github.com/FelineStateMachine/atlas/format/vnext"
 )
 
 // Comparison is what the monotonicity gate found.
@@ -75,15 +75,15 @@ func Serving(scores []*Score) *Score {
 	return winner
 }
 
-// newer is bundle.Newer over scores. The descriptor is built rather than
+// newer is vnext.Newer over scores. The descriptor is built rather than
 // re-implemented, so the ordering has exactly one definition and it lives in
 // the format.
 func newer(a, b *Score) bool {
-	return bundle.Newer(descriptorOf(a), descriptorOf(b))
+	return vnext.Newer(descriptorOf(a), descriptorOf(b))
 }
 
-func descriptorOf(s *Score) bundle.Descriptor {
-	return bundle.Descriptor{
+func descriptorOf(s *Score) vnext.Descriptor {
+	return vnext.Descriptor{
 		Locator:   s.Path,
 		Slug:      s.Volume,
 		Title:     s.Title,

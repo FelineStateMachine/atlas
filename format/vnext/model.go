@@ -189,6 +189,7 @@ type LegendEntry struct {
 type Asset struct {
 	ID         string
 	MediaType  string
+	Path       string
 	Data       []byte
 	Provenance string
 }

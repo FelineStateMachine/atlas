@@ -58,7 +58,7 @@ Location() string                               // a label: where the library li
 The registry model is **scan at launch, rescan on import — never watch** (issue
 #5 §2, decision 15). A file dropped into the library from outside appears at
 the next launch. The fold that decides which build of a volume serves is
-`format/bundle`'s and is pure — newest capture, then policy revision, then
+`format/vnext`'s and is pure — newest capture, then policy revision, then
 stamp, then locator — so a host only ever has to produce descriptors.
 
 `Location()` is a label, not a path the handler takes apart: it is what the
@@ -125,7 +125,7 @@ composed `dist/bundles`. The headless host reads the same two variables
 `included/` (`//go:embed included/*.atlas`) and installs it into the library
 before the host is constructed, so the first scan already serves Earth and a
 first launch opens onto a world instead of the empty-library card. The install
-goes through `format/bundle`'s own path — validated, versioned, staged,
+goes through `format/vnext`'s own path — validated, versioned, staged,
 idempotent — so a second launch is a no-op and another Earth build in the
 library stays beside it for the fold to order; a built-in that cannot be
 installed is a startup error, never a silent absence. After installation the
@@ -665,7 +665,7 @@ registry is a depcheck failure, not a review comment.
 
 | File | What it decides |
 |---|---|
-| `world.go` | the payload model: collections in order, points unpacked from `ATLASLOC`, shape rings projected onto the world square, the parent chain, containment |
+| `world.go` + `vnext_runtime.go` | the semantic model: Presentation applied to FeatureSets, durable string identities, direct coordinate-space geometry, typed properties, relationships, provenance, the parent chain and containment |
 | `legend.go` | the tree — sections, rows, counts, the label ladder, the feature index order, isolating, the solo chip, the opening arrangement |
 | `filter.go` | what stands: the hide set, the search, the AND-across/OR-within highlight filter, the shard, the counts and the words above them |
 | `view.go` | the card, the dock, the grid and overview chrome, the viewport state node |

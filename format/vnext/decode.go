@@ -380,7 +380,7 @@ func decodeAssets(reader *Reader, table Table) ([]Asset, error) {
 		}
 		assets[row] = Asset{
 			ID: requiredString(table, row, "asset.id"), MediaType: requiredString(table, row, "asset.mediaType"),
-			Data: data, Provenance: optionalStringAt(table, row, "asset.provenance"),
+			Path: path, Data: data, Provenance: optionalStringAt(table, row, "asset.provenance"),
 		}
 	}
 	return assets, nil

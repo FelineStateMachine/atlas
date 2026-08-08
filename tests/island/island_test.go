@@ -187,13 +187,13 @@ func TestTheHideSetIsThePayloadsOwnIDs(t *testing.T) {
 	// leave the count.
 	mpo := collectionNamed(t, payload, "MPO Boundary")
 	answer := arrange(t, handler, slug, "collections",
-		"collection", mpo.ID.String(), "visible", "0")
+		"collection", mpo.NativeID, "visible", "0")
 	if !strings.Contains(answer, countOf(everything-len(mpo.Features))) {
 		t.Errorf("hiding %s did not take its %d features off the count:\n%s",
 			mpo.Title, len(mpo.Features), answer)
 	}
 	page := openExplorer(t, handler, slug, world)
-	if got := idStrings(t, entryOf(t, page)["hidden"]); !reflect.DeepEqual(got, []string{mpo.ID.String()}) {
+	if got := idStrings(t, entryOf(t, page)["hidden"]); !reflect.DeepEqual(got, []string{mpo.NativeID}) {
 		t.Errorf("hidden = %v, want the one row put away", got)
 	}
 
@@ -205,7 +205,7 @@ func TestTheHideSetIsThePayloadsOwnIDs(t *testing.T) {
 	}
 	want := make([]string, 0, len(payload.Collections))
 	for _, collection := range payload.Collections {
-		want = append(want, collection.ID.String())
+		want = append(want, collection.NativeID)
 	}
 	sort.Strings(want)
 	page = openExplorer(t, handler, slug, world)
@@ -284,12 +284,12 @@ func TestTheLabelLedgerKeepsOnlyDisagreements(t *testing.T) {
 
 	// A speaking area silenced disagrees with its curation and is recorded.
 	speaking := collectionNamed(t, payload, "Zoning")
-	flip(speaking.ID.String())
-	if got := ledger(); !reflect.DeepEqual(got, []string{speaking.ID.String() + "=quiet"}) {
+	flip(speaking.NativeID)
+	if got := ledger(); !reflect.DeepEqual(got, []string{speaking.NativeID + "=quiet"}) {
 		t.Errorf("labels = %v, want the one disagreement recorded", got)
 	}
 	// Flipped back, the override has nothing left to say and is dropped.
-	flip(speaking.ID.String())
+	flip(speaking.NativeID)
 	if got := ledger(); len(got) != 0 {
 		t.Errorf("labels = %v; a flip back to the curated word should drop the override", got)
 	}
@@ -300,8 +300,8 @@ func TestTheLabelLedgerKeepsOnlyDisagreements(t *testing.T) {
 	if quiet.Attrs["atlas.label.policy"] != "quiet" {
 		t.Fatalf("the corpus no longer curates %s quiet; this test needs a quiet collection", quiet.Title)
 	}
-	flip(quiet.ID.String())
-	if got := ledger(); !reflect.DeepEqual(got, []string{quiet.ID.String() + "=always"}) {
+	flip(quiet.NativeID)
+	if got := ledger(); !reflect.DeepEqual(got, []string{quiet.NativeID + "=always"}) {
 		t.Errorf("labels = %v, want the quiet collection's override", got)
 	}
 
@@ -309,11 +309,11 @@ func TestTheLabelLedgerKeepsOnlyDisagreements(t *testing.T) {
 	// overrides behind. The rows that wear a toggle here are the areas: a
 	// path collection has no policy to flip, and the city's points draw as
 	// plain pins.
-	flip(quiet.ID.String())
+	flip(quiet.NativeID)
 	for turn := 0; turn < 2; turn++ {
 		for _, collection := range payload.Collections {
 			if collection.Kind == "area" {
-				flip(collection.ID.String())
+				flip(collection.NativeID)
 			}
 		}
 	}

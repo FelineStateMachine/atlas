@@ -34,6 +34,7 @@ import { cellMoved, drawGrid, planCells } from "../chart/grid.ts";
 import { labelFitsCell } from "../chart/styles.ts";
 import type { DrawnCell } from "../chart/grid.ts";
 import { WorldModel, worldGrid } from "../world/model.ts";
+import { legacyOpenWorld } from "./legacy.ts";
 import type { PointRecord } from "../world/model.ts";
 import { Visibility } from "../world/visibility.ts";
 import { EMPTY_SCENE } from "../scene/read.ts";
@@ -100,8 +101,8 @@ function world(slug: string, name: string): WorldModel {
   assert.ok(payload, `${slug}/${name} has a payload`);
   // The world's own window overrides the manifest's, which is the whole
   // difference between a coordinate on this world and one 850,000 pixels away.
-  return new WorldModel(name, payload, worldGrid(tileGrid(slug), payload),
-    table(locations(slug, name)));
+  return new WorldModel(legacyOpenWorld(name, payload, worldGrid(tileGrid(slug), payload),
+    table(locations(slug, name))));
 }
 
 /**
@@ -164,7 +165,7 @@ function sweep(points: readonly PointRecord[], extent: Extent): number {
 function draw(model: WorldModel, cell: string): {
   cells: DrawnCell[]; extent: readonly number[] | null; standing: PointRecord[];
 } {
-  const lens = model.payload.lenses[0] ?? null;
+  const lens = model.lenses[0] ?? null;
   const ground = model.ground(lens);
   const system = cellSystems.require("geohash");
   const standing = [...new Visibility(model, EMPTY_SCENE, lens?.shard ?? 0, null).standing()];
@@ -325,7 +326,7 @@ test("descending into a real cell holds the window's own context", () => {
 
 test("the chosen path draws under the pins and the context over them", () => {
   const model = world("mars", "global");
-  const lens = model.payload.lenses[0] ?? null;
+  const lens = model.lenses[0] ?? null;
   const ground = model.ground(lens);
   const system = cellSystems.require("geohash");
   const chosen = new VectorSource({ wrapX: false });
@@ -361,7 +362,7 @@ test("the chosen path draws under the pins and the context over them", () => {
 
 /** Every feature one draw built, chosen path first, in the sources' own order. */
 function features(model: WorldModel, cell: string): FeatureLike[] {
-  const lens = model.payload.lenses[0] ?? null;
+  const lens = model.lenses[0] ?? null;
   const chosen = new VectorSource({ wrapX: false });
   const context = new VectorSource({ wrapX: false });
   drawGrid(model.ground(lens), cellSystems.require("geohash"), cell, [], chosen, context);
@@ -376,7 +377,7 @@ function planned(model: WorldModel, cell: string): PlanCell[] {
 /** What one cell paints at one resolution: null is "nothing at all". */
 function paints(cell: PlanCell, resolution: number, subgridVisible: boolean): boolean {
   const model = world("mars", "global");
-  const ground = model.ground(model.payload.lenses[0] ?? null);
+  const ground = model.ground(model.lenses[0] ?? null);
   return gridCellVisual(ground, cellSystems.require("geohash"), cell, {
     subgridVisible,
     labelled: labelFitsCell(cell.hash, cell.role, cell.extent, resolution),
@@ -396,7 +397,7 @@ test("a cell held two levels down plans every one of its children, in the frozen
   ];
   const model = world("mars", "global");
   const plan = planCells(
-    model.ground(model.payload.lenses[0] ?? null), cellSystems.require("geohash"), "m6");
+    model.ground(model.lenses[0] ?? null), cellSystems.require("geohash"), "m6");
   assert.deepEqual(
     plan.map((cell) => [cell.hash, cell.role, cell.contextDistance]), expected,
     "ninety-five cells, position for position");

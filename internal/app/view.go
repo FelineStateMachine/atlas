@@ -445,16 +445,13 @@ func namespacesOf(keys ...string) []string {
 	return out
 }
 
-// detail builds the card for one feature, or the closed card when nothing is
-// selected. Prose, links and the attributes that only matter once a card is
-// open all come out of worlds/<slug>.text, which is why it is read here and
-// not when the world is stood up.
-func (a *App) detail(volume hostenv.Volume, model *worldModel, session Session, id string) DetailView {
+// detail builds the card directly from the selected semantic feature.
+func (a *App) detail(_ hostenv.Volume, model *worldModel, session Session, id string) DetailView {
 	if id == "" || !session.Detail.Open || model == nil {
 		return DetailView{}
 	}
 	out := DetailView{Open: true, ID: id}
-	text := a.text(volume, model.Slug)
+	var feature *vnext.Feature
 
 	switch pin, isPoint := model.PointByID[id]; {
 	case isPoint:
@@ -468,7 +465,7 @@ func (a *App) detail(volume hostenv.Volume, model *worldModel, session Session, 
 		// Which is what earns this card the empty cell row: a place a point
 		// stands is a place the cell systems can name.
 		out.Point = true
-		out.Source = model.Origin
+		feature = pin.Feature
 	default:
 		shape, isShape := model.ShapeByID[id]
 		if !isShape {
@@ -480,14 +477,20 @@ func (a *App) detail(volume hostenv.Volume, model *worldModel, session Session, 
 			out.Category = shape.Subtitle
 		}
 		out.Color = colorFor(shape.ID)
-		out.Source = model.Origin
-		out.Rows = append(out.Rows, attributeRows(shape.Attrs)...)
+		feature = shape.Feature
 	}
 
-	if held, ok := text[id]; ok {
-		out.Description = cleanDescription(held.Description)
-		for _, link := range held.Links {
-			linked := strconv.FormatInt(link, 10)
+	if feature != nil {
+		out.Description = cleanDescription(feature.Description)
+		out.Rows = append(out.Rows, attributeRows(propertiesToAttrs(feature.Properties))...)
+		if len(feature.Provenance) > 0 {
+			out.Source = feature.Provenance[0].Source
+		}
+		for _, relationship := range feature.Relationships {
+			if relationship.Predicate != "references" {
+				continue
+			}
+			linked := relationship.Target
 			title := linked
 			if pin, ok := model.PointByID[linked]; ok {
 				title = pin.Title
@@ -496,7 +499,9 @@ func (a *App) detail(volume hostenv.Volume, model *worldModel, session Session, 
 			}
 			out.Links = append(out.Links, DetailLink{ID: linked, Title: title})
 		}
-		out.Rows = append(out.Rows, attributeRows(held.Attrs)...)
+	}
+	if out.Source == "" {
+		out.Source = model.Origin
 	}
 	if out.Description == "" {
 		out.Description = "No description is included in the archive."

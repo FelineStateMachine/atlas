@@ -8,16 +8,13 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/FelineStateMachine/atlas/format/bundle"
 	"github.com/FelineStateMachine/atlas/format/vnext"
 	"github.com/FelineStateMachine/atlas/internal/app/hostenv"
 	"github.com/FelineStateMachine/atlas/internal/logging"
 )
 
-// The data plane. Its shape is not a choice this rewrite gets to make: the
-// seam reads it, and it stays byte-compatible with the implementation this
-// one replaces (issue #5 §4.2, docs/app.md §2.1). app_test.go holds this
-// file to that shape.
+// The native vNext data plane. app_test.go holds schema, typed tables,
+// content-addressed assets and the absence of the retired projections to it.
 
 // BasePath is the URL prefix volume content is served under. It appears in the
 // composed catalog so nothing has to assemble a content URL from parts it had
@@ -131,7 +128,7 @@ func (a *App) handleContent(w http.ResponseWriter, r *http.Request) {
 			http.NotFound(w, r)
 			return
 		}
-		serveProjectedContent(w, data, "application/schema+json")
+		serveContent(w, data, "application/schema+json")
 		return
 	}
 	if strings.HasPrefix(rest, "data/") && strings.HasSuffix(rest, ".pack") {
@@ -140,30 +137,10 @@ func (a *App) handleContent(w http.ResponseWriter, r *http.Request) {
 			http.NotFound(w, r)
 			return
 		}
-		serveProjectedContent(w, data, contentTypes[".pack"])
+		serveContent(w, data, contentTypes[".pack"])
 		return
 	}
-	if strings.HasPrefix(rest, bundle.WorldsPrefix) {
-		data, kind, projected, err := a.projectedContent(held, rest)
-		if err != nil || !projected {
-			http.NotFound(w, r)
-			return
-		}
-		serveProjectedContent(w, data, kind)
-		return
-	}
-	if !strings.HasPrefix(rest, bundle.TilesPrefix) &&
-		!strings.HasPrefix(rest, bundle.IconsPrefix) {
-		http.NotFound(w, r)
-		return
-	}
-	dot := strings.LastIndexByte(rest, '.')
-	if dot < 0 {
-		http.NotFound(w, r)
-		return
-	}
-	kind, ok := contentTypes[rest[dot:]]
-	if !ok {
+	if strings.HasPrefix(rest, "worlds/") || strings.HasPrefix(rest, "icons/") {
 		http.NotFound(w, r)
 		return
 	}
@@ -172,6 +149,23 @@ func (a *App) handleContent(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		http.NotFound(w, r)
 		return
+	}
+	kind := ""
+	if dot := strings.LastIndexByte(rest, '.'); dot >= 0 {
+		kind = contentTypes[rest[dot:]]
+	}
+	if kind == "" {
+		if semantic, err := a.semanticVolume(held); err == nil {
+			for _, asset := range semantic.Assets {
+				if asset.Path == rest {
+					kind = asset.MediaType
+					break
+				}
+			}
+		}
+	}
+	if kind == "" {
+		kind = http.DetectContentType(data)
 	}
 	w.Header().Set("Content-Type", kind)
 	w.Header().Set("Content-Length", strconv.Itoa(len(data)))
@@ -184,7 +178,7 @@ func (a *App) handleContent(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-func serveProjectedContent(w http.ResponseWriter, data []byte, kind string) {
+func serveContent(w http.ResponseWriter, data []byte, kind string) {
 	w.Header().Set("Content-Type", kind)
 	w.Header().Set("Content-Length", strconv.Itoa(len(data)))
 	w.Header().Set("Cache-Control", "private, max-age=31536000, immutable")

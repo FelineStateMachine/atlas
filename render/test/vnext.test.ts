@@ -4,6 +4,7 @@ import {
   mergeSchemas, PackedTable, projectFields,
   type FieldSchema, type Schema,
 } from "../data/vnext.ts";
+import { coreID, decodeGeometry } from "../data/semantic.ts";
 
 const ROOT = "11111111-1111-5111-8111-111111111111";
 const TITLE = "22222222-2222-5222-8222-222222222222";
@@ -53,6 +54,28 @@ test("a corrupt column is refused at the browser boundary", () => {
 	const bytes = new Uint8Array(buffer);
 	bytes[buffer.byteLength - 1] = (bytes[buffer.byteLength - 1] ?? 0) ^ 0xff;
   assert.throws(() => PackedTable.over(buffer), /checksum/);
+});
+
+test("the browser derives the same stable core identities as the writer", async () => {
+  assert.equal(await coreID("feature.id"), "3aaf6328-ca62-58e2-8645-eab4421aa628");
+  assert.notEqual(await coreID("feature.id"), await coreID("feature.title"));
+});
+
+test("native geometry preserves parts, rings, and string identities without GeoJSON", () => {
+  const bytes = geometry(3, [
+    [
+      [[0, 0], [4, 0], [4, 4], [0, 0]],
+      [[1, 1], [2, 1], [1, 1]],
+    ],
+    [[[10, 10], [12, 10], [10, 10]]],
+  ]);
+  assert.deepEqual(decodeGeometry(bytes), {
+    kind: 3,
+    parts: [
+      { rings: [[[0, 0], [4, 0], [4, 4], [0, 0]], [[1, 1], [2, 1], [1, 1]]] },
+      { rings: [[[10, 10], [12, 10], [10, 10]]] },
+    ],
+  });
 });
 
 function fixtureBlock(): ArrayBuffer {
@@ -146,4 +169,28 @@ function crc32(...parts: readonly Uint8Array[]): number {
     }
   }
   return (crc ^ 0xffffffff) >>> 0;
+}
+
+function geometry(kind: number, parts: readonly (readonly (readonly [number, number][])[])[]): Uint8Array {
+  const length = 5 + parts.reduce((partSum, rings) => partSum + 4 + rings.reduce(
+    (ringSum, positions) => ringSum + 4 + positions.length * 16, 0), 0);
+  const bytes = new Uint8Array(length);
+  const view = new DataView(bytes.buffer);
+  bytes[0] = kind;
+  view.setUint32(1, parts.length, true);
+  let at = 5;
+  for (const rings of parts) {
+    view.setUint32(at, rings.length, true);
+    at += 4;
+    for (const positions of rings) {
+      view.setUint32(at, positions.length, true);
+      at += 4;
+      for (const [x, y] of positions) {
+        view.setFloat64(at, x, true);
+        view.setFloat64(at + 8, y, true);
+        at += 16;
+      }
+    }
+  }
+  return bytes;
 }

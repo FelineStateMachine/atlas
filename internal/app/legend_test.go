@@ -73,13 +73,13 @@ func TestIconAssetURLIsSpelledTheWayTheSeamSpellsIt(t *testing.T) {
 		asset string
 		want  string
 	}{
-		{"vault.svg", base + "/icons/vault.svg"},
-		{"std--maki-monument.svg", base + "/icons/std--maki-monument.svg"},
+		{"assets/aabb", base + "/assets/aabb"},
+		{"assets/ccdd", base + "/assets/ccdd"},
 		// The seam's own case, from render/test/markers.test.ts: the
 		// separators stay separators, the brackets stay brackets, and the
 		// space goes on the wire encoded.
-		{"signs/Vault 101 (Ext).png", base + "/icons/signs/Vault%20101%20(Ext).png"},
-		{"a&b.svg", base + "/icons/a%26b.svg"},
+		{"assets/Vault 101 (Ext)", base + "/assets/Vault%20101%20(Ext)"},
+		{"assets/a&b", base + "/assets/a%26b"},
 	}
 	for _, tt := range cases {
 		if got := iconAssetURL(base, tt.asset); got != tt.want {

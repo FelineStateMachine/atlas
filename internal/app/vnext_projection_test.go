@@ -1,19 +1,16 @@
 package app
 
 import (
-	"encoding/json"
-	"path/filepath"
-	"runtime"
+	"strings"
 	"testing"
 
-	"github.com/FelineStateMachine/atlas/format/bundle"
 	"github.com/FelineStateMachine/atlas/format/vnext"
 )
 
-func TestVNextEarthProjectsToTheEstablishedRendererContract(t *testing.T) {
+func TestVNextEarthBuildsTheRendererDirectly(t *testing.T) {
 	t.Parallel()
 
-	native, err := vnext.OpenFile(includedEarthPath(t), vnext.StandardSchema())
+	native, err := vnext.OpenFile("../../included/earth-20260803-28305c3d1811.atlas", vnext.StandardSchema())
 	if err != nil {
 		t.Fatalf("open native Earth: %v", err)
 	}
@@ -23,108 +20,39 @@ func TestVNextEarthProjectsToTheEstablishedRendererContract(t *testing.T) {
 		t.Fatalf("restore native Earth: %v", err)
 	}
 
-	payload, locations, texts, err := presentVNextWorld(semantic.Worlds[0])
-	if err != nil {
-		t.Fatalf("present vNext Earth: %v", err)
-	}
-	if len(payload.Collections) != 7 || len(payload.Lenses) != 1 {
-		t.Fatalf("projection has %d collections and %d lenses", len(payload.Collections), len(payload.Lenses))
-	}
-	if len(locations) != 202 {
-		t.Fatalf("projection has %d point locations", len(locations))
-	}
-	if len(texts) != 379 {
-		t.Fatalf("projection has %d text records", len(texts))
-	}
-	countries := projectedCollection(payload, "Countries")
-	if countries == nil || len(countries.Features) != 177 {
-		t.Fatalf("Countries projection = %#v", countries)
-	}
-	fiji := projectedFeature(*countries, "Fiji")
-	if fiji == nil || len(fiji.Geometry) != 1 || fiji.Geometry[0].Type != "MultiPolygon" {
-		t.Fatalf("Fiji projection = %#v", fiji)
-	}
-
-	model, err := buildVNextWorld(semantic.Worlds[0])
+	model, err := buildVNextWorld(semantic.Worlds[0], semantic.Assets)
 	if err != nil {
 		t.Fatalf("build vNext world: %v", err)
 	}
-	if len(model.Points) != 202 || len(model.Shapes) != 177 || len(model.Members) != 7 {
-		t.Fatalf("runtime model has %d points, %d shapes, %d collections", len(model.Points), len(model.Shapes), len(model.Members))
+	if len(model.Points) != 202 || len(model.Shapes) != 177 || len(model.Members) != 7 || len(model.Lenses) != 1 {
+		t.Fatalf("runtime model has %d points, %d shapes, %d collections and %d lenses", len(model.Points), len(model.Shapes), len(model.Members), len(model.Lenses))
+	}
+	countries := nativeCollection(model, "Countries")
+	if countries == nil || len(countries.Shapes) != 177 {
+		t.Fatalf("Countries collection = %#v", countries)
+	}
+	fiji := nativeShape(countries, "Fiji")
+	if fiji == nil || len(fiji.Polygons) < 2 || fiji.Feature == nil {
+		t.Fatalf("Fiji native shape = %#v", fiji)
+	}
+	if !strings.Contains(fiji.ID, "/feature/") || countries.ID == "" {
+		t.Fatalf("native identities were not preserved: feature=%q layer=%q", fiji.ID, countries.ID)
 	}
 }
 
-func TestVNextEarthServesTheThreeRendererPayloads(t *testing.T) {
-	t.Parallel()
-
-	native, err := vnext.OpenFile(includedEarthPath(t), vnext.StandardSchema())
-	if err != nil {
-		t.Fatalf("open native Earth: %v", err)
-	}
-	defer native.Close()
-	semantic, err := native.Volume()
-	if err != nil {
-		t.Fatalf("restore native Earth: %v", err)
-	}
-	world := semantic.Worlds[0]
-
-	payloadBytes, kind, held, err := projectedVNextEntry(world, bundle.WorldEntryName(world.ID, bundle.WorldSuffix))
-	if err != nil || !held || kind != "application/json" {
-		t.Fatalf("project world entry = %q, %t, %v", kind, held, err)
-	}
-	var payload worldPayload
-	if err := json.Unmarshal(payloadBytes, &payload); err != nil {
-		t.Fatalf("decode projected world: %v", err)
-	}
-	if len(payload.Collections) != 7 || len(payload.Lenses[0].Formats) != 7 {
-		t.Fatalf("projected payload = %#v", payload)
-	}
-
-	locationBytes, kind, held, err := projectedVNextEntry(world, bundle.WorldEntryName(world.ID, bundle.PackedSuffix))
-	if err != nil || !held || kind != "application/octet-stream" {
-		t.Fatalf("project locations entry = %q, %t, %v", kind, held, err)
-	}
-	locations, err := bundle.UnpackLocations(locationBytes)
-	if err != nil || len(locations) != 202 {
-		t.Fatalf("projected locations = %d, %v", len(locations), err)
-	}
-
-	textBytes, kind, held, err := projectedVNextEntry(world, bundle.WorldEntryName(world.ID, bundle.TextSuffix))
-	if err != nil || !held || kind != "application/json" {
-		t.Fatalf("project text entry = %q, %t, %v", kind, held, err)
-	}
-	var texts map[string]featureText
-	if err := json.Unmarshal(textBytes, &texts); err != nil || len(texts) != 379 {
-		t.Fatalf("projected text = %d, %v", len(texts), err)
-	}
-}
-
-func includedEarthPath(t *testing.T) string {
-	t.Helper()
-	_, file, _, ok := runtime.Caller(0)
-	if !ok {
-		t.Fatal("locate projection test")
-	}
-	paths, err := filepath.Glob(filepath.Join(filepath.Dir(file), "..", "..", "included", "earth-*.atlas"))
-	if err != nil || len(paths) != 1 {
-		t.Fatalf("locate native Earth: %v, %v", paths, err)
-	}
-	return paths[0]
-}
-
-func projectedCollection(payload worldPayload, title string) *payloadCollection {
-	for index := range payload.Collections {
-		if payload.Collections[index].Title == title {
-			return &payload.Collections[index]
+func nativeCollection(model *worldModel, title string) *collectionModel {
+	for _, collection := range model.Members {
+		if collection.Title == title {
+			return collection
 		}
 	}
 	return nil
 }
 
-func projectedFeature(collection payloadCollection, title string) *payloadFeature {
-	for index := range collection.Features {
-		if collection.Features[index].Title == title {
-			return &collection.Features[index]
+func nativeShape(collection *collectionModel, title string) *shapeModel {
+	for _, shape := range collection.Shapes {
+		if shape.Title == title {
+			return shape
 		}
 	}
 	return nil

@@ -1,16 +1,8 @@
-// What `/data` says, as types.
+// Presentation-facing types shared by the native model and renderers.
 //
-// These are `docs/format.md` §4 and §6 written as TypeScript, and nothing
-// more: no defaults are applied here, no key is renamed, nothing is dropped.
-// A reader is lenient (format.md §2.3) — every optional field really is
-// optional, unknown keys ride along untouched, and the only thing this seam
-// refuses is a `formatVersion` it does not know, which the catalog never
-// carries because the server already refused it.
-//
-// The seam reads these shapes and nothing else off the wire. Everything the
-// application decided — what is hidden, what is highlighted, which lens is
-// open — arrives through the scene description instead (`scene/`), because
-// data flows one way and the payload is not where a session lives.
+// The wire contract itself lives in semantic.ts and vnext.ts. The older
+// document-shaped interfaces below remain only for extracted test fixtures;
+// production has no endpoint or decoder for them.
 
 import {
   KEY_LABEL_POLICY,
@@ -40,8 +32,12 @@ export interface CoverageLevel {
 
 /** One raster pyramid picturing a world. */
 export interface Lens {
+  readonly id?: string;
   readonly name: string;
+  /** Stable presentation key, derived from the semantic raster identity. */
   readonly tiles: string;
+  /** Native blob path template; URLs substitute z/x/y/format directly. */
+  readonly template?: string;
   readonly minZoom: number;
   readonly maxZoom: number;
   readonly fullZoom: number;
@@ -85,7 +81,10 @@ export type Kind = "point" | "path" | "area";
 
 /** One ordered group of features. The array's order is load-bearing. */
 export interface Collection {
-  readonly id: number;
+  /** The presentation layer identity; never a position or compatibility hash. */
+  readonly id: string | number;
+  readonly featureSet?: string;
+  readonly style?: string;
   readonly title: string;
   readonly group?: string;
   readonly kind: Kind;
@@ -95,6 +94,8 @@ export interface Collection {
   readonly color?: string;
   readonly iconColor?: string;
   readonly visible: boolean;
+  readonly labelPolicy?: string;
+  readonly renderAs?: string;
   readonly attrs?: Attrs;
   readonly features?: readonly ShapeFeature[];
 }
@@ -160,14 +161,19 @@ export function tileFormat(lens: Lens, z: number): string | null {
   return lens.formats[z - lens.minZoom] ?? null;
 }
 
+/** The native template; the fallback exists only for hand-built test lenses. */
+export function tileTemplate(lens: Lens): string {
+  return lens.template ?? `tiles/${lens.tiles}/{z}/{x}/{y}.{format}`;
+}
+
 /** The label policy an area collection curates, `always` when it says nothing. */
 export function labelPolicy(collection: Collection): "always" | "quiet" {
-  return collection.attrs?.[KEY_LABEL_POLICY] === "quiet" ? "quiet" : "always";
+  return (collection.labelPolicy || collection.attrs?.[KEY_LABEL_POLICY]) === "quiet" ? "quiet" : "always";
 }
 
 /** How a point collection draws: markers, or floating text. Absent means pin. */
 export function renderAs(collection: Collection): "pin" | "text" {
-  return collection.attrs?.[KEY_RENDER_AS] === "text" ? "text" : "pin";
+  return (collection.renderAs || collection.attrs?.[KEY_RENDER_AS]) === "text" ? "text" : "pin";
 }
 
 /** The ground width of a path collection's features, in world pixels. */

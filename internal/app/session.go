@@ -11,7 +11,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/FelineStateMachine/atlas/format/bundle"
 	"github.com/FelineStateMachine/atlas/format/vnext"
 	"github.com/FelineStateMachine/atlas/internal/app/cells"
 	"github.com/FelineStateMachine/atlas/internal/app/hostenv"
@@ -360,7 +359,7 @@ func (a *App) handleSession(w http.ResponseWriter, r *http.Request) {
 	defer a.writing.Unlock()
 
 	slug := form.get("volume")
-	if err := bundle.ValidSlug(slug); err != nil {
+	if err := vnext.ValidSlug(slug); err != nil {
 		http.Error(w, "the session request names no volume", http.StatusBadRequest)
 		return
 	}
@@ -506,7 +505,7 @@ func (a *App) arrange(volume hostenv.Volume, s *Session) {
 
 func applyWorld(c *concernContext, form formValues) error {
 	world := form.get("world")
-	if err := bundle.ValidSlug(world); err != nil {
+	if err := vnext.ValidSlug(world); err != nil {
 		return fmt.Errorf("world: %w", err)
 	}
 	if world != c.session.World {
@@ -981,7 +980,7 @@ func applyView(c *concernContext, form formValues) error {
 	if world == "" {
 		world = s.World
 	}
-	if err := bundle.ValidSlug(world); err != nil {
+	if err := vnext.ValidSlug(world); err != nil {
 		return fmt.Errorf("view: %w", err)
 	}
 	x, haveX := form.number("x")

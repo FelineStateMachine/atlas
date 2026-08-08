@@ -59,6 +59,7 @@ import {
 import type { GeoMapping, PlanCell, Ring } from "@atlas/analysis";
 import { logger } from "../log.ts";
 import type { WorldContext } from "../context.ts";
+import { tilePath } from "../data/pyramid.ts";
 import type { Line as ShapeLine, ShapeRecord } from "../world/model.ts";
 import type { Attrs, Collection, Lens } from "../data/payload.ts";
 import { iconURL } from "../data/plane.ts";
@@ -410,7 +411,7 @@ export class AtlasGlobe extends HTMLElement {
    */
   show(context: WorldContext): void {
     this.context = context;
-    this.equirect = equirectOf(context.model.payload.attrs ?? {});
+    this.equirect = equirectOf(context.model.attrs);
     if (!this.equirect || !this.globe) return;
     const worldKey = `${context.base}/${context.model.slug}`;
     if (worldKey !== this.worldKey) {
@@ -899,8 +900,8 @@ export class AtlasGlobe extends HTMLElement {
     for (const held of this.sprites.values()) {
       const sprite = held as THREE.Sprite;
       if (!sprite.isSprite) continue;
-      const stood = held.userData as { id?: string; owner?: number };
-      const mark = marks.get(stood.owner ?? -1) ?? BARE_MARKER;
+      const stood = held.userData as { id?: string; owner?: string | number };
+      const mark = marks.get(stood.owner ?? "") ?? BARE_MARKER;
       const chosen = stood.id === context.scene.selected;
       sprite.material = markerMaterial(mark, chosen);
       const size = chosen ? PIN_SELECTED_SIZE : PIN_SIZE;
@@ -1472,7 +1473,8 @@ export class AtlasGlobe extends HTMLElement {
     if (!context || !lens) return null;
     const extension = lens.formats[z - lens.minZoom];
     if (!extension) return null;
-    return `${context.base}/tiles/${lens.tiles}/${z}/${x}/${y}.${extension}`;
+    const path = tilePath(lens, z, x, y);
+    return path ? `${context.base}/${path}` : null;
   }
 
   private pick(lat: number, lng: number): void {
@@ -2143,9 +2145,9 @@ const BARE_MARKER: Marker = {
 };
 
 /** Every collection's marker, in payload order, which is palette order. */
-function markersOf(context: WorldContext): Map<number, Marker> {
+function markersOf(context: WorldContext): Map<string | number, Marker> {
   const outset = outsetColor(context.outset);
-  const marker = (collection: Collection, ordinal: number): [number, Marker] => [
+  const marker = (collection: Collection, ordinal: number): [string | number, Marker] => [
     collection.id,
     {
       asset: collection.iconAsset ?? "",

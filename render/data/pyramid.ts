@@ -25,7 +25,7 @@
 // bitset says yes.
 
 import type { CoverageLevel, Lens, PixelRect, TileGrid } from "./payload.ts";
-import { tileFormat } from "./payload.ts";
+import { tileFormat, tileTemplate } from "./payload.ts";
 
 /** A half-open tile window at one level: `x0 ≤ x < x1`, `y0 ≤ y < y1`. */
 export interface TileWindow {
@@ -124,7 +124,8 @@ export class LensCoverage {
 export function tilePath(lens: Lens, z: number, x: number, y: number): string | null {
   const extension = tileFormat(lens, z);
   if (!extension) return null;
-  return `tiles/${lens.tiles}/${z}/${x}/${y}.${extension}`;
+  return tileTemplate(lens).replaceAll("{z}", String(z)).replaceAll("{x}", String(x))
+    .replaceAll("{y}", String(y)).replaceAll("{format}", extension);
 }
 
 /**

@@ -7,7 +7,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/FelineStateMachine/atlas/format/bundle"
+	"github.com/FelineStateMachine/atlas/format/vnext"
 	"github.com/FelineStateMachine/atlas/internal/enrich/maturity"
 )
 
@@ -99,7 +99,7 @@ func (v *volume) Sources() []string {
 // A bundle that will not measure is reported in skipped rather than failing the
 // scan: one half-written file should not take the workbench down.
 func (l *library) volumes() (volumes []*volume, skipped []string, err error) {
-	paths, err := filepath.Glob(filepath.Join(l.dir, "*"+bundle.Extension))
+	paths, err := filepath.Glob(filepath.Join(l.dir, "*"+vnext.Extension))
 	if err != nil {
 		return nil, nil, err
 	}
@@ -123,7 +123,7 @@ func (l *library) volumes() (volumes []*volume, skipped []string, err error) {
 
 	for _, held := range bySlug {
 		sort.Slice(held.Builds, func(a, b int) bool {
-			return bundle.Newer(descriptorOf(held.Builds[a]), descriptorOf(held.Builds[b]))
+			return vnext.Newer(descriptorOf(held.Builds[a]), descriptorOf(held.Builds[b]))
 		})
 		held.Title = held.Serving().Title
 	}
@@ -176,9 +176,9 @@ func (l *library) score(path string) (*maturity.Score, error) {
 
 // descriptorOf is a scored build as the format's registry sees it, so newest
 // first means here exactly what it means to a reader opening the library.
-// Ordering has one definition and it lives in format/bundle.
-func descriptorOf(s *maturity.Score) bundle.Descriptor {
-	return bundle.Descriptor{
+// Ordering has one definition and it lives in format/vnext.
+func descriptorOf(s *maturity.Score) vnext.Descriptor {
+	return vnext.Descriptor{
 		Locator:   s.Path,
 		Slug:      s.Volume,
 		Title:     s.Title,
@@ -191,24 +191,26 @@ func descriptorOf(s *maturity.Score) bundle.Descriptor {
 // features reads one build's point features, by world, for a diff. Only a
 // comparison ever needs them, so they are unpacked on demand rather than kept
 // beside every score.
-func features(score *maturity.Score) (map[string]map[int64]string, error) {
-	reader, err := bundle.Open(score.Path)
+func features(score *maturity.Score) (map[string]map[string]string, error) {
+	reader, err := vnext.OpenFile(score.Path, vnext.StandardSchema())
 	if err != nil {
 		return nil, err
 	}
 	defer reader.Close()
 
-	byWorld := make(map[string]map[int64]string, len(score.Worlds))
-	for _, world := range score.Worlds {
-		packed, err := reader.Locations(world.Slug)
-		if err != nil {
-			return nil, err
+	volume, err := reader.Volume()
+	if err != nil {
+		return nil, err
+	}
+	byWorld := make(map[string]map[string]string, len(volume.Worlds))
+	for _, world := range volume.Worlds {
+		held := make(map[string]string)
+		for _, set := range world.FeatureSets {
+			for _, feature := range set.Features {
+				held[feature.ID] = feature.Title
+			}
 		}
-		held := make(map[int64]string, packed.Len())
-		for at := 0; at < packed.Len(); at++ {
-			held[packed.ID(at)] = packed.Title(at)
-		}
-		byWorld[world.Slug] = held
+		byWorld[world.ID] = held
 	}
 	return byWorld, nil
 }

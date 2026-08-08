@@ -2,16 +2,12 @@ package app
 
 import (
 	"encoding/base64"
-	"encoding/json"
 	"fmt"
-	"hash/fnv"
 	"math"
 	"sort"
 	"strconv"
-	"strings"
 	"sync"
 
-	"github.com/FelineStateMachine/atlas/format/bundle"
 	"github.com/FelineStateMachine/atlas/format/semconv"
 	"github.com/FelineStateMachine/atlas/format/vnext"
 	"github.com/FelineStateMachine/atlas/internal/app/cells"
@@ -64,50 +60,18 @@ func semanticWorld(volume vnext.Volume, slug string) (vnext.World, bool) {
 	return vnext.World{}, false
 }
 
-func (a *App) projectedContent(source hostenv.Volume, name string) ([]byte, string, bool, error) {
-	volume, err := a.semanticVolume(source)
-	if err != nil {
-		return nil, "", true, err
+// buildVNextWorld is the native presentation boundary. Stable schema IDs,
+// typed properties, semantic relationships and coordinate-space geometry flow
+// straight into the app model; no v3 JSON, ATLASLOC table or GeoJSON-shaped
+// compatibility object is created along the way.
+func buildVNextWorld(world vnext.World, assets []vnext.Asset) (*worldModel, error) {
+	space := world.CoordinateSpace
+	grid := tileGrid{SourceZoom: int(space.SourceZoom), FirstTile: int(space.FirstTile), TileSize: int(space.TileSize), Size: int(space.Size)}
+	model := &worldModel{
+		Slug: world.ID, Lenses: nativeRasters(world.RasterPyramids), Attrs: propertiesToAttrs(world.Claims),
+		Origin: worldOrigin(world), Grid: grid,
+		ByID: map[string]*collectionModel{}, PointByID: map[string]*pointModel{}, ShapeByID: map[string]*shapeModel{},
 	}
-	for _, world := range volume.Worlds {
-		data, kind, held, err := projectedVNextEntry(world, name)
-		if held {
-			return data, kind, true, err
-		}
-	}
-	return nil, "", false, nil
-}
-
-type compatibilityIDs struct {
-	byName map[string]int64
-	byID   map[int64]string
-}
-
-func newCompatibilityIDs() *compatibilityIDs {
-	return &compatibilityIDs{byName: make(map[string]int64), byID: make(map[int64]string)}
-}
-
-func (ids *compatibilityIDs) resolve(name string) (int64, error) {
-	if held, ok := ids.byName[name]; ok {
-		return held, nil
-	}
-	candidate := numericTail(name)
-	if candidate <= 0 {
-		hash := fnv.New64a()
-		_, _ = hash.Write([]byte(name))
-		candidate = int64(hash.Sum64() & math.MaxInt64)
-		if candidate == 0 {
-			candidate = 1
-		}
-	}
-	if owner, held := ids.byID[candidate]; held && owner != name {
-		return 0, fmt.Errorf("compatibility ID %d is shared by %s and %s", candidate, owner, name)
-	}
-	ids.byName[name], ids.byID[candidate] = candidate, name
-	return candidate, nil
-}
-
-func presentVNextWorld(world vnext.World) (worldPayload, []bundle.Location, map[string]featureText, error) {
 	sets := make(map[string]vnext.FeatureSet, len(world.FeatureSets))
 	for _, set := range world.FeatureSets {
 		sets[set.ID] = set
@@ -116,192 +80,125 @@ func presentVNextWorld(world vnext.World) (worldPayload, []bundle.Location, map[
 	for _, style := range world.Presentation.Styles {
 		styles[style.ID] = style
 	}
+	assetPaths := make(map[string]string, len(assets))
+	for _, asset := range assets {
+		assetPaths[asset.ID] = asset.Path
+	}
 	layers := append([]vnext.Layer(nil), world.Presentation.Layers...)
 	sort.SliceStable(layers, func(i, j int) bool { return layers[i].Order < layers[j].Order })
-	projection := worldProjection{
-		world: world, sets: sets, styles: styles,
-		collectionIDs: newCompatibilityIDs(), featureIDs: newCompatibilityIDs(),
-		text: make(map[string]featureText),
-	}
-	return projection.present(layers)
-}
-
-func projectedVNextEntry(world vnext.World, name string) ([]byte, string, bool, error) {
-	payload, locations, text, err := presentVNextWorld(world)
-	if err != nil {
-		return nil, "", true, err
-	}
-	switch name {
-	case bundle.WorldEntryName(world.ID, bundle.WorldSuffix):
-		data, err := json.Marshal(payload)
-		return data, "application/json", true, err
-	case bundle.WorldEntryName(world.ID, bundle.PackedSuffix):
-		return bundle.PackLocations(locations), "application/octet-stream", true, nil
-	case bundle.WorldEntryName(world.ID, bundle.TextSuffix):
-		data, err := json.Marshal(text)
-		return data, "application/json", true, err
-	default:
-		return nil, "", false, nil
-	}
-}
-
-type worldProjection struct {
-	world         vnext.World
-	sets          map[string]vnext.FeatureSet
-	styles        map[string]vnext.Style
-	collectionIDs *compatibilityIDs
-	featureIDs    *compatibilityIDs
-	text          map[string]featureText
-}
-
-func (projection worldProjection) present(layers []vnext.Layer) (worldPayload, []bundle.Location, map[string]featureText, error) {
-	payload := worldPayload{
-		Grid: &payloadGrid{
-			SourceZoom: intPointer(int(projection.world.CoordinateSpace.SourceZoom)),
-			FirstTile:  intPointer(int(projection.world.CoordinateSpace.FirstTile)),
-			TileSize:   intPointer(int(projection.world.CoordinateSpace.TileSize)),
-			Size:       intPointer(int(projection.world.CoordinateSpace.Size)),
-		},
-		Attrs: claimsToAttrs(projection.world.Claims),
-	}
-	payload.Lenses = projectRasters(projection.world.RasterPyramids)
-	if source := worldOrigin(projection.world); source != "" {
-		payload.Merged = []payloadMerge{{Source: source, Origin: true}}
-	}
-	var locations []bundle.Location
-	for owner, layer := range layers {
-		collection, points, err := projection.collection(layer, owner)
-		if err != nil {
-			return worldPayload{}, nil, nil, err
+	for index, layer := range layers {
+		set, ok := sets[layer.FeatureSet]
+		if !ok {
+			return nil, fmt.Errorf("layer %s refers to missing feature set %s", layer.ID, layer.FeatureSet)
 		}
-		payload.Collections = append(payload.Collections, collection)
-		locations = append(locations, points...)
-	}
-	return payload, locations, projection.text, nil
-}
-
-func (projection worldProjection) collection(layer vnext.Layer, owner int) (payloadCollection, []bundle.Location, error) {
-	set, held := projection.sets[layer.FeatureSet]
-	if !held {
-		return payloadCollection{}, nil, fmt.Errorf("layer %s refers to missing feature set %s", layer.ID, layer.FeatureSet)
-	}
-	style, held := projection.styles[layer.Style]
-	if !held {
-		return payloadCollection{}, nil, fmt.Errorf("layer %s refers to missing style %s", layer.ID, layer.Style)
-	}
-	id, err := projection.collectionIDs.resolve(set.ID)
-	if err != nil {
-		return payloadCollection{}, nil, err
-	}
-	kind := strings.TrimPrefix(set.SemanticType, "geometry.")
-	collection := payloadCollection{
-		ID: id, Title: set.Title, Kind: kind, Group: layer.Group, Icon: style.Icon,
-		IconAsset: style.IconAsset, IconPicture: style.IconPicture,
-		Color: projectedColor(kind, style), Visible: boolPointer(layer.Visible),
-		Attrs: claimsToAttrs(set.Claims),
-	}
-	collection.Attrs[semconv.KeyGeometryKind] = kind
-	putAttr(collection.Attrs, semconv.KeyLabelPolicy, layer.LabelPolicy)
-	putAttr(collection.Attrs, semconv.KeyRenderAs, style.RenderAs)
-	return projection.features(set, collection, owner)
-}
-
-func (projection worldProjection) features(set vnext.FeatureSet, collection payloadCollection, owner int) (payloadCollection, []bundle.Location, error) {
-	if owner > math.MaxUint16 {
-		return payloadCollection{}, nil, fmt.Errorf("presentation has too many collections")
-	}
-	var locations []bundle.Location
-	for _, feature := range set.Features {
-		id, err := projection.featureIDs.resolve(feature.ID)
-		if err != nil {
-			return payloadCollection{}, nil, err
+		style, ok := styles[layer.Style]
+		if !ok {
+			return nil, fmt.Errorf("layer %s refers to missing style %s", layer.ID, layer.Style)
 		}
-		text, err := projection.featureText(feature)
-		if err != nil {
-			return payloadCollection{}, nil, err
+		kind := semanticGeometryKind(set.SemanticType)
+		attrs := propertiesToAttrs(set.Claims)
+		collection := &collectionModel{
+			ID: layer.ID, Title: legendLabel(world.Presentation.Legend, layer.ID, set.Title), Kind: kind,
+			Group: layer.Group, Icon: style.Icon, IconAsset: assetPaths[style.IconAsset],
+			Color: nativeColor(kind, style), Attrs: attrs, Index: index,
+			Curated: layer.LabelPolicy, RenderAs: style.RenderAs, Hidden: !layer.Visible,
 		}
-		projection.text[strconv.FormatInt(id, 10)] = text
-		if feature.Geometry.Kind == vnext.GeometryPoint {
-			location, err := projection.point(feature, id, owner)
-			if err != nil {
-				return payloadCollection{}, nil, err
+		if collection.Curated == "" {
+			collection.Curated = semconv.LabelPolicy(kind, attrs)
+		}
+		if collection.RenderAs == "" {
+			collection.RenderAs = semconv.RenderAs(attrs, "")
+		}
+		model.Members = append(model.Members, collection)
+		model.ByID[collection.ID] = collection
+		for featureIndex := range set.Features {
+			feature := &set.Features[featureIndex]
+			if err := addNativeFeature(model, collection, feature, grid); err != nil {
+				return nil, err
 			}
-			locations = append(locations, location)
-			continue
 		}
-		shape, err := projection.shape(feature, id, text)
-		if err != nil {
-			return payloadCollection{}, nil, err
-		}
-		collection.Features = append(collection.Features, shape)
 	}
-	return collection, locations, nil
+	for _, shape := range model.Shapes {
+		shape.Depth = shapeDepth(model, shape, 0)
+	}
+	return model, nil
 }
 
-func (projection worldProjection) point(feature vnext.Feature, id int64, owner int) (bundle.Location, error) {
-	if len(feature.Geometry.Parts) != 1 || len(feature.Geometry.Parts[0].Rings) != 1 || len(feature.Geometry.Parts[0].Rings[0]) != 1 {
-		return bundle.Location{}, fmt.Errorf("point %s has an invalid geometry", feature.ID)
+func addNativeFeature(model *worldModel, collection *collectionModel, feature *vnext.Feature, grid tileGrid) error {
+	if feature.Geometry.Kind == vnext.GeometryPoint {
+		if len(feature.Geometry.Parts) != 1 || len(feature.Geometry.Parts[0].Rings) != 1 || len(feature.Geometry.Parts[0].Rings[0]) != 1 {
+			return fmt.Errorf("point %s has an invalid geometry", feature.ID)
+		}
+		position := feature.Geometry.Parts[0].Rings[0][0]
+		lat, lng := grid.unproject(position[0], position[1])
+		pin := &pointModel{
+			ID: feature.ID, Title: feature.Title, Lat: lat, Lng: lng, X: position[0], Y: -position[1],
+			Shard: feature.Shard, Feature: feature, Collection: collection,
+		}
+		model.Points = append(model.Points, pin)
+		model.PointByID[pin.ID] = pin
+		collection.Count++
+		return nil
 	}
-	position := feature.Geometry.Parts[0].Rings[0][0]
-	member, err := projection.relationship(feature.Relationships, "within")
+	shape, err := buildNativeShape(feature, collection)
 	if err != nil {
-		return bundle.Location{}, err
+		return err
 	}
-	return bundle.Location{
-		ID: id, Title: feature.Title, Lat: position[1], Lng: position[0],
-		Member: member, Shard: feature.Shard, Owner: uint16(owner),
-	}, nil
+	collection.Shapes = append(collection.Shapes, shape)
+	collection.Count++
+	model.Shapes = append(model.Shapes, shape)
+	model.ShapeByID[shape.ID] = shape
+	return nil
 }
 
-func (projection worldProjection) shape(feature vnext.Feature, id int64, text featureText) (payloadFeature, error) {
-	geometry, err := projectGeometry(feature.Geometry)
-	if err != nil {
-		return payloadFeature{}, err
+func buildNativeShape(feature *vnext.Feature, collection *collectionModel) (*shapeModel, error) {
+	shape := &shapeModel{
+		ID: feature.ID, Title: feature.Title, Subtitle: feature.Subtitle, Shard: feature.Shard,
+		HasText: hasNativeText(feature), Attrs: propertiesToAttrs(feature.Properties), Feature: feature, Collection: collection,
+		MinX: math.Inf(1), MinY: math.Inf(1), MaxX: math.Inf(-1), MaxY: math.Inf(-1),
 	}
-	shape := payloadFeature{
-		ID: id, Title: feature.Title, Subtitle: feature.Subtitle, HasText: hasFeatureText(text),
-		Shard: feature.Shard, Attrs: propertiesToAttrs(feature.Properties), Geometry: geometry,
+	shape.Parent = relationshipTarget(feature.Relationships, "within")
+	for _, part := range feature.Geometry.Parts {
+		switch feature.Geometry.Kind {
+		case vnext.GeometryPolygon:
+			polygon := make([][]point, 0, len(part.Rings))
+			for _, ring := range part.Rings {
+				polygon = append(polygon, shape.nativePoints(ring))
+			}
+			if len(polygon) > 0 {
+				shape.Polygons = append(shape.Polygons, polygon)
+			}
+		case vnext.GeometryLineString:
+			if len(part.Rings) != 1 {
+				return nil, fmt.Errorf("line %s has an invalid part", feature.ID)
+			}
+			if line := shape.nativePoints(part.Rings[0]); len(line) > 1 {
+				shape.Lines = append(shape.Lines, line)
+			}
+		default:
+			return nil, fmt.Errorf("feature %s has unsupported geometry kind %d", feature.ID, feature.Geometry.Kind)
+		}
 	}
-	if feature.Center != nil {
-		shape.Center = &bundle.Coordinate{Lat: feature.Center[1], Lng: feature.Center[0]}
-	}
-	if parent, err := projection.relationship(feature.Relationships, "within"); err != nil {
-		return payloadFeature{}, err
-	} else if parent != 0 {
-		shape.Parent = &parent
-	}
+	shape.Drawn = len(shape.Polygons) > 0 || len(shape.Lines) > 0
 	return shape, nil
 }
 
-func (projection worldProjection) featureText(feature vnext.Feature) (featureText, error) {
-	text := featureText{Description: feature.Description, Attrs: propertiesToAttrs(feature.Properties)}
-	for _, relationship := range feature.Relationships {
-		if relationship.Predicate != "references" {
-			continue
-		}
-		id, err := projection.featureIDs.resolve(relationship.Target)
-		if err != nil {
-			return featureText{}, err
-		}
-		text.Links = append(text.Links, id)
+func (shape *shapeModel) nativePoints(positions []vnext.Position) []point {
+	out := make([]point, 0, len(positions))
+	for _, position := range positions {
+		x, y := position[0], -position[1]
+		out = append(out, point{X: x, Y: y})
+		shape.MinX, shape.MaxX = math.Min(shape.MinX, x), math.Max(shape.MaxX, x)
+		shape.MinY, shape.MaxY = math.Min(shape.MinY, y), math.Max(shape.MaxY, y)
 	}
-	return text, nil
+	return out
 }
 
-func (projection worldProjection) relationship(relationships []vnext.Relationship, predicate string) (int64, error) {
-	for _, relationship := range relationships {
-		if relationship.Predicate == predicate {
-			return projection.featureIDs.resolve(relationship.Target)
-		}
-	}
-	return 0, nil
-}
-
-func projectRasters(rasters []vnext.RasterPyramid) []payloadLens {
+func nativeRasters(rasters []vnext.RasterPyramid) []payloadLens {
 	out := make([]payloadLens, 0, len(rasters))
 	for _, raster := range rasters {
 		lens := payloadLens{
-			Name: raster.Name, Tiles: rasterTiles(raster.Template), MinZoom: int(raster.MinZoom), MaxZoom: int(raster.MaxZoom),
+			Name: raster.Name, Tiles: raster.Template, MinZoom: int(raster.MinZoom), MaxZoom: int(raster.MaxZoom),
 			FullZoom: int(raster.FullZoom), SourceZoom: int(raster.SourceZoom), Formats: append([]string(nil), raster.Formats...),
 			Bounds: cellRect(raster.Bounds), Surface: cellRect(raster.Surface), Interpolate: raster.Interpolate,
 			Background: raster.Background, Shard: int(raster.Shard),
@@ -320,124 +217,17 @@ func projectRasters(rasters []vnext.RasterPyramid) []payloadLens {
 	return out
 }
 
-func projectGeometry(geometry vnext.Geometry) ([]payloadGeometry, error) {
-	if geometry.Kind == vnext.GeometryPolygon {
-		polygons := make([][][]vnext.Position, 0, len(geometry.Parts))
-		for _, part := range geometry.Parts {
-			polygons = append(polygons, part.Rings)
-		}
-		if len(polygons) == 1 {
-			return marshalGeometry("Polygon", polygons[0])
-		}
-		return marshalGeometry("MultiPolygon", polygons)
-	}
-	if geometry.Kind == vnext.GeometryLineString {
-		lines := make([][]vnext.Position, 0, len(geometry.Parts))
-		for _, part := range geometry.Parts {
-			if len(part.Rings) != 1 {
-				return nil, fmt.Errorf("line geometry has an invalid part")
-			}
-			lines = append(lines, part.Rings[0])
-		}
-		if len(lines) == 1 {
-			return marshalGeometry("LineString", lines[0])
-		}
-		return marshalGeometry("MultiLineString", lines)
-	}
-	return nil, fmt.Errorf("geometry kind %d cannot be an inline shape", geometry.Kind)
-}
-
-func marshalGeometry(kind string, coordinates any) ([]payloadGeometry, error) {
-	data, err := json.Marshal(coordinates)
-	if err != nil {
-		return nil, fmt.Errorf("marshal %s geometry: %w", kind, err)
-	}
-	return []payloadGeometry{{Type: kind, Coordinates: data}}, nil
-}
-
-func buildVNextWorld(world vnext.World) (*worldModel, error) {
-	payload, locations, _, err := presentVNextWorld(world)
-	if err != nil {
-		return nil, err
-	}
-	space := world.CoordinateSpace
-	grid := tileGrid{SourceZoom: int(space.SourceZoom), FirstTile: int(space.FirstTile), TileSize: int(space.TileSize), Size: int(space.Size)}
-	return buildProjectedWorld(world.ID, payload, locations, grid), nil
-}
-
-func buildProjectedWorld(slug string, decoded worldPayload, locations []bundle.Location, grid tileGrid) *worldModel {
-	model := &worldModel{
-		Slug: slug, Lenses: decoded.Lenses, Attrs: decoded.Attrs, Grid: grid,
-		ByID: map[string]*collectionModel{}, PointByID: map[string]*pointModel{}, ShapeByID: map[string]*shapeModel{},
-	}
-	for _, account := range decoded.Merged {
-		if account.Origin {
-			model.Origin = account.Source
-			break
-		}
-	}
-	buildProjectedCollections(model, decoded.Collections, grid)
-	buildProjectedPoints(model, locations, grid)
-	for _, shape := range model.Shapes {
-		shape.Depth = shapeDepth(model, shape, 0)
-	}
-	return model
-}
-
-func buildProjectedCollections(model *worldModel, collections []payloadCollection, grid tileGrid) {
-	for at, held := range collections {
-		kind := held.Kind
-		if kind == "" {
-			kind = semconv.GeometryPoint
-		}
-		collection := &collectionModel{
-			ID: strconv.FormatInt(held.ID, 10), Title: held.Title, Kind: kind, Group: held.Group,
-			Icon: held.Icon, IconAsset: held.IconAsset, Color: held.Color, IconColor: held.IconColor,
-			Attrs: held.Attrs, Curated: semconv.LabelPolicy(kind, held.Attrs), RenderAs: semconv.RenderAs(held.Attrs, ""),
-			Hidden: held.Visible != nil && !*held.Visible, Index: at, Count: len(held.Features),
-		}
-		model.Members = append(model.Members, collection)
-		model.ByID[collection.ID] = collection
-		for _, feature := range held.Features {
-			shape := buildShape(feature, collection, grid)
-			collection.Shapes = append(collection.Shapes, shape)
-			model.Shapes = append(model.Shapes, shape)
-			model.ShapeByID[shape.ID] = shape
-		}
-	}
-}
-
-func buildProjectedPoints(model *worldModel, locations []bundle.Location, grid tileGrid) {
-	for _, location := range locations {
-		owner := int(location.Owner)
-		if owner >= len(model.Members) {
-			continue
-		}
-		collection := model.Members[owner]
-		x, y := grid.project(location.Lat, location.Lng)
-		pin := &pointModel{
-			ID: strconv.FormatInt(location.ID, 10), Title: location.Title, Lat: location.Lat, Lng: location.Lng,
-			X: x, Y: y, Shard: location.Shard, Collection: collection,
-		}
-		model.Points = append(model.Points, pin)
-		model.PointByID[pin.ID] = pin
-		collection.Count++
-	}
-}
-
-func claimsToAttrs(claims []vnext.Property) map[string]string { return propertiesToAttrs(claims) }
-
 func propertiesToAttrs(properties []vnext.Property) map[string]string {
 	out := make(map[string]string, len(properties))
 	for _, property := range properties {
 		if property.Field.Name != "" {
-			out[property.Field.Name] = projectedValue(property.Value)
+			out[property.Field.Name] = nativeValue(property.Value)
 		}
 	}
 	return out
 }
 
-func projectedValue(value vnext.Value) string {
+func nativeValue(value vnext.Value) string {
 	switch value.Kind {
 	case vnext.KindBool:
 		return strconv.FormatBool(value.Bool)
@@ -456,6 +246,29 @@ func projectedValue(value vnext.Value) string {
 	}
 }
 
+func semanticGeometryKind(value string) string {
+	if len(value) > len("geometry.") && value[:len("geometry.")] == "geometry." {
+		return value[len("geometry."):]
+	}
+	if value == "" {
+		return semconv.GeometryPoint
+	}
+	return value
+}
+
+func relationshipTarget(relationships []vnext.Relationship, predicate string) string {
+	for _, relationship := range relationships {
+		if relationship.Predicate == predicate {
+			return relationship.Target
+		}
+	}
+	return ""
+}
+
+func hasNativeText(feature *vnext.Feature) bool {
+	return feature.Description != "" || len(feature.Properties) > 0 || len(feature.Relationships) > 0
+}
+
 func worldOrigin(world vnext.World) string {
 	for _, set := range world.FeatureSets {
 		for _, feature := range set.Features {
@@ -467,19 +280,20 @@ func worldOrigin(world vnext.World) string {
 	return ""
 }
 
-func projectedColor(kind string, style vnext.Style) string {
+func legendLabel(entries []vnext.LegendEntry, layer, fallback string) string {
+	for _, entry := range entries {
+		if entry.Layer == layer && entry.Label != "" {
+			return entry.Label
+		}
+	}
+	return fallback
+}
+
+func nativeColor(kind string, style vnext.Style) string {
 	if kind == semconv.GeometryPath && style.Stroke != "" {
 		return style.Stroke
 	}
 	return style.Fill
-}
-
-func rasterTiles(template string) string {
-	held := strings.TrimPrefix(template, bundle.TilesPrefix)
-	if at := strings.IndexByte(held, '/'); at >= 0 {
-		return held[:at]
-	}
-	return held
 }
 
 func cellRect(rect *vnext.RasterRect) *cells.Rect {
@@ -488,27 +302,3 @@ func cellRect(rect *vnext.RasterRect) *cells.Rect {
 	}
 	return &cells.Rect{X: rect.X, Y: rect.Y, Width: rect.Width, Height: rect.Height}
 }
-
-func numericTail(value string) int64 {
-	if at := strings.LastIndexByte(value, '/'); at >= 0 {
-		value = value[at+1:]
-	}
-	parsed, err := strconv.ParseInt(value, 10, 64)
-	if err != nil {
-		return 0
-	}
-	return parsed
-}
-
-func hasFeatureText(text featureText) bool {
-	return text.Description != "" || len(text.Links) > 0 || len(text.Attrs) > 0
-}
-
-func putAttr(attrs map[string]string, key, value string) {
-	if value != "" {
-		attrs[key] = value
-	}
-}
-
-func intPointer(value int) *int    { return &value }
-func boolPointer(value bool) *bool { return &value }

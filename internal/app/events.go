@@ -8,7 +8,7 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/FelineStateMachine/atlas/format/bundle"
+	"github.com/FelineStateMachine/atlas/format/vnext"
 	"github.com/FelineStateMachine/atlas/internal/logging"
 )
 
@@ -150,7 +150,7 @@ func (a *App) announce(changed []string) {
 // catalog events and no refresh directives.
 func (a *App) handleEvents(w http.ResponseWriter, r *http.Request) {
 	watching := r.URL.Query().Get("volume")
-	if watching != "" && bundle.ValidSlug(watching) != nil {
+	if watching != "" && vnext.ValidSlug(watching) != nil {
 		http.Error(w, "that is not a volume", http.StatusBadRequest)
 		return
 	}

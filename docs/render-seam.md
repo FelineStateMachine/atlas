@@ -176,30 +176,16 @@ whole. `rescan()` is what the boot module calls after a swap.
 
 ### 4.1 The world model
 
-Built once per world, immutable afterwards. Points come from
-`worlds/<slug>.bin` as zero-copy typed-array views (`docs/format.md` §7);
-shapes come inline from the payload's collections.
+Built once per world, immutable afterwards. `schema.json` describes every
+packed column under `data/*.pack`; those columns reconstruct Volume → World →
+FeatureSets/Features, RasterPyramids, Presentation and Assets. Presentation is
+then applied to the semantic data without a document or GeoJSON intermediary.
 
-**The projection nobody wrote down.** A payload spells positions as `lat`/`lng`
-in the volume's own world space — which is the slippy-tile grid the capture
-was cut from, not WGS 84 — and every renderer needs them as world pixels:
-
-```
-worldTiles = 2^grid.sourceZoom
-xTile = (lng + 180) / 360 · worldTiles
-yTile = (1 − asinh(tan(lat·π/180)) / π) / 2 · worldTiles
-x =  (xTile − grid.firstTile) · grid.tileSize
-y = −(yTile − grid.firstTile) · grid.tileSize
-```
-
-`grid` is the manifest's `tileGrid` with the world payload's own `grid`
-override applied (`docs/format.md` §6.2) — every corpus volume overrides it,
-so skipping the override puts every feature about 850,000 pixels off the map.
-**This arithmetic belongs in `docs/format.md` and is not there.** It is
-recorded here, and in `internal/app/world.go`, until it moves.
-
-The sign flip is the one place the format's y-down pixels meet the y-negative
--down coordinates everything downstream speaks.
+Geometry is already expressed in the world's declared CoordinateSpace. The
+standard `atlas:tile-plane` is y-down pixel space; the renderer only flips y
+once at its OpenLayers boundary. Projection from source longitude/latitude is
+a producer responsibility and therefore part of the stamped data, not an
+implicit reader convention.
 
 ### 4.2 The standing set
 

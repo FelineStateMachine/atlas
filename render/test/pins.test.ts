@@ -160,7 +160,7 @@ function world(slug: string, points: ReturnType<typeof point>[], standing: Stand
     scene: { selected: "", gridSystem: "" },
     model: {
       slug,
-      payload: { attrs: attrs(width), lenses: [], collections: [] },
+      attrs: attrs(width), lenses: [],
       points,
       collections: [{ id: 1, title: "Impact Craters", kind: "point", visible: true }],
     },

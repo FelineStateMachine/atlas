@@ -24,10 +24,10 @@ import { wireKeyboard } from "./keys.ts";
 import { RowHover } from "./hover.ts";
 import { DataPlane } from "./data/plane.ts";
 import { reportCamera } from "./data/report.ts";
-import type { Catalog, Lens, TileGrid } from "./data/payload.ts";
+import type { Lens } from "./data/payload.ts";
 import { SceneWatcher } from "./scene/observe.ts";
 import type { Scene, SceneChange } from "./scene/read.ts";
-import { WorldModel, worldGrid } from "./world/model.ts";
+import { WorldModel } from "./world/model.ts";
 import { Visibility } from "./world/visibility.ts";
 import type { WorldContext } from "./context.ts";
 import { AtlasChart } from "./chart/element.ts";
@@ -39,7 +39,6 @@ const log = logger("viewport");
 export class AtlasViewport extends HTMLElement {
   private readonly plane = new DataPlane();
   private watcher: SceneWatcher | null = null;
-  private catalog: Catalog | null = null;
   private readonly worlds = new Map<string, Promise<WorldModel>>();
   private context: WorldContext | null = null;
   private generation = 0;
@@ -152,17 +151,12 @@ export class AtlasViewport extends HTMLElement {
     if (scene.surface !== "sphere") this.dropSphere();
     const mine = ++this.generation;
     try {
-      const grid = await this.tileGrid(scene);
-      if (!grid) return;
-      const worldTitle = this.catalog?.volumes
-        .find((entry) => entry.slug === scene.volume)?.worlds
-        .find((world) => world.slug === scene.world)?.title ?? scene.world;
-      const model = await this.model(scene, grid);
+      const model = await this.model(scene);
       // A scene that moved again while a payload was in flight wins: the last
       // thing the reader asked for is the thing to draw.
       if (mine !== this.generation) return;
 
-      const lens = model.payload.lenses[this.lensIndex(model, scene)] ?? null;
+      const lens = model.lenses[this.lensIndex(model, scene)] ?? null;
       const ground = model.ground(lens);
       const system = this.system(scene, ground);
       const test = system ? cellTest(ground, system, scene.gridCell) : null;
@@ -170,9 +164,9 @@ export class AtlasViewport extends HTMLElement {
       const context: WorldContext = {
         scene,
         base: scene.base,
-        grid: worldGrid(grid, model.payload),
+        grid: model.grid,
         model,
-        worldTitle,
+        worldTitle: model.title,
         lens,
         lensIndex: this.lensIndex(model, scene),
         outset: outsetOf(model),
@@ -190,7 +184,7 @@ export class AtlasViewport extends HTMLElement {
       // declare a sphere and still flatten in a way no globe can invert, and
       // only the payload knows. Asked before the chart is shown, so a chart
       // coming back up is measured against a pane that is already on screen.
-      const sphere = AtlasGlobe.offers(model.payload.attrs ?? {});
+      const sphere = AtlasGlobe.offers(model.attrs);
       if (!sphere) this.dropSphere();
       this.chart?.show(context);
       if (sphere) this.globe?.show(context);
@@ -246,9 +240,9 @@ export class AtlasViewport extends HTMLElement {
   }
 
   private lensIndex(model: WorldModel, scene: Scene): number {
-    const named = model.payload.lenses.findIndex((lens: Lens) => lens.name === scene.lens);
+    const named = model.lenses.findIndex((lens: Lens) => lens.name === scene.lens);
     if (named >= 0) return named;
-    return Math.min(Math.max(scene.lensIndex, 0), Math.max(0, model.payload.lenses.length - 1));
+    return Math.min(Math.max(scene.lensIndex, 0), Math.max(0, model.lenses.length - 1));
   }
 
   /**
@@ -428,28 +422,12 @@ export class AtlasViewport extends HTMLElement {
     field.setSelectionRange?.(before, before);
   }
 
-  private async tileGrid(scene: Scene): Promise<TileGrid | null> {
-    this.catalog ??= await this.plane.catalog();
-    const volume = this.catalog.volumes.find((entry) => entry.slug === scene.volume);
-    if (!volume) {
-      log.warn("the catalog does not list the volume the page is about", {
-        op: "render", volume: scene.volume,
-      });
-      return null;
-    }
-    return volume.tileGrid;
-  }
-
-  private model(scene: Scene, grid: TileGrid): Promise<WorldModel> {
+  private model(scene: Scene): Promise<WorldModel> {
     const key = `${scene.base}/${scene.world}`;
     const held = this.worlds.get(key);
     if (held) return held;
     const building = (async () => {
-      const [payload, table] = await Promise.all([
-        this.plane.world(scene.base, scene.world),
-        this.plane.locations(scene.base, scene.world),
-      ]);
-      return new WorldModel(scene.world, payload, worldGrid(grid, payload), table);
+      return new WorldModel(await this.plane.world(scene.base, scene.world));
     })();
     this.worlds.set(key, building);
     return building;
@@ -693,5 +671,5 @@ function cellRow(slug: string, label: string, value: string): HTMLElement {
 }
 
 function outsetOf(model: WorldModel): string {
-  return model.payload.attrs?.[KEY_ICON_OUTSET] ?? "";
+  return model.attrs[KEY_ICON_OUTSET] ?? "";
 }

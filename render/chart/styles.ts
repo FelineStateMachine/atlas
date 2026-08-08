@@ -43,7 +43,7 @@ import { gridTheme, paletteColor } from "@atlas/analysis";
 import type { CellVisual } from "@atlas/analysis";
 import type { Collection } from "../data/payload.ts";
 import { labelPolicy, renderAs } from "../data/payload.ts";
-import type { PointRecord, ShapeRecord } from "../world/model.ts";
+import { stableRank, type PointRecord, type ShapeRecord } from "../world/model.ts";
 import type { Visibility } from "../world/visibility.ts";
 import type { Scene } from "../scene/read.ts";
 import {
@@ -117,10 +117,7 @@ export function collectionColor(collection: Collection, ordinal: number): string
  * colour, exactly as it does there.
  */
 export function featureColor(id: string): string {
-  const value = Number(id);
-  if (!Number.isFinite(value) || !Number.isInteger(value)) return paletteColor(0);
-  const magnitude = Math.abs(value) % 4294967296;
-  return paletteColor(Math.imul(magnitude, 2654435761) >>> 0);
+  return paletteColor(stableRank(id));
 }
 
 /**
@@ -145,9 +142,9 @@ export function curatedPointPolicy(collection: Collection): string {
  * to marks already handed to OpenLayers.
  */
 export class Styles {
-  private readonly faces = new Map<number, MarkerFace>();
+  private readonly faces = new Map<string | number, MarkerFace>();
   private readonly marks = new Map<string, Style>();
-  private readonly colors = new Map<number, string>();
+  private readonly colors = new Map<string | number, string>();
   /** The rasters this world has already asked to be told about. */
   private readonly waiting = new Set<string>();
 
@@ -179,7 +176,7 @@ export class Styles {
   }
 
   color(collection: Collection): string {
-    return this.colors.get(collection.id) ?? paletteColor(collection.id);
+    return this.colors.get(collection.id) ?? paletteColor(stableRank(String(collection.id)));
   }
 
   /**

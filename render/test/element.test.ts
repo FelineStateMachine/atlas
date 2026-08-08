@@ -39,6 +39,7 @@ import { shapeContains } from "../world/visibility.ts";
 import type { Collection } from "../data/payload.ts";
 import { payloads, tileGrid, volumes } from "./fixtures.ts";
 import { gamePlane } from "./models.ts";
+import { legacyOpenWorld } from "./legacy.ts";
 
 // The seam's chart element extends `HTMLElement` at the moment it is defined,
 // which is one browser global too many for `node --test`. Nothing else in the
@@ -61,7 +62,11 @@ function shape(
   return {
     id: "1", title: "Two Pieces", subtitle: "", collection: kind === "area" ? AREAS : PATHS,
     kind, shard: 0, lines, holes, center: null,
-    feature: { id: 1, title: "Two Pieces", geometry: [] },
+    feature: {
+      id: "1", title: "Two Pieces", subtitle: "", description: "", center: null, shard: 0,
+      geometry: { kind: kind === "path" ? 2 : 3, parts: [] },
+      properties: [], relationships: [], provenance: [],
+    },
   };
 }
 
@@ -191,7 +196,7 @@ test("containment asks every part, and every part's own holes", () => {
 function city(): WorldModel {
   const payload = payloads("bend-or").get("2026-08-02");
   assert.ok(payload, "the city fixture has a world payload");
-  return new WorldModel("2026-08-02", payload, worldGrid(tileGrid("bend-or"), payload), null);
+  return new WorldModel(legacyOpenWorld("2026-08-02", payload, worldGrid(tileGrid("bend-or"), payload), null));
 }
 
 /**
@@ -200,21 +205,7 @@ function city(): WorldModel {
  * — or, for a path, its single run's.
  */
 function payloadParts(shape: ShapeRecord): number[][] {
-  const rings = (part: unknown) => (part as unknown[]).map((ring) => (ring as unknown[]).length);
-  const counts: number[][] = [];
-  for (const geometry of shape.feature.geometry ?? []) {
-    const coordinates = geometry.coordinates as unknown[];
-    if (geometry.type === "MultiPolygon") {
-      for (const polygon of coordinates) counts.push(rings(polygon));
-    } else if (geometry.type === "Polygon") {
-      counts.push(rings(coordinates));
-    } else if (geometry.type === "MultiLineString") {
-      for (const line of coordinates) counts.push([(line as unknown[]).length]);
-    } else if (geometry.type === "LineString") {
-      counts.push([coordinates.length]);
-    }
-  }
-  return counts;
+  return shape.feature.geometry.parts.map((part) => part.rings.map((ring) => ring.length));
 }
 
 test("the city's zoning draws every piece of ground it owns", () => {
@@ -255,13 +246,13 @@ test("no shape in any volume, corpus or invented, loses a part", () => {
   for (const slug of volumes()) {
     for (const [name, payload] of payloads(slug)) {
       worlds.push(
-        [`${slug}/${name}`, new WorldModel(name, payload, worldGrid(tileGrid(slug), payload), null)]);
+        [`${slug}/${name}`, new WorldModel(legacyOpenWorld(name, payload, worldGrid(tileGrid(slug), payload), null))]);
     }
   }
   const city = gamePlane();
   for (const [name, payload] of city.worlds) {
     worlds.push(
-      [`${city.slug}/${name}`, new WorldModel(name, payload, city.tileGrid, null)]);
+      [`${city.slug}/${name}`, new WorldModel(legacyOpenWorld(name, payload, city.tileGrid, null))]);
   }
   let multipart = 0;
   for (const [label, world] of worlds) {

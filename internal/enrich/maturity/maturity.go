@@ -43,6 +43,7 @@ import (
 
 	"github.com/FelineStateMachine/atlas/format/bundle"
 	"github.com/FelineStateMachine/atlas/format/semconv"
+	"github.com/FelineStateMachine/atlas/format/vnext"
 	"github.com/FelineStateMachine/atlas/internal/enrich"
 )
 
@@ -253,51 +254,31 @@ type WorldParts struct {
 // the cartography diagnostic needs what only the table of contents knows: every
 // tile entry's checksum and size, for de-duplicating filler.
 func Measure(path string, table Table) (*Score, error) {
-	reader, err := zip.OpenReader(path)
+	native, err := vnext.OpenFile(path, vnext.StandardSchema())
 	if err != nil {
 		return nil, err
 	}
-	defer reader.Close()
-
-	entries := make(map[string]*zip.File, len(reader.File))
-	for _, file := range reader.File {
-		entries[file.Name] = file
-	}
-	var manifest bundle.Manifest
-	if err := readEntry(entries, bundle.ManifestName, &manifest); err != nil {
+	defer native.Close()
+	volume, err := native.Volume()
+	if err != nil {
 		return nil, err
 	}
-
-	parts := make([]WorldParts, 0, len(manifest.Worlds))
-	for _, entry := range manifest.Worlds {
-		payload, err := readBytes(entries, bundle.WorldEntryName(entry.Slug, bundle.WorldSuffix))
-		if err != nil {
-			return nil, err
-		}
-		text, err := readBytes(entries, bundle.WorldEntryName(entry.Slug, bundle.TextSuffix))
-		if err != nil {
-			return nil, err
-		}
-		packed, err := readBytes(entries, bundle.WorldEntryName(entry.Slug, bundle.PackedSuffix))
-		if err != nil {
-			return nil, err
-		}
-		locations, err := bundle.UnpackLocations(packed)
-		if err != nil {
-			return nil, fmt.Errorf("world %s: %w", entry.Slug, err)
-		}
-		parts = append(parts, WorldParts{Slug: entry.Slug, Payload: payload, Text: text, Locations: locations})
-	}
-
-	score, err := ScoreParts(manifest, parts, table)
+	score, err := scoreNativeVolume(volume, native.Release, table)
 	if err != nil {
 		return nil, err
 	}
 	score.Path = path
 	score.File = filepath.Base(path)
 
+	archive, err := zip.OpenReader(path)
+	if err != nil {
+		return nil, err
+	}
+	defer archive.Close()
+
 	seen := make(map[[2]uint64]bool)
-	for name, file := range entries {
+	for _, file := range archive.File {
+		name := file.Name
 		if !strings.HasPrefix(name, "tiles/") {
 			continue
 		}
@@ -312,6 +293,170 @@ func Measure(path string, table Table) (*Score, error) {
 		}
 	}
 	return score, nil
+}
+
+func scoreNativeVolume(volume vnext.Volume, release vnext.Release, table Table) (*Score, error) {
+	policy, enriched := enrich.Enriched(release.Revision)
+	score := &Score{
+		TableVersion: table.Version, Volume: volume.ID, Title: release.Title, Stamp: release.Stamp,
+		CreatedAt: release.CreatedAt, Revision: release.Revision, Enriched: enriched, EnrichPolicy: policy,
+	}
+	score.Axes.Conventions = 2
+	score.Axes.Geometry = semconv.SurfacePlane + "-default"
+	assets := make(map[string]bool, len(volume.Assets))
+	for _, asset := range volume.Assets {
+		assets[asset.ID] = true
+	}
+	groups := make(map[string]bool)
+	var lengths []int
+	for _, world := range volume.Worlds {
+		worldScore := scoreNativeWorld(score, table, world, assets, &lengths, groups)
+		score.Worlds = append(score.Worlds, worldScore)
+		score.Total += worldScore.Total
+	}
+	sort.Ints(lengths)
+	if len(lengths) > 0 {
+		score.Axes.MedianLength = lengths[len(lengths)/2]
+	}
+	return score, nil
+}
+
+func scoreNativeWorld(score *Score, table Table, world vnext.World, assets map[string]bool, lengths *[]int, groups map[string]bool) WorldScore {
+	out := WorldScore{Slug: world.ID}
+	worldAttrs := nativeAttrs(world.Claims)
+	out.World += table.World.Convention * registered(worldAttrs, semconv.EntityWorld)
+	score.Axes.UnknownAttrs += unknown(worldAttrs)
+	switch worldAttrs[semconv.KeyGeometrySurface] {
+	case semconv.SurfaceSphere:
+		score.Axes.Geometry = semconv.SurfaceSphere
+	case semconv.SurfacePlane:
+		if score.Axes.Geometry != semconv.SurfaceSphere {
+			score.Axes.Geometry = semconv.SurfacePlane
+		}
+	}
+	for _, raster := range world.RasterPyramids {
+		score.Axes.Lenses++
+		out.World += table.World.Lens
+		if depth := int(raster.MaxZoom-raster.MinZoom) + 1; depth > 0 {
+			out.World += table.World.LensZoom * depth
+		}
+		score.Axes.Depth = max(score.Axes.Depth, int(raster.MaxZoom))
+	}
+	sets := make(map[string]vnext.FeatureSet, len(world.FeatureSets))
+	for _, set := range world.FeatureSets {
+		sets[set.ID] = set
+	}
+	styles := make(map[string]vnext.Style, len(world.Presentation.Styles))
+	for _, style := range world.Presentation.Styles {
+		styles[style.ID] = style
+	}
+	accounts := make(map[string]*enrich.Account)
+	var accountOrder []string
+	for _, layer := range world.Presentation.Layers {
+		set, ok := sets[layer.FeatureSet]
+		if !ok {
+			continue
+		}
+		style := styles[layer.Style]
+		attrs := nativeAttrs(set.Claims)
+		kind := strings.TrimPrefix(set.SemanticType, "geometry.")
+		score.Axes.UnknownAttrs += unknown(attrs)
+		out.Collections += table.Collection.Convention * registered(attrs, semconv.EntityCollection)
+		score.Axes.Collections++
+		if !groups[layer.Group] {
+			groups[layer.Group] = true
+			score.Axes.Groups++
+		}
+		if style.RenderAs != "" {
+			score.Axes.RenderDeclared++
+		}
+		labels := style.RenderAs == semconv.RenderAsText
+		resolvesIcon := style.IconAsset != "" && assets[style.IconAsset]
+		if labels {
+			score.Axes.TextSets++
+		} else if kind == semconv.GeometryPoint {
+			score.Axes.IconsWanted++
+			if resolvesIcon {
+				score.Axes.IconsCarried++
+			}
+		}
+		for _, feature := range set.Features {
+			featureAttrs := nativeAttrs(feature.Properties)
+			vertices := nativeVertices(feature.Geometry)
+			score.Axes.Features++
+			if feature.Geometry.Kind == vnext.GeometryPoint {
+				score.Axes.Points++
+			} else {
+				score.Axes.Shapes++
+				score.Axes.Vertices += vertices
+			}
+			corroboration := max(0, len(feature.Provenance)-1)
+			for index, provenance := range feature.Provenance {
+				account := accounts[provenance.Source]
+				if account == nil {
+					account = &enrich.Account{Source: provenance.Source, Origin: index == 0}
+					accounts[provenance.Source] = account
+					accountOrder = append(accountOrder, provenance.Source)
+				}
+				switch feature.Geometry.Kind {
+				case vnext.GeometryPoint:
+					account.DonorFeatures.Point++
+				case vnext.GeometryLineString:
+					account.DonorFeatures.Path++
+				case vnext.GeometryPolygon:
+					account.DonorFeatures.Area++
+				}
+			}
+			out.Features += scoreFeature(score, table, featureFacts{
+				title: feature.Title, description: feature.Description, attrs: featureAttrs,
+				resolvesIcon: resolvesIcon, vertices: vertices, corroboration: corroboration,
+			}, lengths)
+		}
+	}
+	for _, source := range accountOrder {
+		score.Ledger = append(score.Ledger, LedgerLine{World: world.ID, Account: *accounts[source]})
+	}
+	out.Total = out.Features + out.Collections + out.World
+	return out
+}
+
+func nativeAttrs(properties []vnext.Property) map[string]string {
+	out := make(map[string]string, len(properties))
+	for _, property := range properties {
+		if property.Field.Name != "" {
+			out[property.Field.Name] = nativeValue(property.Value)
+		}
+	}
+	return out
+}
+
+func nativeValue(value vnext.Value) string {
+	switch value.Kind {
+	case vnext.KindBool:
+		return strconv.FormatBool(value.Bool)
+	case vnext.KindInt64:
+		return strconv.FormatInt(value.Int64, 10)
+	case vnext.KindFloat64:
+		return strconv.FormatFloat(value.Float64, 'g', -1, 64)
+	case vnext.KindString:
+		return value.String
+	case vnext.KindBytes:
+		return fmt.Sprintf("%x", value.Bytes)
+	case vnext.KindID:
+		return value.ID.String()
+	default:
+		return ""
+	}
+}
+
+func nativeVertices(geometry vnext.Geometry) int {
+	total := 0
+	for _, part := range geometry.Parts {
+		for _, ring := range part.Rings {
+			total += len(ring)
+		}
+	}
+	return total
 }
 
 // ScoreParts scores a build from its manifest and its worlds' payloads. It

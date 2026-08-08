@@ -2,12 +2,16 @@ package app_test
 
 import (
 	"context"
+	"crypto/sha256"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"io"
+	"mime"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
+	"path"
 	"strings"
 	"testing"
 
@@ -41,19 +45,54 @@ func (v *fakeVolume) Info() hostenv.VolumeInfo {
 
 func (v *fakeVolume) Semantic() vnext.Volume {
 	semantic, _ := vnext.ImportV3Volume(v.manifest, func(name string) ([]byte, error) { return v.Blob(name) })
+	for name, data := range v.entries {
+		if !strings.HasPrefix(name, bundle.IconsPrefix) {
+			continue
+		}
+		semantic.Assets = append(semantic.Assets, vnext.Asset{
+			ID: strings.TrimPrefix(name, bundle.IconsPrefix), MediaType: mime.TypeByExtension(path.Ext(name)), Data: data,
+		})
+	}
+	for index := range semantic.Assets {
+		digest := sha256.Sum256(semantic.Assets[index].Data)
+		semantic.Assets[index].Path = fmt.Sprintf("assets/%x", digest)
+	}
 	return semantic
 }
 
 func (v *fakeVolume) Blob(name string) ([]byte, error) {
 	held, ok := v.entries[name]
-	if !ok {
-		return nil, errors.New("no such entry")
+	if ok {
+		return held, nil
 	}
-	return held, nil
+	compiled, err := vnext.Compile(v.Semantic())
+	if err == nil {
+		for _, blob := range compiled.Blobs {
+			if blob.Name == name {
+				return blob.Data, nil
+			}
+		}
+	}
+	return nil, errors.New("no such entry")
 }
 
-func (v *fakeVolume) Schema() ([]byte, error)           { return vnext.StandardSchema().Canonical() }
-func (v *fakeVolume) TableBlock(string) ([]byte, error) { return nil, errors.New("no typed fixture") }
+func (v *fakeVolume) Schema() ([]byte, error) { return vnext.StandardSchema().Canonical() }
+func (v *fakeVolume) TableBlock(name string) ([]byte, error) {
+	compiled, err := vnext.Compile(v.Semantic())
+	if err != nil {
+		return nil, err
+	}
+	hash, err := compiled.Schema.Hash()
+	if err != nil {
+		return nil, err
+	}
+	for _, table := range compiled.Tables {
+		if table.Name == name {
+			return vnext.EncodeBlock(hash, table.Table)
+		}
+	}
+	return nil, errors.New("no typed fixture")
+}
 
 type fakeVolumes struct {
 	volumes  []hostenv.Volume
@@ -222,18 +261,19 @@ func TestCatalogComposition(t *testing.T) {
 func TestContentPlane(t *testing.T) {
 	handler, _ := newApp(t, volume("tunic", "TUNIC", tunicStamp))
 	base := "/data/v/tunic/" + bundle.ShortStamp(tunicStamp)
+	markerDigest := sha256.Sum256([]byte("<svg/>"))
+	marker := fmt.Sprintf("%s/assets/%x", base, markerDigest)
 
 	served := []struct {
 		name string
 		path string
 		kind string
-		size int
+		body string
 	}{
-		{"a world payload", base + "/worlds/overworld.json", "application/json", 126},
-		{"the packed locations", base + "/worlds/overworld.bin", "application/octet-stream", 20},
-		{"the deferred prose", base + "/worlds/overworld.text", "application/json", 2},
-		{"an icon", base + "/icons/marker.svg", "image/svg+xml", 6},
-		{"a tile", base + "/tiles/overworld/0/0/0.jpg", "image/jpeg", 6},
+		{"the native schema", base + "/schema.json", "application/schema+json", ""},
+		{"a native typed table", base + "/data/volumes.pack", "application/vnd.atlas.table", ""},
+		{"a content-addressed asset", marker, "image/svg+xml", "<svg/>"},
+		{"a tile", base + "/tiles/overworld/0/0/0.jpg", "image/jpeg", "raster"},
 	}
 	for _, tt := range served {
 		t.Run(tt.name, func(t *testing.T) {
@@ -244,8 +284,11 @@ func TestContentPlane(t *testing.T) {
 			if kind := got.Header().Get("Content-Type"); kind != tt.kind {
 				t.Errorf("Content-Type = %q, want %q", kind, tt.kind)
 			}
-			if got.Body.Len() != tt.size {
-				t.Errorf("body is %d bytes, want %d", got.Body.Len(), tt.size)
+			if tt.body != "" && got.Body.String() != tt.body {
+				t.Errorf("body is %q, want %q", got.Body.String(), tt.body)
+			}
+			if got.Body.Len() == 0 {
+				t.Error("native content body is empty")
 			}
 			if cache := got.Header().Get("Cache-Control"); cache != "private, max-age=31536000, immutable" {
 				t.Errorf("Cache-Control = %q: a stamped URL names one build forever", cache)
@@ -259,10 +302,11 @@ func TestContentPlane(t *testing.T) {
 	}{
 		{"a stamp that is not the serving build", "/data/v/tunic/000000000000/worlds/overworld.json"},
 		{"a volume that is not installed", "/data/v/not-a-volume/" + bundle.ShortStamp(tunicStamp) + "/worlds/overworld.json"},
-		{"an entry outside worlds, tiles and icons", base + "/atlas.json"},
-		{"an extension the plane names no type for", base + "/worlds/overworld.txt"},
-		{"a world the bundle does not hold", base + "/worlds/not-a-world.json"},
-		{"a path with no extension at all", base + "/worlds/overworld"},
+		{"the retired world JSON projection", base + "/worlds/overworld.json"},
+		{"the retired packed-location projection", base + "/worlds/overworld.bin"},
+		{"the retired deferred-text projection", base + "/worlds/overworld.text"},
+		{"the retired icon namespace", base + "/icons/marker.svg"},
+		{"an entry the native bundle does not hold", base + "/atlas.json"},
 		{"a path under the shell that is not a page", "/not-a-page"},
 	}
 	for _, tt := range refused {
@@ -1180,25 +1224,25 @@ func TestOneZoneCanBeAskedForExclusively(t *testing.T) {
 
 	// The accumulating form, which is what the row's right button asks and
 	// what this control is not: two zones highlighted is two zones.
-	highlight(t, url.Values{"feature": {"91"}})
-	highlight(t, url.Values{"feature": {"92"}})
+	highlight(t, url.Values{"feature": {"overworld/feature/91"}})
+	highlight(t, url.Values{"feature": {"overworld/feature/92"}})
 	if held := session(t).Highlighted; len(held) != 2 {
 		t.Fatalf("highlighting twice did not accumulate: %v", held)
 	}
 	// The collection the exclusive zone belongs to is away, so the ride-along
 	// has something to do.
 	if got := post(t, handler, "/session/collections",
-		url.Values{"volume": {"tunic"}, "collection": {"901"}, "visible": {"0"}}); got.Code != http.StatusOK {
+		url.Values{"volume": {"tunic"}, "collection": {"overworld/layer/901"}, "visible": {"0"}}); got.Code != http.StatusOK {
 		t.Fatalf("hiding a collection answered %d", got.Code)
 	}
 
 	// The exclusive form replaces the set rather than joining it.
-	answer := highlight(t, url.Values{"feature": {"94"}, "only": {"1"}})
+	answer := highlight(t, url.Values{"feature": {"overworld/feature/94"}, "only": {"1"}})
 	held := session(t)
-	if len(held.Highlighted) != 1 || held.Highlighted[0] != "94" {
+	if len(held.Highlighted) != 1 || held.Highlighted[0] != "overworld/feature/94" {
 		t.Errorf("the exclusive press did not replace the set: %v", held.Highlighted)
 	}
-	if contains(held.Hidden, "901") {
+	if contains(held.Hidden, "overworld/layer/901") {
 		t.Errorf("the exclusive press left its own collection hidden: %v", held.Hidden)
 	}
 	// It moves what a highlight moves, and nothing else: the same three
@@ -1212,7 +1256,7 @@ func TestOneZoneCanBeAskedForExclusively(t *testing.T) {
 	// Pressing it again on the zone that is already alone is the way out. It
 	// is the isolate chip's own toggle, one row further in: a control that set
 	// a filter is the control that lifts it.
-	highlight(t, url.Values{"feature": {"94"}, "only": {"1"}})
+	highlight(t, url.Values{"feature": {"overworld/feature/94"}, "only": {"1"}})
 	if held := session(t).Highlighted; len(held) != 0 {
 		t.Errorf("pressing the exclusive control again did not clear the highlights: %v", held)
 	}
@@ -1220,8 +1264,8 @@ func TestOneZoneCanBeAskedForExclusively(t *testing.T) {
 	// And a zone that is alone by another route -- highlighted one at a time
 	// until one was left -- is exclusive too, because the state is derived
 	// from the set rather than from which button reached it.
-	highlight(t, url.Values{"feature": {"93"}})
-	highlight(t, url.Values{"feature": {"93"}, "only": {"1"}})
+	highlight(t, url.Values{"feature": {"overworld/feature/93"}})
+	highlight(t, url.Values{"feature": {"overworld/feature/93"}, "only": {"1"}})
 	if held := session(t).Highlighted; len(held) != 0 {
 		t.Errorf("a lone highlight was not treated as an exclusive one: %v", held)
 	}
@@ -1233,7 +1277,7 @@ func TestOneZoneCanBeAskedForExclusively(t *testing.T) {
 func TestAZoneRowWearsItsExclusiveControl(t *testing.T) {
 	handler, _ := newApp(t, zonedVolume())
 	if got := post(t, handler, "/session/highlight",
-		url.Values{"volume": {"tunic"}, "feature": {"93"}, "only": {"1"}}); got.Code != http.StatusOK {
+		url.Values{"volume": {"tunic"}, "feature": {"overworld/feature/93"}, "only": {"1"}}); got.Code != http.StatusOK {
 		t.Fatalf("/session/highlight answered %d: %s", got.Code, got.Body)
 	}
 	page := get(t, handler, "/v/tunic/overworld", nil)
@@ -1245,7 +1289,7 @@ func TestAZoneRowWearsItsExclusiveControl(t *testing.T) {
 	// One control per zone, and the request it carries is the exclusive form
 	// of the highlight concern -- not the isolate route the collection rows
 	// use, which would put every other collection away.
-	for _, zone := range []string{"91", "92", "93", "94"} {
+	for _, zone := range []string{"overworld/feature/91", "overworld/feature/92", "overworld/feature/93", "overworld/feature/94"} {
 		markup := zoneOnlyButton(shell, zone)
 		if markup == "" {
 			t.Fatalf("the zone %s has no exclusive control:\n%s", zone, legendOf(t, shell))
@@ -1262,15 +1306,15 @@ func TestAZoneRowWearsItsExclusiveControl(t *testing.T) {
 	}
 	// It is the same control the collection rows wear, so it reads and draws
 	// as one: the carried `.only-button` rule is what reveals it.
-	if !strings.Contains(zoneOnlyButton(shell, "91"), `aria-label="Exclusively R1"`) {
-		t.Errorf("the control does not say what it does:\n%s", zoneOnlyButton(shell, "91"))
+	if !strings.Contains(zoneOnlyButton(shell, "overworld/feature/91"), `aria-label="Exclusively R1"`) {
+		t.Errorf("the control does not say what it does:\n%s", zoneOnlyButton(shell, "overworld/feature/91"))
 	}
 	// And the pressed state is the state, not the press: R3 is the whole of
 	// what is highlighted, so its control is the one that reads pressed.
-	if !strings.Contains(zoneOnlyButton(shell, "93"), `aria-pressed="true"`) {
-		t.Errorf("the exclusive zone's control does not read pressed:\n%s", zoneOnlyButton(shell, "93"))
+	if !strings.Contains(zoneOnlyButton(shell, "overworld/feature/93"), `aria-pressed="true"`) {
+		t.Errorf("the exclusive zone's control does not read pressed:\n%s", zoneOnlyButton(shell, "overworld/feature/93"))
 	}
-	for _, zone := range []string{"91", "92", "94"} {
+	for _, zone := range []string{"overworld/feature/91", "overworld/feature/92", "overworld/feature/94"} {
 		if !strings.Contains(zoneOnlyButton(shell, zone), `aria-pressed="false"`) {
 			t.Errorf("the zone %s reads exclusive while %s is:\n%s", zone, "93", zoneOnlyButton(shell, zone))
 		}
@@ -1278,8 +1322,8 @@ func TestAZoneRowWearsItsExclusiveControl(t *testing.T) {
 	// The control is a sibling of the row's own button and not a child of it,
 	// which is the whole of how one click cannot be the other: an event
 	// reaches its ancestors and never its siblings.
-	row := shell[strings.Index(shell, `data-zone="93"`):]
-	row = row[:strings.Index(row, `data-zone-only="93"`)]
+	row := shell[strings.Index(shell, `data-zone="overworld/feature/93"`):]
+	row = row[:strings.Index(row, `data-zone-only="overworld/feature/93"`)]
 	if strings.Count(row, "</button>") != 1 {
 		t.Errorf("the exclusive control is nested inside the row's own button:\n%s", row)
 	}
@@ -1297,6 +1341,7 @@ func TestAZoneRowWearsItsExclusiveControl(t *testing.T) {
 // and no colour of their own -- and it is the shape the payload below has.
 func TestALegendRowWearsTheCollectionsArtwork(t *testing.T) {
 	held := volume("bend-or", "Bend, Oregon", tunicStamp)
+	held.entries["icons/std--maki-monument.svg"] = []byte("<svg/>")
 	held.entries["worlds/overworld.json"] = []byte(`{"lenses":[],"collections":[
 		{"id":1496244488,"title":"Historic Resources","kind":"point","group":"Heritage",
 		 "icon":"historic-resources","iconAsset":"std--maki-monument.svg",
@@ -1312,11 +1357,12 @@ func TestALegendRowWearsTheCollectionsArtwork(t *testing.T) {
 	}
 	shell := page.Body.String()
 	base := "/data/v/bend-or/" + bundle.ShortStamp(tunicStamp)
+	digest := sha256.Sum256([]byte("<svg/>"))
 
 	// The collection that carries a glyph: the artwork, named the way the
 	// seam names it, and no initials to draw over it.
 	wearing := `<span class="category-icon has-source-icon" style="--pin-icon: ` +
-		`url('` + base + `/icons/std--maki-monument.svg')" title="historic-resources"></span>`
+		`url('` + fmt.Sprintf("%s/assets/%x", base, digest) + `')" title="historic-resources"></span>`
 	if !strings.Contains(shell, wearing) {
 		t.Errorf("the Historic Resources row draws no artwork; want\n\t%s\nin\n%s", wearing, legendOf(t, shell))
 	}

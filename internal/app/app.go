@@ -10,9 +10,8 @@
 //
 // Two planes share the mux and answer to different rules.
 //
-// The **data plane** (/data) is byte-compatible with the implementation this
-// one replaces (docs/app.md §2.1; the differences accepted against the
-// reference are decision 18). The catalog is composed from whatever is
+// The **data plane** (/data) serves the native vNext schema, packed typed
+// tables and content-addressed blobs. The catalog is composed from whatever is
 // installed right now and is never cached; volume content sits under a URL
 // carrying the build's stamp, so it may be cached forever and a new build
 // arrives at new URLs. app_test.go is the gate on the plane's shape.
@@ -43,14 +42,12 @@ type App struct {
 	events *hub
 	mux    *http.ServeMux
 
-	// worlds and texts hold what a world costs to stand up: a payload
-	// decoded, every location unpacked, every ring projected. That is work
+	// worlds holds what a semantic world costs to stand up. That is work
 	// worth doing once per build rather than once per keystroke of a
 	// search, and the keys carry the build's stamp, so a new build is a new
 	// entry and nothing is ever stale. They are memory, not state: two Apps
 	// over one host still answer the same, only slower.
 	worlds   *worldCache
-	texts    *textCache
 	semantic *semanticCache
 
 	// writing serializes the read-modify-write of one volume's record. Two
@@ -78,7 +75,7 @@ type Options struct {
 func New(env hostenv.Hostenv, opts Options) *App {
 	a := &App{
 		env: env, static: opts.Static, events: newHub(), mux: http.NewServeMux(),
-		worlds: newWorldCache(), texts: newTextCache(), semantic: newSemanticCache(),
+		worlds: newWorldCache(), semantic: newSemanticCache(),
 	}
 	a.routes()
 	return a
@@ -90,7 +87,7 @@ func (a *App) ServeHTTP(w http.ResponseWriter, r *http.Request) { a.mux.ServeHTT
 // routes is the whole URL surface, in the order docs/app.md lists it. Every
 // route is spelled here; nothing registers itself.
 func (a *App) routes() {
-	// The data plane, byte-compatible with the reference implementation.
+	// The native vNext data plane.
 	a.mux.HandleFunc("GET /data/catalog.json", a.handleCatalog)
 	a.mux.HandleFunc("GET /data/v/{slug}/{stamp}/{rest...}", a.handleContent)
 

@@ -7,7 +7,7 @@ import (
 	"path/filepath"
 	"sort"
 
-	"github.com/FelineStateMachine/atlas/format/bundle"
+	"github.com/FelineStateMachine/atlas/format/vnext"
 	"github.com/FelineStateMachine/atlas/internal/enrich/maturity"
 	"github.com/FelineStateMachine/atlas/internal/logging"
 )
@@ -51,7 +51,7 @@ func runMeasure(args []string) error {
 	if err != nil {
 		return err
 	}
-	paths, err := filepath.Glob(filepath.Join(dir, "*"+bundle.Extension))
+	paths, err := filepath.Glob(filepath.Join(dir, "*"+vnext.Extension))
 	if err != nil {
 		return err
 	}

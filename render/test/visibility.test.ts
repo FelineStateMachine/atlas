@@ -15,6 +15,7 @@ import { WorldModel, project } from "../world/model.ts";
 import { Visibility } from "../world/visibility.ts";
 import type { Collection, TileGrid, WorldPayload } from "../data/payload.ts";
 import { LocationTable } from "../data/atlasloc.ts";
+import { legacyOpenWorld } from "./legacy.ts";
 
 const grid: TileGrid = { sourceZoom: 5, firstTile: 0, tileSize: 256, size: 8192 };
 
@@ -81,7 +82,7 @@ function table(): LocationTable {
   return LocationTable.over(buffer);
 }
 
-const model = new WorldModel("w", payload(), grid, table());
+const model = new WorldModel(legacyOpenWorld("w", payload(), grid, table()));
 
 function scene(over: Partial<Scene> = {}): Scene {
   return { ...EMPTY_SCENE, ...over };
@@ -158,13 +159,13 @@ test("a held cell narrows exactly the way a highlight does", () => {
 });
 
 test("a pin's place in the crowd is stable and rarity-first", () => {
-  const shrines = model.points.filter((point) => point.collection.id === 1);
-  const chests = model.points.filter((point) => point.collection.id === 2);
+  const shrines = model.points.filter((point) => point.collection.id === "1");
+  const chests = model.points.filter((point) => point.collection.id === "2");
   // Equal-sized collections rank equally by rarity, so the tie-break is the
   // id's own hash — and it is the same on every run.
   assert.equal(shrines.length, 2);
   assert.equal(chests.length, 2);
-  const again = new WorldModel("w", payload(), grid, table());
+  const again = new WorldModel(legacyOpenWorld("w", payload(), grid, table()));
   assert.deepEqual(again.points.map((point) => point.priority),
     model.points.map((point) => point.priority));
 });

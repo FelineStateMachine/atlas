@@ -8,7 +8,6 @@ import (
 	"path"
 	"strings"
 
-	"github.com/FelineStateMachine/atlas/format/bundle"
 	"github.com/FelineStateMachine/atlas/format/vnext"
 	"github.com/FelineStateMachine/atlas/internal/logging"
 )
@@ -75,7 +74,7 @@ func (a *App) handleOpen(w http.ResponseWriter, r *http.Request) {
 // rendered, with every region already in its remembered state.
 func (a *App) handleExplorer(w http.ResponseWriter, r *http.Request) {
 	slug, world := r.PathValue("volume"), r.PathValue("world")
-	if bundle.ValidSlug(slug) != nil || bundle.ValidSlug(world) != nil {
+	if vnext.ValidSlug(slug) != nil || vnext.ValidSlug(world) != nil {
 		http.NotFound(w, r)
 		return
 	}
@@ -137,7 +136,7 @@ func (a *App) handleExplorer(w http.ResponseWriter, r *http.Request) {
 // at regions an interaction moved.
 func (a *App) handleDetail(w http.ResponseWriter, r *http.Request) {
 	slug := r.URL.Query().Get("volume")
-	if bundle.ValidSlug(slug) != nil {
+	if vnext.ValidSlug(slug) != nil {
 		http.Error(w, "the fragment names no volume", http.StatusBadRequest)
 		return
 	}

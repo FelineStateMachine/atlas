@@ -19,11 +19,10 @@ export { AtlasGlobe } from "./globe/element.ts";
 export { snapshot } from "./diagnostics.ts";
 export type { SeamSnapshot } from "./diagnostics.ts";
 
-export { LocationTable } from "./data/atlasloc.ts";
 export { DataPlane } from "./data/plane.ts";
 export { Coverage, LensCoverage, inventoryNames, tileWindowAt } from "./data/pyramid.ts";
 export { readScene, sceneChange } from "./scene/read.ts";
 export type { Scene, SceneChange } from "./scene/read.ts";
-export { WorldModel, project, worldGrid } from "./world/model.ts";
+export { WorldModel } from "./world/model.ts";
 export { Visibility } from "./world/visibility.ts";
 export { logger, setLevel } from "./log.ts";

@@ -49,7 +49,7 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/FelineStateMachine/atlas/format/bundle"
+	"github.com/FelineStateMachine/atlas/format/vnext"
 	"github.com/FelineStateMachine/atlas/internal/enrich/maturity"
 	"github.com/FelineStateMachine/atlas/internal/logging"
 	"github.com/FelineStateMachine/atlas/internal/workbench/oprunner"
@@ -375,8 +375,8 @@ func (w *Workbench) handleAsset(rw http.ResponseWriter, r *http.Request) {
 func parseTemplates() (map[string]*template.Template, *template.Template, error) {
 	funcs := template.FuncMap{
 		// The one display function templates get: a stamp is 64 characters
-		// and a page wants the twelve that identify it (format/bundle).
-		"short": bundle.ShortStamp,
+		// and a page wants the twelve that identify it (format/vnext).
+		"short": vnext.ShortStamp,
 	}
 	pages := make(map[string]*template.Template, len(pageNames))
 	for _, name := range pageNames {

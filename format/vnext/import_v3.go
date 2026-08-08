@@ -4,12 +4,14 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
+	"math"
 	"path"
 	"sort"
 	"strconv"
 	"strings"
 
 	"github.com/FelineStateMachine/atlas/format/bundle"
+	"github.com/FelineStateMachine/atlas/format/semconv"
 )
 
 type v3World struct {
@@ -195,7 +197,7 @@ func importV3World(read func(string) ([]byte, error), manifest bundle.Manifest, 
 	}
 	origin := v3Origin(source.Merged)
 	for index, collection := range source.Collections {
-		set, err := importV3Collection(entry, collection, texts, origin)
+		set, err := importV3Collection(entry, collection, texts, origin, grid)
 		if err != nil {
 			return World{}, fmt.Errorf("world %s collection %s: %w", entry.Slug, collection.Title, err)
 		}
@@ -208,12 +210,12 @@ func importV3World(read func(string) ([]byte, error), manifest bundle.Manifest, 
 		}
 		world.Presentation.Styles = append(world.Presentation.Styles, Style{
 			ID: styleID, Icon: collection.Icon, IconAsset: collection.IconAsset, IconPicture: collection.IconPicture,
-			RenderAs: collection.Attrs["atlas.render.as"], Fill: color, Stroke: color,
+			RenderAs: collection.Attrs[semconv.KeyRenderAs], Fill: color, Stroke: color,
 		})
 		visible := collection.Visible == nil || *collection.Visible
 		world.Presentation.Layers = append(world.Presentation.Layers, Layer{
 			ID: layerID, FeatureSet: set.ID, Style: styleID, Group: collection.Group,
-			LabelPolicy: collection.Attrs["atlas.label.policy"], Visible: visible,
+			LabelPolicy: collection.Attrs[semconv.KeyLabelPolicy], Visible: visible,
 			Order: int64(index), MinZoom: 0, MaxZoom: maxV3Zoom(source.Lenses),
 		})
 		world.Presentation.Legend = append(world.Presentation.Legend, LegendEntry{Layer: layerID, Label: collection.Title, Order: int64(index)})
@@ -226,7 +228,7 @@ func importV3World(read func(string) ([]byte, error), manifest bundle.Manifest, 
 		text := texts[strconv.FormatInt(location.ID, 10)]
 		feature := Feature{
 			ID: v3FeatureID(entry.Slug, location.ID), Title: location.Title, Shard: location.Shard,
-			Geometry:   Geometry{Kind: GeometryPoint, Parts: []GeometryPart{{Rings: [][]Position{{{location.Lng, location.Lat}}}}}},
+			Geometry:   Geometry{Kind: GeometryPoint, Parts: []GeometryPart{{Rings: [][]Position{{projectV3(location.Lng, location.Lat, grid)}}}}},
 			Properties: propertiesFromV3(text.Attrs), Provenance: v3Provenance(origin, location.ID, entry.UpdatedAt),
 			Description: text.Description,
 		}
@@ -252,7 +254,7 @@ func importV3World(read func(string) ([]byte, error), manifest bundle.Manifest, 
 	return world, nil
 }
 
-func importV3Collection(entry bundle.WorldEntry, source v3Collection, texts map[string]v3Text, origin string) (FeatureSet, error) {
+func importV3Collection(entry bundle.WorldEntry, source v3Collection, texts map[string]v3Text, origin string, grid bundle.TileGrid) (FeatureSet, error) {
 	set := FeatureSet{
 		ID: entry.Slug + "/set/" + strconv.FormatInt(source.ID, 10), Title: source.Title,
 		SemanticType: "geometry." + source.Kind, Claims: claimsFromV3("collection", source.Attrs),
@@ -272,7 +274,7 @@ func importV3Collection(entry bundle.WorldEntry, source v3Collection, texts map[
 	sort.Slice(set.Properties, func(i, j int) bool { return set.Properties[i].ID.String() < set.Properties[j].ID.String() })
 	for _, sourceFeature := range source.Features {
 		text := texts[strconv.FormatInt(sourceFeature.ID, 10)]
-		geometry, err := geometryFromV3(sourceFeature.Geometry)
+		geometry, err := geometryFromV3(sourceFeature.Geometry, grid)
 		if err != nil {
 			return FeatureSet{}, fmt.Errorf("feature %d geometry: %w", sourceFeature.ID, err)
 		}
@@ -283,7 +285,7 @@ func importV3Collection(entry bundle.WorldEntry, source v3Collection, texts map[
 			Relationships: relationshipsFromV3(entry.Slug, text.Links), Provenance: v3Provenance(origin, sourceFeature.ID, entry.UpdatedAt),
 		}
 		if sourceFeature.Center != nil {
-			center := Position{sourceFeature.Center.Lng, sourceFeature.Center.Lat}
+			center := projectV3(sourceFeature.Center.Lng, sourceFeature.Center.Lat, grid)
 			feature.Center = &center
 		}
 		if sourceFeature.Parent != nil {
@@ -321,7 +323,7 @@ func importV3Raster(worldID string, tileSize, index int, lens v3Lens) (RasterPyr
 	return raster, nil
 }
 
-func geometryFromV3(source []v3Geometry) (Geometry, error) {
+func geometryFromV3(source []v3Geometry, grid bundle.TileGrid) (Geometry, error) {
 	var out Geometry
 	for _, item := range source {
 		switch item.Type {
@@ -330,13 +332,13 @@ func geometryFromV3(source []v3Geometry) (Geometry, error) {
 			if err := json.Unmarshal(item.Coordinates, &point); err != nil {
 				return Geometry{}, err
 			}
-			out.Kind, out.Parts = GeometryPoint, append(out.Parts, GeometryPart{Rings: [][]Position{{point}}})
+			out.Kind, out.Parts = GeometryPoint, append(out.Parts, GeometryPart{Rings: [][]Position{{projectV3Position(point, grid)}}})
 		case "LineString":
 			var line []Position
 			if err := json.Unmarshal(item.Coordinates, &line); err != nil {
 				return Geometry{}, err
 			}
-			out.Kind, out.Parts = GeometryLineString, append(out.Parts, GeometryPart{Rings: [][]Position{line}})
+			out.Kind, out.Parts = GeometryLineString, append(out.Parts, GeometryPart{Rings: [][]Position{projectV3Positions(line, grid)}})
 		case "MultiLineString":
 			var lines [][]Position
 			if err := json.Unmarshal(item.Coordinates, &lines); err != nil {
@@ -344,14 +346,14 @@ func geometryFromV3(source []v3Geometry) (Geometry, error) {
 			}
 			out.Kind = GeometryLineString
 			for _, line := range lines {
-				out.Parts = append(out.Parts, GeometryPart{Rings: [][]Position{line}})
+				out.Parts = append(out.Parts, GeometryPart{Rings: [][]Position{projectV3Positions(line, grid)}})
 			}
 		case "Polygon":
 			var rings [][]Position
 			if err := json.Unmarshal(item.Coordinates, &rings); err != nil {
 				return Geometry{}, err
 			}
-			out.Kind, out.Parts = GeometryPolygon, append(out.Parts, GeometryPart{Rings: rings})
+			out.Kind, out.Parts = GeometryPolygon, append(out.Parts, GeometryPart{Rings: projectV3Rings(rings, grid)})
 		case "MultiPolygon":
 			var polygons [][][]Position
 			if err := json.Unmarshal(item.Coordinates, &polygons); err != nil {
@@ -359,13 +361,43 @@ func geometryFromV3(source []v3Geometry) (Geometry, error) {
 			}
 			out.Kind = GeometryPolygon
 			for _, rings := range polygons {
-				out.Parts = append(out.Parts, GeometryPart{Rings: rings})
+				out.Parts = append(out.Parts, GeometryPart{Rings: projectV3Rings(rings, grid)})
 			}
 		default:
 			return Geometry{}, fmt.Errorf("unsupported v3 geometry %q", item.Type)
 		}
 	}
 	return out, validateGeometry(out)
+}
+
+func projectV3(lng, lat float64, grid bundle.TileGrid) Position {
+	worldTiles := math.Pow(2, float64(grid.SourceZoom))
+	xTile := (lng + 180) / 360 * worldTiles
+	yTile := (1 - math.Asinh(math.Tan(lat*math.Pi/180))/math.Pi) / 2 * worldTiles
+	return Position{
+		(xTile - float64(grid.FirstTile)) * float64(grid.TileSize),
+		(yTile - float64(grid.FirstTile)) * float64(grid.TileSize),
+	}
+}
+
+func projectV3Position(position Position, grid bundle.TileGrid) Position {
+	return projectV3(position[0], position[1], grid)
+}
+
+func projectV3Positions(positions []Position, grid bundle.TileGrid) []Position {
+	out := make([]Position, len(positions))
+	for index, position := range positions {
+		out[index] = projectV3Position(position, grid)
+	}
+	return out
+}
+
+func projectV3Rings(rings [][]Position, grid bundle.TileGrid) [][]Position {
+	out := make([][]Position, len(rings))
+	for index, ring := range rings {
+		out[index] = projectV3Positions(ring, grid)
+	}
+	return out
 }
 
 func importV3Assets(reader *bundle.Reader) ([]Asset, error) {

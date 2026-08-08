@@ -1,58 +1,17 @@
 package app
 
 import (
-	"encoding/json"
 	"math"
 	"sort"
-	"strconv"
 	"sync"
 
-	"github.com/FelineStateMachine/atlas/format/bundle"
 	"github.com/FelineStateMachine/atlas/format/semconv"
 	"github.com/FelineStateMachine/atlas/format/vnext"
 	"github.com/FelineStateMachine/atlas/internal/app/cells"
 	"github.com/FelineStateMachine/atlas/internal/app/hostenv"
 )
 
-// The world as the display logic reads it.
-//
-// A world payload is JSON on the data plane and the seam reads it there
-// directly; the application reads the same bytes for a different reason. Every
-// display decision the reference implementation made in the browser -- which
-// legend sections exist, what each row counts, which names speak, which
-// features survive a filter -- is made here instead, once, in Go, before a
-// template is handed anything (issue #5 §4.5).
-//
-// The decoding below is deliberately lenient in the reader's direction: a
-// field this build has never heard of is ignored, and a collection missing
-// half its optional fields still renders. Conventions are read only through
-// format/semconv; nothing here compares an "atlas." string literal of its own.
-//
-// The payload's Go shape lives here rather than in format/bundle because the
-// format package serves these bytes without opening them: nothing in it needs
-// a struct for the payload, and inventing one there would export a shape the
-// format lane has not committed to. When the format lane wants one, this
-// moves and the app imports it.
-
-// worldPayload is worlds/<slug>.json.
-type worldPayload struct {
-	Attrs       map[string]string   `json:"attrs"`
-	Grid        *payloadGrid        `json:"grid"`
-	Lenses      []payloadLens       `json:"lenses"`
-	Collections []payloadCollection `json:"collections"`
-	Merged      []payloadMerge      `json:"merged"`
-}
-
-// payloadGrid is a world's override of the volume's tile window. Absent
-// fields keep the volume's.
-type payloadGrid struct {
-	SourceZoom *int `json:"sourceZoom"`
-	FirstTile  *int `json:"firstTile"`
-	TileSize   *int `json:"tileSize"`
-	Size       *int `json:"size"`
-}
-
-// payloadLens is one raster pyramid picturing this world.
+// payloadLens is the presentation-ready view of one native raster pyramid.
 type payloadLens struct {
 	Name        string                     `json:"name"`
 	Tiles       string                     `json:"tiles"`
@@ -79,53 +38,6 @@ type payloadCoverage struct {
 	W    int    `json:"w"`
 	H    int    `json:"h"`
 	Bits string `json:"bits"`
-}
-
-// payloadCollection is one ordered group of features.
-type payloadCollection struct {
-	ID          int64  `json:"id"`
-	Title       string `json:"title"`
-	Kind        string `json:"kind"`
-	Group       string `json:"group"`
-	Icon        string `json:"icon"`
-	IconAsset   string `json:"iconAsset"`
-	IconPicture bool   `json:"iconPicture,omitempty"`
-	// Color is the collection's own accent and IconColor the older spelling
-	// of the same fact. Both are read because the seam reads both, and a
-	// legend that fell back to the palette where the seam honoured a
-	// declared colour would draw a different world than the map.
-	Color     string            `json:"color"`
-	IconColor string            `json:"iconColor"`
-	Visible   *bool             `json:"visible"`
-	Attrs     map[string]string `json:"attrs"`
-	Features  []payloadFeature  `json:"features"`
-}
-
-// payloadFeature is one path or area. Points are not here: they live packed
-// in the .bin, and owner indexes this array.
-type payloadFeature struct {
-	ID       int64              `json:"id"`
-	Title    string             `json:"title"`
-	Subtitle string             `json:"subtitle"`
-	Parent   *int64             `json:"parent"`
-	Center   *bundle.Coordinate `json:"center"`
-	HasText  bool               `json:"hasText"`
-	Shard    int64              `json:"shard"`
-	Attrs    map[string]string  `json:"attrs"`
-	Geometry []payloadGeometry  `json:"geometry"`
-}
-
-// payloadGeometry is one GeoJSON-shaped ring set in the volume's own degrees.
-type payloadGeometry struct {
-	Type        string          `json:"type"`
-	Coordinates json.RawMessage `json:"coordinates"`
-}
-
-// payloadMerge is one source's account of what it contributed.
-type payloadMerge struct {
-	Slug   string `json:"slug"`
-	Source string `json:"source"`
-	Origin bool   `json:"origin"`
 }
 
 // ---------------------------------------------------------------------------
@@ -198,6 +110,7 @@ type pointModel struct {
 	Lat, Lng   float64
 	X, Y       float64
 	Shard      int64
+	Feature    *vnext.Feature
 	Collection *collectionModel
 }
 
@@ -211,6 +124,7 @@ type shapeModel struct {
 	Depth      int
 	HasText    bool
 	Attrs      map[string]string
+	Feature    *vnext.Feature
 	Collection *collectionModel
 	// Shard is the layer of a split world this ground belongs to. A shape on
 	// another lens's shard is elsewhere in the world rather than filtered
@@ -240,6 +154,15 @@ func (g tileGrid) project(lat, lng float64) (x, y float64) {
 	yTile := (1 - math.Asinh(math.Tan(lat*math.Pi/180))/math.Pi) / 2 * worldTiles
 	return (xTile - float64(g.FirstTile)) * float64(g.TileSize),
 		-(yTile - float64(g.FirstTile)) * float64(g.TileSize)
+}
+
+func (g tileGrid) unproject(x, y float64) (lat, lng float64) {
+	worldTiles := math.Pow(2, float64(g.SourceZoom))
+	xTile := x/float64(g.TileSize) + float64(g.FirstTile)
+	yTile := y/float64(g.TileSize) + float64(g.FirstTile)
+	lng = xTile/worldTiles*360 - 180
+	lat = math.Atan(math.Sinh(math.Pi*(1-2*yTile/worldTiles))) * 180 / math.Pi
+	return lat, lng
 }
 
 // ---------------------------------------------------------------------------
@@ -299,7 +222,7 @@ func (a *App) world(volume hostenv.Volume, slug string) *worldModel {
 	if !held {
 		return nil
 	}
-	model, err := buildVNextWorld(world)
+	model, err := buildVNextWorld(world, semantic.Assets)
 	if err != nil {
 		return nil
 	}
@@ -316,86 +239,6 @@ func shapeDepth(model *worldModel, shape *shapeModel, guard int) int {
 		return 0
 	}
 	return 1 + shapeDepth(model, parent, guard+1)
-}
-
-func buildShape(feature payloadFeature, collection *collectionModel, grid tileGrid) *shapeModel {
-	shape := &shapeModel{
-		ID:         strconv.FormatInt(feature.ID, 10),
-		Title:      feature.Title,
-		Subtitle:   feature.Subtitle,
-		HasText:    feature.HasText,
-		Shard:      feature.Shard,
-		Attrs:      feature.Attrs,
-		Collection: collection,
-		MinX:       math.Inf(1), MinY: math.Inf(1),
-		MaxX: math.Inf(-1), MaxY: math.Inf(-1),
-	}
-	if feature.Parent != nil {
-		shape.Parent = strconv.FormatInt(*feature.Parent, 10)
-	}
-	for _, geometry := range feature.Geometry {
-		switch geometry.Type {
-		case "Polygon":
-			var rings [][][2]float64
-			if json.Unmarshal(geometry.Coordinates, &rings) != nil {
-				continue
-			}
-			shape.addPolygon(rings, grid)
-		case "MultiPolygon":
-			var polygons [][][][2]float64
-			if json.Unmarshal(geometry.Coordinates, &polygons) != nil {
-				continue
-			}
-			for _, rings := range polygons {
-				shape.addPolygon(rings, grid)
-			}
-		case "LineString":
-			var line [][2]float64
-			if json.Unmarshal(geometry.Coordinates, &line) != nil {
-				continue
-			}
-			shape.addLine(line, grid)
-		case "MultiLineString":
-			var lines [][][2]float64
-			if json.Unmarshal(geometry.Coordinates, &lines) != nil {
-				continue
-			}
-			for _, line := range lines {
-				shape.addLine(line, grid)
-			}
-		}
-	}
-	shape.Drawn = len(shape.Polygons) > 0 || len(shape.Lines) > 0
-	return shape
-}
-
-// Coordinates arrive GeoJSON-ordered -- longitude first -- and land on the
-// world square through the volume's own tile window.
-func (s *shapeModel) addPolygon(rings [][][2]float64, grid tileGrid) {
-	converted := make([][]point, 0, len(rings))
-	for _, ring := range rings {
-		converted = append(converted, s.convert(ring, grid))
-	}
-	if len(converted) > 0 {
-		s.Polygons = append(s.Polygons, converted)
-	}
-}
-
-func (s *shapeModel) addLine(line [][2]float64, grid tileGrid) {
-	if converted := s.convert(line, grid); len(converted) > 1 {
-		s.Lines = append(s.Lines, converted)
-	}
-}
-
-func (s *shapeModel) convert(ring [][2]float64, grid tileGrid) []point {
-	out := make([]point, 0, len(ring))
-	for _, pair := range ring {
-		x, y := grid.project(pair[1], pair[0])
-		out = append(out, point{X: x, Y: y})
-		s.MinX, s.MaxX = math.Min(s.MinX, x), math.Max(s.MaxX, x)
-		s.MinY, s.MaxY = math.Min(s.MinY, y), math.Max(s.MaxY, y)
-	}
-	return out
 }
 
 // ---------------------------------------------------------------------------
@@ -478,70 +321,6 @@ func segmentDistanceSquared(a, b point, x, y float64) float64 {
 	}
 	cx, cy := a.X+t*dx, a.Y+t*dy
 	return (cx-x)*(cx-x) + (cy-y)*(cy-y)
-}
-
-// ---------------------------------------------------------------------------
-// Text
-// ---------------------------------------------------------------------------
-
-// featureText is one feature's entry in worlds/<slug>.text: prose, links, and
-// the attributes that only matter once a card is open.
-type featureText struct {
-	Description string            `json:"d"`
-	Links       []int64           `json:"l"`
-	Attrs       map[string]string `json:"a"`
-}
-
-// text reads one world's prose file. The whole file is read rather than one
-// entry because it is a single JSON object and there is nothing to seek to;
-// it is small beside the tiles and it is read only when a card opens.
-func (a *App) text(volume hostenv.Volume, world string) map[string]featureText {
-	info := volume.Info()
-	key := info.Slug + "@" + vnext.ShortStamp(info.Stamp) + "/" + world + ".text"
-	if held, ok := a.texts.get(key); ok {
-		return held
-	}
-	out := map[string]featureText{}
-	if semantic, err := a.semanticVolume(volume); err == nil {
-		if held, ok := semanticWorld(semantic, world); ok {
-			if _, _, projected, err := presentVNextWorld(held); err == nil {
-				out = projected
-			}
-		}
-	}
-	a.texts.put(key, out)
-	return out
-}
-
-// textCache is the same shape of cache as worldCache, for the prose file.
-type textCache struct {
-	mu    sync.Mutex
-	held  map[string]map[string]featureText
-	order []string
-}
-
-func newTextCache() *textCache {
-	return &textCache{held: map[string]map[string]featureText{}}
-}
-
-func (c *textCache) get(key string) (map[string]featureText, bool) {
-	c.mu.Lock()
-	defer c.mu.Unlock()
-	held, ok := c.held[key]
-	return held, ok
-}
-
-func (c *textCache) put(key string, held map[string]featureText) {
-	c.mu.Lock()
-	defer c.mu.Unlock()
-	if _, seen := c.held[key]; !seen {
-		c.order = append(c.order, key)
-		for len(c.order) > worldsHeld {
-			delete(c.held, c.order[0])
-			c.order = c.order[1:]
-		}
-	}
-	c.held[key] = held
 }
 
 // sortedIDs is the order a set of collection ids is written in everywhere it

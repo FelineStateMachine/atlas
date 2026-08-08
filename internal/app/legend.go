@@ -3,7 +3,6 @@ package app
 import (
 	"fmt"
 	"sort"
-	"strconv"
 	"strings"
 
 	"github.com/FelineStateMachine/atlas/format/semconv"
@@ -29,18 +28,15 @@ var palette = [...]string{
 
 // colorFor is the one colour a feature wears wherever it is drawn, so the
 // legend, the index and the map cannot disagree about what it looks like. The
-// hash is the reference implementation's, kept exactly, because a swatch that
-// changed colour between builds would read as a data change.
+// hash is the seam's FNV-1a identity rank, so native string IDs keep the same
+// colour in every renderer and across builds.
 func colorFor(id string) string {
-	value, err := strconv.ParseInt(id, 10, 64)
-	if err != nil {
-		return palette[0]
+	hash := uint32(2166136261)
+	for _, value := range []byte(id) {
+		hash ^= uint32(value)
+		hash *= 16777619
 	}
-	if value < 0 {
-		value = -value
-	}
-	mixed := uint32(uint32(value) * 2654435761)
-	return palette[mixed%uint32(len(palette))]
+	return palette[hash%uint32(len(palette))]
 }
 
 // collectionColor is the one colour a *collection* wears, and it is the seam's
@@ -76,7 +72,7 @@ func iconAssetURL(base, asset string) string {
 	for at, segment := range segments {
 		segments[at] = encodeURIComponent(segment)
 	}
-	return base + "/icons/" + strings.Join(segments, "/")
+	return base + "/" + strings.Join(segments, "/")
 }
 
 // encodeURIComponent is the browser function of that name. Go's own
