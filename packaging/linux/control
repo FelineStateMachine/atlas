@@ -1,0 +1,10 @@
+Package: atlas-desktop
+Version: @VERSION@
+Section: science
+Priority: optional
+Architecture: @ARCH@
+Maintainer: Feline State Machine
+Depends: libgtk-3-0, libwebkit2gtk-4.1-0
+Description: Offline Atlas volume explorer
+ Atlas opens self-contained geographic volumes with raster pyramids,
+ semantic features, and authored presentation.

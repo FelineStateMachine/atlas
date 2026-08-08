@@ -124,9 +124,20 @@ current single feature pack and per-tile ZIP layout scale without limit. The
 next storage-generation break for genuinely massive worlds is partitioned
 feature blocks plus deterministic raster shard packs and range/page APIs.
 
-Release publication runs correctness and browser acceptance first, smokes a
-packaged CLI by building Sample Region, generates checksums for the exact asset
-set, uploads to a draft, verifies every remote asset name, and only then makes
+Release publication runs correctness and browser acceptance first, then builds
+native desktop delivery on each target OS. macOS exports the Atlas UTI from a
+signed/notarizable application bundle, Linux installs a desktop entry and
+shared MIME declaration from a `.deb`, and Windows installs and immediately
+smokes its per-user `.atlas` association. Signing steps are inert when their
+CI credentials are absent; adding the documented release secrets activates
+the same package path rather than a second release recipe.
+
+The release job checks the exact eight-asset allowlist, validates every package
+payload, and drives the packaged CLI through online and cache-only Sample
+Region builds. Those two `.atlas` files must be byte-identical and readable by
+the packaged measurement command. Only then does it generate and verify
+`SHA256SUMS`, upload all nine files to a draft, compare the complete local and
+remote asset sets, verify each remote asset's GitHub SHA-256 digest, and make
 the release public. Both CLI and desktop binaries answer `--version` from the
 release tag.
 

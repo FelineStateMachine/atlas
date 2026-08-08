@@ -29,6 +29,7 @@ pictures it, and [`decisions/`](decisions/) is why any of it is shaped this way.
 | [`workbench.md`](workbench.md) | The operator's surface: its pages, its operations, the operation runner as a consumable library, and the safety properties. |
 | [`snapshots.md`](snapshots.md) | The reusable scheduled-build workflow a city runs over its own data, and the one-time setup it needs. |
 | [`testing.md`](testing.md) | The whole test surface: `make test`, `make test-e2e`, `make corpus-smoke`, what tests are made of, where they live, and the bar for a new one. |
+| [`releasing.md`](releasing.md) | Native macOS, Linux, and Windows packaging, signing inputs, file associations, and the draft-first publication transaction. |
 | [`stamps.md`](stamps.md) | What a build stamp is a promise of, why it cannot be recomputed from a bundle, and what is enforced instead. |
 | [`logging.md`](logging.md) | The one event stream: levels, the shared attribute keys, handler and flag conventions for the CLI and the browser. |
 | [`decisions/`](decisions/) | Dated records of the calls that shaped all of the above, each with its context and consequences. |

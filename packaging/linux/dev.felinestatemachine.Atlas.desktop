@@ -1,0 +1,9 @@
+[Desktop Entry]
+Type=Application
+Name=Atlas
+Comment=Explore offline Atlas volumes
+Exec=Atlas %f
+Terminal=false
+Categories=Education;Geography;
+MimeType=application/vnd.felinestatemachine.atlas;
+StartupNotify=true

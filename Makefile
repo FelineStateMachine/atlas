@@ -3,7 +3,7 @@
 # These targets are the enforcement surface; the existing build recipes are
 # untouched and still live where they always did.
 
-.PHONY: test test-e2e corpus-smoke spec depcheck lint-lanes analysis-lane render-lane seam seam-watch static serve-static desktop
+.PHONY: test test-e2e release-packaging corpus-smoke spec depcheck lint-lanes analysis-lane render-lane seam seam-watch static serve-static desktop
 
 # The one entrypoint: every required gate, and nothing that can silently
 # decline to judge. Go tests run through tools/testgate, which fails the run
@@ -17,6 +17,7 @@ test:
 	npm run --silent lane
 	npm run --silent seam-lane
 	go run ./tools/depcheck
+	$(MAKE) release-packaging
 
 # The application in a real browser, over a registry packed from the committed
 # corpus. Needs a Playwright Chromium (npx playwright install chromium); every
@@ -24,6 +25,12 @@ test:
 test-e2e: static
 	go run ./tests/e2e/prep
 	npx playwright test --config tests/e2e/playwright.config.ts
+
+# Native packaging is executable release policy: every OS declares the same
+# .atlas identity, and publication stays draft-first until exact assets match.
+# This is static and hermetic; platform runners smoke the installers themselves.
+release-packaging:
+	PYTHONDONTWRITEBYTECODE=1 python3 -m unittest tests/release/test_packaging.py
 
 # The maintainer's deep check, and deliberately not a CI gate: walk a real
 # installed library and hold every current-format bundle to the reader's
@@ -102,29 +109,4 @@ desktop: static
 	go build -tags "desktop,production" -ldflags "-s -w" -o Atlas .
 	mkdir -p Atlas.app/Contents/MacOS
 	cp Atlas Atlas.app/Contents/MacOS/Atlas
-	printf '%s\n' \
-	  '<?xml version="1.0" encoding="UTF-8"?>' \
-	  '<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">' \
-	  '<plist version="1.0">' \
-	  '<dict>' \
-	  '  <key>CFBundleExecutable</key><string>Atlas</string>' \
-	  '  <key>CFBundleIdentifier</key><string>dev.felinestatemachine.atlas</string>' \
-	  '  <key>CFBundleName</key><string>Atlas</string>' \
-	  '  <key>CFBundlePackageType</key><string>APPL</string>' \
-	  '  <key>CFBundleInfoDictionaryVersion</key><string>6.0</string>' \
-	  '  <key>CFBundleDocumentTypes</key><array><dict>' \
-	  '    <key>CFBundleTypeName</key><string>Atlas Volume</string>' \
-	  '    <key>CFBundleTypeRole</key><string>Viewer</string>' \
-	  '    <key>LSItemContentTypes</key><array><string>dev.felinestatemachine.atlas.volume</string></array>' \
-	  '  </dict></array>' \
-	  '  <key>UTExportedTypeDeclarations</key><array><dict>' \
-	  '    <key>UTTypeIdentifier</key><string>dev.felinestatemachine.atlas.volume</string>' \
-	  '    <key>UTTypeConformsTo</key><array><string>public.data</string><string>public.archive</string></array>' \
-	  '    <key>UTTypeDescription</key><string>Atlas Volume</string>' \
-	  '    <key>UTTypeTagSpecification</key><dict><key>public.filename-extension</key><array><string>atlas</string></array></dict>' \
-	  '  </dict></array>' \
-	  '  <key>LSSupportsOpeningDocumentsInPlace</key><true/>' \
-	  '  <key>LSMinimumSystemVersion</key><string>12.0</string>' \
-	  '  <key>NSHighResolutionCapable</key><true/>' \
-	  '</dict>' \
-	  '</plist>' > Atlas.app/Contents/Info.plist
+	sed 's/@VERSION@/0.0.0/g' packaging/macos/Info.plist > Atlas.app/Contents/Info.plist

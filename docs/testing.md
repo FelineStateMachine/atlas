@@ -39,6 +39,14 @@ a CI gate: it walks a real installed library (`-bundles`, else
 every current-format bundle to the reader's invariants. It compares no
 stamps, no hashes and no content.
 
+**`make release-packaging`** is the hermetic half of native distribution
+acceptance. It parses the macOS property list and Linux shared-MIME XML, checks
+the Windows installer association, and holds the workflow to draft-first,
+exact-asset publication. The platform jobs perform the dynamic half: Windows
+installs its package and reads the registered open command, while the release
+job inspects macOS/Linux payloads and builds the same Sample Region online and
+offline through the packaged CLI. Byte inequality is a release failure.
+
 ## What tests are made of
 
 **Stated bundles.** The default. A test that needs a bundle writes one
