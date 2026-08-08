@@ -1,0 +1,134 @@
+{{define "title"}}Packed data{{end}}
+{{define "content"}}
+<section class="page-head inspector-head">
+  <p class="eyebrow">Compiled artifact · native semantic truth</p>
+  <h1>{{.Descriptor.Title}} <span class="dim">{{.Descriptor.Slug}}</span></h1>
+  <p><code>{{.File}}</code></p>
+  <div class="artifact-facts">
+    <span><b>validated</b><small>all native entries</small></span>
+    <span><b>{{short .Descriptor.Stamp}}</b><small>content stamp</small></span>
+    <span><b>{{.Descriptor.Size}}</b><small>bytes</small></span>
+    <span><b>{{.Descriptor.Revision}}</b><small>revision</small></span>
+    <span><b>{{.Descriptor.CreatedAt}}</b><small>newest capture</small></span>
+  </div>
+</section>
+
+<section class="native-rail" aria-label="Native file decoding">
+  <span><b>bootstrap</b><small>framing</small></span><i>→</i>
+  <span><b>embedded schema</b><small>{{len .Schema}} types</small></span><i>→</i>
+  <span><b>runtime union</b><small>{{.RuntimeTypes}} known types</small></span><i>→</i>
+  <span><b>typed tables</b><small>{{.TableCount}} tables</small></span><i>+</i>
+  <span><b>opaque blobs</b><small>{{.BlobCount}} blobs</small></span>
+</section>
+
+{{range .Worlds}}
+{{$world := .}}
+<section class="card inspected-world">
+  <header class="inspector-section-head">
+    <div><p class="eyebrow">World</p><h2>{{.Title}}</h2><code>{{.ID}}</code></div>
+    <p><b>{{len .FeatureSets}}</b> FeatureSets · <b>{{.Features}}</b> features · <b>{{len .Rasters}}</b> rasters · <b>{{len .Presentation.Layers}}</b> layers</p>
+  </header>
+
+  <div class="world-foundation">
+    <article class="inspect-node coordinate-node">
+      <span class="node-kind">CoordinateSpace</span>
+      <b>{{.CoordinateSpace.ID}}</b>
+      <dl class="mini-terms">
+        <div><dt>frame</dt><dd>{{.CoordinateSpace.Kind}} · {{.CoordinateSpace.Unit}}</dd></div>
+        <div><dt>definition</dt><dd>{{.CoordinateSpace.Definition}}</dd></div>
+        <div><dt>extent</dt><dd><code>{{.CoordinateSpace.Extent}}</code></dd></div>
+        <div><dt>grid</dt><dd>z{{.CoordinateSpace.SourceZoom}} · first {{.CoordinateSpace.FirstTile}} · tile {{.CoordinateSpace.TileSize}} · size {{.CoordinateSpace.Size}}</dd></div>
+      </dl>
+    </article>
+    <article class="inspect-node presentation-node">
+      <span class="node-kind">Presentation</span>
+      <b>{{.Presentation.Title}}</b>
+      <p>{{len .Presentation.Layers}} layers · {{len .Presentation.Styles}} styles · {{len .Presentation.Legend}} legend entries</p>
+      <details><summary>Layers, styles and legend</summary>
+        <table><thead><tr><th>layer</th><th>FeatureSet</th><th>style</th><th>visibility</th><th>zoom</th></tr></thead><tbody>
+          {{range .Presentation.Layers}}<tr><td>{{.ID}}</td><td><code>{{.FeatureSet}}</code></td><td>{{.Style}}</td><td>{{if .Visible}}visible{{else}}hidden{{end}} · {{.LabelPolicy}}</td><td>{{.MinZoom}}–{{.MaxZoom}}</td></tr>{{end}}
+        </tbody></table>
+        <h3>Styles</h3>
+        {{range .Presentation.Styles}}<p><b>{{.ID}}</b> · {{.RenderAs}}{{if .Symbol}} · {{.Symbol}}{{end}}{{if .Stroke}} · stroke <code>{{.Stroke}}</code>{{end}}{{if .Fill}} · fill <code>{{.Fill}}</code>{{end}}{{if .IconAsset}} · asset {{.IconAsset}}{{end}}</p>{{end}}
+        <h3>Legend</h3>
+        {{range .Presentation.Legend}}<p><b>{{.Label}}</b> → {{.Layer}} · order {{.Order}}</p>{{end}}
+      </details>
+    </article>
+  </div>
+
+  {{if .Rasters}}<div class="raster-strip">
+    {{range .Rasters}}<article class="inspect-node raster-node">
+      <span class="node-kind">RasterPyramid</span><b>{{.Name}}</b><br><code>{{.ID}}</code>
+      <p>z{{.MinZoom}}–{{.MaxZoom}} · full z{{.FullZoom}} · {{.TileSize}}px · {{.Codec}}</p>
+      <p class="dim">{{.TileBlobs}} packed tiles · formats {{.Formats}} · {{.Coverage}} coverage windows · {{if .Interpolate}}interpolated{{else}}nearest{{end}}{{if .Background}} · {{.Background}}{{end}}</p>
+      <code>{{.Template}}</code>
+    </article>{{end}}
+  </div>{{end}}
+
+  <div class="inspected-sets">
+  {{range .FeatureSets}}
+    {{$set := .}}
+    <article class="inspect-node inspected-set">
+      <header><span class="node-kind">FeatureSet</span><h3>{{.Title}}</h3><code>{{.ID}}</code></header>
+      <p><span class="status-chip semantic">{{.SemanticType}}</span><span class="status-chip geometry">{{.Geometry}}</span><b>{{.FeatureCount}}</b> features</p>
+      <details><summary>{{len .Properties}} typed contract fields</summary>
+        <table><thead><tr><th>name</th><th>kind</th><th>identity</th></tr></thead><tbody>
+        {{range .Properties}}<tr><td>{{.Name}}{{if .Optional}} <span class="dim">optional</span>{{end}}</td><td><code>{{.Kind}}</code></td><td><code>{{.ID}}</code></td></tr>{{end}}
+        </tbody></table>
+      </details>
+      <details open><summary>Features {{if .FeatureCount}}({{.Offset}}–{{if .HasNext}}{{.Next}}{{else}}{{.FeatureCount}}{{end}} of {{.FeatureCount}}){{end}}</summary>
+        <div class="feature-summaries">
+        {{range .Features}}<a href="/project/inspect?set={{$set.ID}}&amp;feature={{.ID}}&amp;offset={{$set.Offset}}"><b>{{.Title}}</b><small>{{.Geometry.Kind}} · {{.Geometry.Vertices}} positions</small></a>{{else}}<span class="dim">No compiled features.</span>{{end}}
+        </div>
+        {{if or .HasPrevious .HasNext}}<nav class="feature-pages">{{if .HasPrevious}}<a href="/project/inspect?set={{.ID}}&amp;offset={{.Previous}}">Previous</a>{{end}}{{if .HasNext}}<a href="/project/inspect?set={{.ID}}&amp;offset={{.Next}}">Next</a>{{end}}</nav>{{end}}
+      </details>
+      {{with .Selected}}
+      <section class="feature-facts">
+        <header><span class="node-kind">Feature facts</span><h3>{{.Title}}</h3><code>{{.ID}}</code></header>
+        {{if .Subtitle}}<p>{{.Subtitle}}</p>{{end}}{{if .Description}}<p>{{.Description}}</p>{{end}}
+        <div class="geometry-fact" data-geometry="{{.Geometry.Kind}}"><b>{{.Geometry.Kind}}</b><span>{{.Geometry.Parts}} parts · {{.Geometry.Rings}} rings · {{.Geometry.Vertices}} positions</span>{{if .Geometry.HasData}}<code>bounds {{.Geometry.Bounds}}</code>{{end}}</div>
+        <details open><summary>{{len .Properties}} typed values</summary>
+          <table><thead><tr><th>field</th><th>kind</th><th>value</th></tr></thead><tbody>
+          {{range .Properties}}<tr><td>{{.Name}}<br><code>{{.ID}}</code></td><td>{{.Kind}}</td><td><code>{{.Value}}</code></td></tr>{{end}}
+          </tbody></table>
+        </details>
+        <details open><summary>{{len .Relationships}} observed relationships</summary>
+          {{range .Relationships}}<p><b>{{.Predicate}}</b> → {{if .Title}}{{.Title}}{{else}}<span class="warn-inline">unresolved</span>{{end}} <code>{{.Target}}</code></p>{{else}}<p class="dim">No relationship edges.</p>{{end}}
+        </details>
+        <details open><summary>{{len .Provenance}} provenance records</summary>
+          {{range .Provenance}}<p><b>{{.Source}}</b> · native {{.NativeID}} · {{.CapturedAt}}</p>{{else}}<p class="dim">No provenance.</p>{{end}}
+        </details>
+      </section>
+      {{end}}
+    </article>
+  {{end}}
+  </div>
+</section>
+{{end}}
+
+<div class="inspector-lower-grid">
+<section class="card">
+  <h2>Assets and evidence receipt</h2>
+  {{range .Assets}}<p><b>{{.ID}}</b> · {{.MediaType}} · {{.Bytes}} bytes{{if .Provenance}}<br><span class="dim">{{.Provenance}}</span>{{end}}</p>{{end}}
+  {{with .Receipt}}<details open><summary>Executable replay receipt · {{len .Captures}} captures</summary>
+    <p><b>{{.Project}}</b> · project digest <code>{{short .ProjectDigest}}</code></p>
+    <table><thead><tr><th>source</th><th>capture</th><th>media</th><th>bytes</th><th>captured</th></tr></thead><tbody>
+      {{range .Captures}}<tr><td>{{.Source}}</td><td><code>{{short .SHA256}}</code><br><span class="dim">acq {{short .Acquisition}}</span></td><td>{{.MediaType}}</td><td>{{.Length}}</td><td>{{.CapturedAt}}</td></tr>{{end}}
+    </tbody></table>
+  </details>{{else}}{{if $.ReceiptErr}}<p class="warn-inline">The embedded receipt is integrity-protected, but its metadata is not valid: {{$.ReceiptErr}}</p>{{else}}<p class="dim">No Atlas authoring receipt is embedded.</p>{{end}}{{end}}
+</section>
+
+<section class="card">
+  <h2>Physical native layout</h2>
+  <details><summary>{{.TableCount}} typed tables</summary>
+    {{range .Tables}}<p><code>{{.Name}}</code> · {{.Rows}} rows · {{.Columns}} columns</p>{{end}}
+  </details>
+  <details><summary>{{.BlobCount}} opaque blobs{{if gt .BlobCount (len .BlobNames)}} · first {{len .BlobNames}} shown{{end}}</summary>
+    {{range .BlobNames}}<p><code>{{.}}</code></p>{{end}}
+  </details>
+  <details><summary>{{len .Schema}} carried schema types</summary>
+    {{range .Schema}}<div class="schema-type"><b>{{.Name}}</b> <code>{{.ID}}</code>{{range .Fields}}<p>{{.Name}} · {{.Kind}}{{if .Optional}} · optional{{end}}<br><code>{{.ID}}</code></p>{{end}}</div>{{end}}
+  </details>
+</section>
+</div>
+{{end}}

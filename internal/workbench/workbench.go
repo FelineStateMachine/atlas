@@ -22,6 +22,7 @@
 //	GET  /project/run             replay the supervised run
 //	POST /project/open            ask the desktop application to open the artifact
 //	GET  /project/artifact        stream the artifact for a native drag handoff
+//	GET  /project/inspect         inspect the validated native artifact
 //	GET  /assets/{path...}        the stylesheet, and the hypermedia runtime
 //
 // Every page is measurement first: a score is the headline and everything else
@@ -141,6 +142,7 @@ func (w *Workbench) routes() {
 	w.mux.HandleFunc("GET /project/run", w.handleProjectRun)
 	w.mux.HandleFunc("POST /project/open", w.handleProjectOpen)
 	w.mux.HandleFunc("GET /project/artifact", w.handleProjectArtifact)
+	w.mux.HandleFunc("GET /project/inspect", w.handleProjectInspect)
 	w.mux.HandleFunc("GET /assets/{path...}", w.handleAsset)
 }
 
@@ -410,4 +412,4 @@ func parseTemplates() (map[string]*template.Template, *template.Template, error)
 }
 
 // pageNames are the pages, one template file each, named for the page.
-var pageNames = []string{"library", "volume", "diff", "project"}
+var pageNames = []string{"library", "volume", "diff", "project", "inspector"}

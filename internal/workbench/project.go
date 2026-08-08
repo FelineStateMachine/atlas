@@ -3,13 +3,14 @@ package workbench
 import (
 	"bytes"
 	"fmt"
+	"io"
+	"mime"
 	"net/http"
 	"os"
 	"path/filepath"
 	"sort"
 	"strings"
 
-	"github.com/FelineStateMachine/atlas/format/vnext"
 	"github.com/FelineStateMachine/atlas/internal/authoring"
 	"github.com/FelineStateMachine/atlas/internal/workbench/oprunner"
 )
@@ -372,39 +373,31 @@ func (w *Workbench) handleProjectOpen(rw http.ResponseWriter, r *http.Request) {
 }
 
 func (w *Workbench) handleProjectArtifact(rw http.ResponseWriter, r *http.Request) {
-	artifact, err := w.currentArtifact()
+	artifact, err := w.openCompletedArtifact()
 	if err != nil {
 		http.NotFound(rw, r)
 		return
 	}
-	rw.Header().Set("Content-Disposition", fmt.Sprintf("attachment; filename=%q", filepath.Base(artifact)))
-	http.ServeFile(rw, r, artifact)
+	defer artifact.Close()
+	if _, err := artifact.source.Seek(0, io.SeekStart); err != nil {
+		http.Error(rw, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	disposition := mime.FormatMediaType("attachment", map[string]string{"filename": artifact.name})
+	rw.Header().Set("Content-Disposition", disposition)
+	info, err := artifact.source.Stat()
+	if err != nil {
+		http.Error(rw, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	http.ServeContent(rw, r, artifact.name, info.ModTime(), artifact.source)
 }
 
 func (w *Workbench) currentArtifact() (string, error) {
-	artifact := w.supervisor.Snapshot().Artifact
-	if artifact == "" {
-		return "", fmt.Errorf("no completed Atlas artifact is available")
-	}
-	absArtifact, err := filepath.Abs(artifact)
+	artifact, err := w.openCompletedArtifact()
 	if err != nil {
 		return "", err
 	}
-	absLibrary, err := filepath.Abs(w.targets.Registry)
-	if err != nil {
-		return "", err
-	}
-	relative, err := filepath.Rel(absLibrary, absArtifact)
-	if err != nil || relative == ".." || strings.HasPrefix(relative, ".."+string(filepath.Separator)) || filepath.Ext(absArtifact) != ".atlas" {
-		return "", fmt.Errorf("build artifact is outside the Atlas library")
-	}
-	file, err := vnext.OpenFile(absArtifact, vnext.StandardSchema())
-	if err != nil {
-		return "", fmt.Errorf("open completed Atlas artifact: %w", err)
-	}
-	defer file.Close()
-	if err := file.Validate(); err != nil {
-		return "", fmt.Errorf("validate completed Atlas artifact: %w", err)
-	}
-	return absArtifact, nil
+	defer artifact.Close()
+	return artifact.path, nil
 }

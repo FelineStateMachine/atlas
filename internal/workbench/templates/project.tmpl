@@ -146,10 +146,11 @@
       </div>
     </details>
   {{end}}
-  {{if .Run.Artifact}}
+  {{if and .Run.Artifact (not .Run.Running) (not .Run.Failed)}}
   <div class="artifact-handoff" draggable="true" data-artifact-handoff
        data-artifact-name="{{.ArtifactName}}" data-artifact-path="{{.Run.Artifact}}">
     <div><span class="file-icon">A</span><b>{{.ArtifactName}}</b><br><span class="dim">Drag this file onto an Atlas window</span></div>
+    <a href="/project/inspect">Inspect packed data</a>
     <form method="post" action="/project/open"><button>Open in Atlas</button></form>
   </div>
   {{end}}

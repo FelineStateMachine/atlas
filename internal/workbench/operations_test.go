@@ -280,12 +280,12 @@ func TestBuildSurvivesNavigationAndHandsOffTheArtifact(t *testing.T) {
 		t.Fatalf("run = %+v", run)
 	}
 	_, runBody := get(t, server, "/project/run")
-	wants(t, "completed run fragment", runBody, "Build complete", "Open in Atlas", "Drag this file onto an Atlas window", filepath.Base(artifact))
+	wants(t, "completed run fragment", runBody, "Build complete", "Inspect packed data", "Open in Atlas", "Drag this file onto an Atlas window", filepath.Base(artifact))
 	if strings.Contains(runBody, `hx-get="/project/run"`) {
 		t.Fatal("completed run fragment kept polling")
 	}
 	_, body := get(t, server, "/project")
-	wants(t, "completed project", body, "Build complete", "Open in Atlas", "Drag this file onto an Atlas window", filepath.Base(artifact))
+	wants(t, "completed project", body, "Build complete", "Inspect packed data", "Open in Atlas", "Drag this file onto an Atlas window", filepath.Base(artifact))
 	response, _ = postForm(t, noRedirectClient(server.Client()), server.URL+"/project/open", url.Values{})
 	if response.StatusCode != http.StatusSeeOther || opened != artifact {
 		t.Fatalf("open answered %d and handed off %q", response.StatusCode, opened)
@@ -309,7 +309,7 @@ func TestArtifactHandoffRefusesAnInvalidAtlasFile(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	held.supervisor.last = supervisedRun{Name: "build", Artifact: artifact}
+	held.supervisor.last = supervisedRun{Name: "build", Artifact: artifact, FinishedAt: time.Now()}
 	if _, err := held.currentArtifact(); err == nil || !strings.Contains(err.Error(), "open completed Atlas artifact") {
 		t.Fatalf("currentArtifact = %v, want native validation failure", err)
 	}
