@@ -6,8 +6,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"math"
-	"net/url"
-	"path/filepath"
 	"sort"
 	"strconv"
 	"strings"
@@ -147,13 +145,36 @@ func PlanProject(project Project, cache *Cache, output string) (Plan, error) {
 		plan.Licenses = append(plan.Licenses, Obligation{Source: asset.ID, License: asset.License, Attribution: asset.Attribution})
 	}
 	sort.Slice(plan.Requests, func(i, j int) bool { return plan.Requests[i].ID < plan.Requests[j].ID })
-	for _, request := range plan.Requests {
-		if request.Cached {
+	markCachedCaptureSets(&plan, cache)
+	sort.Slice(plan.Licenses, func(i, j int) bool { return plan.Licenses[i].Source < plan.Licenses[j].Source })
+	return plan, nil
+}
+
+func markCachedCaptureSets(plan *Plan, cache *Cache) {
+	plan.Cached = 0
+	requestIndexes := make(map[string]int, len(plan.Requests))
+	for index := range plan.Requests {
+		plan.Requests[index].Cached = false
+		requestIndexes[plan.Requests[index].ID] = index
+	}
+	if cache == nil {
+		return
+	}
+	for _, group := range planCaptureGroups(*plan) {
+		requests := make([]Request, len(group.Requests))
+		for index := range group.Requests {
+			requests[index] = group.Requests[index].Request
+		}
+		set, err := cache.LatestSet(captureSetID(requests))
+		if err != nil || validateSetForRequests(set, requests) != nil {
+			continue
+		}
+		for _, grouped := range group.Requests {
+			index := requestIndexes[grouped.ID]
+			plan.Requests[index].Cached = true
 			plan.Cached++
 		}
 	}
-	sort.Slice(plan.Licenses, func(i, j int) bool { return plan.Licenses[i].Source < plan.Licenses[j].Source })
-	return plan, nil
 }
 
 func assetRequest(project Project, asset Asset) Request {
@@ -168,65 +189,11 @@ func assetRequest(project Project, asset Asset) Request {
 }
 
 func featureRequest(project Project, source Source) (Request, error) {
-	identity := source.Locator
-	locator := project.ResolveLocator(identity)
-	switch source.Adapter {
-	case "geojson":
-	case "arcgis-feature-service":
-		parsed, err := url.Parse(locator)
-		if err != nil {
-			return Request{}, fmt.Errorf("source %s locator: %w", source.ID, err)
-		}
-		path := strings.TrimSuffix(parsed.Path, "/")
-		if source.Query.Layer > 0 && filepath.Base(path) != strconv.Itoa(source.Query.Layer) {
-			path += "/" + strconv.Itoa(source.Query.Layer)
-		}
-		if !strings.HasSuffix(path, "/query") {
-			path += "/query"
-		}
-		parsed.Path = path
-		query := parsed.Query()
-		query.Set("f", "geojson")
-		query.Set("outFields", "*")
-		query.Set("returnGeometry", "true")
-		where := source.Query.Where
-		if where == "" {
-			where = "1=1"
-		}
-		query.Set("where", where)
-		parsed.RawQuery = query.Encode()
-		locator, identity = parsed.String(), parsed.String()
-	case "ogc-api-features":
-		if source.Query.Collection == "" {
-			return Request{}, fmt.Errorf("source %s requires query.collection", source.ID)
-		}
-		parsed, err := url.Parse(locator)
-		if err != nil {
-			return Request{}, fmt.Errorf("source %s locator: %w", source.ID, err)
-		}
-		parsed.Path = strings.TrimSuffix(parsed.Path, "/") + "/collections/" + url.PathEscape(source.Query.Collection) + "/items"
-		query := parsed.Query()
-		extent, err := sourceExtent(source.Mapping.Geometry, project.Target.CoordinateSpace)
-		if err != nil {
-			return Request{}, fmt.Errorf("source %s query extent: %w", source.ID, err)
-		}
-		query.Set("bbox", extentString(extent))
-		query.Set("f", "json")
-		if source.Query.Limit > 0 {
-			query.Set("limit", strconv.Itoa(source.Query.Limit))
-		}
-		parsed.RawQuery = query.Encode()
-		locator, identity = parsed.String(), parsed.String()
-	default:
-		return Request{}, fmt.Errorf("source %s uses unknown adapter %q", source.ID, source.Adapter)
+	adapter, err := defaultAdapterRegistry().Lookup(source.Adapter)
+	if err != nil {
+		return Request{}, fmt.Errorf("source %s uses %w", source.ID, err)
 	}
-	request := Request{
-		Kind: RequestFeatures, Source: source.ID, Adapter: source.Adapter,
-		Locator: locator, IdentityLocator: identity, MediaType: source.MediaType,
-		License: source.License, Attribution: source.Attribution,
-	}
-	finalizeRequest(&request)
-	return request, nil
+	return adapter.PlanFeature(project, source)
 }
 
 func rasterRequests(project Project, raster Raster, budgets BuildBudgets) ([]Request, int64, int64, error) {
@@ -333,24 +300,11 @@ func finalizeRequest(request *Request) {
 }
 
 func adapterVersion(adapter string) string {
-	switch adapter {
-	case "geojson":
-		return "geojson/v1"
-	case "arcgis-feature-service":
-		return "arcgis-feature-service/v1"
-	case "ogc-api-features":
-		return "ogc-api-features/v1"
-	case "raster-file":
-		return "raster-file/v1"
-	case "xyz":
-		return "xyz/v1"
-	case "wmts":
-		return "wmts-rest/v1"
-	case "asset-file":
-		return "asset-file/v1"
-	default:
+	registered, err := defaultAdapterRegistry().Lookup(adapter)
+	if err != nil {
 		return adapter + "/unknown"
 	}
+	return registered.Version()
 }
 
 func requestCacheKey(request Request) string {

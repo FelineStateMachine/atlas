@@ -56,9 +56,13 @@ type CoordinateSpace struct {
 	Definition string     `yaml:"definition"`
 	Extent     [4]float64 `yaml:"extent"`
 	SourceZoom int64      `yaml:"source-zoom,omitempty"`
-	FirstTile  int64      `yaml:"first-tile,omitempty"`
-	TileSize   int64      `yaml:"tile-size,omitempty"`
-	Size       int64      `yaml:"size,omitempty"`
+	OriginX    int64      `yaml:"origin-x,omitempty"`
+	OriginY    int64      `yaml:"origin-y,omitempty"`
+	// FirstTile is accepted only for legacy local projects while their
+	// producers migrate to independent column and row origins.
+	FirstTile int64 `yaml:"first-tile,omitempty"`
+	TileSize  int64 `yaml:"tile-size,omitempty"`
+	Size      int64 `yaml:"size,omitempty"`
 }
 
 // Source is one configured instance of a reusable feature adapter.
@@ -74,13 +78,15 @@ type Source struct {
 	Mapping       Mapping `yaml:"mapping"`
 }
 
-// Query carries protocol-neutral selection knobs interpreted only by the
-// selected adapter.
+// Query carries source-selection knobs interpreted only by the selected
+// adapter. Adapter-specific transport details never enter Atlas semantics.
 type Query struct {
-	Layer      int    `yaml:"layer,omitempty"`
-	Collection string `yaml:"collection,omitempty"`
-	Where      string `yaml:"where,omitempty"`
-	Limit      int    `yaml:"limit,omitempty"`
+	Layer            int    `yaml:"layer,omitempty"`
+	Collection       string `yaml:"collection,omitempty"`
+	Where            string `yaml:"where,omitempty"`
+	Limit            int    `yaml:"limit,omitempty"`
+	ObjectID         string `yaml:"object-id,omitempty"`
+	SpatialReference int    `yaml:"spatial-reference,omitempty"`
 }
 
 // FeatureSetContract is the source-independent semantic and geometry contract
@@ -383,7 +389,7 @@ func validateTarget(target Target) error {
 	if space.Extent[2] <= space.Extent[0] || space.Extent[3] <= space.Extent[1] {
 		return fmt.Errorf("target coordinate extent is empty")
 	}
-	if space.SourceZoom < 0 || space.FirstTile < 0 || space.TileSize < 0 || space.Size < 0 {
+	if space.SourceZoom < 0 || space.OriginX < 0 || space.OriginY < 0 || space.FirstTile < 0 || space.TileSize < 0 || space.Size < 0 {
 		return fmt.Errorf("target coordinate grid metadata is invalid")
 	}
 	return nil
@@ -476,6 +482,9 @@ func validateSource(source Source, target CoordinateSpace, sets map[string]Featu
 	}
 	if source.EstimateBytes < 0 {
 		return fmt.Errorf("source %s has a negative size estimate", source.ID)
+	}
+	if source.Query.Layer < 0 || source.Query.Limit < 0 || source.Query.SpatialReference < 0 {
+		return fmt.Errorf("source %s has invalid query settings", source.ID)
 	}
 	mapping := source.Mapping
 	set, exists := sets[mapping.FeatureSet]

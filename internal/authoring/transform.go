@@ -11,25 +11,172 @@ func transformGeometry(geometry vnext.Geometry, mapping GeometryMap, target Coor
 	if familyOf(geometry.Kind) != mapping.Family {
 		return vnext.Geometry{}, fmt.Errorf("geometry is %s, feature set requires %s", familyOf(geometry.Kind), mapping.Family)
 	}
-	out := vnext.Geometry{Kind: geometry.Kind, Parts: make([]vnext.GeometryPart, len(geometry.Parts))}
+	transformed := vnext.Geometry{Kind: geometry.Kind, Parts: make([]vnext.GeometryPart, len(geometry.Parts))}
 	for partIndex, part := range geometry.Parts {
-		out.Parts[partIndex].Rings = make([][]vnext.Position, len(part.Rings))
+		transformed.Parts[partIndex].Rings = make([][]vnext.Position, len(part.Rings))
 		for ringIndex, ring := range part.Rings {
-			positions := make([]vnext.Position, len(ring))
-			for positionIndex, position := range ring {
-				transformed := transformPosition(position, mapping.Transform)
-				if !inside(transformed, target.Extent) {
-					return vnext.Geometry{}, fmt.Errorf("transformed position %v falls outside target extent", transformed)
-				}
-				positions[positionIndex] = transformed
-			}
-			if geometry.Kind == vnext.GeometryPolygon && (len(positions) < 4 || positions[0] != positions[len(positions)-1]) {
+			if geometry.Kind == vnext.GeometryPolygon && (len(ring) < 4 || ring[0] != ring[len(ring)-1]) {
 				return vnext.Geometry{}, fmt.Errorf("polygon ring is not closed")
 			}
-			out.Parts[partIndex].Rings[ringIndex] = positions
+			positions := make([]vnext.Position, len(ring))
+			for positionIndex, position := range ring {
+				positions[positionIndex] = transformPosition(position, mapping.Transform)
+			}
+			transformed.Parts[partIndex].Rings[ringIndex] = positions
 		}
 	}
-	return out, nil
+	clipped := clipGeometry(transformed, target.Extent)
+	if len(clipped.Parts) == 0 {
+		return vnext.Geometry{}, fmt.Errorf("transformed geometry falls outside target extent")
+	}
+	return clipped, nil
+}
+
+func clipGeometry(geometry vnext.Geometry, extent [4]float64) vnext.Geometry {
+	out := vnext.Geometry{Kind: geometry.Kind}
+	switch geometry.Kind {
+	case vnext.GeometryPoint:
+		for _, part := range geometry.Parts {
+			if len(part.Rings) == 1 && len(part.Rings[0]) == 1 && inside(part.Rings[0][0], extent) {
+				out.Parts = append(out.Parts, part)
+			}
+		}
+	case vnext.GeometryLineString:
+		for _, part := range geometry.Parts {
+			if len(part.Rings) != 1 {
+				continue
+			}
+			for _, line := range clipLine(part.Rings[0], extent) {
+				out.Parts = append(out.Parts, vnext.GeometryPart{Rings: [][]vnext.Position{line}})
+			}
+		}
+	case vnext.GeometryPolygon:
+		for _, part := range geometry.Parts {
+			if len(part.Rings) == 0 {
+				continue
+			}
+			exterior := clipRing(part.Rings[0], extent)
+			if len(exterior) == 0 {
+				continue
+			}
+			rings := [][]vnext.Position{exterior}
+			for _, hole := range part.Rings[1:] {
+				if clipped := clipRing(hole, extent); len(clipped) > 0 {
+					rings = append(rings, clipped)
+				}
+			}
+			out.Parts = append(out.Parts, vnext.GeometryPart{Rings: rings})
+		}
+	}
+	return out
+}
+
+func clipLine(line []vnext.Position, extent [4]float64) [][]vnext.Position {
+	var out [][]vnext.Position
+	var current []vnext.Position
+	flush := func() {
+		if len(current) >= 2 {
+			out = append(out, current)
+		}
+		current = nil
+	}
+	for index := 1; index < len(line); index++ {
+		start, end, held := clipSegment(line[index-1], line[index], extent)
+		if !held {
+			flush()
+			continue
+		}
+		if len(current) == 0 || current[len(current)-1] != start {
+			flush()
+			current = []vnext.Position{start}
+		}
+		if current[len(current)-1] != end {
+			current = append(current, end)
+		}
+	}
+	flush()
+	return out
+}
+
+func clipRing(ring []vnext.Position, extent [4]float64) []vnext.Position {
+	if len(ring) < 4 || ring[0] != ring[len(ring)-1] {
+		return nil
+	}
+	current := append([]vnext.Position(nil), ring[:len(ring)-1]...)
+	insideEdge := [4]func(vnext.Position) bool{
+		func(point vnext.Position) bool { return point[0] >= extent[0] },
+		func(point vnext.Position) bool { return point[0] <= extent[2] },
+		func(point vnext.Position) bool { return point[1] >= extent[1] },
+		func(point vnext.Position) bool { return point[1] <= extent[3] },
+	}
+	crossing := [4]func(vnext.Position, vnext.Position) vnext.Position{
+		func(from, to vnext.Position) vnext.Position { return crossX(from, to, extent[0]) },
+		func(from, to vnext.Position) vnext.Position { return crossX(from, to, extent[2]) },
+		func(from, to vnext.Position) vnext.Position { return crossY(from, to, extent[1]) },
+		func(from, to vnext.Position) vnext.Position { return crossY(from, to, extent[3]) },
+	}
+	for edge := range insideEdge {
+		if len(current) == 0 {
+			return nil
+		}
+		next := make([]vnext.Position, 0, len(current)+4)
+		for index, to := range current {
+			from := current[(index+len(current)-1)%len(current)]
+			fromInside, toInside := insideEdge[edge](from), insideEdge[edge](to)
+			switch {
+			case fromInside && toInside:
+				next = append(next, to)
+			case fromInside:
+				next = append(next, crossing[edge](from, to))
+			case toInside:
+				next = append(next, crossing[edge](from, to), to)
+			}
+		}
+		current = next
+	}
+	if len(current) < 3 {
+		return nil
+	}
+	return append(current, current[0])
+}
+
+func clipSegment(from, to vnext.Position, extent [4]float64) (vnext.Position, vnext.Position, bool) {
+	enter, leave := 0.0, 1.0
+	dx, dy := to[0]-from[0], to[1]-from[1]
+	narrow := func(p, q float64) bool {
+		if p == 0 {
+			return q >= 0
+		}
+		at := q / p
+		if p < 0 {
+			if at > leave {
+				return false
+			}
+			enter = math.Max(enter, at)
+			return true
+		}
+		if at < enter {
+			return false
+		}
+		leave = math.Min(leave, at)
+		return true
+	}
+	if !narrow(-dx, from[0]-extent[0]) || !narrow(dx, extent[2]-from[0]) ||
+		!narrow(-dy, from[1]-extent[1]) || !narrow(dy, extent[3]-from[1]) {
+		return from, to, false
+	}
+	return vnext.Position{from[0] + enter*dx, from[1] + enter*dy},
+		vnext.Position{from[0] + leave*dx, from[1] + leave*dy}, true
+}
+
+func crossX(from, to vnext.Position, x float64) vnext.Position {
+	at := (x - from[0]) / (to[0] - from[0])
+	return vnext.Position{x, from[1] + at*(to[1]-from[1])}
+}
+
+func crossY(from, to vnext.Position, y float64) vnext.Position {
+	at := (y - from[1]) / (to[1] - from[1])
+	return vnext.Position{from[0] + at*(to[0]-from[0]), y}
 }
 
 func sourceExtent(mapping GeometryMap, target CoordinateSpace) ([4]float64, error) {

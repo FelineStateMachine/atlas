@@ -22,7 +22,8 @@ func assemble(project Project, observations []observation) (vnext.Volume, error)
 		ID: project.Target.World, Title: project.Target.Title,
 		CoordinateSpace: vnext.CoordinateSpace{
 			ID: space.ID, Kind: space.Kind, Unit: space.Unit, Definition: space.Definition,
-			Extent: space.Extent, SourceZoom: space.SourceZoom, FirstTile: space.FirstTile,
+			Extent: space.Extent, SourceZoom: space.SourceZoom,
+			OriginX: space.OriginX, OriginY: space.OriginY, FirstTile: space.FirstTile,
 			TileSize: space.TileSize, Size: space.Size,
 		},
 		Presentation: vnext.Presentation{ID: project.Presentation.ID, Title: project.Presentation.Title},

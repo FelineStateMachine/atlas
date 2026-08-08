@@ -28,20 +28,38 @@ type EvidenceSelection struct {
 }
 
 type SelectedCapture struct {
-	Request        string `json:"request"`
-	Acquisition    string `json:"acquisition"`
-	Source         string `json:"source"`
-	Adapter        string `json:"adapter"`
-	AdapterVersion string `json:"adapterVersion"`
-	SHA256         string `json:"sha256"`
-	Length         int64  `json:"length"`
-	MediaType      string `json:"mediaType"`
-	CapturedAt     string `json:"capturedAt"`
-	License        string `json:"license"`
-	Attribution    string `json:"attribution"`
+	Request        string              `json:"request"`
+	Acquisition    string              `json:"acquisition"`
+	Source         string              `json:"source"`
+	Adapter        string              `json:"adapter"`
+	AdapterVersion string              `json:"adapterVersion"`
+	SHA256         string              `json:"sha256"`
+	Length         int64               `json:"length"`
+	MediaType      string              `json:"mediaType"`
+	CapturedAt     string              `json:"capturedAt"`
+	License        string              `json:"license"`
+	Attribution    string              `json:"attribution"`
+	Set            string              `json:"set,omitempty"`
+	SetDigest      string              `json:"setDigest,omitempty"`
+	Termination    *CaptureTermination `json:"termination,omitempty"`
+	Pages          []SelectedPage      `json:"pages,omitempty"`
+}
+
+type SelectedPage struct {
+	Ordinal    int    `json:"ordinal"`
+	Request    string `json:"request"`
+	Locator    string `json:"locator"`
+	SHA256     string `json:"sha256"`
+	Length     int64  `json:"length"`
+	MediaType  string `json:"mediaType"`
+	CapturedAt string `json:"capturedAt"`
 }
 
 func buildReceipt(plan Plan, captures map[string]Capture) ([]byte, string, error) {
+	return buildReceiptSets(plan, captures, nil)
+}
+
+func buildReceiptSets(plan Plan, captures map[string]Capture, sets map[string]CaptureSet) ([]byte, string, error) {
 	selection := EvidenceSelection{
 		Format: BuildReceiptFormat, Project: plan.Project, ProjectDigest: plan.ProjectDigest,
 	}
@@ -51,12 +69,32 @@ func buildReceipt(plan Plan, captures map[string]Capture) ([]byte, string, error
 		if !ok {
 			return nil, "", fmt.Errorf("build selects no capture for request %s", request.ID)
 		}
-		selection.Captures = append(selection.Captures, SelectedCapture{
+		selected := SelectedCapture{
 			Request: request.ID, Acquisition: requestCacheKey(request.Request), Source: request.Source, SHA256: capture.Body.SHA256,
 			Adapter: request.Adapter, AdapterVersion: request.AdapterVersion,
 			Length: capture.Body.Length, MediaType: capture.Body.MediaType, CapturedAt: capture.CapturedAt,
 			License: request.License, Attribution: request.Attribution,
-		})
+		}
+		if set, ok := sets[request.ID]; ok && set.Digest != "" {
+			root, found := captureRootForRequest(set, request.Request)
+			if !found {
+				return nil, "", fmt.Errorf("capture set selects no root for request %s", request.ID)
+			}
+			termination := root.Termination
+			selected.Set, selected.SetDigest, selected.Termination = set.ID, set.Digest, &termination
+			selected.Pages = make([]SelectedPage, len(root.Pages))
+			for index, page := range root.Pages {
+				selected.Pages[index] = SelectedPage{
+					Ordinal: index, Request: page.RequestHash, Locator: page.Locator,
+					SHA256: page.Body.SHA256, Length: page.Body.Length, MediaType: page.Body.MediaType,
+					CapturedAt: page.CapturedAt,
+				}
+				if page.CapturedAt > createdAt {
+					createdAt = page.CapturedAt
+				}
+			}
+		}
+		selection.Captures = append(selection.Captures, selected)
 		if capture.CapturedAt > createdAt {
 			createdAt = capture.CapturedAt
 		}
@@ -135,6 +173,9 @@ func ParseEvidenceSelection(data []byte) (EvidenceSelection, error) {
 		if _, err := time.Parse(time.RFC3339Nano, capture.CapturedAt); err != nil {
 			return EvidenceSelection{}, fmt.Errorf("invalid replay capture time for request %s", capture.Request)
 		}
+		if err := validateSelectedSet(capture); err != nil {
+			return EvidenceSelection{}, err
+		}
 		if previousRequest > capture.Request || (previousRequest == capture.Request && previousSource > capture.Source) {
 			return EvidenceSelection{}, fmt.Errorf("replay captures are not canonically ordered")
 		}
@@ -142,6 +183,130 @@ func ParseEvidenceSelection(data []byte) (EvidenceSelection, error) {
 		previousRequest, previousSource = capture.Request, capture.Source
 	}
 	return selection, nil
+}
+
+func validateSelectedSet(capture SelectedCapture) error {
+	if capture.Set == "" && capture.SetDigest == "" && capture.Termination == nil && len(capture.Pages) == 0 {
+		return nil
+	}
+	if validateSHA256("capture set", capture.Set) != nil || validateSHA256("capture set digest", capture.SetDigest) != nil || capture.Termination == nil || capture.Termination.Kind == "" || len(capture.Pages) == 0 {
+		return fmt.Errorf("invalid capture set selection for request %s", capture.Request)
+	}
+	seen := make(map[string]bool, len(capture.Pages))
+	for index, page := range capture.Pages {
+		if page.Ordinal != index || validateSHA256("page request", page.Request) != nil || validateSHA256("page body", page.SHA256) != nil || page.Locator == "" || page.Length < 0 || page.MediaType == "" || seen[page.Request] {
+			return fmt.Errorf("invalid selected page for request %s", capture.Request)
+		}
+		if _, err := time.Parse(time.RFC3339Nano, page.CapturedAt); err != nil {
+			return fmt.Errorf("invalid selected page time for request %s", capture.Request)
+		}
+		seen[page.Request] = true
+	}
+	first := capture.Pages[0]
+	if first.Request != capture.Acquisition || first.SHA256 != capture.SHA256 || first.Length != capture.Length || first.MediaType != capture.MediaType || first.CapturedAt != capture.CapturedAt {
+		return fmt.Errorf("capture set primary page differs for request %s", capture.Request)
+	}
+	return nil
+}
+
+func replayPlanEvidence(plan Plan, selection EvidenceSelection, cache *Cache) (buildEvidence, error) {
+	legacy, hasSets := true, false
+	for _, selected := range selection.Captures {
+		if selected.SetDigest != "" {
+			hasSets = true
+			legacy = false
+		}
+	}
+	if !hasSets && legacy {
+		captures, err := replayCaptures(plan, selection, cache)
+		if err != nil {
+			return buildEvidence{}, err
+		}
+		return legacyBuildEvidence(plan, captures), nil
+	}
+	selected := make(map[string]SelectedCapture, len(selection.Captures))
+	for _, capture := range selection.Captures {
+		selected[capture.Request] = capture
+	}
+	if selection.Project != plan.Project || len(selected) != len(plan.Requests) {
+		return buildEvidence{}, fmt.Errorf("replay receipt does not match project %s requests", plan.Project)
+	}
+	evidence := buildEvidence{Captures: make(map[string]Capture), Sets: make(map[string]CaptureSet), Cached: make(map[string]bool)}
+	usedSets := make(map[string]CaptureSet)
+	usedRequests := 0
+	var usedBytes int64
+	for _, group := range planCaptureGroups(plan) {
+		first := selected[group.Requests[0].ID]
+		set, ok := usedSets[first.SetDigest]
+		if !ok {
+			var err error
+			set, err = cache.SelectSet(first.Set, first.SetDigest)
+			if err != nil {
+				return buildEvidence{}, fmt.Errorf("select replay capture set for %s: %w", group.Requests[0].Source, err)
+			}
+			requests := make([]Request, len(group.Requests))
+			for index := range group.Requests {
+				requests[index] = group.Requests[index].Request
+			}
+			if err := validateSetForRequests(set, requests); err != nil {
+				return buildEvidence{}, err
+			}
+			usedSets[first.SetDigest] = set
+			usedBytes += set.TotalBytes
+			for _, root := range set.Roots {
+				usedRequests += len(root.Pages)
+			}
+		}
+		for _, planned := range group.Requests {
+			want, ok := selected[planned.ID]
+			if !ok || want.Set != set.ID || want.SetDigest != set.Digest || want.Source != planned.Source || want.Acquisition != requestCacheKey(planned.Request) || want.Adapter != planned.Adapter || want.AdapterVersion != planned.AdapterVersion || want.License != planned.License || want.Attribution != planned.Attribution {
+				return buildEvidence{}, fmt.Errorf("replay receipt does not select capture set for request %s", planned.ID)
+			}
+			root, ok := captureRootForRequest(set, planned.Request)
+			if !ok || !selectedRootMatches(want, root) {
+				return buildEvidence{}, fmt.Errorf("replay capture set differs for request %s", planned.ID)
+			}
+			evidence.Captures[planned.ID] = root.Pages[0]
+			evidence.Sets[planned.ID] = set
+			evidence.Cached[planned.ID] = true
+		}
+	}
+	if usedRequests > plan.Budgets.Requests || usedBytes > plan.Budgets.TotalBytes {
+		return buildEvidence{}, fmt.Errorf("replay capture sets exceed build budgets")
+	}
+	return evidence, nil
+}
+
+func selectedRootMatches(selected SelectedCapture, root CaptureRoot) bool {
+	if selected.Termination == nil || selected.Termination.Kind != root.Termination.Kind || selected.Termination.Returned != root.Termination.Returned || !equalOptionalInt64(selected.Termination.Matched, root.Termination.Matched) || len(selected.Pages) != len(root.Pages) {
+		return false
+	}
+	for index, page := range root.Pages {
+		want := selected.Pages[index]
+		if want.Ordinal != index || want.Request != page.RequestHash || want.Locator != page.Locator || want.SHA256 != page.Body.SHA256 || want.Length != page.Body.Length || want.MediaType != page.Body.MediaType || want.CapturedAt != page.CapturedAt {
+			return false
+		}
+	}
+	return true
+}
+
+func equalOptionalInt64(left, right *int64) bool {
+	if left == nil || right == nil {
+		return left == nil && right == nil
+	}
+	return *left == *right
+}
+
+func legacyBuildEvidence(plan Plan, captures map[string]Capture) buildEvidence {
+	evidence := buildEvidence{Captures: captures, Sets: make(map[string]CaptureSet, len(captures)), Cached: make(map[string]bool, len(captures))}
+	for _, planned := range plan.Requests {
+		capture := captures[planned.ID]
+		request := planned.Request
+		set := CaptureSet{Format: CaptureSetFormat, ID: captureSetID([]Request{request}), Adapter: request.Adapter, Version: request.AdapterVersion, Kind: request.Kind, CapturedAt: capture.CapturedAt, TotalBytes: capture.Body.Length, Roots: []CaptureRoot{{Acquisition: requestCacheKey(request), Pages: []Capture{capture}, Termination: CaptureTermination{Kind: TerminationSinglePage}}}}
+		evidence.Sets[planned.ID] = set
+		evidence.Cached[planned.ID] = true
+	}
+	return evidence
 }
 
 func replayCaptures(plan Plan, selection EvidenceSelection, cache *Cache) (map[string]Capture, error) {

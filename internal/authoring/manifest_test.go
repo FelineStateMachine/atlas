@@ -20,6 +20,8 @@ target:
     unit: pixel
     definition: atlas:tile-plane
     extent: [0, 0, 256, 256]
+    origin-x: 2
+    origin-y: 3
     tile-size: 256
     size: 256
 feature-sets:
@@ -80,7 +82,8 @@ func TestLoadProject(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if project.ID != "sample-region" || project.Target.World != "sample-region" || len(project.Sources) != 1 {
+	if project.ID != "sample-region" || project.Target.World != "sample-region" || len(project.Sources) != 1 ||
+		project.Target.CoordinateSpace.OriginX != 2 || project.Target.CoordinateSpace.OriginY != 3 {
 		t.Fatalf("unexpected project: %+v", project)
 	}
 	want := filepath.Join(filepath.Dir(path), "sample-region.geojson")

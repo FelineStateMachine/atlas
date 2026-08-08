@@ -59,6 +59,14 @@ type geoJSONGeometry struct {
 }
 
 func observe(project Project, sourceOrder int, source Source, capture Capture, body []byte) ([]observation, error) {
+	return observePage(project, sourceOrder, source, capture, body, true)
+}
+
+func observeCapturedPage(project Project, sourceOrder int, source Source, capture Capture, body []byte) ([]observation, error) {
+	return observePage(project, sourceOrder, source, capture, body, false)
+}
+
+func observePage(project Project, sourceOrder int, source Source, capture Capture, body []byte, enforceCompleteness bool) ([]observation, error) {
 	set, exists := featureSetContract(project.FeatureSets, source.Mapping.FeatureSet)
 	if !exists {
 		return nil, fmt.Errorf("source %s targets unknown feature set %s", source.ID, source.Mapping.FeatureSet)
@@ -72,8 +80,10 @@ func observe(project Project, sourceOrder int, source Source, capture Capture, b
 	if collection.Type != "FeatureCollection" {
 		return nil, fmt.Errorf("source %s is %q, want FeatureCollection", source.ID, collection.Type)
 	}
-	if err := validateAdapterCompleteness(source, collection); err != nil {
-		return nil, err
+	if enforceCompleteness {
+		if err := validateAdapterCompleteness(source, collection); err != nil {
+			return nil, err
+		}
 	}
 	out := make([]observation, 0, len(collection.Features))
 	for index, feature := range collection.Features {
@@ -167,6 +177,20 @@ func validateAdapterCompleteness(source Source, collection geoJSON) error {
 }
 
 func featureValue(feature geoJSONFeature, path string) (any, bool) {
+	path = strings.TrimSpace(path)
+	if strings.HasPrefix(path, "coalesce(") && strings.HasSuffix(path, ")") {
+		arguments := strings.Split(strings.TrimSuffix(strings.TrimPrefix(path, "coalesce("), ")"), ",")
+		if len(arguments) < 2 {
+			return nil, false
+		}
+		for _, argument := range arguments {
+			value, held := featureValue(feature, strings.TrimSpace(argument))
+			if held && scalarString(value) != "" {
+				return value, true
+			}
+		}
+		return nil, false
+	}
 	switch path {
 	case "id":
 		return feature.ID, feature.ID != nil

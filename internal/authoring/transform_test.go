@@ -58,3 +58,37 @@ func TestTransformGeometryRefusesFamilyExtentAndRingViolations(t *testing.T) {
 		})
 	}
 }
+
+func TestTransformGeometryClipsCrossingPathsAndAreasToTheTarget(t *testing.T) {
+	t.Parallel()
+	target := CoordinateSpace{Extent: [4]float64{0, 0, 10, 10}}
+	identity := CoordinateTransform{Kind: "identity"}
+
+	path := vnext.Geometry{Kind: vnext.GeometryLineString, Parts: []vnext.GeometryPart{{Rings: [][]vnext.Position{{
+		{-5, 5}, {5, 5}, {15, 5},
+	}}}}}
+	clippedPath, err := transformGeometry(path, GeometryMap{Family: "path", Transform: identity}, target)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got := clippedPath.Parts[0].Rings[0]; len(got) != 3 || got[0] != (vnext.Position{0, 5}) || got[2] != (vnext.Position{10, 5}) {
+		t.Fatalf("clipped path = %v", got)
+	}
+
+	area := vnext.Geometry{Kind: vnext.GeometryPolygon, Parts: []vnext.GeometryPart{{Rings: [][]vnext.Position{{
+		{-5, -5}, {15, -5}, {15, 15}, {-5, 15}, {-5, -5},
+	}}}}}
+	clippedArea, err := transformGeometry(area, GeometryMap{Family: "area", Transform: identity}, target)
+	if err != nil {
+		t.Fatal(err)
+	}
+	ring := clippedArea.Parts[0].Rings[0]
+	if len(ring) != 5 || ring[0] != ring[len(ring)-1] {
+		t.Fatalf("clipped area ring = %v", ring)
+	}
+	for _, position := range ring {
+		if !inside(position, target.Extent) {
+			t.Fatalf("clipped position %v leaves target", position)
+		}
+	}
+}

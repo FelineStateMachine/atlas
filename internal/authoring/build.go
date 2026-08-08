@@ -54,74 +54,48 @@ func Build(ctx context.Context, options BuildOptions) (BuildResult, error) {
 	if options.PlanOnly {
 		return result, nil
 	}
-	var captures map[string]Capture
-	var capturedBytes int64
-	accountCapture := func(planned PlannedRequest, capture Capture) error {
-		if capture.Body.Length > planned.MaxBytes {
-			return fmt.Errorf("captured evidence for %s is %d bytes, exceeding request budget %d", planned.Source, capture.Body.Length, planned.MaxBytes)
-		}
-		if capture.Body.Length > plan.Budgets.TotalBytes-capturedBytes {
-			return fmt.Errorf("captured evidence exceeds total byte budget %d", plan.Budgets.TotalBytes)
-		}
-		capturedBytes += capture.Body.Length
-		return nil
-	}
+	var evidence buildEvidence
 	if options.ReplayPath != "" {
 		selection, err := loadEvidenceSelection(options.ReplayPath)
 		if err != nil {
 			return result, err
 		}
-		captures, err = replayCaptures(plan, selection, cache)
+		evidence, err = replayPlanEvidence(plan, selection, cache)
 		if err != nil {
 			return result, err
 		}
-		for index, planned := range plan.Requests {
-			capture := captures[planned.ID]
-			if err := accountCapture(planned, capture); err != nil {
-				return result, err
-			}
-			emit(options, Event{Stage: "capture", Message: planned.Source, Current: index + 1, Total: len(plan.Requests), Bytes: capture.Body.Length, Cached: true})
-		}
 	} else {
-		captures = make(map[string]Capture, len(plan.Requests))
-		acquisitions := make(map[string]Capture, len(plan.Requests))
-		for index, planned := range plan.Requests {
-			key := requestCacheKey(planned.Request)
-			capture, cached := acquisitions[key], true
-			if capture.RequestHash == "" {
-				var err error
-				capture, cached, err = cache.Acquire(ctx, planned.Request, options.Offline)
-				if err != nil {
-					return result, err
-				}
-				acquisitions[key] = capture
-			}
-			captures[planned.ID] = capture
-			if err := accountCapture(planned, capture); err != nil {
-				return result, err
-			}
-			emit(options, Event{
-				Stage: "capture", Message: planned.Source, Current: index + 1,
-				Total: len(plan.Requests), Bytes: capture.Body.Length, Cached: cached,
-			})
+		evidence, err = acquirePlanEvidence(ctx, plan, cache, options.Offline)
+		if err != nil {
+			return result, err
 		}
 	}
+	for index, planned := range plan.Requests {
+		set := evidence.Sets[planned.ID]
+		emit(options, Event{Stage: "capture", Message: planned.Source, Current: index + 1, Total: len(plan.Requests), Bytes: set.TotalBytes, Cached: evidence.Cached[planned.ID]})
+	}
+	captures := evidence.Captures
 	var observations []observation
 	for sourceIndex, source := range project.Sources {
 		planned, ok := featurePlan(plan, source.ID)
 		if !ok {
 			return result, fmt.Errorf("source %s has no planned request", source.ID)
 		}
-		capture := captures[planned.ID]
-		body, err := os.ReadFile(cache.BlobPath(capture.Body))
-		if err != nil {
-			return result, fmt.Errorf("read captured source %s: %w", source.ID, err)
+		root, ok := captureRootForRequest(evidence.Sets[planned.ID], planned.Request)
+		if !ok {
+			return result, fmt.Errorf("source %s has no captured root", source.ID)
 		}
-		items, err := observe(project, sourceIndex, source, capture, body)
-		if err != nil {
-			return result, err
+		for _, capture := range root.Pages {
+			body, err := os.ReadFile(cache.BlobPath(capture.Body))
+			if err != nil {
+				return result, fmt.Errorf("read captured source %s: %w", source.ID, err)
+			}
+			items, err := observeCapturedPage(project, sourceIndex, source, capture, body)
+			if err != nil {
+				return result, err
+			}
+			observations = append(observations, items...)
 		}
-		observations = append(observations, items...)
 		emit(options, Event{Stage: "observe", Message: source.ID, Current: sourceIndex + 1, Total: len(project.Sources)})
 	}
 	volume, err := assemble(project, observations)
@@ -135,7 +109,7 @@ func Build(ctx context.Context, options BuildOptions) (BuildResult, error) {
 	if err != nil {
 		return result, err
 	}
-	receipt, createdAt, err := buildReceipt(plan, captures)
+	receipt, createdAt, err := buildReceiptSets(plan, captures, evidence.Sets)
 	if err != nil {
 		return result, err
 	}
