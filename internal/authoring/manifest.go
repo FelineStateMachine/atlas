@@ -25,16 +25,17 @@ const (
 
 // Project is the complete durable input to one Atlas build.
 type Project struct {
-	Schema          string       `yaml:"schema"`
-	SchemaNamespace string       `yaml:"schema-namespace"`
-	ID              string       `yaml:"id"`
-	Title           string       `yaml:"title"`
-	Target          Target       `yaml:"target"`
-	Sources         []Source     `yaml:"sources,omitempty"`
-	Rasters         []Raster     `yaml:"rasters,omitempty"`
-	Assets          []Asset      `yaml:"assets,omitempty"`
-	Presentation    Presentation `yaml:"presentation"`
-	Release         Release      `yaml:"release,omitempty"`
+	Schema          string               `yaml:"schema"`
+	SchemaNamespace string               `yaml:"schema-namespace"`
+	ID              string               `yaml:"id"`
+	Title           string               `yaml:"title"`
+	Target          Target               `yaml:"target"`
+	FeatureSets     []FeatureSetContract `yaml:"feature-sets,omitempty"`
+	Sources         []Source             `yaml:"sources,omitempty"`
+	Rasters         []Raster             `yaml:"rasters,omitempty"`
+	Assets          []Asset              `yaml:"assets,omitempty"`
+	Presentation    Presentation         `yaml:"presentation"`
+	Release         Release              `yaml:"release,omitempty"`
 
 	baseDir string
 }
@@ -81,16 +82,39 @@ type Query struct {
 	Limit      int    `yaml:"limit,omitempty"`
 }
 
-// Mapping turns source observations into one semantic feature set. Sources
-// that name the same feature-set and canonical identity meet during assembly.
+// FeatureSetContract is the source-independent semantic and geometry contract
+// populated by every mapping that targets its ID.
+type FeatureSetContract struct {
+	ID            string                 `yaml:"id"`
+	Title         string                 `yaml:"title"`
+	SemanticType  string                 `yaml:"semantic-type"`
+	Geometry      string                 `yaml:"geometry"`
+	Properties    []PropertyContract     `yaml:"properties,omitempty"`
+	Relationships []RelationshipContract `yaml:"relationships,omitempty"`
+}
+
+type PropertyContract struct {
+	ID       string `yaml:"id"`
+	Name     string `yaml:"name"`
+	Type     string `yaml:"type"`
+	Optional bool   `yaml:"optional,omitempty"`
+}
+
+type RelationshipContract struct {
+	ID         string `yaml:"id"`
+	Predicate  string `yaml:"predicate"`
+	FeatureSet string `yaml:"feature-set"`
+	Optional   bool   `yaml:"optional,omitempty"`
+}
+
+// Mapping binds source paths to one declared FeatureSet contract. Sources that
+// name the same feature-set and canonical identity meet during assembly.
 type Mapping struct {
 	FeatureSet   string        `yaml:"feature-set"`
-	Title        string        `yaml:"title"`
-	SemanticType string        `yaml:"semantic-type"`
 	Identity     string        `yaml:"identity"`
 	FeatureTitle string        `yaml:"feature-title"`
 	Geometry     GeometryMap   `yaml:"geometry"`
-	Fields       []Field       `yaml:"fields,omitempty"`
+	Properties   []PropertyMap `yaml:"properties,omitempty"`
 	Relations    []RelationMap `yaml:"relationships,omitempty"`
 }
 
@@ -98,7 +122,7 @@ type Mapping struct {
 // Atlas intentionally executes only explicit identity and affine transforms;
 // a CRS label alone never implies executable projection behavior.
 type GeometryMap struct {
-	Family      string              `yaml:"family"`
+	Family      string              `yaml:"-" json:"-"`
 	SourceSpace string              `yaml:"source-space"`
 	Transform   CoordinateTransform `yaml:"transform"`
 }
@@ -108,19 +132,14 @@ type CoordinateTransform struct {
 	Matrix [6]float64 `yaml:"matrix,omitempty"`
 }
 
-type Field struct {
-	ID       string `yaml:"id"`
-	Name     string `yaml:"name,omitempty"`
-	Source   string `yaml:"source"`
-	Type     string `yaml:"type"`
-	Optional bool   `yaml:"optional,omitempty"`
+type PropertyMap struct {
+	Field  string `yaml:"field"`
+	Source string `yaml:"source"`
 }
 
 type RelationMap struct {
-	Predicate  string `yaml:"predicate"`
-	FeatureSet string `yaml:"feature-set,omitempty"`
-	Target     string `yaml:"target"`
-	Optional   bool   `yaml:"optional,omitempty"`
+	Relationship string `yaml:"relationship"`
+	Target       string `yaml:"target"`
 }
 
 // Raster is a configured raster adapter. A file is deterministically expanded
@@ -267,34 +286,19 @@ func (project Project) Validate() error {
 	if len(project.Sources) == 0 && len(project.Rasters) == 0 {
 		return fmt.Errorf("project %s configures no sources or rasters", project.ID)
 	}
-	sets := make(map[string]Mapping)
+	sets, err := validateFeatureSetContracts(project.FeatureSets)
+	if err != nil {
+		return err
+	}
 	sourceIDs := make(map[string]bool)
 	for _, source := range project.Sources {
-		if err := validateSource(source, project.Target.CoordinateSpace); err != nil {
+		if err := validateSource(source, project.Target.CoordinateSpace, sets); err != nil {
 			return err
 		}
 		if sourceIDs[source.ID] {
 			return fmt.Errorf("source %s is configured twice", source.ID)
 		}
 		sourceIDs[source.ID] = true
-		if held, ok := sets[source.Mapping.FeatureSet]; ok {
-			if err := compatibleMapping(held, source.Mapping); err != nil {
-				return fmt.Errorf("feature set %s has conflicting declarations", source.Mapping.FeatureSet)
-			}
-		} else {
-			sets[source.Mapping.FeatureSet] = source.Mapping
-		}
-	}
-	for _, source := range project.Sources {
-		for _, relation := range source.Mapping.Relations {
-			target := relation.FeatureSet
-			if target == "" {
-				target = source.Mapping.FeatureSet
-			}
-			if _, ok := sets[target]; !ok {
-				return fmt.Errorf("source %s relationship %s targets unknown feature set %s", source.ID, relation.Predicate, target)
-			}
-		}
 	}
 	rasterIDs := make(map[string]bool)
 	for _, raster := range project.Rasters {
@@ -336,7 +340,82 @@ func validateTarget(target Target) error {
 	return nil
 }
 
-func validateSource(source Source, target CoordinateSpace) error {
+func validateFeatureSetContracts(values []FeatureSetContract) (map[string]FeatureSetContract, error) {
+	sets := make(map[string]FeatureSetContract, len(values))
+	for _, set := range values {
+		if err := validateFeatureSetContract(set); err != nil {
+			return nil, err
+		}
+		if _, exists := sets[set.ID]; exists {
+			return nil, fmt.Errorf("feature set %s is configured twice", set.ID)
+		}
+		sets[set.ID] = set
+	}
+	for _, set := range values {
+		for _, relation := range set.Relationships {
+			if _, exists := sets[relation.FeatureSet]; !exists {
+				return nil, fmt.Errorf("feature set %s relationship %s targets unknown feature set %s", set.ID, relation.ID, relation.FeatureSet)
+			}
+		}
+	}
+	return sets, nil
+}
+
+func validateFeatureSetContract(set FeatureSetContract) error {
+	if err := vnext.ValidSlug(set.ID); err != nil {
+		return fmt.Errorf("feature set identity: %w", err)
+	}
+	if set.Title == "" || set.SemanticType == "" {
+		return fmt.Errorf("feature set %s requires a title and semantic type", set.ID)
+	}
+	if err := validateGeometryFamily(set.Geometry); err != nil {
+		return fmt.Errorf("feature set %s: %w", set.ID, err)
+	}
+	properties := make(map[string]bool, len(set.Properties))
+	for _, property := range set.Properties {
+		if property.ID == "" || property.Name == "" || property.Type == "" {
+			return fmt.Errorf("feature set %s has an incomplete property contract", set.ID)
+		}
+		if _, err := kindOf(property.Type); err != nil {
+			return fmt.Errorf("feature set %s property %s: %w", set.ID, property.ID, err)
+		}
+		if properties[property.ID] {
+			return fmt.Errorf("feature set %s declares property %s twice", set.ID, property.ID)
+		}
+		properties[property.ID] = true
+	}
+	return validateRelationshipContracts(set)
+}
+
+func validateRelationshipContracts(set FeatureSetContract) error {
+	identities := make(map[string]bool, len(set.Relationships))
+	semantics := make(map[string]bool, len(set.Relationships))
+	for _, relation := range set.Relationships {
+		if err := vnext.ValidSlug(relation.ID); err != nil {
+			return fmt.Errorf("feature set %s relationship identity: %w", set.ID, err)
+		}
+		if relation.Predicate == "" || relation.FeatureSet == "" {
+			return fmt.Errorf("feature set %s has an incomplete relationship contract", set.ID)
+		}
+		semantic := relation.Predicate + "\x00" + relation.FeatureSet
+		if identities[relation.ID] || semantics[semantic] {
+			return fmt.Errorf("feature set %s declares relationship %s twice", set.ID, relation.ID)
+		}
+		identities[relation.ID], semantics[semantic] = true, true
+	}
+	return nil
+}
+
+func validateGeometryFamily(family string) error {
+	switch family {
+	case "point", "path", "area":
+		return nil
+	default:
+		return fmt.Errorf("unknown geometry family %q", family)
+	}
+}
+
+func validateSource(source Source, target CoordinateSpace, sets map[string]FeatureSetContract) error {
 	if err := vnext.ValidSlug(source.ID); err != nil {
 		return fmt.Errorf("source identity: %w", err)
 	}
@@ -347,42 +426,46 @@ func validateSource(source Source, target CoordinateSpace) error {
 		return fmt.Errorf("source %s has a negative size estimate", source.ID)
 	}
 	mapping := source.Mapping
-	if err := vnext.ValidSlug(mapping.FeatureSet); err != nil {
-		return fmt.Errorf("source %s feature set: %w", source.ID, err)
+	set, exists := sets[mapping.FeatureSet]
+	if !exists {
+		return fmt.Errorf("source %s targets unknown feature set %s", source.ID, mapping.FeatureSet)
 	}
-	if mapping.Title == "" || mapping.SemanticType == "" || mapping.Identity == "" || mapping.FeatureTitle == "" {
+	if mapping.Identity == "" || mapping.FeatureTitle == "" {
 		return fmt.Errorf("source %s has an incomplete mapping", source.ID)
 	}
 	if err := validateGeometryMap(mapping.Geometry, target); err != nil {
 		return fmt.Errorf("source %s geometry: %w", source.ID, err)
 	}
-	fields := make(map[string]string)
-	for _, field := range mapping.Fields {
-		if field.ID == "" || field.Source == "" || field.Type == "" {
-			return fmt.Errorf("source %s has an incomplete field mapping", source.ID)
+	properties := make(map[string]bool, len(mapping.Properties))
+	for _, property := range mapping.Properties {
+		if property.Field == "" || property.Source == "" {
+			return fmt.Errorf("source %s has an incomplete property mapping", source.ID)
 		}
-		if _, err := kindOf(field.Type); err != nil {
-			return fmt.Errorf("source %s field %s: %w", source.ID, field.ID, err)
+		if _, exists := propertyContract(set, property.Field); !exists {
+			return fmt.Errorf("source %s maps unknown property %s", source.ID, property.Field)
 		}
-		if held := fields[field.ID]; held != "" {
-			return fmt.Errorf("source %s maps field %s twice", source.ID, field.ID)
+		if properties[property.Field] {
+			return fmt.Errorf("source %s maps property %s twice", source.ID, property.Field)
 		}
-		fields[field.ID] = field.Type
+		properties[property.Field] = true
 	}
+	relations := make(map[string]bool, len(mapping.Relations))
 	for _, relation := range mapping.Relations {
-		if relation.Predicate == "" || relation.Target == "" {
+		if relation.Relationship == "" || relation.Target == "" {
 			return fmt.Errorf("source %s has an incomplete relationship mapping", source.ID)
 		}
+		if _, exists := relationshipContract(set, relation.Relationship); !exists {
+			return fmt.Errorf("source %s maps unknown relationship %s", source.ID, relation.Relationship)
+		}
+		if relations[relation.Relationship] {
+			return fmt.Errorf("source %s maps relationship %s twice", source.ID, relation.Relationship)
+		}
+		relations[relation.Relationship] = true
 	}
 	return nil
 }
 
 func validateGeometryMap(mapping GeometryMap, target CoordinateSpace) error {
-	switch mapping.Family {
-	case "point", "path", "area":
-	default:
-		return fmt.Errorf("unknown geometry family %q", mapping.Family)
-	}
 	if strings.TrimSpace(mapping.SourceSpace) == "" {
 		return fmt.Errorf("geometry has no source space")
 	}
@@ -403,22 +486,6 @@ func validateGeometryMap(mapping GeometryMap, target CoordinateSpace) error {
 		}
 	default:
 		return fmt.Errorf("unknown transform %q", mapping.Transform.Kind)
-	}
-	return nil
-}
-
-func compatibleMapping(left, right Mapping) error {
-	if left.Title != right.Title || left.SemanticType != right.SemanticType || left.Geometry.Family != right.Geometry.Family {
-		return fmt.Errorf("feature set metadata differs")
-	}
-	fields := make(map[string]Field, len(left.Fields))
-	for _, field := range left.Fields {
-		fields[field.ID] = field
-	}
-	for _, field := range right.Fields {
-		if held, ok := fields[field.ID]; ok && (held.Name != field.Name || held.Type != field.Type || held.Optional != field.Optional) {
-			return fmt.Errorf("field %s contract differs", field.ID)
-		}
 	}
 	return nil
 }
@@ -445,19 +512,33 @@ func validateRaster(raster Raster) error {
 		if len(raster.Levels) == 0 || !strings.Contains(raster.Locator, "{z}") || !strings.Contains(raster.Locator, "{x}") || !strings.Contains(raster.Locator, "{y}") {
 			return fmt.Errorf("xyz raster %s requires a template and explicit levels", raster.ID)
 		}
-		previous := int64(-1)
-		for _, level := range raster.Levels {
-			if level.Zoom != previous+1 || level.Zoom < 0 || level.Zoom > 30 {
-				return fmt.Errorf("xyz raster %s has an invalid or unordered level", raster.ID)
-			}
-			maximum := int64(1)<<level.Zoom - 1
-			if level.MinX < 0 || level.MinY < 0 || level.MaxX < level.MinX || level.MaxY < level.MinY || level.MaxX > maximum || level.MaxY > maximum {
-				return fmt.Errorf("xyz raster %s has an invalid or unordered level", raster.ID)
-			}
-			previous = level.Zoom
+		if err := validateRasterLevels(raster); err != nil {
+			return err
+		}
+	case "wmts":
+		if len(raster.Levels) == 0 || !strings.Contains(raster.Locator, "{TileMatrix}") || !strings.Contains(raster.Locator, "{TileCol}") || !strings.Contains(raster.Locator, "{TileRow}") {
+			return fmt.Errorf("wmts raster %s requires a REST template and explicit levels", raster.ID)
+		}
+		if err := validateRasterLevels(raster); err != nil {
+			return err
 		}
 	default:
 		return fmt.Errorf("raster %s uses unknown adapter %q", raster.ID, raster.Adapter)
+	}
+	return nil
+}
+
+func validateRasterLevels(raster Raster) error {
+	previous := int64(-1)
+	for _, level := range raster.Levels {
+		if level.Zoom != previous+1 || level.Zoom < 0 || level.Zoom > 30 {
+			return fmt.Errorf("%s raster %s has an invalid or unordered level", raster.Adapter, raster.ID)
+		}
+		maximum := int64(1)<<level.Zoom - 1
+		if level.MinX < 0 || level.MinY < 0 || level.MaxX < level.MinX || level.MaxY < level.MinY || level.MaxX > maximum || level.MaxY > maximum {
+			return fmt.Errorf("%s raster %s has an invalid or unordered level", raster.Adapter, raster.ID)
+		}
+		previous = level.Zoom
 	}
 	return nil
 }
@@ -481,7 +562,7 @@ func validateAsset(asset Asset) error {
 	return nil
 }
 
-func validatePresentation(presentation Presentation, sets map[string]Mapping, assets map[string]bool) error {
+func validatePresentation(presentation Presentation, sets map[string]FeatureSetContract, assets map[string]bool) error {
 	if presentation.ID == "" || presentation.Title == "" {
 		return fmt.Errorf("presentation requires an ID and title")
 	}
@@ -497,12 +578,40 @@ func validatePresentation(presentation Presentation, sets map[string]Mapping, as
 	}
 	layers := make(map[string]bool)
 	for _, layer := range presentation.Layers {
-		if layer.ID == "" || layers[layer.ID] || sets[layer.FeatureSet].FeatureSet == "" || !styles[layer.Style] || layer.Label == "" || layer.MaxZoom < layer.MinZoom {
+		_, knownSet := sets[layer.FeatureSet]
+		if layer.ID == "" || layers[layer.ID] || !knownSet || !styles[layer.Style] || layer.Label == "" || layer.MaxZoom < layer.MinZoom {
 			return fmt.Errorf("presentation layer %s is invalid", layer.ID)
 		}
 		layers[layer.ID] = true
 	}
 	return nil
+}
+
+func propertyContract(set FeatureSetContract, id string) (PropertyContract, bool) {
+	for _, property := range set.Properties {
+		if property.ID == id {
+			return property, true
+		}
+	}
+	return PropertyContract{}, false
+}
+
+func featureSetContract(sets []FeatureSetContract, id string) (FeatureSetContract, bool) {
+	for _, set := range sets {
+		if set.ID == id {
+			return set, true
+		}
+	}
+	return FeatureSetContract{}, false
+}
+
+func relationshipContract(set FeatureSetContract, id string) (RelationshipContract, bool) {
+	for _, relation := range set.Relationships {
+		if relation.ID == id {
+			return relation, true
+		}
+	}
+	return RelationshipContract{}, false
 }
 
 func kindOf(name string) (vnext.Kind, error) {

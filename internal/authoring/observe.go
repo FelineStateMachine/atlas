@@ -18,26 +18,32 @@ type observation struct {
 	Source      string
 	NativeID    string
 	FeatureSet  string
-	SetTitle    string
-	Semantic    string
-	Family      string
 	Title       string
 	Geometry    vnext.Geometry
-	Fields      map[string]vnext.Field
 	Values      map[string]vnext.Value
 	Relations   []observedRelation
 	Evidence    Capture
 }
 
 type observedRelation struct {
+	Contract   string
 	Predicate  string
 	FeatureSet string
 	NativeID   string
 }
 
 type geoJSON struct {
-	Type     string           `json:"type"`
-	Features []geoJSONFeature `json:"features"`
+	Type                  string           `json:"type"`
+	Features              []geoJSONFeature `json:"features"`
+	Links                 []geoJSONLink    `json:"links,omitempty"`
+	NumberMatched         *int64           `json:"numberMatched,omitempty"`
+	NumberReturned        *int64           `json:"numberReturned,omitempty"`
+	ExceededTransferLimit bool             `json:"exceededTransferLimit,omitempty"`
+}
+
+type geoJSONLink struct {
+	Rel  string `json:"rel"`
+	Href string `json:"href"`
 }
 
 type geoJSONFeature struct {
@@ -53,6 +59,10 @@ type geoJSONGeometry struct {
 }
 
 func observe(project Project, sourceOrder int, source Source, capture Capture, body []byte) ([]observation, error) {
+	set, exists := featureSetContract(project.FeatureSets, source.Mapping.FeatureSet)
+	if !exists {
+		return nil, fmt.Errorf("source %s targets unknown feature set %s", source.ID, source.Mapping.FeatureSet)
+	}
 	decoder := json.NewDecoder(bytes.NewReader(body))
 	decoder.UseNumber()
 	var collection geoJSON
@@ -61,6 +71,9 @@ func observe(project Project, sourceOrder int, source Source, capture Capture, b
 	}
 	if collection.Type != "FeatureCollection" {
 		return nil, fmt.Errorf("source %s is %q, want FeatureCollection", source.ID, collection.Type)
+	}
+	if err := validateAdapterCompleteness(source, collection); err != nil {
+		return nil, err
 	}
 	out := make([]observation, 0, len(collection.Features))
 	for index, feature := range collection.Features {
@@ -83,58 +96,71 @@ func observe(project Project, sourceOrder int, source Source, capture Capture, b
 		if err != nil {
 			return nil, fmt.Errorf("source %s feature %s: %w", source.ID, nativeID, err)
 		}
-		geometry, err = transformGeometry(geometry, source.Mapping.Geometry, project.Target.CoordinateSpace)
+		geometryMap := source.Mapping.Geometry
+		geometryMap.Family = set.Geometry
+		geometry, err = transformGeometry(geometry, geometryMap, project.Target.CoordinateSpace)
 		if err != nil {
 			return nil, fmt.Errorf("source %s feature %s: %w", source.ID, nativeID, err)
 		}
 		item := observation{
 			SourceOrder: sourceOrder, Source: source.ID, NativeID: nativeID,
-			FeatureSet: source.Mapping.FeatureSet, SetTitle: source.Mapping.Title,
-			Semantic: source.Mapping.SemanticType, Family: source.Mapping.Geometry.Family, Title: scalarString(titleValue),
-			Geometry: geometry, Fields: make(map[string]vnext.Field), Values: make(map[string]vnext.Value),
+			FeatureSet: source.Mapping.FeatureSet, Title: scalarString(titleValue),
+			Geometry: geometry, Values: make(map[string]vnext.Value),
 			Evidence: capture,
 		}
-		for _, mapping := range source.Mapping.Fields {
+		for _, mapping := range source.Mapping.Properties {
 			raw, held := featureValue(feature, mapping.Source)
 			if !held || raw == nil {
-				if mapping.Optional {
-					continue
-				}
-				return nil, fmt.Errorf("source %s feature %s omits required field %s", source.ID, nativeID, mapping.ID)
+				continue
 			}
-			kind, _ := kindOf(mapping.Type)
+			contract, exists := propertyContract(set, mapping.Field)
+			if !exists {
+				return nil, fmt.Errorf("source %s maps unknown property %s", source.ID, mapping.Field)
+			}
+			kind, _ := kindOf(contract.Type)
 			value, err := valueOf(project.SchemaNamespace, kind, raw)
 			if err != nil {
-				return nil, fmt.Errorf("source %s feature %s field %s: %w", source.ID, nativeID, mapping.ID, err)
+				return nil, fmt.Errorf("source %s feature %s property %s: %w", source.ID, nativeID, mapping.Field, err)
 			}
-			name := mapping.Name
-			if name == "" {
-				name = mapping.ID
-			}
-			item.Fields[mapping.ID] = vnext.Field{
-				ID:   vnext.IDFromName(project.SchemaNamespace, "feature."+source.Mapping.FeatureSet+"."+mapping.ID),
-				Name: name, Kind: kind, Optional: mapping.Optional,
-			}
-			item.Values[mapping.ID] = value
+			item.Values[mapping.Field] = value
 		}
 		for _, mapping := range source.Mapping.Relations {
 			raw, held := featureValue(feature, mapping.Target)
 			if !held || scalarString(raw) == "" {
-				if mapping.Optional {
-					continue
-				}
-				return nil, fmt.Errorf("source %s feature %s omits relationship %s", source.ID, nativeID, mapping.Predicate)
+				continue
 			}
-			set := mapping.FeatureSet
-			if set == "" {
-				set = source.Mapping.FeatureSet
+			contract, exists := relationshipContract(set, mapping.Relationship)
+			if !exists {
+				return nil, fmt.Errorf("source %s maps unknown relationship %s", source.ID, mapping.Relationship)
 			}
-			item.Relations = append(item.Relations, observedRelation{Predicate: mapping.Predicate, FeatureSet: set, NativeID: scalarString(raw)})
+			item.Relations = append(item.Relations, observedRelation{
+				Contract: mapping.Relationship, Predicate: contract.Predicate,
+				FeatureSet: contract.FeatureSet, NativeID: scalarString(raw),
+			})
 		}
 		out = append(out, item)
 	}
 	sort.Slice(out, func(i, j int) bool { return out[i].NativeID < out[j].NativeID })
 	return out, nil
+}
+
+func validateAdapterCompleteness(source Source, collection geoJSON) error {
+	switch source.Adapter {
+	case "arcgis-feature-service":
+		if collection.ExceededTransferLimit {
+			return fmt.Errorf("source %s ArcGIS response exceeded its transfer limit; narrow or partition the configured query", source.ID)
+		}
+	case "ogc-api-features":
+		if collection.NumberReturned != nil && *collection.NumberReturned != int64(len(collection.Features)) {
+			return fmt.Errorf("source %s OGC response count differs from its feature payload", source.ID)
+		}
+		for _, link := range collection.Links {
+			if strings.EqualFold(link.Rel, "next") && strings.TrimSpace(link.Href) != "" {
+				return fmt.Errorf("source %s OGC response has a next page; narrow or partition the configured query", source.ID)
+			}
+		}
+	}
+	return nil
 }
 
 func featureValue(feature geoJSONFeature, path string) (any, bool) {

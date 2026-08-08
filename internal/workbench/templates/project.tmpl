@@ -9,16 +9,80 @@
 </section>
 
 {{if .Project.ID}}
-<section class="project-flow" aria-label="Build flow">
-  <div><b>{{.SourceCount}}</b><span>feature sources</span></div>
-  <i>→</i>
-  <div><b>{{.FeatureSets}}</b><span>semantic sets</span></div>
-  <i>→</i>
-  <div><b>{{.RasterCount}}</b><span>raster pyramids</span></div>
-  <i>→</i>
-  <div><b>{{.LayerCount}}</b><span>presentation layers</span></div>
-  <i>→</i>
-  <div class="accent"><b>.atlas</b><span>native vNext</span></div>
+<section class="card contract-graph" aria-labelledby="contract-graph-title">
+  <header class="graph-head">
+    <div>
+      <p class="eyebrow">Resolved authoring contract</p>
+      <h2 id="contract-graph-title">Sources become semantic FeatureSets</h2>
+    </div>
+    <p class="graph-totals"><b>{{.SourceCount}}</b> feature sources · <b>{{.FeatureSets}}</b> semantic sets · <b>{{.RasterCount}}</b> raster pyramids · <b>{{.LayerCount}}</b> presentation layers</p>
+  </header>
+
+  <div class="contract-groups">
+  {{range .Graph.FeatureSets}}
+    <section class="contract-group" aria-labelledby="feature-set-{{.ID}}">
+      <div class="source-lanes">
+      {{range .Sources}}
+        <div class="source-lane">
+          <article class="graph-node source-node">
+            <span class="node-kind">Source</span>
+            <b>{{.ID}}</b>
+            <span class="node-detail" title="{{.Locator}}">{{.Locator}}</span>
+            <span class="status-chip {{if .Cached}}ready{{else}}fetch{{end}}">{{.Cache}}</span>
+          </article>
+          <i class="graph-arrow" aria-hidden="true">→</i>
+          <article class="graph-node adapter-node">
+            <span class="node-kind">Adapter</span>
+            <b>{{.Adapter}}</b>
+            <span class="node-detail">immutable evidence</span>
+          </article>
+          <i class="graph-arrow" aria-hidden="true">→</i>
+          <article class="graph-node mapping-node">
+            <span class="node-kind">Mapping</span>
+            <b>{{.Geometry}} · {{.Transform}}</b>
+            <span class="node-detail">{{.Identity}} → {{.FeatureTitle}}</span>
+            <span class="node-detail">{{.SourceSpace}} → world</span>
+            <span class="node-counts">{{.PropertyCount}} properties{{if .RelationCount}} · {{.RelationCount}} relationships{{end}}</span>
+          </article>
+        </div>
+      {{end}}
+      </div>
+      <i class="graph-arrow merge-arrow" aria-hidden="true">→</i>
+      <article class="graph-node contract-node">
+        <span class="node-kind">FeatureSet contract</span>
+        <h3 id="feature-set-{{.ID}}">{{.Title}}</h3>
+        <code>{{.ID}}</code>
+        <p><span class="status-chip semantic">{{.SemanticType}}</span><span class="status-chip geometry">{{.Geometry}}</span></p>
+        <details class="contract-detail">
+          <summary>{{len .Properties}} typed properties</summary>
+          {{if .Properties}}<dl class="contract-list">
+          {{range .Properties}}<div><dt>{{.Name}}</dt><dd><code>{{.Type}}</code>{{if .Optional}} <span class="dim">optional</span>{{end}}</dd></div>{{end}}
+          </dl>{{else}}<p class="dim">No typed properties.</p>{{end}}
+        </details>
+        <details class="contract-detail">
+          <summary>{{len .Relations}} relationships</summary>
+          {{if .Relations}}<dl class="contract-list">
+          {{range .Relations}}<div><dt>{{.Predicate}}</dt><dd>→ <code>{{.Target}}</code>{{if .Optional}} <span class="dim">optional</span>{{end}}</dd></div>{{end}}
+          </dl>{{else}}<p class="dim">No relationships.</p>{{end}}
+        </details>
+      </article>
+    </section>
+  {{end}}
+  </div>
+
+  <div class="artifact-flow">
+    <div class="side-inputs" aria-label="Other artifact inputs">
+      {{range .Graph.Rasters}}<span class="side-input"><b>{{.ID}}</b> · {{.Adapter}} <i class="status-chip {{if .Cached}}ready{{else}}fetch{{end}}">{{.Cache}}</i></span>{{end}}
+      {{range .Graph.Assets}}<span class="side-input"><b>{{.ID}}</b> · asset <i class="status-chip {{if .Cached}}ready{{else}}fetch{{end}}">{{.Cache}}</i></span>{{end}}
+      <span class="side-input"><b>{{.Graph.Layers}}</b> layers · <b>{{.Graph.Styles}}</b> styles</span>
+    </div>
+    <i class="graph-arrow" aria-hidden="true">→</i>
+    <div class="graph-node artifact-node">
+      <span class="node-kind">Artifact</span>
+      <b>.atlas</b>
+      <span class="node-detail">native vNext · planned</span>
+    </div>
+  </div>
 </section>
 
 <div class="columns project-columns">
@@ -31,13 +95,17 @@
     <div><dt>estimated input</dt><dd>{{.Plan.Estimated}} bytes</dd></div>
     <div><dt>output library</dt><dd>{{.Plan.Output}}</dd></div>
   </dl>
-  <h3>Evidence requests</h3>
-  <table>
-    <thead><tr><th>source</th><th>adapter</th><th>kind</th><th>cache</th></tr></thead>
-    <tbody>{{range .Plan.Requests}}<tr><td>{{.Source}}</td><td>{{.Adapter}}</td><td>{{.Kind}}</td><td>{{if .Cached}}ready{{else}}fetch{{end}}</td></tr>{{end}}</tbody>
-  </table>
-  <h3>Obligations carried into provenance</h3>
-  {{range .Plan.Licenses}}<p><b>{{.Source}}</b>{{if .License}} · {{.License}}{{end}}{{if .Attribution}}<br><span class="dim">{{.Attribution}}</span>{{end}}</p>{{end}}
+  <details class="plan-detail">
+    <summary>{{len .Plan.Requests}} evidence requests</summary>
+    <table>
+      <thead><tr><th>source</th><th>adapter</th><th>kind</th><th>cache</th></tr></thead>
+      <tbody>{{range .Plan.Requests}}<tr><td>{{.Source}}</td><td>{{.Adapter}}</td><td>{{.Kind}}</td><td>{{if .Cached}}ready{{else}}fetch{{end}}</td></tr>{{end}}</tbody>
+    </table>
+  </details>
+  <details class="plan-detail">
+    <summary>{{len .Plan.Licenses}} provenance obligations</summary>
+    {{range .Plan.Licenses}}<p><b>{{.Source}}</b>{{if .License}} · {{.License}}{{end}}{{if .Attribution}}<br><span class="dim">{{.Attribution}}</span>{{end}}</p>{{end}}
+  </details>
 </section>
 
 <section class="card build-control">
@@ -52,25 +120,31 @@
 </div>
 {{end}}
 
-<section class="card manifest-editor">
-  <h2>Portable manifest</h2>
-  <p class="dim">Configuration lives here. Captured evidence stays in the shared cache; completed volumes stay in the Atlas library.</p>
+<details class="card manifest-editor"{{if .Error}} open{{end}}>
+  <summary><b>Portable manifest</b> <span class="dim">Edit the single configuration file</span></summary>
+  <p class="dim">Captured evidence stays in the shared cache; completed volumes stay in the Atlas library.</p>
   <form method="post" action="/project/save">
     <textarea name="manifest" spellcheck="false" aria-label="Atlas project manifest">{{.Manifest}}</textarea>
     <button>Validate and save</button>
   </form>
-</section>
+</details>
 {{end}}
 
 {{define "project-run"}}
 <div id="project-run"{{if .Run.Running}} hx-get="/project/run" hx-trigger="load, every 1s" hx-swap="outerHTML"{{end}}>
+  <ol class="stage-rail" aria-label="Build stages">
+    {{range .Stages}}<li class="{{.State}}" data-stage="{{.ID}}"><span aria-hidden="true"></span><b>{{.Label}}</b></li>{{end}}
+  </ol>
   {{if .Run.Name}}
     <p class="run-state {{if .Run.Failed}}failed{{else if .Run.Running}}running{{else}}done{{end}}">
       {{if .Run.Running}}Building… safe to leave this page{{else if .Run.Failed}}Build failed{{else}}Build complete{{end}}
     </p>
-    <div id="op-log" class="console" aria-live="polite">
-      {{range .Run.Rows}}{{template "op-row" .}}{{end}}
-    </div>
+    <details class="build-log"{{if .Run.Failed}} open{{end}}>
+      <summary>Raw diagnostics <span class="dim">{{len .Run.Rows}} rows</span></summary>
+      <div id="op-log" class="console" aria-live="polite">
+        {{range .Run.Rows}}{{template "op-row" .}}{{end}}
+      </div>
+    </details>
   {{end}}
   {{if .Run.Artifact}}
   <div class="artifact-handoff" draggable="true" data-artifact-handoff

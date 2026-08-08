@@ -13,6 +13,51 @@ target:
     definition: local sample grid
     extent: [0, 0, 100, 100]
 
+feature-sets:
+  - id: places
+    title: Sample Places
+    semantic-type: place
+    geometry: point
+    properties:
+      - id: kind
+        name: Kind
+        type: string
+      - id: featured
+        name: Featured
+        type: bool
+      - id: rank
+        name: Rank
+        type: int64
+      - id: score
+        name: Score
+        type: float64
+      - id: badge
+        name: Badge
+        type: bytes
+      - id: category
+        name: Category
+        type: id
+    relationships:
+      - id: area
+        predicate: within
+        feature-set: areas
+  - id: routes
+    title: Sample Routes
+    semantic-type: route
+    geometry: path
+    properties:
+      - id: kind
+        name: Kind
+        type: string
+  - id: areas
+    title: Sample Areas
+    semantic-type: region
+    geometry: area
+    properties:
+      - id: kind
+        name: Kind
+        type: string
+
 sources:
   - id: sample-places
     adapter: geojson
@@ -23,44 +68,28 @@ sources:
     estimate-bytes: 2048
     mapping:
       feature-set: places
-      title: Sample Places
-      semantic-type: place
       identity: id
       feature-title: properties.name
       geometry:
-        family: point
         source-space: sample-source-grid
         transform:
           kind: affine
           matrix: [10, 0, 0, 0, 10, 0]
-      fields:
-        - id: kind
-          name: Kind
+      properties:
+        - field: kind
           source: properties.kind
-          type: string
-        - id: featured
-          name: Featured
+        - field: featured
           source: properties.featured
-          type: bool
-        - id: rank
-          name: Rank
+        - field: rank
           source: properties.rank
-          type: int64
-        - id: score
-          name: Score
+        - field: score
           source: properties.score
-          type: float64
-        - id: badge
-          name: Badge
+        - field: badge
           source: properties.badge
-          type: bytes
-        - id: category
-          name: Category
+        - field: category
           source: properties.category
-          type: id
       relationships:
-        - predicate: within
-          feature-set: areas
+        - relationship: area
           target: properties.area
 
   - id: sample-routes
@@ -72,20 +101,15 @@ sources:
     estimate-bytes: 1024
     mapping:
       feature-set: routes
-      title: Sample Routes
-      semantic-type: route
       identity: id
       feature-title: properties.name
       geometry:
-        family: path
         source-space: sample-grid
         transform:
           kind: identity
-      fields:
-        - id: kind
-          name: Kind
+      properties:
+        - field: kind
           source: properties.kind
-          type: string
 
   - id: sample-areas
     adapter: geojson
@@ -96,20 +120,15 @@ sources:
     estimate-bytes: 1024
     mapping:
       feature-set: areas
-      title: Sample Areas
-      semantic-type: region
       identity: id
       feature-title: properties.name
       geometry:
-        family: area
         source-space: sample-grid
         transform:
           kind: identity
-      fields:
-        - id: kind
-          name: Kind
+      properties:
+        - field: kind
           source: properties.kind
-          type: string
 
 rasters:
   - id: background

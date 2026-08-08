@@ -1,6 +1,7 @@
 package authoring
 
 import (
+	"bytes"
 	"context"
 	"crypto/sha256"
 	"encoding/hex"
@@ -17,6 +18,10 @@ import (
 )
 
 const CaptureFormat = "atlas-capture/v1"
+
+const sha256HexLength = sha256.Size * 2
+
+var errExistingContent = errors.New("path already holds different content")
 
 type BlobRef struct {
 	SHA256    string `json:"sha256"`
@@ -61,7 +66,10 @@ func (cache *Cache) Has(requestID string) bool {
 }
 
 func (cache *Cache) Latest(requestID string) (Capture, error) {
-	dir := filepath.Join(cache.root, "captures", requestID[:2], requestID)
+	dir, err := cache.captureDir(requestID)
+	if err != nil {
+		return Capture{}, err
+	}
 	entries, err := os.ReadDir(dir)
 	if err != nil {
 		return Capture{}, err
@@ -72,13 +80,10 @@ func (cache *Cache) Latest(requestID string) (Capture, error) {
 		if entry.IsDir() || filepath.Ext(entry.Name()) != ".json" {
 			continue
 		}
-		data, err := os.ReadFile(filepath.Join(dir, entry.Name()))
+		bodySHA := strings.TrimSuffix(entry.Name(), ".json")
+		capture, err := cache.Select(requestID, bodySHA)
 		if err != nil {
-			return Capture{}, err
-		}
-		var capture Capture
-		if err := json.Unmarshal(data, &capture); err != nil {
-			return Capture{}, fmt.Errorf("decode capture %s: %w", entry.Name(), err)
+			return Capture{}, fmt.Errorf("validate capture %s: %w", entry.Name(), err)
 		}
 		captures = append(captures, capture)
 	}
@@ -94,15 +99,47 @@ func (cache *Cache) Latest(requestID string) (Capture, error) {
 	return captures[len(captures)-1], nil
 }
 
+// Select returns one exact, validated capture for a request and body hash.
+func (cache *Cache) Select(requestID, bodySHA string) (Capture, error) {
+	dir, err := cache.captureDir(requestID)
+	if err != nil {
+		return Capture{}, err
+	}
+	if err := validateSHA256("body", bodySHA); err != nil {
+		return Capture{}, err
+	}
+	path := filepath.Join(dir, bodySHA+".json")
+	data, err := os.ReadFile(path)
+	if err != nil {
+		return Capture{}, fmt.Errorf("read capture %s: %w", bodySHA, err)
+	}
+	capture, err := decodeCapture(data)
+	if err != nil {
+		return Capture{}, fmt.Errorf("decode capture %s: %w", bodySHA, err)
+	}
+	if err := cache.validateCapture(capture, requestID, bodySHA); err != nil {
+		return Capture{}, err
+	}
+	return capture, nil
+}
+
 func (cache *Cache) BlobPath(ref BlobRef) string {
-	return filepath.Join(cache.root, "blobs", "sha256", ref.SHA256[:2], ref.SHA256)
+	path, err := cache.blobPath(ref.SHA256)
+	if err != nil {
+		return filepath.Join(cache.root, "blobs", "sha256", "invalid")
+	}
+	return path
 }
 
 // Acquire fetches or reads one planned request, records only changed bytes and
 // returns the immutable capture selected for this build.
 func (cache *Cache) Acquire(ctx context.Context, request Request, offline bool) (Capture, bool, error) {
+	requestKey := requestCacheKey(request)
+	if err := validateSHA256("request", requestKey); err != nil {
+		return Capture{}, false, err
+	}
 	if offline {
-		capture, err := cache.Latest(request.ID)
+		capture, err := cache.Latest(requestKey)
 		if err != nil {
 			return Capture{}, false, fmt.Errorf("request %s is not cached: %w", request.Source, err)
 		}
@@ -114,8 +151,10 @@ func (cache *Cache) Acquire(ctx context.Context, request Request, offline bool) 
 	}
 	digest := sha256.Sum256(body)
 	hash := hex.EncodeToString(digest[:])
-	if current, err := cache.Latest(request.ID); err == nil && current.Body.SHA256 == hash {
-		return current, true, nil
+	if held, err := cache.Select(requestKey, hash); err == nil {
+		return held, true, nil
+	} else if !errors.Is(err, os.ErrNotExist) {
+		return Capture{}, false, fmt.Errorf("select captured source %s: %w", request.Source, err)
 	}
 	if mediaType == "" {
 		mediaType = request.MediaType
@@ -124,11 +163,15 @@ func (cache *Cache) Acquire(ctx context.Context, request Request, offline bool) 
 		mediaType = "application/octet-stream"
 	}
 	ref := BlobRef{SHA256: hash, Length: int64(len(body)), MediaType: mediaType}
-	if err := writeOnce(cache.BlobPath(ref), body); err != nil {
+	blobPath, err := cache.blobPath(hash)
+	if err != nil {
+		return Capture{}, false, err
+	}
+	if _, err := writeOnce(blobPath, body); err != nil {
 		return Capture{}, false, fmt.Errorf("cache evidence: %w", err)
 	}
 	capture := Capture{
-		Format: CaptureFormat, RequestHash: request.ID, Source: request.Source,
+		Format: CaptureFormat, RequestHash: requestKey, Source: request.Source,
 		Adapter: request.Adapter, Kind: string(request.Kind), Locator: request.IdentityLocator,
 		CapturedAt: cache.now().UTC().Format(time.RFC3339Nano),
 		License:    request.License, Attribution: request.Attribution, Body: ref,
@@ -138,11 +181,106 @@ func (cache *Cache) Acquire(ctx context.Context, request Request, offline bool) 
 		return Capture{}, false, err
 	}
 	data = append(data, '\n')
-	path := filepath.Join(cache.root, "captures", request.ID[:2], request.ID, hash+".json")
-	if err := writeOnce(path, data); err != nil {
-		return Capture{}, false, fmt.Errorf("cache capture: %w", err)
+	dir, err := cache.captureDir(requestKey)
+	if err != nil {
+		return Capture{}, false, err
 	}
-	return capture, false, nil
+	path := filepath.Join(dir, hash+".json")
+	written, writeErr := writeOnce(path, data)
+	if writeErr != nil && !errors.Is(writeErr, errExistingContent) {
+		return Capture{}, false, fmt.Errorf("cache capture: %w", writeErr)
+	}
+	selected, err := cache.Select(requestKey, hash)
+	if err != nil {
+		return Capture{}, false, fmt.Errorf("validate cached capture: %w", err)
+	}
+	return selected, !written, nil
+}
+
+func (cache *Cache) captureDir(requestID string) (string, error) {
+	if err := validateSHA256("request", requestID); err != nil {
+		return "", err
+	}
+	return filepath.Join(cache.root, "captures", requestID[:2], requestID), nil
+}
+
+func (cache *Cache) blobPath(bodySHA string) (string, error) {
+	if err := validateSHA256("body", bodySHA); err != nil {
+		return "", err
+	}
+	return filepath.Join(cache.root, "blobs", "sha256", bodySHA[:2], bodySHA), nil
+}
+
+func (cache *Cache) validateCapture(capture Capture, requestID, bodySHA string) error {
+	if capture.Format != CaptureFormat {
+		return fmt.Errorf("capture format %q, want %q", capture.Format, CaptureFormat)
+	}
+	if capture.RequestHash != requestID {
+		return fmt.Errorf("capture request hash %q does not match %q", capture.RequestHash, requestID)
+	}
+	if capture.Source == "" || capture.Adapter == "" || capture.Locator == "" {
+		return fmt.Errorf("capture envelope is incomplete")
+	}
+	switch RequestKind(capture.Kind) {
+	case RequestFeatures, RequestRaster, RequestAsset:
+	default:
+		return fmt.Errorf("capture kind %q is invalid", capture.Kind)
+	}
+	if _, err := time.Parse(time.RFC3339Nano, capture.CapturedAt); err != nil {
+		return fmt.Errorf("capture time %q: %w", capture.CapturedAt, err)
+	}
+	if capture.Body.SHA256 != bodySHA {
+		return fmt.Errorf("capture body %q does not match path %q", capture.Body.SHA256, bodySHA)
+	}
+	if capture.Body.Length < 0 || strings.TrimSpace(capture.Body.MediaType) == "" {
+		return fmt.Errorf("capture body metadata is incomplete")
+	}
+	return cache.validateBlob(capture.Body)
+}
+
+func (cache *Cache) validateBlob(ref BlobRef) error {
+	path, err := cache.blobPath(ref.SHA256)
+	if err != nil {
+		return err
+	}
+	data, err := os.ReadFile(path)
+	if err != nil {
+		return fmt.Errorf("read captured body %s: %w", ref.SHA256, err)
+	}
+	if int64(len(data)) != ref.Length {
+		return fmt.Errorf("captured body %s length is %d, want %d", ref.SHA256, len(data), ref.Length)
+	}
+	digest := sha256.Sum256(data)
+	if actual := hex.EncodeToString(digest[:]); actual != ref.SHA256 {
+		return fmt.Errorf("captured body hash is %s, want %s", actual, ref.SHA256)
+	}
+	return nil
+}
+
+func decodeCapture(data []byte) (Capture, error) {
+	decoder := json.NewDecoder(bytes.NewReader(data))
+	decoder.DisallowUnknownFields()
+	var capture Capture
+	if err := decoder.Decode(&capture); err != nil {
+		return Capture{}, err
+	}
+	if err := decoder.Decode(&struct{}{}); !errors.Is(err, io.EOF) {
+		if err == nil {
+			return Capture{}, fmt.Errorf("capture carries more than one JSON value")
+		}
+		return Capture{}, fmt.Errorf("decode capture trailer: %w", err)
+	}
+	return capture, nil
+}
+
+func validateSHA256(name, value string) error {
+	if len(value) != sha256HexLength || strings.ToLower(value) != value {
+		return fmt.Errorf("%s SHA-256 %q is not lowercase hexadecimal", name, value)
+	}
+	if _, err := hex.DecodeString(value); err != nil {
+		return fmt.Errorf("%s SHA-256 %q: %w", name, value, err)
+	}
+	return nil
 }
 
 func (cache *Cache) read(ctx context.Context, request Request) ([]byte, string, error) {
@@ -176,40 +314,50 @@ func (cache *Cache) read(ctx context.Context, request Request) ([]byte, string, 
 	return body, mediaType, nil
 }
 
-func writeOnce(path string, data []byte) error {
-	if _, err := os.Stat(path); err == nil {
-		return nil
+func writeOnce(path string, data []byte) (bool, error) {
+	if held, err := os.ReadFile(path); err == nil {
+		if !bytes.Equal(held, data) {
+			return false, fmt.Errorf("%w at %s", errExistingContent, path)
+		}
+		return false, nil
 	} else if !errors.Is(err, os.ErrNotExist) {
-		return err
+		return false, err
 	}
 	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
-		return err
+		return false, err
 	}
 	stage, err := os.CreateTemp(filepath.Dir(path), ".writing-*")
 	if err != nil {
-		return err
+		return false, err
 	}
 	name := stage.Name()
 	defer os.Remove(name)
 	if _, err := stage.Write(data); err != nil {
-		stage.Close()
-		return err
+		_ = stage.Close()
+		return false, err
 	}
 	if err := stage.Sync(); err != nil {
-		stage.Close()
-		return err
+		_ = stage.Close()
+		return false, err
 	}
 	if err := stage.Close(); err != nil {
-		return err
+		return false, err
 	}
 	if err := os.Chmod(name, 0o644); err != nil {
-		return err
+		return false, err
 	}
-	if err := os.Rename(name, path); err != nil {
-		if _, statErr := os.Stat(path); statErr == nil {
-			return nil
+	if err := os.Link(name, path); err != nil {
+		if !errors.Is(err, os.ErrExist) {
+			return false, err
 		}
-		return err
+		held, readErr := os.ReadFile(path)
+		if readErr != nil {
+			return false, readErr
+		}
+		if !bytes.Equal(held, data) {
+			return false, fmt.Errorf("%w at %s", errExistingContent, path)
+		}
+		return false, nil
 	}
-	return nil
+	return true, nil
 }

@@ -22,6 +22,15 @@ target:
     extent: [0, 0, 256, 256]
     tile-size: 256
     size: 256
+feature-sets:
+  - id: places
+    title: Places
+    semantic-type: sample.place
+    geometry: point
+    properties:
+      - id: sample.kind
+        name: Kind
+        type: string
 sources:
   - id: sample-features
     adapter: geojson
@@ -30,19 +39,15 @@ sources:
     attribution: Sample publisher
     mapping:
       feature-set: places
-      title: Places
-      semantic-type: sample.place
       identity: properties.id
       feature-title: properties.name
       geometry:
-        family: point
         source-space: sample-region/space
         transform:
           kind: identity
-      fields:
-        - id: sample.kind
+      properties:
+        - field: sample.kind
           source: properties.kind
-          type: string
 presentation:
   id: sample-region/presentation
   title: Sample Region
@@ -101,17 +106,14 @@ func TestProjectRequiresManifestExtension(t *testing.T) {
 	}
 }
 
-func TestProjectRejectsConflictingFeatureSets(t *testing.T) {
+func TestProjectRejectsUnknownFeatureSetBinding(t *testing.T) {
 	project, err := LoadProject(writeSampleProject(t, sampleProject))
 	if err != nil {
 		t.Fatal(err)
 	}
-	second := project.Sources[0]
-	second.ID = "sample-features-two"
-	second.Mapping.Title = "Different title"
-	project.Sources = append(project.Sources, second)
-	if err := project.Validate(); err == nil || !strings.Contains(err.Error(), "conflicting declarations") {
-		t.Fatalf("Validate = %v, want feature-set conflict", err)
+	project.Sources[0].Mapping.FeatureSet = "missing"
+	if err := project.Validate(); err == nil || !strings.Contains(err.Error(), "unknown feature set") {
+		t.Fatalf("Validate = %v, want unknown feature-set binding", err)
 	}
 }
 
@@ -124,7 +126,7 @@ func TestProjectRejectsGeometryAndRelationshipContractErrors(t *testing.T) {
 		{
 			name: "unknown geometry family",
 			change: func(project *Project) {
-				project.Sources[0].Mapping.Geometry.Family = "mesh"
+				project.FeatureSets[0].Geometry = "mesh"
 			},
 			mention: "unknown geometry family",
 		},
@@ -146,7 +148,7 @@ func TestProjectRejectsGeometryAndRelationshipContractErrors(t *testing.T) {
 		{
 			name: "unknown relationship feature set",
 			change: func(project *Project) {
-				project.Sources[0].Mapping.Relations = []RelationMap{{Predicate: "within", FeatureSet: "missing", Target: "properties.parent"}}
+				project.FeatureSets[0].Relationships = []RelationshipContract{{ID: "area", Predicate: "within", FeatureSet: "missing"}}
 			},
 			mention: "unknown feature set",
 		},
@@ -169,6 +171,85 @@ func TestProjectRejectsGeometryAndRelationshipContractErrors(t *testing.T) {
 				t.Fatalf("Validate = %v, want %q", err, test.mention)
 			}
 		})
+	}
+}
+
+func TestProjectRejectsInvalidFeatureSetContractsAndBindings(t *testing.T) {
+	tests := []struct {
+		name    string
+		change  func(*Project)
+		mention string
+	}{
+		{
+			name: "duplicate feature set",
+			change: func(project *Project) {
+				project.FeatureSets = append(project.FeatureSets, project.FeatureSets[0])
+			},
+			mention: "configured twice",
+		},
+		{
+			name: "duplicate property",
+			change: func(project *Project) {
+				project.FeatureSets[0].Properties = append(project.FeatureSets[0].Properties, project.FeatureSets[0].Properties[0])
+			},
+			mention: "property sample.kind twice",
+		},
+		{
+			name: "unknown mapped property",
+			change: func(project *Project) {
+				project.Sources[0].Mapping.Properties[0].Field = "missing"
+			},
+			mention: "unknown property missing",
+		},
+		{
+			name: "duplicate mapped property",
+			change: func(project *Project) {
+				project.Sources[0].Mapping.Properties = append(project.Sources[0].Mapping.Properties, project.Sources[0].Mapping.Properties[0])
+			},
+			mention: "maps property sample.kind twice",
+		},
+		{
+			name: "unknown mapped relationship",
+			change: func(project *Project) {
+				project.Sources[0].Mapping.Relations = []RelationMap{{Relationship: "missing", Target: "properties.area"}}
+			},
+			mention: "unknown relationship missing",
+		},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			project, err := LoadProject(writeSampleProject(t, sampleProject))
+			if err != nil {
+				t.Fatal(err)
+			}
+			test.change(&project)
+			if err := project.Validate(); err == nil || !strings.Contains(err.Error(), test.mention) {
+				t.Fatalf("Validate = %v, want %q", err, test.mention)
+			}
+		})
+	}
+}
+
+func TestProjectAllowsDeclaredFeatureSetWithoutASource(t *testing.T) {
+	project, err := LoadProject(writeSampleProject(t, sampleProject))
+	if err != nil {
+		t.Fatal(err)
+	}
+	project.FeatureSets = append(project.FeatureSets, FeatureSetContract{
+		ID: "areas", Title: "Sample Areas", SemanticType: "region", Geometry: "area",
+	})
+	project.Presentation.Layers = append(project.Presentation.Layers, Layer{
+		ID: "areas-layer", FeatureSet: "areas", Style: "place-style", Label: "Sample Areas", Visible: true, MaxZoom: 32,
+	})
+	if err := project.Validate(); err != nil {
+		t.Fatalf("Validate = %v, want declared empty set", err)
+	}
+}
+
+func TestProjectRejectsInlineFeatureSetDeclarations(t *testing.T) {
+	legacy := strings.Replace(sampleProject, "      identity: properties.id\n", "      title: Places\n      identity: properties.id\n", 1)
+	if _, err := LoadProject(writeSampleProject(t, legacy)); err == nil || !strings.Contains(err.Error(), "field title not found") {
+		t.Fatalf("LoadProject = %v, want strict inline-contract refusal", err)
 	}
 }
 

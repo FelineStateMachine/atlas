@@ -22,19 +22,15 @@ func TestBuildSampleRegionIsNativeDeterministicAndFused(t *testing.T) {
     attribution: Secondary sample publisher
     mapping:
       feature-set: places
-      title: Places
-      semantic-type: sample.place
       identity: properties.id
       feature-title: properties.name
       geometry:
-        family: point
         source-space: sample-region/space
         transform:
           kind: identity
-      fields:
-        - id: sample.kind
+      properties:
+        - field: sample.kind
           source: properties.kind
-          type: string
 `, 1)
 	if err := os.WriteFile(projectPath, []byte(projectBody), 0o644); err != nil {
 		t.Fatal(err)

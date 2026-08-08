@@ -11,8 +11,9 @@ import (
 )
 
 type assembledFeature struct {
-	feature vnext.Feature
-	values  map[string]vnext.Property
+	feature       vnext.Feature
+	values        map[string]vnext.Property
+	relationships map[string]bool
 }
 
 func assemble(project Project, observations []observation) (vnext.Volume, error) {
@@ -36,30 +37,41 @@ func assemble(project Project, observations []observation) (vnext.Volume, error)
 		return observations[i].SourceOrder < observations[j].SourceOrder
 	})
 	sets := make(map[string]int)
-	families := make(map[string]string)
+	contracts := make(map[string]FeatureSetContract)
+	fields := make(map[string]map[string]vnext.Field)
 	features := make(map[string]map[string]*assembledFeature)
-	for _, item := range observations {
-		setIndex, exists := sets[item.FeatureSet]
-		if !exists {
-			world.FeatureSets = append(world.FeatureSets, vnext.FeatureSet{
-				ID: setID(world.ID, item.FeatureSet), Title: item.SetTitle, SemanticType: item.Semantic,
-				Claims: []vnext.Property{geometryClaim(item.Family)},
-			})
-			setIndex = len(world.FeatureSets) - 1
-			sets[item.FeatureSet] = setIndex
-			families[item.FeatureSet] = item.Family
-			features[item.FeatureSet] = make(map[string]*assembledFeature)
+	for _, contract := range project.FeatureSets {
+		set := vnext.FeatureSet{
+			ID: setID(world.ID, contract.ID), Title: contract.Title, SemanticType: contract.SemanticType,
+			Claims: []vnext.Property{geometryClaim(contract.Geometry)},
 		}
-		set := &world.FeatureSets[setIndex]
-		if set.Title != item.SetTitle || set.SemanticType != item.Semantic || families[item.FeatureSet] != item.Family || familyOf(item.Geometry.Kind) != item.Family {
-			return vnext.Volume{}, fmt.Errorf("feature set %s has incompatible observations", item.FeatureSet)
-		}
-		for key, field := range item.Fields {
-			if current, held := fieldByID(set.Properties, field.ID); held && (current.Kind != field.Kind || current.Name != field.Name || current.Optional != field.Optional) {
-				return vnext.Volume{}, fmt.Errorf("feature set %s field %s changes type", item.FeatureSet, key)
-			} else if !held {
-				set.Properties = append(set.Properties, field)
+		fields[contract.ID] = make(map[string]vnext.Field, len(contract.Properties))
+		for _, property := range contract.Properties {
+			kind, err := kindOf(property.Type)
+			if err != nil {
+				return vnext.Volume{}, fmt.Errorf("feature set %s property %s: %w", contract.ID, property.ID, err)
 			}
+			field := vnext.Field{
+				ID:   vnext.IDFromName(project.SchemaNamespace, "feature."+contract.ID+"."+property.ID),
+				Name: property.Name, Kind: kind, Optional: property.Optional,
+			}
+			set.Properties = append(set.Properties, field)
+			fields[contract.ID][property.ID] = field
+		}
+		sort.Slice(set.Properties, func(i, j int) bool { return set.Properties[i].ID.String() < set.Properties[j].ID.String() })
+		world.FeatureSets = append(world.FeatureSets, set)
+		sets[contract.ID] = len(world.FeatureSets) - 1
+		contracts[contract.ID] = contract
+		features[contract.ID] = make(map[string]*assembledFeature)
+	}
+	for _, item := range observations {
+		_, exists := sets[item.FeatureSet]
+		if !exists {
+			return vnext.Volume{}, fmt.Errorf("observation targets undeclared feature set %s", item.FeatureSet)
+		}
+		contract := contracts[item.FeatureSet]
+		if familyOf(item.Geometry.Kind) != contract.Geometry {
+			return vnext.Volume{}, fmt.Errorf("feature set %s has incompatible observations", item.FeatureSet)
 		}
 		held := features[item.FeatureSet][item.NativeID]
 		if held == nil {
@@ -68,7 +80,7 @@ func assemble(project Project, observations []observation) (vnext.Volume, error)
 					ID: featureID(world.ID, item.FeatureSet, item.NativeID), Title: item.Title,
 					Geometry: item.Geometry,
 				},
-				values: make(map[string]vnext.Property),
+				values: make(map[string]vnext.Property), relationships: make(map[string]bool),
 			}
 			features[item.FeatureSet][item.NativeID] = held
 		}
@@ -77,7 +89,10 @@ func assemble(project Project, observations []observation) (vnext.Volume, error)
 		})
 		for key, value := range item.Values {
 			if _, exists := held.values[key]; !exists {
-				field := item.Fields[key]
+				field, exists := fields[item.FeatureSet][key]
+				if !exists {
+					return vnext.Volume{}, fmt.Errorf("feature set %s has no property %s", item.FeatureSet, key)
+				}
 				held.values[key] = vnext.Property{FieldID: field.ID, Field: field, Value: value}
 			}
 		}
@@ -86,13 +101,24 @@ func assemble(project Project, observations []observation) (vnext.Volume, error)
 				Predicate: relation.Predicate,
 				Target:    featureID(world.ID, relation.FeatureSet, relation.NativeID),
 			})
+			held.relationships[relation.Contract] = true
 		}
 	}
 	for _, setName := range sortedSetNames(sets) {
 		set := &world.FeatureSets[sets[setName]]
-		sort.Slice(set.Properties, func(i, j int) bool { return set.Properties[i].ID.String() < set.Properties[j].ID.String() })
+		contract := contracts[setName]
 		for _, nativeID := range sortedFeatureNames(features[setName]) {
 			held := features[setName][nativeID]
+			for _, property := range contract.Properties {
+				if _, exists := held.values[property.ID]; !property.Optional && !exists {
+					return vnext.Volume{}, fmt.Errorf("feature %s omits required property %s", held.feature.ID, property.ID)
+				}
+			}
+			for _, relation := range contract.Relationships {
+				if !relation.Optional && !held.relationships[relation.ID] {
+					return vnext.Volume{}, fmt.Errorf("feature %s omits required relationship %s", held.feature.ID, relation.ID)
+				}
+			}
 			for _, key := range sortedPropertyNames(held.values) {
 				held.feature.Properties = append(held.feature.Properties, held.values[key])
 			}
@@ -173,15 +199,6 @@ func appendRelationship(values []vnext.Relationship, item vnext.Relationship) []
 		}
 	}
 	return append(values, item)
-}
-
-func fieldByID(fields []vnext.Field, id vnext.ID) (vnext.Field, bool) {
-	for _, field := range fields {
-		if field.ID == id {
-			return field, true
-		}
-	}
-	return vnext.Field{}, false
 }
 
 func relationshipClosure(world vnext.World) error {

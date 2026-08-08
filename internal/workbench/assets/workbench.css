@@ -237,13 +237,6 @@ textarea {
 .manifest-editor button { margin-top: 10px; }
 .eyebrow { color: var(--accent); text-transform: uppercase; letter-spacing: .12em; font-size: 11px; margin: 0 0 3px; }
 .notice { color: var(--accent); border-left: 2px solid var(--accent); padding: 8px 12px; }
-.project-flow { display: flex; align-items: stretch; gap: 8px; margin: 0 0 16px; overflow-x: auto; }
-.project-flow div { min-width: 130px; flex: 1; border: 1px solid var(--line); background: var(--panel); padding: 12px 14px; }
-.project-flow div.accent { border-color: var(--accent); }
-.project-flow b, .project-flow span { display: block; }
-.project-flow b { color: var(--data); font-size: 18px; }
-.project-flow span { color: var(--muted); font-size: 11px; }
-.project-flow i { align-self: center; color: var(--muted); font-style: normal; }
 .project-columns { grid-template-columns: minmax(360px, 1fr) minmax(420px, 1.2fr); }
 .build-control form label { display: flex; gap: 5px; align-items: center; }
 .build-control input[type="checkbox"] { min-width: 0; }
@@ -254,8 +247,154 @@ textarea {
 .artifact-handoff form { margin: 0; }
 .file-icon { display: inline-grid; place-items: center; width: 30px; height: 36px; margin-right: 10px; color: var(--accent-ink); background: var(--accent); font-weight: 700; float: left; }
 
+/* project contract graph ------------------------------------------------ */
+
+.contract-graph { padding: 0; overflow: hidden; }
+.graph-head {
+  display: flex;
+  align-items: end;
+  justify-content: space-between;
+  gap: 24px;
+  padding: 16px 20px;
+  border-bottom: 1px solid var(--line);
+}
+.graph-head h2 { margin: 0; }
+.graph-totals { margin: 0; color: var(--muted); font-size: 12px; text-align: right; }
+.graph-totals b { color: var(--data); }
+.contract-groups { padding: 4px 20px; }
+.contract-group {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 28px minmax(220px, 0.32fr);
+  align-items: center;
+  gap: 8px;
+  padding: 14px 0;
+  border-bottom: 1px solid var(--line);
+}
+.source-lanes { display: grid; gap: 8px; min-width: 0; }
+.source-lane {
+  display: grid;
+  grid-template-columns: minmax(135px, 1fr) 20px minmax(120px, 0.72fr) 20px minmax(175px, 1.1fr);
+  align-items: stretch;
+  gap: 6px;
+  min-width: 0;
+}
+.graph-node {
+  position: relative;
+  min-width: 0;
+  padding: 10px 12px;
+  border: 1px solid var(--line-strong);
+  border-radius: 4px;
+  background: var(--panel-raised);
+}
+.graph-node b, .graph-node .node-detail, .graph-node .node-counts { display: block; }
+.graph-node b { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.node-kind {
+  display: block;
+  margin-bottom: 3px;
+  color: var(--muted);
+  font-size: 10px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+.node-detail, .node-counts {
+  overflow: hidden;
+  color: var(--muted);
+  font-size: 11px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.node-counts { margin-top: 5px; color: var(--data); }
+.source-node { border-left: 2px solid var(--warm); }
+.mapping-node { border-left: 2px solid var(--data); }
+.contract-node { border-color: var(--accent); background: var(--accent-wash); }
+.contract-node h3 { margin: 0; font-size: 15px; }
+.contract-node > code { color: var(--muted); font-size: 11px; }
+.contract-node > p { margin: 8px 0; }
+.graph-arrow {
+  align-self: center;
+  color: var(--muted);
+  font-size: 18px;
+  font-style: normal;
+  text-align: center;
+}
+.merge-arrow { color: var(--accent); }
+.status-chip {
+  display: inline-block;
+  width: max-content;
+  margin: 6px 4px 0 0;
+  padding: 1px 6px;
+  border: 1px solid var(--line-strong);
+  border-radius: 999px;
+  color: var(--muted);
+  font-size: 10px;
+  font-style: normal;
+  font-weight: 500;
+  letter-spacing: 0.04em;
+  line-height: 1.5;
+  text-transform: uppercase;
+}
+.status-chip.ready, .status-chip.semantic { border-color: var(--accent); color: var(--data); }
+.status-chip.fetch { border-color: var(--warm); color: var(--warm-strong); }
+.status-chip.geometry { color: var(--text); }
+.contract-detail { margin-top: 7px; border-top: 1px solid var(--line); }
+.contract-detail summary, .plan-detail summary, .build-log summary, .manifest-editor > summary {
+  padding: 7px 0;
+  color: var(--muted);
+  cursor: pointer;
+  font-size: 12px;
+}
+.contract-detail summary:hover, .plan-detail summary:hover, .build-log summary:hover, .manifest-editor > summary:hover { color: var(--accent); }
+.contract-list { margin: 0; }
+.contract-list div { display: flex; justify-content: space-between; gap: 8px; padding: 3px 0; }
+.contract-list dt, .contract-list dd { margin: 0; font-size: 11px; }
+.artifact-flow {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 28px minmax(190px, 0.22fr);
+  align-items: center;
+  gap: 8px;
+  padding: 14px 20px;
+  background: var(--bg);
+}
+.side-inputs { display: flex; flex-wrap: wrap; gap: 6px; }
+.side-input { padding: 5px 8px; border: 1px solid var(--line); border-radius: 3px; color: var(--muted); font-size: 11px; }
+.side-input .status-chip { margin: 0 0 0 4px; }
+.artifact-node { border-color: var(--accent); }
+.artifact-node > b { color: var(--data); font-size: 18px; }
+.plan-detail { margin-top: 8px; border-top: 1px solid var(--line); }
+.manifest-editor > summary { list-style-position: outside; padding: 0; }
+.manifest-editor > summary b { margin-right: 8px; color: var(--text-strong); font-size: 15px; }
+.stage-rail {
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  gap: 0;
+  margin: 14px 0 10px;
+  padding: 0;
+  list-style: none;
+}
+.stage-rail li { position: relative; padding-top: 14px; color: var(--muted); font-size: 10px; text-align: center; text-transform: uppercase; letter-spacing: .06em; }
+.stage-rail li::before { content: ""; position: absolute; top: 4px; left: 0; right: 0; height: 2px; background: var(--line-strong); }
+.stage-rail li:first-child::before { left: 50%; }
+.stage-rail li:last-child::before { right: 50%; }
+.stage-rail li > span { position: absolute; z-index: 1; top: 0; left: calc(50% - 5px); width: 10px; height: 10px; border: 2px solid var(--line-strong); border-radius: 50%; background: var(--panel); }
+.stage-rail li.done { color: var(--data); }
+.stage-rail li.done::before, .stage-rail li.done > span { border-color: var(--accent); background: var(--accent); }
+.stage-rail li.active { color: var(--text-strong); }
+.stage-rail li.active > span { border-color: var(--accent); box-shadow: 0 0 0 4px var(--accent-wash-strong); }
+.stage-rail li.failed { color: #d98a72; }
+.stage-rail li.failed > span { border-color: #d98a72; background: #d98a72; }
+.build-log { margin: 8px 0; }
+.build-log .console { margin-top: 4px; }
+
 @media (max-width: 850px) {
   .project-columns { grid-template-columns: 1fr; }
+  .graph-head { align-items: start; flex-direction: column; gap: 6px; }
+  .graph-totals { text-align: left; }
+  .contract-group { grid-template-columns: 1fr; }
+  .source-lane { grid-template-columns: 1fr; }
+  .source-lane .graph-arrow, .merge-arrow { transform: rotate(90deg); }
+  .contract-group > .graph-arrow { justify-self: center; }
+  .artifact-flow { grid-template-columns: 1fr; }
+  .artifact-flow > .graph-arrow { transform: rotate(90deg); }
 }
 
 /* the console: one row per line the operation said ----------------------- */

@@ -10,6 +10,9 @@ import (
 	"strings"
 	"testing"
 	"time"
+
+	"github.com/FelineStateMachine/atlas/internal/authoring"
+	"github.com/FelineStateMachine/atlas/internal/workbench/oprunner"
 )
 
 func writeSampleProject(t *testing.T, dir string) string {
@@ -32,6 +35,11 @@ target:
     unit: metre
     definition: local sample grid
     extent: [0, 0, 100, 100]
+feature-sets:
+  - id: markers
+    title: Markers
+    semantic-type: place
+    geometry: point
 sources:
   - id: sample-features
     adapter: geojson
@@ -41,12 +49,9 @@ sources:
     attribution: Sample Region contributors
     mapping:
       feature-set: markers
-      title: Markers
-      semantic-type: place
       identity: id
       feature-title: properties.name
       geometry:
-        family: point
         source-space: local
         transform:
           kind: identity
@@ -125,6 +130,89 @@ func TestProjectPageMakesTheNativeBuildGraphVisible(t *testing.T) {
 	}
 	if response, _ := get(t, server, "/sources"); response.StatusCode != http.StatusNotFound {
 		t.Errorf("retired sources route answered %d", response.StatusCode)
+	}
+}
+
+func TestProjectPageShowsTheSourceToContractLaneWithoutOpeningEditors(t *testing.T) {
+	targets := projectTargets(t)
+	held, err := New(Options{Targets: targets, Runtime: []byte("/* runtime */")})
+	if err != nil {
+		t.Fatal(err)
+	}
+	server := site(t, held)
+	response, body := get(t, server, "/project")
+	if response.StatusCode != http.StatusOK {
+		t.Fatalf("project answered %d: %s", response.StatusCode, body)
+	}
+	wants(t, "contract graph", body,
+		"Sources become semantic FeatureSets", "Source", "sample-region.geojson", "Adapter", "geojson",
+		"Mapping", "point · identity", "id → properties.name", "FeatureSet contract", "Markers",
+		"0 typed properties", "0 relationships", "Artifact", "native vNext · planned",
+		"Build stages", "Edit the single configuration file")
+	if strings.Contains(body, `<details class="card manifest-editor" open`) {
+		t.Fatal("valid manifest editor was open by default")
+	}
+}
+
+func TestGraphProjectGroupsSourcesIntoOneTypedContract(t *testing.T) {
+	project := authoring.Project{
+		Presentation: authoring.Presentation{Styles: []authoring.Style{{ID: "style"}}, Layers: []authoring.Layer{{ID: "layer"}}},
+		FeatureSets: []authoring.FeatureSetContract{{
+			ID: "places", Title: "Places", SemanticType: "place", Geometry: "point",
+			Properties: []authoring.PropertyContract{
+				{ID: "name", Name: "Name", Type: "string"},
+				{ID: "rank", Name: "Rank", Type: "int64", Optional: true},
+			},
+			Relationships: []authoring.RelationshipContract{{ID: "area", Predicate: "within", FeatureSet: "areas"}},
+		}},
+		Sources: []authoring.Source{
+			{ID: "primary", Adapter: "geojson", Locator: "primary.geojson", Mapping: authoring.Mapping{
+				FeatureSet: "places", Identity: "id", FeatureTitle: "properties.name",
+				Geometry:   authoring.GeometryMap{SourceSpace: "local", Transform: authoring.CoordinateTransform{Kind: "identity"}},
+				Properties: []authoring.PropertyMap{{Field: "name", Source: "properties.name"}},
+				Relations:  []authoring.RelationMap{{Relationship: "area", Target: "properties.area"}},
+			}},
+			{ID: "secondary", Adapter: "ogc-api-features", Locator: "https://example.invalid/features", Mapping: authoring.Mapping{
+				FeatureSet: "places", Identity: "id", FeatureTitle: "properties.name",
+				Geometry:   authoring.GeometryMap{SourceSpace: "local", Transform: authoring.CoordinateTransform{Kind: "identity"}},
+				Properties: []authoring.PropertyMap{{Field: "rank", Source: "properties.rank"}},
+			}},
+		},
+	}
+	plan := authoring.Plan{Requests: []authoring.PlannedRequest{
+		{Request: authoring.Request{Kind: authoring.RequestFeatures, Source: "primary"}, Cached: true},
+		{Request: authoring.Request{Kind: authoring.RequestFeatures, Source: "secondary"}},
+	}}
+	graph := graphProject(project, plan)
+	if len(graph.FeatureSets) != 1 || len(graph.FeatureSets[0].Sources) != 2 {
+		t.Fatalf("feature set graph = %+v", graph.FeatureSets)
+	}
+	set := graph.FeatureSets[0]
+	if len(set.Properties) != 2 || set.Properties[0].ID != "name" || set.Properties[1].ID != "rank" || !set.Properties[1].Optional {
+		t.Fatalf("contract properties = %+v", set.Properties)
+	}
+	if len(set.Relations) != 1 || set.Relations[0].Predicate != "within" || set.Relations[0].Target != "areas" {
+		t.Fatalf("contract relations = %+v", set.Relations)
+	}
+	if !set.Sources[0].Cached || set.Sources[1].Cached {
+		t.Fatalf("source cache states = %+v", set.Sources)
+	}
+}
+
+func TestProjectStagesDeriveProgressFromBuildEvents(t *testing.T) {
+	run := supervisedRun{Name: "build", Running: true, Rows: []oprunner.Row{
+		{Attrs: []oprunner.Attr{{Key: "stage", Value: "plan"}}},
+		{Attrs: []oprunner.Attr{{Key: "stage", Value: "capture"}}},
+	}}
+	stages := projectStages(run)
+	if stages[0].State != "done" || stages[1].State != "active" || stages[2].State != "pending" {
+		t.Fatalf("running stages = %+v", stages)
+	}
+	run.Running, run.Failed = false, true
+	run.Rows = append(run.Rows, oprunner.Row{Failed: true, Attrs: []oprunner.Attr{{Key: "stage", Value: "observe"}}})
+	stages = projectStages(run)
+	if stages[0].State != "done" || stages[1].State != "done" || stages[2].State != "failed" {
+		t.Fatalf("failed stages = %+v", stages)
 	}
 }
 

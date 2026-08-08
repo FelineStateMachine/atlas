@@ -22,10 +22,11 @@ func buildCommand() command {
 }
 
 func runBuild(args []string) error {
-	fs := flags("build", "[-cache DIR] [-bundles DIR] [-offline] [-plan-json] FILE.atlas-project")
+	fs := flags("build", "[-cache DIR] [-bundles DIR] [-offline | -replay RECEIPT_OR_ATLAS] [-plan-json] FILE.atlas-project")
 	cacheDir := fs.String("cache", "", "shared content-addressed source cache")
 	bundleDir := fs.String("bundles", "", "Atlas library to install the immutable build into")
 	offline := fs.Bool("offline", false, "use captured evidence only; perform no source requests")
+	replay := fs.String("replay", "", "rebuild from the exact evidence selected by a receipt JSON or Atlas file")
 	planJSON := fs.Bool("plan-json", false, "print the resolved plan without fetching or writing")
 	var logOptions logging.Options
 	logOptions.Bind(fs)
@@ -35,6 +36,9 @@ func runBuild(args []string) error {
 	if fs.NArg() != 1 {
 		fs.Usage()
 		return errors.New("name exactly one .atlas-project manifest")
+	}
+	if *offline && *replay != "" {
+		return errors.New("-offline and -replay are mutually exclusive")
 	}
 	project := fs.Arg(0)
 	if *cacheDir == "" {
@@ -55,7 +59,7 @@ func runBuild(args []string) error {
 	}
 	result, err := authoring.Build(context.Background(), authoring.BuildOptions{
 		ProjectPath: project, CacheDir: *cacheDir, LibraryDir: *bundleDir,
-		Offline: *offline, PlanOnly: *planJSON,
+		Offline: *offline, ReplayPath: *replay, PlanOnly: *planJSON,
 		Event: func(event authoring.Event) {
 			attrs := []any{"stage", event.Stage}
 			if event.Current > 0 {

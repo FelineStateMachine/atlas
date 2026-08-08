@@ -23,9 +23,11 @@ const (
 // Request is one exact acquisition planned without touching the network.
 type Request struct {
 	ID              string      `json:"id"`
+	AcquisitionID   string      `json:"acquisition"`
 	Kind            RequestKind `json:"kind"`
 	Source          string      `json:"source"`
 	Adapter         string      `json:"adapter"`
+	AdapterVersion  string      `json:"adapterVersion"`
 	Locator         string      `json:"-"`
 	IdentityLocator string      `json:"locator"`
 	MediaType       string      `json:"mediaType,omitempty"`
@@ -78,7 +80,7 @@ func PlanProject(project Project, cache *Cache, output string) (Plan, error) {
 			return Plan{}, err
 		}
 		planned := PlannedRequest{Request: request, EstimateBytes: source.EstimateBytes}
-		planned.Cached = cache != nil && cache.Has(request.ID)
+		planned.Cached = cache != nil && cache.Has(requestCacheKey(request))
 		plan.Requests = append(plan.Requests, planned)
 		plan.Estimated += source.EstimateBytes
 		plan.Licenses = append(plan.Licenses, Obligation{Source: source.ID, License: source.License, Attribution: source.Attribution})
@@ -98,7 +100,7 @@ func PlanProject(project Project, cache *Cache, output string) (Plan, error) {
 				estimate += raster.EstimateBytes - each*int64(len(requests))
 			}
 			planned := PlannedRequest{Request: request, EstimateBytes: estimate}
-			planned.Cached = cache != nil && cache.Has(request.ID)
+			planned.Cached = cache != nil && cache.Has(requestCacheKey(request))
 			plan.Requests = append(plan.Requests, planned)
 		}
 		plan.Estimated += raster.EstimateBytes
@@ -107,7 +109,7 @@ func PlanProject(project Project, cache *Cache, output string) (Plan, error) {
 	for _, asset := range project.Assets {
 		request := assetRequest(project, asset)
 		planned := PlannedRequest{Request: request, EstimateBytes: asset.EstimateBytes}
-		planned.Cached = cache != nil && cache.Has(request.ID)
+		planned.Cached = cache != nil && cache.Has(requestCacheKey(request))
 		plan.Requests = append(plan.Requests, planned)
 		plan.Estimated += asset.EstimateBytes
 		plan.Licenses = append(plan.Licenses, Obligation{Source: asset.ID, License: asset.License, Attribution: asset.Attribution})
@@ -129,7 +131,7 @@ func assetRequest(project Project, asset Asset) Request {
 		MediaType: asset.MediaType, License: asset.License, Attribution: asset.Attribution,
 		Asset: asset.ID,
 	}
-	request.ID = requestID(request)
+	finalizeRequest(&request)
 	return request
 }
 
@@ -191,7 +193,7 @@ func featureRequest(project Project, source Source) (Request, error) {
 		Locator: locator, IdentityLocator: identity, MediaType: source.MediaType,
 		License: source.License, Attribution: source.Attribution,
 	}
-	request.ID = requestID(request)
+	finalizeRequest(&request)
 	return request, nil
 }
 
@@ -203,7 +205,7 @@ func rasterRequests(project Project, raster Raster) ([]Request, error) {
 			License: raster.License, Attribution: raster.Attribution,
 			Raster: raster.ID, Zoom: zoom, X: x, Y: y,
 		}
-		request.ID = requestID(request)
+		finalizeRequest(&request)
 		return request
 	}
 	if raster.Adapter == "raster-file" {
@@ -213,7 +215,10 @@ func rasterRequests(project Project, raster Raster) ([]Request, error) {
 	for _, level := range raster.Levels {
 		for y := level.MinY; y <= level.MaxY; y++ {
 			for x := level.MinX; x <= level.MaxX; x++ {
-				identity := strings.NewReplacer("{z}", strconv.FormatInt(level.Zoom, 10), "{x}", strconv.FormatInt(x, 10), "{y}", strconv.FormatInt(y, 10)).Replace(raster.Locator)
+				identity := strings.NewReplacer(
+					"{z}", strconv.FormatInt(level.Zoom, 10), "{x}", strconv.FormatInt(x, 10), "{y}", strconv.FormatInt(y, 10),
+					"{TileMatrix}", strconv.FormatInt(level.Zoom, 10), "{TileCol}", strconv.FormatInt(x, 10), "{TileRow}", strconv.FormatInt(y, 10),
+				).Replace(raster.Locator)
 				requests = append(requests, makeRequest(project.ResolveLocator(identity), identity, level.Zoom, x, y))
 			}
 		}
@@ -223,12 +228,58 @@ func rasterRequests(project Project, raster Raster) ([]Request, error) {
 
 func requestID(request Request) string {
 	canonical := struct {
-		Kind, Source, Adapter, Locator, Raster, Asset string
-		Zoom, X, Y                                    int64
-	}{string(request.Kind), request.Source, request.Adapter, request.IdentityLocator, request.Raster, request.Asset, request.Zoom, request.X, request.Y}
+		Source, Raster, Asset, Acquisition string
+	}{request.Source, request.Raster, request.Asset, request.AcquisitionID}
+	if canonical.Acquisition == "" {
+		canonical.Acquisition = acquisitionID(request)
+	}
 	data, _ := json.Marshal(canonical)
 	digest := sha256.Sum256(data)
 	return hex.EncodeToString(digest[:])
+}
+
+func acquisitionID(request Request) string {
+	canonical := struct {
+		Kind, Adapter, Version, Locator, MediaType string
+		Zoom, X, Y                                 int64
+	}{string(request.Kind), request.Adapter, request.AdapterVersion, request.IdentityLocator, request.MediaType, request.Zoom, request.X, request.Y}
+	data, _ := json.Marshal(canonical)
+	digest := sha256.Sum256(data)
+	return hex.EncodeToString(digest[:])
+}
+
+func finalizeRequest(request *Request) {
+	request.AdapterVersion = adapterVersion(request.Adapter)
+	request.AcquisitionID = acquisitionID(*request)
+	request.ID = requestID(*request)
+}
+
+func adapterVersion(adapter string) string {
+	switch adapter {
+	case "geojson":
+		return "geojson/v1"
+	case "arcgis-feature-service":
+		return "arcgis-feature-service/v1"
+	case "ogc-api-features":
+		return "ogc-api-features/v1"
+	case "raster-file":
+		return "raster-file/v1"
+	case "xyz":
+		return "xyz/v1"
+	case "wmts":
+		return "wmts-rest/v1"
+	case "asset-file":
+		return "asset-file/v1"
+	default:
+		return adapter + "/unknown"
+	}
+}
+
+func requestCacheKey(request Request) string {
+	if request.AcquisitionID != "" {
+		return request.AcquisitionID
+	}
+	return request.ID
 }
 
 func projectDigest(project Project) (string, error) {

@@ -2,7 +2,6 @@ package authoring
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"mime"
 	"os"
@@ -28,6 +27,7 @@ type BuildOptions struct {
 	CacheDir    string
 	LibraryDir  string
 	Offline     bool
+	ReplayPath  string
 	PlanOnly    bool
 	Event       func(Event)
 }
@@ -54,17 +54,40 @@ func Build(ctx context.Context, options BuildOptions) (BuildResult, error) {
 	if options.PlanOnly {
 		return result, nil
 	}
-	captures := make(map[string]Capture, len(plan.Requests))
-	for index, planned := range plan.Requests {
-		capture, cached, err := cache.Acquire(ctx, planned.Request, options.Offline)
+	var captures map[string]Capture
+	if options.ReplayPath != "" {
+		selection, err := loadEvidenceSelection(options.ReplayPath)
 		if err != nil {
 			return result, err
 		}
-		captures[planned.ID] = capture
-		emit(options, Event{
-			Stage: "capture", Message: planned.Source, Current: index + 1,
-			Total: len(plan.Requests), Bytes: capture.Body.Length, Cached: cached,
-		})
+		captures, err = replayCaptures(plan, selection, cache)
+		if err != nil {
+			return result, err
+		}
+		for index, planned := range plan.Requests {
+			capture := captures[planned.ID]
+			emit(options, Event{Stage: "capture", Message: planned.Source, Current: index + 1, Total: len(plan.Requests), Bytes: capture.Body.Length, Cached: true})
+		}
+	} else {
+		captures = make(map[string]Capture, len(plan.Requests))
+		acquisitions := make(map[string]Capture, len(plan.Requests))
+		for index, planned := range plan.Requests {
+			key := requestCacheKey(planned.Request)
+			capture, cached := acquisitions[key], true
+			if capture.RequestHash == "" {
+				var err error
+				capture, cached, err = cache.Acquire(ctx, planned.Request, options.Offline)
+				if err != nil {
+					return result, err
+				}
+				acquisitions[key] = capture
+			}
+			captures[planned.ID] = capture
+			emit(options, Event{
+				Stage: "capture", Message: planned.Source, Current: index + 1,
+				Total: len(plan.Requests), Bytes: capture.Body.Length, Cached: cached,
+			})
+		}
 	}
 	var observations []observation
 	for sourceIndex, source := range project.Sources {
@@ -223,36 +246,6 @@ func formatOf(mediaType, locator string) string {
 		extension = "bin"
 	}
 	return strings.ToLower(extension)
-}
-
-func buildReceipt(plan Plan, captures map[string]Capture) ([]byte, string, error) {
-	type selected struct {
-		Request string `json:"request"`
-		Source  string `json:"source"`
-		SHA256  string `json:"sha256"`
-	}
-	receipt := struct {
-		Format        string     `json:"format"`
-		Project       string     `json:"project"`
-		ProjectDigest string     `json:"projectDigest"`
-		Captures      []selected `json:"captures"`
-	}{Format: "atlas-build-receipt/v1", Project: plan.Project, ProjectDigest: plan.ProjectDigest}
-	createdAt := ""
-	for _, request := range plan.Requests {
-		capture := captures[request.ID]
-		receipt.Captures = append(receipt.Captures, selected{Request: request.ID, Source: request.Source, SHA256: capture.Body.SHA256})
-		if capture.CapturedAt > createdAt {
-			createdAt = capture.CapturedAt
-		}
-	}
-	if createdAt == "" {
-		return nil, "", fmt.Errorf("build selects no captured evidence")
-	}
-	data, err := json.Marshal(receipt)
-	if err != nil {
-		return nil, "", err
-	}
-	return append(data, '\n'), createdAt, nil
 }
 
 func writeBuild(library string, bundle vnext.Bundle) (vnext.Descriptor, string, bool, error) {

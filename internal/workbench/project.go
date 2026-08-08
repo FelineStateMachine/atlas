@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"sort"
 	"strings"
 
 	"github.com/FelineStateMachine/atlas/format/vnext"
@@ -30,11 +31,76 @@ type projectPage struct {
 	CachedCount  int
 	RequestCount int
 	ArtifactName string
+	Graph        projectGraph
+	Stages       []projectBuildStage
+}
+
+// projectGraph is the manifest and resolved plan shaped for the page. It is a
+// view only: adapters still acquire bytes, mappings still assign meaning, and
+// the compiler remains the sole authority for the artifact.
+type projectGraph struct {
+	FeatureSets []projectFeatureSet
+	Rasters     []projectSideInput
+	Assets      []projectSideInput
+	Styles      int
+	Layers      int
+}
+
+type projectFeatureSet struct {
+	ID           string
+	Title        string
+	SemanticType string
+	Geometry     string
+	Sources      []projectSourceLane
+	Properties   []projectProperty
+	Relations    []projectRelation
+}
+
+type projectSourceLane struct {
+	ID            string
+	Locator       string
+	Adapter       string
+	Cache         string
+	Cached        bool
+	Identity      string
+	FeatureTitle  string
+	Geometry      string
+	SourceSpace   string
+	Transform     string
+	PropertyCount int
+	RelationCount int
+}
+
+type projectProperty struct {
+	ID       string
+	Name     string
+	Type     string
+	Optional bool
+}
+
+type projectRelation struct {
+	Predicate string
+	Target    string
+	Optional  bool
+}
+
+type projectSideInput struct {
+	ID      string
+	Adapter string
+	Cache   string
+	Cached  bool
+}
+
+type projectBuildStage struct {
+	ID    string
+	Label string
+	State string
 }
 
 func (w *Workbench) projectPage(notice string) projectPage {
 	page := projectPage{Targets: w.targets, Notice: notice, Run: w.supervisor.Snapshot()}
 	page.ArtifactName = filepath.Base(page.Run.Artifact)
+	page.Stages = projectStages(page.Run)
 	data, err := os.ReadFile(w.targets.Project)
 	if err != nil {
 		page.Error = err.Error()
@@ -57,17 +123,132 @@ func (w *Workbench) projectPage(notice string) projectPage {
 		return page
 	}
 	page.Plan = plan
+	page.Graph = graphProject(project, plan)
 	page.SourceCount = len(project.Sources)
 	page.RasterCount = len(project.Rasters)
 	page.LayerCount = len(project.Presentation.Layers)
 	page.CachedCount = plan.Cached
 	page.RequestCount = len(plan.Requests)
-	sets := make(map[string]bool)
-	for _, source := range project.Sources {
-		sets[source.Mapping.FeatureSet] = true
-	}
-	page.FeatureSets = len(sets)
+	page.FeatureSets = len(project.FeatureSets)
 	return page
+}
+
+func graphProject(project authoring.Project, plan authoring.Plan) projectGraph {
+	graph := projectGraph{Styles: len(project.Presentation.Styles), Layers: len(project.Presentation.Layers)}
+	requestCache := make(map[string]bool, len(plan.Requests))
+	for _, request := range plan.Requests {
+		requestCache[string(request.Kind)+"\x00"+request.Source] = request.Cached
+	}
+	setIndex := make(map[string]int)
+	for _, contract := range project.FeatureSets {
+		setIndex[contract.ID] = len(graph.FeatureSets)
+		set := projectFeatureSet{
+			ID: contract.ID, Title: contract.Title, SemanticType: contract.SemanticType, Geometry: contract.Geometry,
+		}
+		for _, property := range contract.Properties {
+			set.Properties = append(set.Properties, projectProperty{
+				ID: property.ID, Name: property.Name, Type: property.Type, Optional: property.Optional,
+			})
+		}
+		for _, relation := range contract.Relationships {
+			set.Relations = append(set.Relations, projectRelation{
+				Predicate: relation.Predicate, Target: relation.FeatureSet, Optional: relation.Optional,
+			})
+		}
+		sort.Slice(set.Properties, func(i, j int) bool { return set.Properties[i].ID < set.Properties[j].ID })
+		sort.Slice(set.Relations, func(i, j int) bool {
+			if set.Relations[i].Predicate != set.Relations[j].Predicate {
+				return set.Relations[i].Predicate < set.Relations[j].Predicate
+			}
+			return set.Relations[i].Target < set.Relations[j].Target
+		})
+		graph.FeatureSets = append(graph.FeatureSets, set)
+	}
+	for _, source := range project.Sources {
+		setID := source.Mapping.FeatureSet
+		at, held := setIndex[setID]
+		if !held {
+			continue
+		}
+		set := &graph.FeatureSets[at]
+		cached := requestCache[string(authoring.RequestFeatures)+"\x00"+source.ID]
+		cache := "fetch"
+		if cached {
+			cache = "ready"
+		}
+		set.Sources = append(set.Sources, projectSourceLane{
+			ID: source.ID, Locator: source.Locator, Adapter: source.Adapter, Cache: cache, Cached: cached,
+			Identity: source.Mapping.Identity, FeatureTitle: source.Mapping.FeatureTitle,
+			Geometry: set.Geometry, SourceSpace: source.Mapping.Geometry.SourceSpace,
+			Transform:     source.Mapping.Geometry.Transform.Kind,
+			PropertyCount: len(source.Mapping.Properties), RelationCount: len(source.Mapping.Relations),
+		})
+	}
+	for _, raster := range project.Rasters {
+		ready := true
+		found := false
+		for _, request := range plan.Requests {
+			if request.Kind != authoring.RequestRaster || request.Source != raster.ID {
+				continue
+			}
+			found = true
+			ready = ready && request.Cached
+		}
+		graph.Rasters = append(graph.Rasters, projectSideInput{
+			ID: raster.ID, Adapter: raster.Adapter, Cache: cacheWord(found && ready), Cached: found && ready,
+		})
+	}
+	for _, asset := range project.Assets {
+		ready := requestCache[string(authoring.RequestAsset)+"\x00"+asset.ID]
+		graph.Assets = append(graph.Assets, projectSideInput{
+			ID: asset.ID, Adapter: "asset-file", Cache: cacheWord(ready), Cached: ready,
+		})
+	}
+	return graph
+}
+
+func cacheWord(cached bool) string {
+	if cached {
+		return "ready"
+	}
+	return "fetch"
+}
+
+func projectStages(run supervisedRun) []projectBuildStage {
+	stages := []projectBuildStage{
+		{ID: "plan", Label: "Plan", State: "pending"},
+		{ID: "capture", Label: "Capture", State: "pending"},
+		{ID: "observe", Label: "Observe", State: "pending"},
+		{ID: "assemble", Label: "Assemble", State: "pending"},
+		{ID: "publish", Label: "Publish", State: "pending"},
+	}
+	if run.Name == "" {
+		return stages
+	}
+	current := 0
+	for _, row := range run.Rows {
+		for _, attr := range row.Attrs {
+			if attr.Key != "stage" {
+				continue
+			}
+			for index := range stages {
+				if stages[index].ID == attr.Value && index > current {
+					current = index
+				}
+			}
+		}
+	}
+	for index := range stages {
+		if index < current || !run.Running && !run.Failed && index <= current {
+			stages[index].State = "done"
+		} else if index == current && run.Running {
+			stages[index].State = "active"
+		}
+	}
+	if run.Failed {
+		stages[current].State = "failed"
+	}
+	return stages
 }
 
 func (w *Workbench) handleProject(rw http.ResponseWriter, r *http.Request) {
@@ -158,7 +339,7 @@ func (w *Workbench) handleProjectBuild(rw http.ResponseWriter, r *http.Request) 
 
 func (w *Workbench) handleProjectRun(rw http.ResponseWriter, _ *http.Request) {
 	run := w.supervisor.Snapshot()
-	page := projectPage{Run: run, ArtifactName: filepath.Base(run.Artifact)}
+	page := projectPage{Run: run, ArtifactName: filepath.Base(run.Artifact), Stages: projectStages(run)}
 	var body bytes.Buffer
 	if err := w.pages["project"].ExecuteTemplate(&body, "project-run", page); err != nil {
 		http.Error(rw, err.Error(), http.StatusInternalServerError)
