@@ -49,8 +49,9 @@ type App struct {
 	// search, and the keys carry the build's stamp, so a new build is a new
 	// entry and nothing is ever stale. They are memory, not state: two Apps
 	// over one host still answer the same, only slower.
-	worlds *worldCache
-	texts  *textCache
+	worlds   *worldCache
+	texts    *textCache
+	semantic *semanticCache
 
 	// writing serializes the read-modify-write of one volume's record. Two
 	// interactions can be in flight at once -- a reader holds a key down, a
@@ -77,7 +78,7 @@ type Options struct {
 func New(env hostenv.Hostenv, opts Options) *App {
 	a := &App{
 		env: env, static: opts.Static, events: newHub(), mux: http.NewServeMux(),
-		worlds: newWorldCache(), texts: newTextCache(),
+		worlds: newWorldCache(), texts: newTextCache(), semantic: newSemanticCache(),
 	}
 	a.routes()
 	return a

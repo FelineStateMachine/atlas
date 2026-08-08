@@ -111,7 +111,7 @@ func volume(slug, title, stamp string, worlds ...bundle.WorldEntry) *fakeVolume 
 		},
 		entries: map[string][]byte{
 			"worlds/overworld.json":     []byte(`{"lenses":[],"collections":[]}`),
-			"worlds/overworld.bin":      []byte("ATLASLOC"),
+			"worlds/overworld.bin":      bundle.PackLocations(nil),
 			"worlds/overworld.text":     []byte(`{}`),
 			"icons/marker.svg":          []byte("<svg/>"),
 			"tiles/overworld/0/0/0.jpg": []byte("raster"),
@@ -210,8 +210,8 @@ func TestContentPlane(t *testing.T) {
 		kind string
 		size int
 	}{
-		{"a world payload", base + "/worlds/overworld.json", "application/json", 30},
-		{"the packed locations", base + "/worlds/overworld.bin", "application/octet-stream", 8},
+		{"a world payload", base + "/worlds/overworld.json", "application/json", 126},
+		{"the packed locations", base + "/worlds/overworld.bin", "application/octet-stream", 20},
 		{"the deferred prose", base + "/worlds/overworld.text", "application/json", 2},
 		{"an icon", base + "/icons/marker.svg", "image/svg+xml", 6},
 		{"a tile", base + "/tiles/overworld/0/0/0.jpg", "image/jpeg", 6},

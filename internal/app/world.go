@@ -55,11 +55,17 @@ type payloadGrid struct {
 
 // payloadLens is one raster pyramid picturing this world.
 type payloadLens struct {
-	Name    string `json:"name"`
-	Tiles   string `json:"tiles"`
-	MinZoom int    `json:"minZoom"`
-	MaxZoom int    `json:"maxZoom"`
-	Shard   int    `json:"shard"`
+	Name        string                     `json:"name"`
+	Tiles       string                     `json:"tiles"`
+	MinZoom     int                        `json:"minZoom"`
+	MaxZoom     int                        `json:"maxZoom"`
+	FullZoom    int                        `json:"fullZoom"`
+	SourceZoom  int                        `json:"sourceZoom"`
+	Formats     []string                   `json:"formats"`
+	Interpolate bool                       `json:"interpolate"`
+	Background  string                     `json:"background,omitempty"`
+	Shard       int                        `json:"shard,omitempty"`
+	Coverage    map[string]payloadCoverage `json:"coverage,omitempty"`
 	// Bounds is the raster window the pyramid fills; Surface is the ground
 	// that window pictures. They differ on a split sheet, where the window
 	// was grown to take in a title drawn beside the map, and anything that
@@ -68,14 +74,23 @@ type payloadLens struct {
 	Surface *cells.Rect `json:"surface"`
 }
 
+type payloadCoverage struct {
+	X    int    `json:"x"`
+	Y    int    `json:"y"`
+	W    int    `json:"w"`
+	H    int    `json:"h"`
+	Bits string `json:"bits"`
+}
+
 // payloadCollection is one ordered group of features.
 type payloadCollection struct {
-	ID        int64  `json:"id"`
-	Title     string `json:"title"`
-	Kind      string `json:"kind"`
-	Group     string `json:"group"`
-	Icon      string `json:"icon"`
-	IconAsset string `json:"iconAsset"`
+	ID          int64  `json:"id"`
+	Title       string `json:"title"`
+	Kind        string `json:"kind"`
+	Group       string `json:"group"`
+	Icon        string `json:"icon"`
+	IconAsset   string `json:"iconAsset"`
+	IconPicture bool   `json:"iconPicture,omitempty"`
 	// Color is the collection's own accent and IconColor the older spelling
 	// of the same fact. Both are read because the seam reads both, and a
 	// legend that fell back to the palette where the seam honoured a
@@ -277,129 +292,20 @@ func (a *App) world(volume hostenv.Volume, slug string) *worldModel {
 	if held, ok := a.worlds.get(key); ok {
 		return held
 	}
-	model, err := buildWorld(volume, manifest, slug)
+	semantic, err := a.semanticVolume(volume)
+	if err != nil {
+		return nil
+	}
+	world, held := semanticWorld(semantic, slug)
+	if !held {
+		return nil
+	}
+	model, err := buildVNextWorld(world)
 	if err != nil {
 		return nil
 	}
 	a.worlds.put(key, model)
 	return model
-}
-
-func buildWorld(volume hostenv.Volume, manifest bundle.Manifest, slug string) (*worldModel, error) {
-	payload, err := readEntry(volume, bundle.WorldEntryName(slug, bundle.WorldSuffix))
-	if err != nil {
-		return nil, err
-	}
-	var decoded worldPayload
-	if err := json.Unmarshal(payload, &decoded); err != nil {
-		return nil, fmt.Errorf("world %s payload: %w", slug, err)
-	}
-
-	grid := tileGrid{
-		SourceZoom: manifest.TileGrid.SourceZoom,
-		FirstTile:  manifest.TileGrid.FirstTile,
-		TileSize:   manifest.TileGrid.TileSize,
-		Size:       manifest.TileGrid.Size,
-	}
-	if own := decoded.Grid; own != nil {
-		if own.SourceZoom != nil {
-			grid.SourceZoom = *own.SourceZoom
-		}
-		if own.FirstTile != nil {
-			grid.FirstTile = *own.FirstTile
-		}
-		if own.TileSize != nil {
-			grid.TileSize = *own.TileSize
-		}
-		if own.Size != nil {
-			grid.Size = *own.Size
-		}
-	}
-
-	model := &worldModel{
-		Slug:      slug,
-		Lenses:    decoded.Lenses,
-		Attrs:     decoded.Attrs,
-		Grid:      grid,
-		ByID:      map[string]*collectionModel{},
-		PointByID: map[string]*pointModel{},
-		ShapeByID: map[string]*shapeModel{},
-	}
-	for _, account := range decoded.Merged {
-		if account.Origin {
-			model.Origin = account.Source
-			break
-		}
-	}
-
-	for at, held := range decoded.Collections {
-		kind := held.Kind
-		if kind == "" {
-			kind = semconv.GeometryPoint
-		}
-		collection := &collectionModel{
-			ID:        strconv.FormatInt(held.ID, 10),
-			Title:     held.Title,
-			Kind:      kind,
-			Group:     held.Group,
-			Icon:      held.Icon,
-			IconAsset: held.IconAsset,
-			Color:     held.Color,
-			IconColor: held.IconColor,
-
-			Attrs:    held.Attrs,
-			Curated:  semconv.LabelPolicy(kind, held.Attrs),
-			RenderAs: semconv.RenderAs(held.Attrs, ""),
-			Hidden:   held.Visible != nil && !*held.Visible,
-			Index:    at,
-		}
-		model.Members = append(model.Members, collection)
-		model.ByID[collection.ID] = collection
-
-		for _, feature := range held.Features {
-			shape := buildShape(feature, collection, grid)
-			collection.Shapes = append(collection.Shapes, shape)
-			model.Shapes = append(model.Shapes, shape)
-			model.ShapeByID[shape.ID] = shape
-		}
-		collection.Count = len(held.Features)
-	}
-
-	// Points arrive packed. The owner column indexes the collections array,
-	// which is why the array's order is significant and why nothing here
-	// sorts it.
-	if packed, err := readEntry(volume, bundle.WorldEntryName(slug, bundle.PackedSuffix)); err == nil {
-		if locations, err := bundle.UnpackLocations(packed); err == nil {
-			for _, location := range locations {
-				owner := int(location.Owner)
-				if owner < 0 || owner >= len(model.Members) {
-					continue
-				}
-				collection := model.Members[owner]
-				x, y := grid.project(location.Lat, location.Lng)
-				pin := &pointModel{
-					ID:         strconv.FormatInt(location.ID, 10),
-					Title:      location.Title,
-					Lat:        location.Lat,
-					Lng:        location.Lng,
-					X:          x,
-					Y:          y,
-					Shard:      location.Shard,
-					Collection: collection,
-				}
-				model.Points = append(model.Points, pin)
-				model.PointByID[pin.ID] = pin
-				collection.Count++
-			}
-		}
-	}
-
-	// Depth is the parent chain, so the feature index can indent a
-	// sub-watershed under its watershed without the template counting.
-	for _, shape := range model.Shapes {
-		shape.Depth = shapeDepth(model, shape, 0)
-	}
-	return model, nil
 }
 
 func shapeDepth(model *worldModel, shape *shapeModel, guard int) int {
@@ -597,8 +503,12 @@ func (a *App) text(volume hostenv.Volume, world string) map[string]featureText {
 		return held
 	}
 	out := map[string]featureText{}
-	if data, err := readEntry(volume, bundle.WorldEntryName(world, bundle.TextSuffix)); err == nil {
-		_ = json.Unmarshal(data, &out)
+	if semantic, err := a.semanticVolume(volume); err == nil {
+		if held, ok := semanticWorld(semantic, world); ok {
+			if _, _, projected, err := presentVNextWorld(held); err == nil {
+				out = projected
+			}
+		}
 	}
 	a.texts.put(key, out)
 	return out

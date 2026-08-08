@@ -128,8 +128,16 @@ func (a *App) handleContent(w http.ResponseWriter, r *http.Request) {
 	}
 
 	rest := r.PathValue("rest")
-	if !strings.HasPrefix(rest, bundle.WorldsPrefix) &&
-		!strings.HasPrefix(rest, bundle.TilesPrefix) &&
+	if strings.HasPrefix(rest, bundle.WorldsPrefix) {
+		data, kind, projected, err := a.projectedContent(held, rest)
+		if err != nil || !projected {
+			http.NotFound(w, r)
+			return
+		}
+		serveProjectedContent(w, data, kind)
+		return
+	}
+	if !strings.HasPrefix(rest, bundle.TilesPrefix) &&
 		!strings.HasPrefix(rest, bundle.IconsPrefix) {
 		http.NotFound(w, r)
 		return
@@ -160,4 +168,11 @@ func (a *App) handleContent(w http.ResponseWriter, r *http.Request) {
 		slog.Debug("content cut short", logging.Op("serve"),
 			logging.Volume(manifest.Volume.Slug), logging.Path(rest), slog.Any("error", err))
 	}
+}
+
+func serveProjectedContent(w http.ResponseWriter, data []byte, kind string) {
+	w.Header().Set("Content-Type", kind)
+	w.Header().Set("Content-Length", strconv.Itoa(len(data)))
+	w.Header().Set("Cache-Control", "private, max-age=31536000, immutable")
+	_, _ = w.Write(data)
 }
