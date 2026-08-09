@@ -95,7 +95,7 @@ class NativePackagingTest(unittest.TestCase):
         self.assertIn("application/vnd.felinestatemachine.atlas", windows_smoke)
         linux_smoke = (ROOT / "scripts/release/smoke-linux.sh").read_text()
         self.assertIn("dpkg-query", linux_smoke)
-        self.assertIn("xdg-mime query filetype", linux_smoke)
+        self.assertIn("gio info --attributes=standard::content-type", linux_smoke)
         self.assertIn("ATLAS_BUNDLES_DIR", linux_smoke)
         mac_smoke = (ROOT / "scripts/release/smoke-macos.sh").read_text()
         self.assertIn("codesign --verify --deep --strict", mac_smoke)

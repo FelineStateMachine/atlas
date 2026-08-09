@@ -35,8 +35,14 @@ go run "$root/cmd/atlas" build -cache "$stage/cache" -bundles "$stage/source" \
   "$root/examples/sample-region.atlas-project"
 artifact=$(find "$stage/source" -maxdepth 1 -type f -name 'sample-region-*.atlas' -print -quit)
 test -n "$artifact"
-file_type=$(xdg-mime query filetype "$artifact")
-echo "installed Atlas MIME type: $file_type"
+xdg_type=$(xdg-mime query filetype "$artifact" || true)
+echo "headless xdg-mime diagnostic: $xdg_type"
+# xdg-mime selects its backend from the desktop session and falls back to the
+# file(1) database on a headless runner, which cannot see a package's
+# shared-mime-info additions. GIO is the desktop stack this package registers.
+file_type=$(gio info --attributes=standard::content-type "$artifact" \
+  | sed -n 's/^  standard::content-type: //p')
+echo "installed Atlas GIO MIME type: $file_type"
 [[ "$file_type" == application/vnd.felinestatemachine.atlas ]] || {
   echo "unexpected Atlas MIME type: $file_type" >&2
   exit 1
