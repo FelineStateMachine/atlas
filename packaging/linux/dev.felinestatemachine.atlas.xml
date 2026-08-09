@@ -4,5 +4,13 @@
     <comment>Atlas Volume</comment>
     <sub-class-of type="application/zip"/>
     <glob pattern="*.atlas" weight="80"/>
+    <!-- Native writers place atlas.json first, so its local ZIP header carries
+         the filename at byte 30. This distinguishes Atlas from ordinary ZIPs
+         when the desktop sniffs content instead of trusting the extension. -->
+    <magic priority="90">
+      <match type="string" offset="0" value="PK">
+        <match type="string" offset="30" value="atlas.json"/>
+      </match>
+    </magic>
   </mime-type>
 </mime-info>
