@@ -6,9 +6,10 @@ if [[ $# -ne 3 ]]; then
   exit 2
 fi
 
-package=$1
+package=$(cd "$(dirname "$1")" && pwd)/$(basename "$1")
 version=$2
 root=$3
+test -f "$package"
 deb_version=${version#v}
 if [[ ! "$deb_version" =~ ^[0-9] ]]; then
   deb_version="0~$deb_version"
