@@ -35,9 +35,18 @@ go run "$root/cmd/atlas" build -cache "$stage/cache" -bundles "$stage/source" \
   "$root/examples/sample-region.atlas-project"
 artifact=$(find "$stage/source" -maxdepth 1 -type f -name 'sample-region-*.atlas' -print -quit)
 test -n "$artifact"
-[[ "$(xdg-mime query filetype "$artifact")" == application/vnd.felinestatemachine.atlas ]]
-gio mime application/vnd.felinestatemachine.atlas \
-  | grep -F 'dev.felinestatemachine.Atlas.desktop'
+file_type=$(xdg-mime query filetype "$artifact")
+echo "installed Atlas MIME type: $file_type"
+[[ "$file_type" == application/vnd.felinestatemachine.atlas ]] || {
+  echo "unexpected Atlas MIME type: $file_type" >&2
+  exit 1
+}
+handlers=$(gio mime application/vnd.felinestatemachine.atlas)
+echo "$handlers"
+grep -F 'dev.felinestatemachine.Atlas.desktop' <<<"$handlers" >/dev/null || {
+  echo "Atlas desktop handler is not registered" >&2
+  exit 1
+}
 
 mkdir -p "$stage/library" "$stage/data"
 ATLAS_BUNDLES_DIR="$stage/library" ATLAS_DATA_DIR="$stage/data" \

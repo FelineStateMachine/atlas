@@ -42,6 +42,8 @@ class NativePackagingTest(unittest.TestCase):
         control = (ROOT / "packaging/linux/control").read_text()
         self.assertIn("Package: atlas-desktop", control)
         self.assertIn("Depends: libgtk-3-0, libwebkit2gtk-4.1-0", control)
+        self.assertIn("desktop-file-utils", control)
+        self.assertIn("shared-mime-info", control)
 
     def test_windows_installer_registers_atlas_file(self) -> None:
         installer = (ROOT / "packaging/windows/Atlas.iss").read_text()
