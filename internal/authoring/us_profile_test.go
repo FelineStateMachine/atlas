@@ -142,15 +142,15 @@ func TestUSAreaProjectSupportsAlaskaAndHawaii(t *testing.T) {
 	}
 }
 
-func TestUSAreaProjectSelectionIsGeographicRatherThanSourceBounded(t *testing.T) {
+func TestAreaProjectSelectionIsGeographicRatherThanSourceBounded(t *testing.T) {
 	for name, bounds := range map[string][4]float64{
 		"Paris":  {2.28, 48.82, 2.42, 48.91},
 		"Sydney": {151.14, -33.92, 151.26, -33.82},
 	} {
 		t.Run(name, func(t *testing.T) {
-			profile := DefaultUSAreaProfile()
+			profile := DefaultAreaProfile()
 			profile.Bounds, profile.DetailZoom = bounds, 11
-			if _, _, err := NewUSAreaProject(profile); err != nil {
+			if _, _, err := NewAreaProject(profile); err != nil {
 				t.Fatalf("an arbitrary geographic selection was coupled to source coverage: %v", err)
 			}
 		})

@@ -20,9 +20,10 @@ const (
 	maxExportSize  = int64(4096)
 )
 
-// USAreaProfile is the compact authoring choice behind the Workbench's
-// nationwide default. Bounds are WGS84 west, south, east, north coordinates.
-type USAreaProfile struct {
+// AreaProfile combines an arbitrary geographic selection with the built-in
+// official U.S. source pack. Bounds are WGS84 west, south, east, north
+// coordinates; they are not restricted to the pack's coverage.
+type AreaProfile struct {
 	ID              string
 	Title           string
 	Bounds          [4]float64
@@ -31,20 +32,20 @@ type USAreaProfile struct {
 	IncludeRoads    bool
 	IncludeHydro    bool
 	IncludeCounties bool
-	Presentation    USAreaPresentation
+	Presentation    AreaPresentation
 }
 
-// USAreaPresentation is the creator-owned layer, label, ordering, and color
+// AreaPresentation is the creator-owned layer, label, ordering, and color
 // choice that is compiled into the Atlas presentation and legend.
-type USAreaPresentation struct {
+type AreaPresentation struct {
 	RoadLabel, HydroLabel, CountyLabel            string
 	RoadColor, HydroColor, HydroFill, CountyColor string
 	RoadVisible, HydroVisible, CountyVisible      bool
 	RoadOrder, HydroOrder, CountyOrder            int64
 }
 
-// USAreaSummary is the cost preview shown before a manifest is installed.
-type USAreaSummary struct {
+// AreaSummary is the cost preview shown before a manifest is installed.
+type AreaSummary struct {
 	OriginX         int64
 	OriginY         int64
 	SourceZoom      int
@@ -54,14 +55,20 @@ type USAreaSummary struct {
 	EstimatedBytes  int64
 }
 
-// DefaultUSAreaProfile selects all official nationwide source families.
-func DefaultUSAreaProfile() USAreaProfile {
-	return USAreaProfile{
+// Deprecated compatibility aliases. New code should name the geographic
+// selection separately from the U.S.-coverage source pack.
+type USAreaProfile = AreaProfile
+type USAreaPresentation = AreaPresentation
+type USAreaSummary = AreaSummary
+
+// DefaultAreaProfile selects the built-in official U.S.-coverage source pack.
+func DefaultAreaProfile() AreaProfile {
+	return AreaProfile{
 		ID: "sample-region", Title: "Sample Region",
 		Bounds:     [4]float64{-105.1, 39.6, -104.9, 39.8},
 		DetailZoom: 12, IncludeTopo: true, IncludeRoads: true,
 		IncludeHydro: true, IncludeCounties: true,
-		Presentation: USAreaPresentation{
+		Presentation: AreaPresentation{
 			RoadLabel: "Roads", HydroLabel: "Water", CountyLabel: "Counties",
 			RoadColor: "#b45f3c", HydroColor: "#4b8db8", HydroFill: "#b9d9ea", CountyColor: "#766b5b",
 			RoadVisible: true, HydroVisible: true, CountyVisible: true,
@@ -70,18 +77,23 @@ func DefaultUSAreaProfile() USAreaProfile {
 	}
 }
 
-// NewUSAreaProject turns one bounded U.S. region selection into a complete portable
-// project. Captures and artifacts remain outside the manifest.
-func NewUSAreaProject(profile USAreaProfile) (Project, USAreaSummary, error) {
+// DefaultUSAreaProfile is kept for callers that name the bundled source pack.
+// Deprecated: use DefaultAreaProfile.
+func DefaultUSAreaProfile() USAreaProfile { return DefaultAreaProfile() }
+
+// NewAreaProject turns one arbitrary Web Mercator region selection into a
+// complete portable project using the selected source families. Captures and
+// artifacts remain outside the manifest.
+func NewAreaProject(profile AreaProfile) (Project, AreaSummary, error) {
 	window, err := usTileWindow(profile.Bounds, profile.DetailZoom)
 	if err != nil {
-		return Project{}, USAreaSummary{}, err
+		return Project{}, AreaSummary{}, err
 	}
 	if !profile.IncludeTopo && !profile.IncludeRoads && !profile.IncludeHydro && !profile.IncludeCounties {
-		return Project{}, USAreaSummary{}, fmt.Errorf("select at least one nationwide source")
+		return Project{}, AreaSummary{}, fmt.Errorf("select at least one source")
 	}
 	if err := validateUSPresentation(profile); err != nil {
-		return Project{}, USAreaSummary{}, err
+		return Project{}, AreaSummary{}, err
 	}
 	project := usProjectBase(window, profile.DetailZoom, profile.ID, profile.Title)
 	if profile.IncludeTopo {
@@ -97,12 +109,18 @@ func NewUSAreaProject(profile USAreaProfile) (Project, USAreaSummary, error) {
 		addCounties(&project, window.transform, profile.Presentation)
 	}
 	if err := project.Validate(); err != nil {
-		return Project{}, USAreaSummary{}, fmt.Errorf("validate U.S. area project: %w", err)
+		return Project{}, AreaSummary{}, fmt.Errorf("validate area project: %w", err)
 	}
 	return project, summarizeUSProject(project, window), nil
 }
 
-func validateUSPresentation(profile USAreaProfile) error {
+// NewUSAreaProject is kept for callers that name the bundled source pack.
+// Deprecated: use NewAreaProject.
+func NewUSAreaProject(profile USAreaProfile) (Project, USAreaSummary, error) {
+	return NewAreaProject(profile)
+}
+
+func validateUSPresentation(profile AreaProfile) error {
 	choices := []struct {
 		enabled bool
 		label   string
@@ -272,7 +290,7 @@ func floatList(values [4]float64) string {
 		strconv.FormatFloat(values[2], 'f', 6, 64) + "," + strconv.FormatFloat(values[3], 'f', 6, 64)
 }
 
-func addRoads(project *Project, transform CoordinateTransform, presentation USAreaPresentation) {
+func addRoads(project *Project, transform CoordinateTransform, presentation AreaPresentation) {
 	project.FeatureSets = append(project.FeatureSets, FeatureSetContract{
 		ID: "roads", Title: "Roads", SemanticType: "transportation", Geometry: "path",
 		Properties: []PropertyContract{{ID: "name", Name: "Name", Type: "string", Optional: true}, {ID: "class", Name: "Class", Type: "string", Optional: true}, {ID: "route-type", Name: "Route type", Type: "string", Optional: true}},
@@ -288,7 +306,7 @@ func addRoads(project *Project, transform CoordinateTransform, presentation USAr
 	project.Presentation.Layers = append(project.Presentation.Layers, Layer{ID: "roads", FeatureSet: "roads", Style: "roads", Label: presentation.RoadLabel, Group: "Transportation", LabelPolicy: "quiet", Visible: presentation.RoadVisible, Order: presentation.RoadOrder, MaxZoom: 32})
 }
 
-func addHydro(project *Project, transform CoordinateTransform, presentation USAreaPresentation) {
+func addHydro(project *Project, transform CoordinateTransform, presentation AreaPresentation) {
 	project.FeatureSets = append(project.FeatureSets,
 		FeatureSetContract{ID: "waterways", Title: "Waterways", SemanticType: "hydrography", Geometry: "path", Properties: commonTigerProperties()},
 		FeatureSetContract{ID: "water-bodies", Title: "Water bodies", SemanticType: "hydrography", Geometry: "area", Properties: append(commonTigerProperties(), PropertyContract{ID: "water-area", Name: "Water area", Type: "int64", Optional: true})},
@@ -304,7 +322,7 @@ func addHydro(project *Project, transform CoordinateTransform, presentation USAr
 	)
 }
 
-func addCounties(project *Project, transform CoordinateTransform, presentation USAreaPresentation) {
+func addCounties(project *Project, transform CoordinateTransform, presentation AreaPresentation) {
 	project.FeatureSets = append(project.FeatureSets, FeatureSetContract{
 		ID: "jurisdictions", Title: "Counties", SemanticType: "jurisdiction", Geometry: "area",
 		Properties: []PropertyContract{{ID: "name", Name: "Name", Type: "string"}, {ID: "land-area", Name: "Land area", Type: "int64", Optional: true}, {ID: "water-area", Name: "Water area", Type: "int64", Optional: true}},
@@ -334,7 +352,7 @@ func tigerSource(id, locator, set, family string, transform CoordinateTransform)
 	}
 }
 
-func summarizeUSProject(project Project, window usWindow) USAreaSummary {
+func summarizeUSProject(project Project, window usWindow) AreaSummary {
 	tiles := (int64(1)<<(2*(window.maxZoom+1)) - 1) / 3
 	estimated := int64(0)
 	for _, source := range project.Sources {
@@ -343,7 +361,7 @@ func summarizeUSProject(project Project, window usWindow) USAreaSummary {
 	for _, raster := range project.Rasters {
 		estimated += raster.EstimateBytes
 	}
-	return USAreaSummary{
+	return AreaSummary{
 		OriginX: window.originX, OriginY: window.originY, SourceZoom: int(project.Target.CoordinateSpace.SourceZoom),
 		PixelSize: window.pixels, RasterTiles: tiles, CaptureRequests: len(project.Sources) + len(project.Rasters), EstimatedBytes: estimated,
 	}

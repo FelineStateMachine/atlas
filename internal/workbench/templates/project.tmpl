@@ -11,9 +11,9 @@
 <section class="card area-authoring" aria-labelledby="area-authoring-title">
   <header class="authoring-head">
     <div>
-      <p class="eyebrow">Nationwide source profile</p>
-      <h2 id="area-authoring-title">Choose a U.S. area</h2>
-      <p class="dim">One bounded region becomes the single manifest below. The label stays neutral: Sample Region.</p>
+      <p class="eyebrow">Geographic selection · U.S. source coverage</p>
+      <h2 id="area-authoring-title">Choose any Earth area</h2>
+      <p class="dim">The boundary may be anywhere on Earth. The bundled USGS/TIGER pack only promises data inside its stated U.S. coverage.</p>
     </div>
     <ol class="authoring-flow" aria-label="Authoring flow">
       <li class="active">Area</li><li>Sources</li><li>Contracts</li><li>Build</li><li>Compiled preview</li>
@@ -26,7 +26,7 @@
       <div class="area-map-toolbar">
         <label>Region
           <select data-map-region>
-            <option value="conus">Lower 48</option><option value="alaska">Alaska</option><option value="hawaii">Hawaii</option><option value="puerto-rico">Puerto Rico</option>
+            <option value="world">World</option><option value="conus">Lower 48</option><option value="alaska">Alaska</option><option value="hawaii">Hawaii</option><option value="puerto-rico">Puerto Rico</option>
           </select>
         </label>
         <span>Drag to draw · aligned source window is outlined</span>
@@ -42,7 +42,7 @@
     </fieldset>
 
     <fieldset class="source-picker">
-      <legend>Official nationwide sources</legend>
+      <legend>Official sources · U.S. coverage</legend>
       <label class="source-choice topo"><input type="checkbox" name="topo" value="true" checked><span><b>USGS Topo</b><small>raster · public domain</small></span></label>
       <label class="source-choice roads"><input type="checkbox" name="roads" value="true" checked><span><b>TIGER roads</b><small>paths · typed class</small></span></label>
       <label class="source-choice hydro"><input type="checkbox" name="hydro" value="true" checked><span><b>TIGER hydro</b><small>paths + areas</small></span></label>

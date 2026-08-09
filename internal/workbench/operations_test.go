@@ -125,7 +125,7 @@ func TestProjectPageMakesTheNativeBuildGraphVisible(t *testing.T) {
 		"Sample Region", "One manifest → one native volume", "sample-features", "geojson",
 		"0 / 1 requests", "feature sources", "semantic sets", "presentation layers",
 		"Build native Atlas", "Portable manifest", "Sample Region contributors",
-		"Choose a U.S. area", "USGS Topo", "TIGER roads", "TIGER hydro", "TIGER counties",
+		"Choose any Earth area", "World", "U.S. source coverage", "USGS Topo", "TIGER roads", "TIGER hydro", "TIGER counties",
 		"Typed FeatureSets", "Compiled Atlas truth")
 	if response, _ := get(t, server, "/operations"); response.StatusCode != http.StatusNotFound {
 		t.Errorf("retired operations route answered %d", response.StatusCode)

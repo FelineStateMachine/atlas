@@ -23,6 +23,10 @@ const tileY = (latitude, count) => {
 const latitudeAtTile = (tile, count) => Math.atan(Math.sinh(Math.PI * (1 - 2 * tile / count))) * 180 / Math.PI;
 
 const mapRegions = {
+  world: {
+    extent: [-180, -85.051128, 180, 85.051128], initial: [-105.1, 39.6, -104.9, 39.8], zoom: 12,
+    outline: [],
+  },
   conus: {
     extent: [-125, 24, -66, 50], initial: [-105.1, 39.6, -104.9, 39.8], zoom: 12,
     outline: [[-124, 48], [-124, 42], [-122, 38], [-117, 33], [-111, 32], [-106, 31], [-103, 29], [-97, 26], [-82, 25], [-80, 27], [-81, 31], [-75, 35], [-67, 45], [-75, 45], [-83, 46], [-95, 49], [-112, 49]],

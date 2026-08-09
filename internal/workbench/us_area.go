@@ -26,7 +26,7 @@ func (w *Workbench) handleProjectUSArea(rw http.ResponseWriter, request *http.Re
 		http.Error(rw, err.Error(), http.StatusBadRequest)
 		return
 	}
-	project, _, err := authoring.NewUSAreaProject(profile)
+	project, _, err := authoring.NewAreaProject(profile)
 	if err != nil {
 		http.Error(rw, err.Error(), http.StatusBadRequest)
 		return
@@ -43,8 +43,8 @@ func (w *Workbench) handleProjectUSArea(rw http.ResponseWriter, request *http.Re
 	http.Redirect(rw, request, "/project?notice=Official+U.S.+profile+installed", http.StatusSeeOther)
 }
 
-func usAreaProfileFromForm(request *http.Request) (authoring.USAreaProfile, error) {
-	profile := authoring.DefaultUSAreaProfile()
+func usAreaProfileFromForm(request *http.Request) (authoring.AreaProfile, error) {
+	profile := authoring.DefaultAreaProfile()
 	fields := []struct {
 		name string
 		at   int
@@ -54,13 +54,13 @@ func usAreaProfileFromForm(request *http.Request) (authoring.USAreaProfile, erro
 	for _, field := range fields {
 		value, err := strconv.ParseFloat(request.FormValue(field.name), 64)
 		if err != nil {
-			return authoring.USAreaProfile{}, fmt.Errorf("%s coordinate is invalid", field.name)
+			return authoring.AreaProfile{}, fmt.Errorf("%s coordinate is invalid", field.name)
 		}
 		profile.Bounds[field.at] = value
 	}
 	detail, err := strconv.Atoi(request.FormValue("detail"))
 	if err != nil {
-		return authoring.USAreaProfile{}, fmt.Errorf("detail zoom is invalid")
+		return authoring.AreaProfile{}, fmt.Errorf("detail zoom is invalid")
 	}
 	profile.DetailZoom = detail
 	profile.IncludeTopo = request.FormValue("topo") == "true"
@@ -68,12 +68,12 @@ func usAreaProfileFromForm(request *http.Request) (authoring.USAreaProfile, erro
 	profile.IncludeHydro = request.FormValue("hydro") == "true"
 	profile.IncludeCounties = request.FormValue("counties") == "true"
 	if err := presentationFromForm(request, &profile.Presentation); err != nil {
-		return authoring.USAreaProfile{}, err
+		return authoring.AreaProfile{}, err
 	}
 	return profile, nil
 }
 
-func presentationFromForm(request *http.Request, presentation *authoring.USAreaPresentation) error {
+func presentationFromForm(request *http.Request, presentation *authoring.AreaPresentation) error {
 	presentation.RoadLabel = request.FormValue("road-label")
 	presentation.HydroLabel = request.FormValue("hydro-label")
 	presentation.CountyLabel = request.FormValue("county-label")

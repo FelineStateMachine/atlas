@@ -49,7 +49,7 @@ func NewNativeMinter(options NativeMinterOptions) (*NativeMinter, error) {
 
 // Default is the neutral, immediately valid starting request.
 func (m *NativeMinter) Default() minting.Request {
-	profile := DefaultUSAreaProfile()
+	profile := DefaultAreaProfile()
 	return minting.Request{
 		Title: "My Atlas", Bounds: profile.Bounds, DetailZoom: profile.DetailZoom,
 		Topo: profile.IncludeTopo, Roads: profile.IncludeRoads,
@@ -128,12 +128,12 @@ func nextMintRevision(descriptors []vnext.Descriptor, slug string) int {
 	return revision
 }
 
-func mintProject(request minting.Request) (Project, USAreaSummary, error) {
+func mintProject(request minting.Request) (Project, AreaSummary, error) {
 	id := mintSlug(request.Title)
 	if err := vnext.ValidSlug(id); err != nil {
-		return Project{}, USAreaSummary{}, fmt.Errorf("Atlas name: %w", err)
+		return Project{}, AreaSummary{}, fmt.Errorf("Atlas name: %w", err)
 	}
-	profile := DefaultUSAreaProfile()
+	profile := DefaultAreaProfile()
 	profile.ID, profile.Title = id, strings.TrimSpace(request.Title)
 	profile.Bounds, profile.DetailZoom = request.Bounds, request.DetailZoom
 	profile.IncludeTopo, profile.IncludeRoads = request.Topo, request.Roads
@@ -159,7 +159,7 @@ func mintProject(request minting.Request) (Project, USAreaSummary, error) {
 	if request.CountyColor != "" {
 		profile.Presentation.CountyColor = request.CountyColor
 	}
-	return NewUSAreaProject(profile)
+	return NewAreaProject(profile)
 }
 
 func mintSlug(title string) string {

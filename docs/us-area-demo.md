@@ -1,9 +1,12 @@
-# Arbitrary U.S. area review gate
+# Arbitrary Earth area + U.S. source-pack review gate
 
 This gate proves that `Sample Region` is a parameter, not a fixture. A creator
-draws any bounded area in the United States, accepts the nationwide defaults,
-and receives one native `.atlas` that renders its raster and semantic features
-with the network disabled.
+draws any bounded Web Mercator area on Earth. The geographic selection is not
+coupled to source coverage. For the full-data acceptance demo, the creator
+chooses an area inside the built-in USGS/TIGER pack's stated U.S. coverage and
+receives one native `.atlas` that renders its raster and semantic features with
+the network disabled. A selection outside that coverage is still a valid
+project; sources may truthfully return empty results.
 
 ## Default source profile
 
