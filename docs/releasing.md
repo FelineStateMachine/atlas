@@ -33,7 +33,16 @@ macOS signing uses hardened runtime and timestamping, submits with
 `notarytool`, staples the accepted ticket, and recreates the final ZIP. Windows
 signs and verifies both `Atlas.exe` and the installer with SHA-256 and a public
 timestamp service. No key material is written to the repository or uploaded as
-an artifact.
+an artifact. A workflow-dispatch macOS preview has no Developer ID identity,
+but the completed bundle is ad-hoc signed after its `Info.plist` is installed so
+its bundle seal is structurally valid. It is never described as notarized.
+
+Every desktop matrix job consumes its produced package rather than trusting
+archive creation. macOS unpacks and verifies the app seal and UTI, Linux
+installs the `.deb` and verifies MIME registration, and Windows installs the
+Inno package and reads the per-user ProgID/open command. Each packaged
+executable is then launched with a freshly built Sample Region Atlas and must
+install the exact bytes into an isolated library.
 
 ## Publication transaction
 

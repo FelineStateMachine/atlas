@@ -232,6 +232,16 @@ jobs:
         shell: bash
         run: ./scripts/release/package-desktop.sh linux-amd64 "${{ steps.metadata.outputs.version }}" Atlas dist
 
+      - name: Smoke macOS package and native file intake
+        if: matrix.target == 'darwin-arm64'
+        shell: bash
+        run: ./scripts/release/smoke-macos.sh "dist/Atlas-${{ steps.metadata.outputs.version }}-darwin-arm64.zip" "${{ steps.metadata.outputs.version }}" "$GITHUB_WORKSPACE"
+
+      - name: Smoke Linux install, MIME registration, and native file intake
+        if: matrix.target == 'linux-amd64'
+        shell: bash
+        run: ./scripts/release/smoke-linux.sh "dist/Atlas-${{ steps.metadata.outputs.version }}-linux-amd64.deb" "${{ steps.metadata.outputs.version }}" "$GITHUB_WORKSPACE"
+
       - name: Package Windows installer
         if: matrix.target == 'windows-amd64'
         shell: pwsh
@@ -248,14 +258,7 @@ jobs:
       - name: Smoke Windows install and .atlas association
         if: matrix.target == 'windows-amd64'
         shell: pwsh
-        run: |
-          $installer = "dist/Atlas-${{ steps.metadata.outputs.version }}-windows-amd64-setup.exe"
-          & $installer /VERYSILENT /SUPPRESSMSGBOXES /NORESTART /CURRENTUSER
-          if ($LASTEXITCODE -ne 0) { throw "installer exited $LASTEXITCODE" }
-          $association = (Get-Item "HKCU:\Software\Classes\.atlas").GetValue("")
-          if ($association -ne "Atlas.Volume") { throw "unexpected .atlas association: $association" }
-          $command = (Get-Item "HKCU:\Software\Classes\Atlas.Volume\shell\open\command").GetValue("")
-          if ($command -notmatch 'Atlas\.exe.*%1') { throw "unexpected open command: $command" }
+        run: ./scripts/release/smoke-windows.ps1 -Installer "dist/Atlas-${{ steps.metadata.outputs.version }}-windows-amd64-setup.exe" -Version "${{ steps.metadata.outputs.version }}" -RepoRoot "${{ github.workspace }}"
 
       - uses: actions/upload-artifact@v4
         with:

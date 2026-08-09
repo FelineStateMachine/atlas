@@ -34,8 +34,15 @@ if [[ -n "${MACOS_CERTIFICATE_P12_BASE64:-}" ]]; then
     --keychain "$keychain" --sign "$MACOS_SIGNING_IDENTITY" "$app"
   codesign --verify --deep --strict --verbose=2 "$app"
 else
-  echo "MACOS_CERTIFICATE_P12_BASE64 is empty; packaging an unsigned app"
+  # Go's linker ad-hoc signs the Mach-O, but adding Info.plist around that
+  # executable changes the signed bundle boundary. Re-sign the completed app
+  # so workflow-dispatch previews are structurally valid even though only a
+  # Developer ID + notarization ticket can satisfy Gatekeeper after download.
+  codesign --force --deep --sign - "$app"
+  echo "MACOS_CERTIFICATE_P12_BASE64 is empty; packaging an ad-hoc signed preview"
 fi
+
+codesign --verify --deep --strict --verbose=2 "$app"
 
 ditto -c -k --keepParent "$app" "$output"
 
@@ -52,6 +59,7 @@ if [[ -n "${MACOS_NOTARY_KEY_BASE64:-}" ]]; then
     --key "$notary_key" --key-id "$MACOS_NOTARY_KEY_ID" --issuer "$MACOS_NOTARY_ISSUER_ID"
   xcrun stapler staple "$app"
   xcrun stapler validate "$app"
+  codesign --verify --deep --strict --verbose=2 "$app"
   rm -f "$output"
   ditto -c -k --keepParent "$app" "$output"
 fi

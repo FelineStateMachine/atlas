@@ -43,9 +43,12 @@ stamps, no hashes and no content.
 acceptance. It parses the macOS property list and Linux shared-MIME XML, checks
 the Windows installer association, and holds the workflow to draft-first,
 exact-asset publication. The platform jobs perform the dynamic half: Windows
-installs its package and reads the registered open command, while the release
-job inspects macOS/Linux payloads and builds the same Sample Region online and
-offline through the packaged CLI. Byte inequality is a release failure.
+installs its package and reads the registered open command, Linux installs its
+`.deb` and checks MIME registration, and macOS unpacks and verifies its app
+seal and UTI. All three packaged executables must intake the exact same freshly
+built Sample Region `.atlas` into isolated libraries. The release job also
+inspects payloads and builds Sample Region online and offline through the
+packaged CLI. Byte inequality is a release failure.
 
 ## What tests are made of
 

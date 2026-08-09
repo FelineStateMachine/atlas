@@ -62,6 +62,10 @@ class NativePackagingTest(unittest.TestCase):
         self.assertIn("package-desktop.sh", workflow)
         self.assertIn("sign-windows.ps1", workflow)
         self.assertIn("package-smoke.sh", workflow)
+        self.assertIn("smoke-macos.sh", workflow)
+        self.assertIn("smoke-linux.sh", workflow)
+        self.assertIn("smoke-windows.ps1", workflow)
+        self.assertNotIn("& $installer /VERYSILENT", workflow)
         mac_package = (ROOT / "scripts/release/package-desktop.sh").read_text()
         self.assertIn("sign-macos.sh", mac_package)
         self.assertIn("stage=$(mktemp -d)", mac_package)
@@ -71,6 +75,20 @@ class NativePackagingTest(unittest.TestCase):
         self.assertIn('--keychain "$keychain"', mac_signer)
         self.assertNotIn("security list-keychains", mac_signer)
         self.assertIn('xcrun stapler validate "$app"', mac_signer)
+        self.assertIn('codesign --force --deep --sign - "$app"', mac_signer)
+
+        windows_smoke = (ROOT / "scripts/release/smoke-windows.ps1").read_text()
+        self.assertIn("Start-Process -FilePath $Installer", windows_smoke)
+        self.assertIn("$install.ExitCode", windows_smoke)
+        self.assertIn("application/vnd.felinestatemachine.atlas", windows_smoke)
+        linux_smoke = (ROOT / "scripts/release/smoke-linux.sh").read_text()
+        self.assertIn("dpkg-query", linux_smoke)
+        self.assertIn("xdg-mime query filetype", linux_smoke)
+        self.assertIn("ATLAS_BUNDLES_DIR", linux_smoke)
+        mac_smoke = (ROOT / "scripts/release/smoke-macos.sh").read_text()
+        self.assertIn("codesign --verify --deep --strict", mac_smoke)
+        self.assertIn("dev.felinestatemachine.atlas.volume", mac_smoke)
+        self.assertIn("ATLAS_BUNDLES_DIR", mac_smoke)
 
     def test_release_asset_allowlist_is_exact(self) -> None:
         version = "v1.2.3"
