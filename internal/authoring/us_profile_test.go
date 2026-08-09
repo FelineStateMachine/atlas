@@ -142,6 +142,37 @@ func TestUSAreaProjectSupportsAlaskaAndHawaii(t *testing.T) {
 	}
 }
 
+func TestUSAreaProjectSelectionIsGeographicRatherThanSourceBounded(t *testing.T) {
+	for name, bounds := range map[string][4]float64{
+		"Paris":  {2.28, 48.82, 2.42, 48.91},
+		"Sydney": {151.14, -33.92, 151.26, -33.82},
+	} {
+		t.Run(name, func(t *testing.T) {
+			profile := DefaultUSAreaProfile()
+			profile.Bounds, profile.DetailZoom = bounds, 11
+			if _, _, err := NewUSAreaProject(profile); err != nil {
+				t.Fatalf("an arbitrary geographic selection was coupled to source coverage: %v", err)
+			}
+		})
+	}
+}
+
+func TestUSAreaProjectCarriesCreatorOwnedIdentity(t *testing.T) {
+	profile := DefaultUSAreaProfile()
+	profile.ID = "my-region"
+	profile.Title = "My Region"
+	project, _, err := NewUSAreaProject(profile)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if project.ID != "my-region" || project.Title != "My Region" || project.Target.World != "my-region" || project.Target.Title != "My Region" {
+		t.Fatalf("creator identity was not carried: %+v", project)
+	}
+	if project.Target.CoordinateSpace.ID != "my-region-grid" || project.Presentation.Title != "My Region" {
+		t.Fatalf("dependent identity was not carried: target=%+v presentation=%+v", project.Target, project.Presentation)
+	}
+}
+
 func TestUSRoadLayersDoNotFuseSharedPagingObjectIDs(t *testing.T) {
 	profile := DefaultUSAreaProfile()
 	profile.Bounds = [4]float64{-105.1, 39.6, -104.9, 39.8}
@@ -182,7 +213,7 @@ func TestUSAreaProjectRefusesOutOfBoundsOrExplosiveSelections(t *testing.T) {
 		zoom    int
 		message string
 	}{
-		{name: "not a U.S. region", bounds: [4]float64{2, 48, 3, 49}, zoom: 10, message: "United States region"},
+		{name: "outside Web Mercator", bounds: [4]float64{2, 85, 3, 89}, zoom: 10, message: "Web Mercator world"},
 		{name: "empty", bounds: [4]float64{-105, 40, -105, 40}, zoom: 10, message: "west < east"},
 		{name: "too detailed", bounds: [4]float64{-124, 25, -67, 49}, zoom: 16, message: "4096"},
 	}

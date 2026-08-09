@@ -42,6 +42,7 @@ import (
 	"github.com/FelineStateMachine/atlas/internal/app"
 	"github.com/FelineStateMachine/atlas/internal/app/hostenv/oshost"
 	"github.com/FelineStateMachine/atlas/internal/app/hostenv/wailshost"
+	"github.com/FelineStateMachine/atlas/internal/authoring"
 	"github.com/FelineStateMachine/atlas/internal/logging"
 )
 
@@ -150,7 +151,15 @@ func run() error {
 	if err != nil {
 		return err
 	}
-	handler := app.New(host, app.Options{Static: static})
+	minter, err := authoring.NewNativeMinter(authoring.NativeMinterOptions{
+		RecipesDir: filepath.Join(data, "recipes"),
+		CacheDir:   filepath.Join(data, "cache"),
+		LibraryDir: library,
+	})
+	if err != nil {
+		return fmt.Errorf("opening the native Atlas minter: %w", err)
+	}
+	handler := app.New(host, app.Options{Static: static, Minter: minter})
 	window.Accept(func(name string, content io.Reader) error {
 		_, err := handler.Install(name, content)
 		return err

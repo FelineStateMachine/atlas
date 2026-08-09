@@ -67,6 +67,9 @@
           hx-post="/bundles/import" hx-swap="none">
     <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>
   </button>
+  {{if .Mint.Available}}<a class="create-atlas" id="atlas-create" href="#atlas-mint">
+    <span aria-hidden="true">＋</span> Create Atlas
+  </a>{{end}}
 </div>
 <button type="button" class="icon-button mobile-legend" id="mobile-legend"
         aria-label="Toggle legend" aria-expanded="{{if .Session.Sidebar.Collapsed}}false{{else}}true{{end}}"

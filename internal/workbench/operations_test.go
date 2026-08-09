@@ -187,11 +187,11 @@ func TestUSAreaAuthoringRefusesAnInvalidAreaBeforeReplacingTheManifest(t *testin
 	server := site(t, held)
 	form := usAreaForm()
 	form.Set("west", "2")
-	form.Set("south", "48")
+	form.Set("south", "86")
 	form.Set("east", "3")
-	form.Set("north", "49")
+	form.Set("north", "89")
 	response, body := postForm(t, server.Client(), server.URL+"/project/us-area", form)
-	if response.StatusCode != http.StatusBadRequest || !strings.Contains(body, "United States region") {
+	if response.StatusCode != http.StatusBadRequest || !strings.Contains(body, "Web Mercator world") {
 		t.Fatalf("invalid area answered %d: %s", response.StatusCode, body)
 	}
 	after, err := os.ReadFile(targets.Project)

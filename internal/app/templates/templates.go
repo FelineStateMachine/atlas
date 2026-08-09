@@ -57,6 +57,7 @@ var Regions = []string{
 	"grid-navigator",
 	"overview",
 	"viewport",
+	"mint",
 	"empty-state",
 	"import",
 }

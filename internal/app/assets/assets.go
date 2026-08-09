@@ -75,6 +75,7 @@ var stylesheets = []string{
 	"css/category-rows.css",
 	"css/sidebar-footer.css",
 	"css/map-panel.css",
+	"css/mint.css",
 	"css/globe.css",
 	"css/map-loading.css",
 	"css/map-corner.css",

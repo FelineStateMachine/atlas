@@ -10,6 +10,7 @@ import (
 	"github.com/FelineStateMachine/atlas/format/vnext"
 	"github.com/FelineStateMachine/atlas/internal/app/cells"
 	"github.com/FelineStateMachine/atlas/internal/app/hostenv"
+	"github.com/FelineStateMachine/atlas/internal/minting"
 )
 
 // View is what every region is rendered with: the library, the volume and
@@ -66,6 +67,22 @@ type View struct {
 
 	// Rows are the progress rows an import has produced so far.
 	Rows []ImportRow
+
+	// Mint is the optional embedded authoring drawer. It is available only
+	// when this host can build and the world in view is a sphere.
+	Mint MintView
+}
+
+// MintView is the server-rendered baseline for native area authoring.
+type MintView struct {
+	Available bool
+	Request   minting.Request
+	Preview   minting.Preview
+	Error     string
+	Pixels    string
+	Tiles     string
+	Groups    string
+	Bytes     string
 }
 
 // LibraryEntry is one volume as the topbar's volume selector lists it.
@@ -329,6 +346,11 @@ func (a *App) viewMode(held library, volume hostenv.Volume, session Session, pag
 	}
 	out.Viewport = viewportView(shown, session)
 	out.Island = island(info.Slug, model, &shown, session)
+	if a.minter != nil && shown.Sphere {
+		request := a.minter.Default()
+		preview, err := a.minter.Preview(request)
+		out.Mint = newMintView(request, preview, err)
+	}
 	return out
 }
 

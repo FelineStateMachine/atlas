@@ -103,6 +103,18 @@ Their defaults are the application-owned cache and library.
 
 ## Workbench
 
+The desktop application now provides the default creation path directly on
+its included Earth: telescope anywhere, use the current view or draw a
+rectangle, choose the U.S.-coverage USGS/TIGER source pack and presentation,
+then mint. The selection is geographic, not fenced to the current sources;
+new source packs can reuse the same surface. Atlas writes the same single
+manifest documented here into its app-owned `recipes/` directory, uses its
+shared cache, installs the native result, and opens it. No separate site or
+Workbench process is required.
+
+Workbench is the advanced surface for someone who wants to inspect or edit the
+full manifest, capture graph, receipts, compiled schema, or physical artifact.
+
 The workbench receives one manifest path at startup. Browser requests cannot
 choose another file, cache, command, or output directory.
 

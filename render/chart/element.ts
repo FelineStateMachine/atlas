@@ -142,6 +142,11 @@ export function sameCamera(a: Camera | null, b: Camera | null): boolean {
   return a.x === b.x && a.y === b.y && a.zoom === b.zoom && a.rotation === b.rotation;
 }
 
+function finiteExtent(values: readonly number[]): [number, number, number, number] | null {
+  if (values.length < 4 || values.some((value) => !Number.isFinite(value))) return null;
+  return [values[0] ?? 0, values[1] ?? 0, values[2] ?? 0, values[3] ?? 0];
+}
+
 /**
  * The rectangle a shape occupies, or nothing when it carries no drawable
  * geometry. Outer rings and lines are enough: a hole is inside its own ring.
@@ -567,6 +572,27 @@ export class AtlasChart extends HTMLElement {
     const zoom = view?.getZoom();
     if (!view || !centre || zoom === undefined) return null;
     return { x: centre[0] ?? 0, y: centre[1] ?? 0, zoom, rotation: view.getRotation() };
+  }
+
+  /** The local world rectangle currently visible through this pane. */
+  visibleExtent(): [number, number, number, number] | null {
+    const size = this.map?.getSize();
+    if (!this.view || !size || !size[0] || !size[1]) return null;
+    return finiteExtent(this.view.calculateExtent(size));
+  }
+
+  /** Resolve a screen rectangle, relative to this pane, into local world space. */
+  extentForPixels(rect: readonly [number, number, number, number]): [number, number, number, number] | null {
+    if (!this.map) return null;
+    const first = this.map.getCoordinateFromPixel([rect[0], rect[1]]);
+    const second = this.map.getCoordinateFromPixel([rect[2], rect[3]]);
+    if (!first || !second) return null;
+    return finiteExtent([
+      Math.min(first[0] ?? NaN, second[0] ?? NaN),
+      Math.min(first[1] ?? NaN, second[1] ?? NaN),
+      Math.max(first[0] ?? NaN, second[0] ?? NaN),
+      Math.max(first[1] ?? NaN, second[1] ?? NaN),
+    ]);
   }
 
   /**

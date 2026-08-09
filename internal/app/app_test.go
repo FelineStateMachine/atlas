@@ -20,6 +20,7 @@ import (
 	"github.com/FelineStateMachine/atlas/format/vnext"
 	"github.com/FelineStateMachine/atlas/internal/app"
 	"github.com/FelineStateMachine/atlas/internal/app/hostenv"
+	"github.com/FelineStateMachine/atlas/internal/minting"
 )
 
 // The handler is tested through a host that is entirely in memory, which is
@@ -247,6 +248,32 @@ func newApp(t *testing.T, volumes ...hostenv.Volume) (*app.App, *fakeHost) {
 		sessions: hostenv.NewMemorySessions(),
 	}
 	return app.New(host, app.Options{}), host
+}
+
+type fakeMinter struct {
+	request minting.Request
+	preview minting.Preview
+	result  minting.Result
+	err     error
+	onMint  func()
+}
+
+func (m *fakeMinter) Default() minting.Request { return m.request }
+
+func (m *fakeMinter) Preview(request minting.Request) (minting.Preview, error) {
+	m.request = request
+	return m.preview, m.err
+}
+
+func (m *fakeMinter) Mint(_ context.Context, request minting.Request, emit func(minting.Event)) (minting.Result, error) {
+	m.request = request
+	if emit != nil {
+		emit(minting.Event{Stage: "publish", Message: "native build installed"})
+	}
+	if m.onMint != nil {
+		m.onMint()
+	}
+	return m.result, m.err
 }
 
 func get(t *testing.T, handler http.Handler, path string, headers map[string]string) *httptest.ResponseRecorder {
@@ -1100,6 +1127,116 @@ func TestSessionRefusals(t *testing.T) {
 				t.Errorf("%s answered %d, want %d", tt.path, got.Code, tt.want)
 			}
 		})
+	}
+}
+
+func TestEarthOffersAProgressivelyEnhancedMintFlow(t *testing.T) {
+	earth := volume("earth", "Earth", tunicStamp)
+	earth.entries["worlds/overworld.json"] = []byte(`{"attrs":{"atlas.geometry.surface":"sphere","atlas.geometry.projection":"web-mercator"},"lenses":[],"collections":[]}`)
+	host := &fakeHost{
+		volumes:  &fakeVolumes{volumes: []hostenv.Volume{earth}, location: "/library"},
+		sessions: hostenv.NewMemorySessions(),
+	}
+	minter := &fakeMinter{
+		request: minting.Request{
+			Title: "My Atlas", Bounds: [4]float64{-105.1, 39.6, -104.9, 39.8}, DetailZoom: 12,
+			Topo: true, Roads: true, Hydro: true, Counties: true,
+		},
+		preview: minting.Preview{Pixels: 2048, RasterTiles: 85, Requests: 7, EstimatedBytes: 54 << 20},
+	}
+	handler := app.New(host, app.Options{Minter: minter})
+
+	page := get(t, handler, "/v/earth/overworld", nil)
+	if page.Code != http.StatusOK {
+		t.Fatalf("Earth answered %d: %s", page.Code, page.Body)
+	}
+	body := page.Body.String()
+	for _, want := range []string{
+		`id="atlas-create"`, `href="#atlas-mint"`, `id="atlas-mint"`,
+		`action="/mint"`, `name="west"`, `name="south"`, `name="east"`, `name="north"`,
+		`name="topo"`, `name="roads"`, `name="hydro"`, `name="counties"`,
+		`data-mint-current-view`, `data-mint-draw`, `Mint, install &amp; open`,
+		`change delay:250ms from:#atlas-mint-form`, `atlas:mint-area from:window`,
+		`hx-config='{"timeout":600000}'`, `hx-sync="this:drop"`,
+	} {
+		if !strings.Contains(body, want) {
+			t.Errorf("embedded mint flow is missing %s:\n%s", want, body)
+		}
+	}
+
+	plain, _ := newApp(t, volume("tunic", "TUNIC", marsStamp))
+	if body := get(t, plain, "/v/tunic/overworld", nil).Body.String(); strings.Contains(body, `id="atlas-create"`) || strings.Contains(body, `id="atlas-mint"`) {
+		t.Errorf("a plane world offers Earth minting:\n%s", body)
+	}
+}
+
+func TestMintPreviewAndPublishStayInsideAtlas(t *testing.T) {
+	earth := volume("earth", "Earth", tunicStamp)
+	earth.entries["worlds/overworld.json"] = []byte(`{"attrs":{"atlas.geometry.surface":"sphere"},"lenses":[],"collections":[]}`)
+	minted := volume("my-region", "My Region", marsStamp, bundle.WorldEntry{Slug: "my-region", Title: "My Region", UpdatedAt: "2026-01-01T00:00:00Z"})
+	minted.entries["worlds/my-region.json"] = []byte(`{"lenses":[],"collections":[]}`)
+	minted.entries["worlds/my-region.bin"] = bundle.PackLocations(nil)
+	minted.entries["worlds/my-region.text"] = []byte(`{}`)
+	host := &fakeHost{
+		volumes:  &fakeVolumes{volumes: []hostenv.Volume{earth}, location: "/library"},
+		sessions: hostenv.NewMemorySessions(),
+	}
+	minter := &fakeMinter{
+		preview: minting.Preview{Pixels: 1024, RasterTiles: 21, Requests: 7, EstimatedBytes: 12 << 20},
+		result:  minting.Result{Slug: "my-region", World: "my-region", Title: "My Region", Stamp: marsStamp},
+	}
+	minter.onMint = func() { host.volumes.volumes = append(host.volumes.volumes, minted) }
+	handler := app.New(host, app.Options{Minter: minter})
+	form := url.Values{
+		"title": {"My Region"}, "west": {"-105.1"}, "south": {"39.6"},
+		"east": {"-104.9"}, "north": {"39.8"}, "detail": {"12"},
+		"topo": {"true"}, "roads": {"true"}, "hydro": {"true"}, "counties": {"true"},
+	}
+
+	preview := post(t, handler, "/mint/preview", form)
+	if preview.Code != http.StatusOK {
+		t.Fatalf("preview answered %d: %s", preview.Code, preview.Body)
+	}
+	for _, want := range []string{"1024 px", "21 raster tiles", "7 source groups", "12 MiB"} {
+		if !strings.Contains(preview.Body.String(), want) {
+			t.Errorf("preview misses %q:\n%s", want, preview.Body)
+		}
+	}
+
+	request := httptest.NewRequest(http.MethodPost, "/mint", strings.NewReader(form.Encode()))
+	request.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	request.Header.Set("HX-Request", "true")
+	response := httptest.NewRecorder()
+	handler.ServeHTTP(response, request)
+	if response.Code != http.StatusNoContent {
+		t.Fatalf("mint answered %d: %s", response.Code, response.Body)
+	}
+	if got := response.Header().Get("HX-Redirect"); got != "/v/my-region/my-region" {
+		t.Errorf("mint redirect = %q", got)
+	}
+	if minter.request.Title != "My Region" || minter.request.Bounds != [4]float64{-105.1, 39.6, -104.9, 39.8} {
+		t.Errorf("mint request = %+v", minter.request)
+	}
+	if page := get(t, handler, "/v/my-region/my-region", nil); page.Code != http.StatusOK {
+		t.Errorf("minted volume did not open: %d %s", page.Code, page.Body)
+	}
+}
+
+func TestMintRoutesRefuseUnavailableOrInvalidRequests(t *testing.T) {
+	handler, _ := newApp(t, volume("earth", "Earth", tunicStamp))
+	if got := post(t, handler, "/mint", url.Values{}); got.Code != http.StatusNotFound {
+		t.Fatalf("host without a minter answered %d", got.Code)
+	}
+
+	host := &fakeHost{volumes: &fakeVolumes{location: "/library"}, sessions: hostenv.NewMemorySessions()}
+	minter := &fakeMinter{err: errors.New("selection is outside the supported area")}
+	handler = app.New(host, app.Options{Minter: minter})
+	form := url.Values{
+		"title": {"My Region"}, "west": {"2"}, "south": {"48"},
+		"east": {"3"}, "north": {"49"}, "detail": {"12"}, "topo": {"true"},
+	}
+	if got := post(t, handler, "/mint/preview", form); got.Code != http.StatusUnprocessableEntity || !strings.Contains(got.Body.String(), "outside the supported area") {
+		t.Fatalf("invalid preview = %d %s", got.Code, got.Body)
 	}
 }
 

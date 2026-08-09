@@ -1,0 +1,84 @@
+{{/*
+  mint — Earth as the native authoring surface.
+
+  The form is complete HTML: bounds, detail and sources can be edited and
+  submitted without the seam. The seam enhances those same fields from the
+  live camera and a rectangle drawn over the map. It owns no recipe and does
+  no capture; the native capability is the only thing that can mint.
+*/}}
+{{define "mint"}}{{if .Mint.Available}}
+<div id="atlas-mint-zone" class="mint-zone" hidden aria-hidden="true">
+  <i></i><i></i><i></i><i></i>
+  <span>Atlas boundary</span>
+</div>
+<aside id="atlas-mint" class="mint-panel" aria-label="Create an Atlas">
+  <header>
+    <div><small>EARTH BECOMES THE AUTHORING SURFACE</small><h2>Mint an Atlas</h2></div>
+    <a href="#map" class="mint-close" aria-label="Close Atlas creator">×</a>
+  </header>
+  <ol class="mint-stages" aria-label="Mint workflow">
+    <li class="done">View</li><li class="active">Zone</li><li>Sources</li><li>Mint</li>
+  </ol>
+  <form id="atlas-mint-form" action="/mint" method="post" hx-post="/mint"
+        hx-config='{"timeout":600000}'
+        hx-sync="this:drop"
+        hx-indicator="#atlas-mint-form" hx-target="#atlas-mint-preview" hx-swap="outerHTML">
+    <label class="mint-title">Name
+      <input name="title" value="{{.Mint.Request.Title}}" maxlength="80" required>
+    </label>
+    <div class="mint-actions">
+      <button type="button" data-mint-current-view>Use current view</button>
+      <button type="button" data-mint-draw aria-pressed="false">Draw zone</button>
+    </div>
+    <fieldset class="mint-bounds">
+      <legend>WGS84 boundary</legend>
+      <label>West<input name="west" type="number" step="any" value="{{index .Mint.Request.Bounds 0}}" required></label>
+      <label>South<input name="south" type="number" step="any" value="{{index .Mint.Request.Bounds 1}}" required></label>
+      <label>East<input name="east" type="number" step="any" value="{{index .Mint.Request.Bounds 2}}" required></label>
+      <label>North<input name="north" type="number" step="any" value="{{index .Mint.Request.Bounds 3}}" required></label>
+    </fieldset>
+    <details class="mint-presentation"><summary>Presentation</summary>
+      <div class="mint-presentation-grid">
+        <label>Road label<input name="road-label" value="{{.Mint.Request.RoadLabel}}"></label>
+        <label>Road color<input name="road-color" type="color" value="{{.Mint.Request.RoadColor}}"></label>
+        <label>Water label<input name="hydro-label" value="{{.Mint.Request.HydroLabel}}"></label>
+        <label>Water line<input name="hydro-color" type="color" value="{{.Mint.Request.HydroColor}}"></label>
+        <label>Water fill<input name="hydro-fill" type="color" value="{{.Mint.Request.HydroFill}}"></label>
+        <label>County label<input name="county-label" value="{{.Mint.Request.CountyLabel}}"></label>
+        <label>County color<input name="county-color" type="color" value="{{.Mint.Request.CountyColor}}"></label>
+      </div>
+    </details>
+    <label class="mint-detail">Detail
+      <input name="detail" type="range" min="6" max="16" value="{{.Mint.Request.DetailZoom}}">
+      <output data-mint-detail>z{{.Mint.Request.DetailZoom}}</output>
+    </label>
+    <fieldset class="mint-sources">
+      <legend>Public source pack · U.S. coverage</legend>
+      <label><input type="checkbox" name="topo" value="true"{{if .Mint.Request.Topo}} checked{{end}}><span><b>USGS Topo</b><small>Raster</small></span></label>
+      <label><input type="checkbox" name="roads" value="true"{{if .Mint.Request.Roads}} checked{{end}}><span><b>TIGER Roads</b><small>Paths</small></span></label>
+      <label><input type="checkbox" name="hydro" value="true"{{if .Mint.Request.Hydro}} checked{{end}}><span><b>Water</b><small>Paths + areas</small></span></label>
+      <label><input type="checkbox" name="counties" value="true"{{if .Mint.Request.Counties}} checked{{end}}><span><b>Counties</b><small>Areas</small></span></label>
+    </fieldset>
+    <div hx-post="/mint/preview"
+         hx-trigger="change delay:250ms from:#atlas-mint-form, atlas:mint-area from:window"
+         hx-include="#atlas-mint-form" hx-target="#atlas-mint-preview" hx-swap="outerHTML">
+      {{template "mint-preview" .}}
+    </div>
+    <button class="mint-submit" type="submit">
+      <span class="mint-ready">Mint, install &amp; open</span>
+      <span class="mint-working" id="atlas-mint-progress" aria-live="polite">Capturing and compiling…</span>
+    </button>
+    <details class="mint-advanced"><summary>Advanced recipe</summary>
+      <p>Atlas keeps one portable <code>.atlas-project</code> manifest for this volume. The compiled Atlas remains the preview truth.</p>
+    </details>
+  </form>
+</aside>
+{{end}}{{end}}
+
+{{define "mint-preview"}}<div id="atlas-mint-preview" class="mint-preview"{{if .Mint.Error}} data-error="true"{{end}}>
+  {{if .Mint.Error}}<strong>Selection needs attention</strong><p>{{.Mint.Error}}</p>
+  {{else}}<span><b>{{.Mint.Pixels}}</b> aligned output</span>
+  <span><b>{{.Mint.Tiles}}</b></span>
+  <span><b>{{.Mint.Groups}}</b></span>
+  <span><b>{{.Mint.Bytes}}</b> evidence estimate</span>{{end}}
+</div>{{end}}

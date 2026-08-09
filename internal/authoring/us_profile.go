@@ -11,17 +11,20 @@ import (
 )
 
 const (
-	usTopoService = "https://basemap.nationalmap.gov/arcgis/rest/services/USGSTopo/MapServer/export"
-	tigerRoads    = "https://tigerweb.geo.census.gov/arcgis/rest/services/TIGERweb/Transportation/MapServer"
-	tigerHydro    = "https://tigerweb.geo.census.gov/arcgis/rest/services/TIGERweb/Hydro/MapServer"
-	tigerCounties = "https://tigerweb.geo.census.gov/arcgis/rest/services/TIGERweb/State_County/MapServer/1"
-	webMercatorR  = 20037508.342789244
-	maxExportSize = int64(4096)
+	usTopoService  = "https://basemap.nationalmap.gov/arcgis/rest/services/USGSTopo/MapServer/export"
+	tigerRoads     = "https://tigerweb.geo.census.gov/arcgis/rest/services/TIGERweb/Transportation/MapServer"
+	tigerHydro     = "https://tigerweb.geo.census.gov/arcgis/rest/services/TIGERweb/Hydro/MapServer"
+	tigerCounties  = "https://tigerweb.geo.census.gov/arcgis/rest/services/TIGERweb/State_County/MapServer/1"
+	webMercatorR   = 20037508.342789244
+	webMercatorLat = 85.05112878
+	maxExportSize  = int64(4096)
 )
 
 // USAreaProfile is the compact authoring choice behind the Workbench's
 // nationwide default. Bounds are WGS84 west, south, east, north coordinates.
 type USAreaProfile struct {
+	ID              string
+	Title           string
 	Bounds          [4]float64
 	DetailZoom      int
 	IncludeTopo     bool
@@ -54,6 +57,7 @@ type USAreaSummary struct {
 // DefaultUSAreaProfile selects all official nationwide source families.
 func DefaultUSAreaProfile() USAreaProfile {
 	return USAreaProfile{
+		ID: "sample-region", Title: "Sample Region",
 		Bounds:     [4]float64{-105.1, 39.6, -104.9, 39.8},
 		DetailZoom: 12, IncludeTopo: true, IncludeRoads: true,
 		IncludeHydro: true, IncludeCounties: true,
@@ -79,7 +83,7 @@ func NewUSAreaProject(profile USAreaProfile) (Project, USAreaSummary, error) {
 	if err := validateUSPresentation(profile); err != nil {
 		return Project{}, USAreaSummary{}, err
 	}
-	project := usProjectBase(window, profile.DetailZoom)
+	project := usProjectBase(window, profile.DetailZoom, profile.ID, profile.Title)
 	if profile.IncludeTopo {
 		project.Rasters = append(project.Rasters, usTopoRaster(window, profile.DetailZoom))
 	}
@@ -158,11 +162,16 @@ type usWindow struct {
 }
 
 func usTileWindow(bounds [4]float64, zoom int) (usWindow, error) {
+	for _, coordinate := range bounds {
+		if math.IsNaN(coordinate) || math.IsInf(coordinate, 0) {
+			return usWindow{}, fmt.Errorf("area coordinates must be finite")
+		}
+	}
 	if bounds[0] >= bounds[2] || bounds[1] >= bounds[3] {
 		return usWindow{}, fmt.Errorf("area requires west < east and south < north")
 	}
-	if !insideUSRegion(bounds) {
-		return usWindow{}, fmt.Errorf("area must stay within one supported United States region")
+	if bounds[0] < -180 || bounds[2] > 180 || bounds[1] < -webMercatorLat || bounds[3] > webMercatorLat {
+		return usWindow{}, fmt.Errorf("area must stay within the Web Mercator world")
 	}
 	if zoom < 6 || zoom > 16 {
 		return usWindow{}, fmt.Errorf("detail zoom must be between 6 and 16")
@@ -182,24 +191,6 @@ func usTileWindow(bounds [4]float64, zoom int) (usWindow, error) {
 		0, -scale, webMercatorR*scale - float64(256*originY),
 	}}
 	return usWindow{originX: originX, originY: originY, side: side, pixels: pixels, maxZoom: int64(math.Log2(float64(side))), bbox: bbox, transform: transform}, nil
-}
-
-func insideUSRegion(bounds [4]float64) bool {
-	regions := [][4]float64{
-		{-125, 24, -66, 50},        // contiguous states
-		{-180, 50, -129, 72},       // Alaska
-		{-161, 18, -154, 23},       // Hawaii
-		{-68, 17, -65, 19},         // Puerto Rico
-		{-65.2, 17.5, -64.4, 18.6}, // U.S. Virgin Islands
-		{144, 13, 146.2, 21},       // Guam and Northern Mariana Islands
-		{-171, -15, -168, -10},     // American Samoa
-	}
-	for _, region := range regions {
-		if bounds[0] >= region[0] && bounds[1] >= region[1] && bounds[2] <= region[2] && bounds[3] <= region[3] {
-			return true
-		}
-	}
-	return false
 }
 
 func lonTile(longitude float64, count int64) int64 {
@@ -239,17 +230,23 @@ func mercatorTileBounds(originX, originY, side, count int64) [4]float64 {
 	}
 }
 
-func usProjectBase(window usWindow, sourceZoom int) Project {
+func usProjectBase(window usWindow, sourceZoom int, id, title string) Project {
+	if id == "" {
+		id = "sample-region"
+	}
+	if title == "" {
+		title = "Sample Region"
+	}
 	return Project{
-		Schema: ProjectSchema, SchemaNamespace: "example.invalid/atlas/sample-region/v1",
-		ID: "sample-region", Title: "Sample Region",
-		Target: Target{World: "sample-region", Title: "Sample Region", CoordinateSpace: CoordinateSpace{
-			ID: "sample-region-grid", Kind: "projected", Unit: "pixel", Definition: "atlas:tile-plane",
+		Schema: ProjectSchema, SchemaNamespace: "atlas.local/" + id + "/v1",
+		ID: id, Title: title,
+		Target: Target{World: id, Title: title, CoordinateSpace: CoordinateSpace{
+			ID: id + "-grid", Kind: "projected", Unit: "pixel", Definition: "atlas:tile-plane",
 			Extent:     [4]float64{0, 0, float64(window.pixels), float64(window.pixels)},
 			SourceZoom: int64(sourceZoom), OriginX: window.originX, OriginY: window.originY,
 			TileSize: 256, Size: window.pixels,
 		}},
-		Presentation: Presentation{ID: "default", Title: "Sample Region"},
+		Presentation: Presentation{ID: "default", Title: title},
 		Release:      Release{Revision: 1},
 		Budgets:      BuildBudgets{RequestBytes: 512 << 20, TotalBytes: 4 << 30, Requests: 10_000, RasterTiles: 10_000, RasterPixels: 1_000_000_000},
 	}

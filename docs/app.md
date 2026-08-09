@@ -37,6 +37,13 @@ by three different hosts:
 | **`atlas serve`** | built | Plain HTTP, no window. `PickFile` refuses with `ErrNotAvailable`. The dev loop, CI, and the browser suite (`tests/e2e`). |
 | **WASM service worker** | not scheduled | Go compiled to `js/wasm`; the stores back onto OPFS. Nothing is built for it; the discipline is what keeps it reachable. |
 
+Native authoring is a separate, optional capability rather than a fourth
+filesystem method on `Hostenv`. The desktop supplies `minting.Minter`; the
+headless and future WASM hosts omit it. When it is absent the creator and its
+routes are absent together. When it is present, the application still sees
+only a compact request, a bounded preview, build events, and the installed
+volume identity—never a path, cache, or network client.
+
 The rule is enforced mechanically: `tools/depcheck`'s `hostenv` analyzer
 fails any import of `os`, `os/exec`, `path/filepath`, `syscall`, or a window
 toolkit from `internal/app` outside `internal/app/hostenv`. The OS
@@ -120,6 +127,13 @@ holds the volumes and `sessions/` the session records. `$ATLAS_BUNDLES_DIR`
 moves the library alone, which is what a development run points at a freshly
 composed `dist/bundles`. The headless host reads the same two variables
 (`cmd/atlas/serve.go`).
+
+The desktop also owns `recipes/` and `cache/` beneath that data directory.
+Earth authoring writes exactly one portable `.atlas-project` manifest per
+minted volume into `recipes/`, shares captured evidence through `cache/`, and
+publishes the validated result into `bundles/`. Those paths never cross into
+the handler. Workbench remains an optional advanced manifest/receipt inspector;
+it is not required for the first-run creator.
 
 **The included Earth volume.** The shell embeds the committed bundle at
 `included/` (`//go:embed included/*.atlas`) and installs it into the library
@@ -223,12 +237,45 @@ happening by accident.
 | `POST /session/{concern}` | The partial set for the regions that concern touches (§4). |
 | `POST /session/reset` | Deletes this volume's record and answers `204` with `HX-Redirect` back into the volume (§4.3). The one concern whose answer is a page. |
 | `POST /bundles/import` | One progress row, streamed through its states (§4.1); picks, installs, rescans, announces. |
+| `POST /mint/preview` | The exact bounded plan for the creator's current WGS84 zone, sources, detail and presentation. Desktop capability only. |
+| `POST /mint` | Persists the app-managed manifest, captures/builds/validates/installs, rescans, then redirects into the minted volume. Desktop capability only. |
 | `GET /events?volume=` | The SSE stream (§5). |
 | `GET /assets/{app.css,htmx.js}` | The application's own chrome, out of the binary. |
 | `GET /static/{path...}` | Whatever static tree the host mounted; `404` when it mounted none. |
 
 Every world lives at a real URL: it can be bookmarked, reloaded, and linked
 to. `/` is a doorway, not a second name for the explorer.
+
+### 2.3 Earth is the authoring surface
+
+The included Earth volume offers **Create Atlas** only when two facts are true:
+the world declares a spherical surface and the host supplied the native
+minter. The drawer is a complete server-rendered form. Its title, WGS84 bounds,
+detail, public source pack, presentation choices, cost preview,
+and submit all work without the render seam. The seam progressively enhances
+that same form with two camera facts: **Use current view** and a rectangular
+**Draw zone** gesture over the existing map. It does not own a recipe, fetch a
+source, or compile anything.
+
+Minting follows the ordinary authoring path:
+
+```text
+Earth camera / drawn zone
+          ↓
+app-managed single manifest
+          ↓
+plan → capture → observe → assemble → native compile → validate → install
+          ↓
+rescan library → open the new Atlas
+```
+
+The zone itself may be any finite, non-antimeridian Web Mercator rectangle;
+it is not fenced to today's source coverage. The default pack is USGS Topo
+plus TIGER roads, water, and county context and is labelled as U.S. coverage,
+so an out-of-coverage layer may simply be empty. Planning enforces the same
+pixel, request, evidence, feature, geometry and raster refusal budgets as the
+CLI. A failed build leaves its recipe and cache evidence available for
+diagnosis but never installs a partial Atlas.
 
 A `GET` of an explorer page writes the session's `world` and the last-volume
 pointer. That is deliberate: arriving at a URL is a choice whether it was
@@ -357,7 +404,7 @@ reader should have to diagnose a field at a time.
 
 ### 4.1 The regions
 
-Eleven regions, one template file each (`internal/app/templates/<region>.tmpl`),
+Twelve regions, one template file each (`internal/app/templates/<region>.tmpl`),
 mirroring the one-file-per-region stylesheet system in
 `internal/app/assets/css`. A region's template renders that region's own
 container, so a first paint and a swap produce the same bytes.
@@ -375,6 +422,7 @@ container, so a first paint and a swap produce the same bytes.
 | `island` | `#atlas-session-island` | `outerHTML` | the session record the seam reads, as JSON |
 | `empty-state` | `#atlas-shell` | `innerMorph` | the library card |
 | `import` | `#atlas-import` | `outerMorph` | the import that is happening, as one row |
+| `mint` | `#atlas-mint` / `#atlas-mint-preview` | ordinary form / `outerHTML` | Earth zone, source and presentation authoring plus its bounded preview |
 
 **Nearly every region is an *outer* morph**, and that is the reading that
 matches what the templates render: the element is morphed onto itself, which

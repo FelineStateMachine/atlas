@@ -22,6 +22,7 @@ import { AtlasViewport } from "./viewport.ts";
 import { AtlasChart } from "./chart/element.ts";
 import { AtlasGlobe } from "./globe/element.ts";
 import { expose } from "./diagnostics.ts";
+import { wireMinting } from "./mint.ts";
 
 const log = logger("boot");
 
@@ -51,6 +52,7 @@ export function boot(): void {
   register();
   const rescan = () => {
     for (const viewport of viewports()) viewport.rescan();
+    wireMinting();
   };
   // Both spellings of the same two events. htmx 4 separates the words with
   // colons -- `htmx:after:swap` -- where htmx 2 camel-cased them, and a seam
@@ -66,6 +68,7 @@ export function boot(): void {
   ];
   for (const name of swapped) document.body.addEventListener(name, rescan);
   for (const viewport of viewports()) expose(viewport);
+  wireMinting();
   log.info("the seam is up", { op: "render", viewports: viewports().length });
 }
 

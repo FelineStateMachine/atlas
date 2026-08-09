@@ -31,6 +31,7 @@ import (
 	"sync"
 
 	"github.com/FelineStateMachine/atlas/internal/app/hostenv"
+	"github.com/FelineStateMachine/atlas/internal/minting"
 )
 
 // App is the application. It is an http.Handler and holds no state of its own
@@ -49,6 +50,7 @@ type App struct {
 	// over one host still answer the same, only slower.
 	worlds   *worldCache
 	semantic *semanticCache
+	minter   minting.Minter
 
 	// writing serializes the read-modify-write of one volume's record. Two
 	// interactions can be in flight at once -- a reader holds a key down, a
@@ -69,12 +71,17 @@ type Options struct {
 	// which is what a build without the seam looks like -- the application
 	// is required to work without it (issue #5 §3.2).
 	Static fs.FS
+
+	// Minter is the optional native authoring capability. A desktop host
+	// supplies it; read-only and headless hosts leave it nil and the authoring
+	// controls and routes disappear together.
+	Minter minting.Minter
 }
 
 // New wires the application over a host.
 func New(env hostenv.Hostenv, opts Options) *App {
 	a := &App{
-		env: env, static: opts.Static, events: newHub(), mux: http.NewServeMux(),
+		env: env, static: opts.Static, minter: opts.Minter, events: newHub(), mux: http.NewServeMux(),
 		worlds: newWorldCache(), semantic: newSemanticCache(),
 	}
 	a.routes()
@@ -98,6 +105,8 @@ func (a *App) routes() {
 	a.mux.HandleFunc("GET /fragments/detail/{id}", a.handleDetail)
 	a.mux.HandleFunc("POST /session/{concern}", a.handleSession)
 	a.mux.HandleFunc("POST /bundles/import", a.handleImport)
+	a.mux.HandleFunc("POST /mint/preview", a.handleMintPreview)
+	a.mux.HandleFunc("POST /mint", a.handleMint)
 	a.mux.HandleFunc("GET /events", a.handleEvents)
 	a.mux.HandleFunc("GET /static/{path...}", a.handleStatic)
 
