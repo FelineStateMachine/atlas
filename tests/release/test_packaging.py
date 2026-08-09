@@ -38,6 +38,8 @@ class NativePackagingTest(unittest.TestCase):
         self.assertEqual(mime_type.attrib["type"], MIME)
         glob = mime_type.find("mime:glob", namespace)
         self.assertEqual(glob.attrib["pattern"], f"*.{EXTENSION}")
+        subclass = mime_type.find("mime:sub-class-of", namespace)
+        self.assertEqual(subclass.attrib["type"], "application/zip")
 
         control = (ROOT / "packaging/linux/control").read_text()
         self.assertIn("Package: atlas-desktop", control)

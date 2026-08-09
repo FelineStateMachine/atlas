@@ -2,6 +2,7 @@
 <mime-info xmlns="http://www.freedesktop.org/standards/shared-mime-info">
   <mime-type type="application/vnd.felinestatemachine.atlas">
     <comment>Atlas Volume</comment>
+    <sub-class-of type="application/zip"/>
     <glob pattern="*.atlas" weight="80"/>
   </mime-type>
 </mime-info>
