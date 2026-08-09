@@ -25,6 +25,21 @@ async function island(page: Page) {
   };
 }
 
+interface SeamSnapshot {
+  world: string;
+  tileStats: { loaded: number; errors: number };
+  sync: { drawn: number };
+}
+
+async function seamSnapshot(page: Page): Promise<SeamSnapshot | null> {
+  return page.evaluate(() => {
+    const host = window as unknown as {
+      __atlasSeam?: { snapshot(): SeamSnapshot };
+    };
+    return host.__atlasSeam?.snapshot() ?? null;
+  });
+}
+
 test.describe("the doorways", () => {
   test("the root is a doorway to a real world URL", async ({ page }) => {
     await page.goto("/");
@@ -150,5 +165,33 @@ test.describe("the explorer page", () => {
     await expect(page.locator("#atlas-shell")).toBeAttached();
     await page.goto("/");
     await expect(page).toHaveURL(`/v/${MARS.slug}/${MARS.world}`);
+  });
+
+  test("native features arrive through demand pages and are drawn", async ({ page }) => {
+    const requested: string[] = [];
+    page.on("request", (request) => requested.push(request.url()));
+
+    await page.goto(`/v/${BEND.slug}/${BEND.world}`);
+    await expect.poll(async () => (await seamSnapshot(page))?.sync.drawn ?? 0, {
+      message: "the native feature pages never produced anything drawable",
+      timeout: 15_000,
+    }).toBeGreaterThan(0);
+
+    const paths = requested.map((raw) => new URL(raw).pathname);
+    expect(paths.some((path) => path.endsWith("/outline.json"))).toBeTruthy();
+    expect(paths.some((path) => path.includes("/features/") && path.endsWith(".json"))).toBeTruthy();
+    expect(paths.some((path) => path.endsWith("/data/features.pack"))).toBeFalsy();
+  });
+
+  test("Earth draws raster tiles without load errors", async ({ page }) => {
+    await page.goto(`/v/${EARTH.slug}/${EARTH.world}`);
+    await expect.poll(async () => (await seamSnapshot(page))?.tileStats.loaded ?? 0, {
+      message: "Earth's raster never loaded a tile",
+      timeout: 15_000,
+    }).toBeGreaterThan(0);
+
+    const snapshot = await seamSnapshot(page);
+    expect(snapshot?.world).toBe(EARTH.title);
+    expect(snapshot?.tileStats.errors).toBe(0);
   });
 });
